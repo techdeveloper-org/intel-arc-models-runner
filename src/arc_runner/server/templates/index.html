@@ -54,6 +54,10 @@
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                     <span>Benchmarks</span>
                 </button>
+                <button class="nav-item" data-tab="tab-embeddings">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                    <span>NPU Embeddings</span>
+                </button>
             </nav>
 
             <div class="sidebar-footer">
@@ -204,6 +208,8 @@
                                 <option value="qwen-2.5-7b">Qwen-2.5-7B (OpenVINO INT4 on Arc GPU)</option>
                                 <option value="phi-3.5-mini">Phi-3.5-mini (OpenVINO INT4 on Arc GPU)</option>
                                 <option value="deepseek-r1-1.5b">DeepSeek-R1-1.5B (Intel NPU 5W)</option>
+                                <option value="llama-3.2-11b-vision">Llama-3.2-11B-Vision (Arc GPU VLM)</option>
+                                <option value="qwen2-vl-7b">Qwen2-VL-7B (Arc GPU VLM)</option>
                             </select>
                         </div>
                         <div class="device-selector-group">
@@ -233,9 +239,20 @@
                         <div class="ribbon-item">Engine: <span id="metric-engine" class="text-purple">OpenVINO GenAI</span></div>
                     </div>
 
+                    <!-- Image Attachment Preview -->
+                    <div id="chat-image-preview-container" class="image-preview-container hidden">
+                        <img id="chat-image-preview" src="" alt="Attached image preview" class="preview-thumbnail">
+                        <span id="chat-image-name" class="image-name"></span>
+                        <button type="button" id="btn-remove-image" class="btn-remove-image" title="Remove image">&times;</button>
+                    </div>
+
                     <!-- Chat Input Form -->
                     <form id="chat-form" class="chat-input-row">
-                        <input type="text" id="chat-input" class="chat-input" placeholder="Enter your prompt here..." autocomplete="off">
+                        <label for="chat-image-input" class="btn btn-secondary btn-icon" title="Attach image (Multimodal Vision)">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        </label>
+                        <input type="file" id="chat-image-input" accept="image/png,image/jpeg,image/webp" class="hidden">
+                        <input type="text" id="chat-input" class="chat-input" placeholder="Enter your prompt or ask about an attached image..." autocomplete="off">
                         <button type="submit" id="chat-submit" class="btn btn-primary">
                             <span>Generate</span>
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -289,6 +306,11 @@
                         <div class="modal-body" id="modal-model-body">
                             <!-- Populated dynamically by app.js -->
                         </div>
+                        <div class="modal-footer" id="modal-model-footer" style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-glass); display: flex; justify-content: flex-end; gap: 8px;">
+                            <button id="btn-convert-gguf" class="btn btn-primary btn-sm">
+                                Convert to OpenVINO IR
+                            </button>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -334,6 +356,61 @@
                     </div>
                     <div id="bench-results" class="bench-results-area">
                         <p class="text-muted text-center">Click 'Run Benchmark' to measure TTFT, TPOT, and decode throughput on target silicon.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 6: NPU EMBEDDINGS STUDIO -->
+            <section id="tab-embeddings" class="tab-pane">
+                <div class="glass-card">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title-group" style="display: flex; align-items: center; gap: 8px;">
+                                <span class="badge badge-emerald">5W NPU Coprocessor</span>
+                                <h3>Intel® AI Boost Vector Embeddings Studio</h3>
+                            </div>
+                            <p class="subtitle">Dense semantic representations on Intel NPU with L2 normalization (Proof M1) and masked mean pooling (Proof M2).</p>
+                        </div>
+                        <span class="status-indicator online">NPU READY</span>
+                    </div>
+
+                    <div class="benchmark-controls-row" style="margin-top: 16px;">
+                        <div class="form-group">
+                            <label for="embed-model-select">Embedding Model:</label>
+                            <select id="embed-model-select" class="form-select">
+                                <option value="nomic-embed-text">nomic-embed-text (768-dim, 8192 ctx)</option>
+                                <option value="bge-m3">bge-m3 (1024-dim, Multi-Lingual)</option>
+                                <option value="all-minilm-l6-v2">all-minilm-l6-v2 (384-dim, Fast)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="embed-device-select">Target Silicon:</label>
+                            <select id="embed-device-select" class="form-select">
+                                <option value="NPU">Intel AI Boost NPU (5W Default)</option>
+                                <option value="GPU">Intel Arc GPU (Xe-LPG)</option>
+                                <option value="CPU">Intel Core Ultra CPU</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="align-self: flex-end;">
+                            <button id="btn-run-embedding-test" class="btn btn-primary">
+                                Compute Cosine Similarity
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="embedding-inputs-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px;">
+                        <div class="form-group">
+                            <label for="embed-query-a">Query / Anchor Text A:</label>
+                            <textarea id="embed-query-a" class="form-input font-mono" rows="4" style="width: 100%; resize: vertical;" placeholder="Enter first sentence or document query...">Intel Arc GPU utilizes Xe Matrix eXtensions (XMX) systolic arrays for deep learning acceleration.</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="embed-query-b">Target / Comparison Text B:</label>
+                            <textarea id="embed-query-b" class="form-input font-mono" rows="4" style="width: 100%; resize: vertical;" placeholder="Enter second sentence or candidate document...">Hardware matrix engines in Intel GPUs execute DPAS instructions for fast INT4 inference.</textarea>
+                        </div>
+                    </div>
+
+                    <div id="embed-results" class="embed-results-area" style="margin-top: 24px;">
+                        <p class="text-muted text-center">Click 'Compute Cosine Similarity' to benchmark NPU vector embedding generation and semantic similarity.</p>
                     </div>
                 </div>
             </section>

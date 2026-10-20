@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initOllamaStudio();
     initModelHub();
     initBenchmarkStudio();
+    initEmbeddingsStudio();
 });
 
 /**
@@ -26,7 +27,8 @@ function initTabNavigation() {
         'tab-chat': 'Dual-Silicon Chat Playground',
         'tab-ollama': 'Ollama & GGUF Quantization Studio',
         'tab-hub': 'OpenVINO Model Hub & Downloader',
-        'tab-benchmark': 'Hardware Benchmarking Suite'
+        'tab-benchmark': 'Hardware Benchmarking Suite',
+        'tab-embeddings': 'Intel® AI Boost Vector Embeddings Studio'
     };
 
     navItems.forEach(item => {
@@ -59,15 +61,58 @@ function initChatPlayground() {
     const metricRate = document.getElementById('metric-rate');
     const metricEngine = document.getElementById('metric-engine');
 
+    const imageInput = document.getElementById('chat-image-input');
+    const previewContainer = document.getElementById('chat-image-preview-container');
+    const previewImg = document.getElementById('chat-image-preview');
+    const previewName = document.getElementById('chat-image-name');
+    const btnRemoveImage = document.getElementById('btn-remove-image');
+
+    let currentBase64Image = null;
+
+    if (imageInput) {
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const fullDataUrl = event.target.result;
+                const base64Content = fullDataUrl.split(',')[1] || fullDataUrl;
+                currentBase64Image = base64Content;
+
+                if (previewImg) previewImg.src = fullDataUrl;
+                if (previewName) previewName.textContent = file.name;
+                if (previewContainer) previewContainer.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    if (btnRemoveImage) {
+        btnRemoveImage.addEventListener('click', () => {
+            currentBase64Image = null;
+            if (imageInput) imageInput.value = '';
+            if (previewContainer) previewContainer.classList.add('hidden');
+            if (previewImg) previewImg.src = '';
+        });
+    }
+
     if (!chatForm || !chatInput || !chatMessages) return;
 
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const text = chatInput.value.trim();
-        if (!text) return;
+        if (!text && !currentBase64Image) return;
 
         chatInput.value = '';
-        appendMessage('user', text);
+        const userPrompt = text || '(Analyze attached image)';
+        const imageToSend = currentBase64Image;
+
+        appendMessage('user', userPrompt, previewImg ? previewImg.src : null);
+
+        if (btnRemoveImage) {
+            btnRemoveImage.click();
+        }
 
         const modelSelect = document.getElementById('chat-model-select');
         const deviceSelect = document.getElementById('chat-device-select');
@@ -82,13 +127,21 @@ function initChatPlayground() {
         let tokenCount = 0;
         let fullResponse = '';
 
+        const userMessagePayload = {
+            role: 'user',
+            content: userPrompt
+        };
+        if (imageToSend) {
+            userMessagePayload.images = [imageToSend];
+        }
+
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     model: selectedModel,
-                    messages: [{ role: 'user', content: text }],
+                    messages: [userMessagePayload],
                     stream: true
                 })
             });
@@ -148,12 +201,27 @@ function initChatPlayground() {
         }
     });
 
-    function appendMessage(role, text) {
+    function appendMessage(role, text, imgSrc = null) {
         const msgDiv = document.createElement('div');
         msgDiv.className = `message ${role}`;
         const bubbleDiv = document.createElement('div');
         bubbleDiv.className = 'message-bubble';
-        bubbleDiv.textContent = text;
+
+        if (imgSrc) {
+            const imgElem = document.createElement('img');
+            imgElem.src = imgSrc;
+            imgElem.style.maxWidth = '180px';
+            imgElem.style.maxHeight = '140px';
+            imgElem.style.borderRadius = '6px';
+            imgElem.style.display = 'block';
+            imgElem.style.marginBottom = '8px';
+            bubbleDiv.appendChild(imgElem);
+        }
+
+        const textSpan = document.createElement('span');
+        textSpan.textContent = text;
+        bubbleDiv.appendChild(textSpan);
+
         msgDiv.appendChild(bubbleDiv);
         chatMessages.appendChild(msgDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -171,6 +239,10 @@ function initOllamaStudio() {
     const btnCloseModal = document.getElementById('btn-close-modal');
     const modalTitle = document.getElementById('modal-model-title');
     const modalBody = document.getElementById('modal-model-body');
+    const btnConvertGguf = document.getElementById('btn-convert-gguf');
+
+    let currentGgufFilePath = null;
+    let currentModelName = null;
 
     if (btnRefresh) {
         btnRefresh.addEventListener('click', loadOllamaModels);
@@ -178,6 +250,42 @@ function initOllamaStudio() {
 
     if (btnCloseModal && modal) {
         btnCloseModal.addEventListener('click', () => modal.classList.add('hidden'));
+    }
+
+    if (btnConvertGguf) {
+        btnConvertGguf.addEventListener('click', async () => {
+            if (!currentGgufFilePath) {
+                alert('No local GGUF container path detected for conversion.');
+                return;
+            }
+            btnConvertGguf.disabled = true;
+            btnConvertGguf.textContent = 'Transpiling GGUF to OpenVINO IR...';
+            try {
+                const cleanName = (currentModelName || 'custom-model').replace(/[^a-zA-Z0-9_-]/g, '_');
+                const outDir = `./models/${cleanName}-openvino`;
+                const resp = await fetch('/api/gguf/convert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: currentGgufFilePath,
+                        output_dir: outDir,
+                        precision: 'int4',
+                        device: 'GPU'
+                    })
+                });
+                const res = await resp.json();
+                if (resp.ok) {
+                    alert(`GGUF Transpiled Successfully!\nModel: ${res.model_name}\nPrecision: ${res.target_precision}\nDuration: ${res.duration_ms.toFixed(1)}ms\nXML: ${res.xml_path}\nBIN: ${res.bin_path}`);
+                } else {
+                    alert(`Transpilation error: ${res.detail}`);
+                }
+            } catch (err) {
+                alert(`Transpilation failed: ${err.message}`);
+            } finally {
+                btnConvertGguf.disabled = false;
+                btnConvertGguf.textContent = 'Convert to OpenVINO IR';
+            }
+        });
     }
 
     loadOllamaModels();
@@ -233,6 +341,8 @@ function initOllamaStudio() {
 
     async function inspectModel(name, tag) {
         if (!modal || !modalTitle || !modalBody) return;
+        currentModelName = `${name}:${tag}`;
+        currentGgufFilePath = null;
         modalTitle.textContent = `Inspecting ${name}:${tag}`;
         modalBody.innerHTML = '<p class="text-muted text-center">Parsing binary GGUF container headers and tensors...</p>';
         modal.classList.remove('hidden');
@@ -249,6 +359,8 @@ function initOllamaStudio() {
                 modalBody.innerHTML = `<p class="text-danger">Failed to parse GGUF: ${info.detail || 'Unknown error'}</p>`;
                 return;
             }
+
+            currentGgufFilePath = info.file_path || null;
 
             let quantRows = '';
             for (const [qType, pct] of Object.entries(info.quant_distribution || {})) {
@@ -382,6 +494,106 @@ function initBenchmarkStudio() {
                 </div>
             `;
         }, 1200);
+    });
+}
+
+/**
+ * Configure Intel NPU Vector Embeddings Studio tab.
+ */
+function initEmbeddingsStudio() {
+    const btnRun = document.getElementById('btn-run-embedding-test');
+    const queryAInput = document.getElementById('embed-query-a');
+    const queryBInput = document.getElementById('embed-query-b');
+    const modelSelect = document.getElementById('embed-model-select');
+    const deviceSelect = document.getElementById('embed-device-select');
+    const resultsArea = document.getElementById('embed-results');
+
+    if (!btnRun || !queryAInput || !queryBInput || !resultsArea) return;
+
+    btnRun.addEventListener('click', async () => {
+        const queryA = queryAInput.value.trim();
+        const queryB = queryBInput.value.trim();
+        if (!queryA || !queryB) {
+            alert('Please provide text for both Query A and Query B.');
+            return;
+        }
+
+        const model = modelSelect ? modelSelect.value : 'nomic-embed-text';
+        const device = deviceSelect ? deviceSelect.value : 'NPU';
+
+        btnRun.disabled = true;
+        btnRun.textContent = 'Computing Embeddings...';
+        resultsArea.innerHTML = `<p class="text-cyan text-center">Dispatching to Intel AI Boost NPU coprocessor @ 5W TDP...</p>`;
+
+        try {
+            const resp = await fetch('/api/embeddings/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query_a: queryA,
+                    query_b: queryB,
+                    model: model,
+                    device: device
+                })
+            });
+
+            const data = await resp.json();
+            if (!resp.ok) {
+                resultsArea.innerHTML = `<p class="text-danger">Embedding computation error: ${data.detail || 'Unknown error'}</p>`;
+                return;
+            }
+
+            const sim = data.cosine_similarity;
+            const simPct = (sim * 100).toFixed(1);
+            let interpretation = 'Moderate Semantic Match';
+            let badgeClass = 'badge-intel';
+            if (sim >= 0.75) {
+                interpretation = 'High Semantic Relevance';
+                badgeClass = 'badge-emerald';
+            } else if (sim < 0.4) {
+                interpretation = 'Low Semantic Overlap / Dissimilar';
+                badgeClass = 'badge-purple';
+            }
+
+            resultsArea.innerHTML = `
+                <div class="sim-score-card">
+                    <div class="sim-score-value">${(sim).toFixed(4)}</div>
+                    <div class="sim-score-label">Cosine Similarity Score (${simPct}%)</div>
+                    <div style="margin-top: 8px;">
+                        <span class="badge ${badgeClass}">${interpretation}</span>
+                    </div>
+                </div>
+
+                <div class="telemetry-grid" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-top:16px;">
+                    <div class="telemetry-chip" style="flex-direction:column; align-items:center;">
+                        <span class="chip-label">Vector Dimension</span>
+                        <span class="chip-value text-cyan">${data.dimension} dims</span>
+                    </div>
+                    <div class="telemetry-chip" style="flex-direction:column; align-items:center;">
+                        <span class="chip-label">Execution Latency</span>
+                        <span class="chip-value text-emerald">${data.duration_ms.toFixed(1)} ms</span>
+                    </div>
+                    <div class="telemetry-chip" style="flex-direction:column; align-items:center;">
+                        <span class="chip-label">Target Silicon</span>
+                        <span class="chip-value text-purple">${escapeHtml(data.device)}</span>
+                    </div>
+                    <div class="telemetry-chip" style="flex-direction:column; align-items:center;">
+                        <span class="chip-label">L2 Normalization</span>
+                        <span class="chip-value text-cyan">Unit Sphere (&parallel;v&parallel; = 1.0)</span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 16px; font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono); word-break: break-all;">
+                    <div><strong>Query A vector head:</strong> [${data.sample_vec_a.map(v => v.toFixed(4)).join(', ')}, ...]</div>
+                    <div style="margin-top: 4px;"><strong>Query B vector head:</strong> [${data.sample_vec_b.map(v => v.toFixed(4)).join(', ')}, ...]</div>
+                </div>
+            `;
+        } catch (err) {
+            resultsArea.innerHTML = `<p class="text-danger">Failed to compute embeddings: ${err.message}</p>`;
+        } finally {
+            btnRun.disabled = false;
+            btnRun.textContent = 'Compute Cosine Similarity';
+        }
     });
 }
 

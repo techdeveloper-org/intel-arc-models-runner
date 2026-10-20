@@ -17,8 +17,10 @@ from arc_runner.core.exceptions import (
 )
 from arc_runner.core.logging import get_logger
 from arc_runner.engine.base import BaseEngine
+from arc_runner.engine.embedding_engine import EmbeddingEngine
 from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
 from arc_runner.engine.speculative_engine import HybridSpeculativeEngine, SpeculativeConfig
+from arc_runner.engine.vision_engine import VisionEngine
 
 logger = get_logger("server.model_manager")
 
@@ -41,6 +43,8 @@ class ModelManager:
         self._max_loaded_models = max_loaded_models
         self._model_dirs: List[Path] = [Path(d).resolve() for d in (model_dirs or [Path("models")])]
         self._cache: OrderedDict[str, BaseEngine] = OrderedDict()
+        self._embedding_cache: OrderedDict[str, EmbeddingEngine] = OrderedDict()
+        self._vision_cache: OrderedDict[str, VisionEngine] = OrderedDict()
         self._total_requests_served: int = 0
         self._total_tokens_generated: int = 0
 
@@ -155,6 +159,80 @@ class ModelManager:
                 engine.load_model(target_path, device=device)
                 self._cache[cache_key] = engine
                 return engine
+
+    def get_or_load_embedding_engine(
+        self,
+        model_id: str,
+        device: str = "NPU",
+    ) -> EmbeddingEngine:
+        """Retrieve a cached embedding engine or compile and load an instance.
+
+        Args:
+            model_id: Target embedding model identifier or path.
+            device: Hardware device target ('NPU', 'GPU', 'CPU').
+
+        Returns:
+            Ready-to-execute EmbeddingEngine instance.
+
+        Raises:
+            ModelNotFoundError: When embedding model directory does not exist.
+            ModelLoadError: When compilation on target hardware fails.
+        """
+        cache_key = f"{model_id}:{device}"
+
+        with self._lock:
+            if cache_key in self._embedding_cache:
+                self._embedding_cache.move_to_end(cache_key)
+                logger.debug(f"Cache hit for embedding engine key: {cache_key}")
+                return self._embedding_cache[cache_key]
+
+            target_path = self.resolve_model_path(model_id)
+
+            if len(self._embedding_cache) >= self._max_loaded_models:
+                evicted_key, _ = self._embedding_cache.popitem(last=False)
+                logger.info(f"Evicting least recently used embedding engine: {evicted_key}")
+
+            logger.info(f"Constructing EmbeddingEngine (Target: {target_path} on {device})")
+            engine = EmbeddingEngine(str(target_path), device=device)
+            self._embedding_cache[cache_key] = engine
+            return engine
+
+    def get_or_load_vision_engine(
+        self,
+        model_id: str,
+        device: str = "GPU",
+    ) -> VisionEngine:
+        """Retrieve a cached VisionEngine or compile and load an instance.
+
+        Args:
+            model_id: Target multimodal vision model identifier or path.
+            device: Hardware device target ('GPU', 'CPU', 'NPU').
+
+        Returns:
+            Ready-to-execute VisionEngine instance.
+
+        Raises:
+            ModelNotFoundError: When vision model directory does not exist.
+            ModelLoadError: When compilation on target hardware fails.
+        """
+        cache_key = f"{model_id}:{device}"
+
+        with self._lock:
+            if cache_key in self._vision_cache:
+                self._vision_cache.move_to_end(cache_key)
+                logger.debug(f"Cache hit for vision engine key: {cache_key}")
+                return self._vision_cache[cache_key]
+
+            target_path = self.resolve_model_path(model_id)
+
+            if len(self._vision_cache) >= self._max_loaded_models:
+                evicted_key, _ = self._vision_cache.popitem(last=False)
+                logger.info(f"Evicting least recently used vision engine: {evicted_key}")
+
+            logger.info(f"Constructing VisionEngine (Target: {target_path} on {device})")
+            engine = VisionEngine(str(target_path), device=device)
+            self._vision_cache[cache_key] = engine
+            return engine
 
     def list_available_models(self) -> List[Dict[str, Any]]:
         """Scan registered directories and return list of discoverable models.

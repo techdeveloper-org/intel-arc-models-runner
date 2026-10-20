@@ -14,15 +14,27 @@ from arc_runner.quant.models import (
     GGUFValueType,
     OllamaModelManifest,
 )
+from arc_runner.quant.transpiler import (
+    DequantizationError,
+    GGUFTranspiler,
+    TranspilationError,
+    TranspilationResult,
+    UnsupportedBitWidthError,
+)
 
 __all__ = [
     "AOTCompilationResult",
     "CacheEntryInfo",
+    "DequantizationError",
     "GGMLType",
     "GGUFHeader",
     "GGUFParser",
     "GGUFSummary",
     "GGUFTensorInfo",
+    "GGUFTranspiler",
     "GGUFValueType",
     "OllamaModelManifest",
+    "TranspilationError",
+    "TranspilationResult",
+    "UnsupportedBitWidthError",
 ]

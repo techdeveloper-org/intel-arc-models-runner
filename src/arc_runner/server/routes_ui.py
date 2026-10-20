@@ -4,7 +4,9 @@ Serves embedded single-page application assets, local Ollama model catalogs,
 binary GGUF inspection data, and Ahead-of-Time compilation triggers.
 """
 
+import math
 from pathlib import Path
+import time
 from typing import Any, Optional
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -12,8 +14,10 @@ from pydantic import BaseModel
 
 from arc_runner.core.logging import get_logger
 from arc_runner.engine.aot_cache import AOTCompilationManager
+from arc_runner.engine.embedding_engine import EmbeddingEngine
 from arc_runner.hub.ollama_importer import OllamaImporter
 from arc_runner.quant.gguf_parser import GGUFParser
+from arc_runner.quant.transpiler import GGUFTranspiler
 
 logger = get_logger(__name__)
 
@@ -33,6 +37,24 @@ class AOTCompileRequest(BaseModel):
     model_id: str
     device: str = "GPU"
     prewarm: bool = True
+
+
+class ConvertRequest(BaseModel):
+    """Payload requesting GGUF to OpenVINO IR transpilation."""
+
+    path: str
+    output_dir: str
+    precision: str = "int4"
+    device: str = "GPU"
+
+
+class EmbeddingTestRequest(BaseModel):
+    """Payload for comparing two texts with cosine similarity on NPU/GPU."""
+
+    query_a: str
+    query_b: str
+    model: str = "nomic-embed-text"
+    device: str = "NPU"
 
 
 @router.get("/ui", response_class=HTMLResponse)
@@ -175,4 +197,72 @@ async def compile_aot(payload: AOTCompileRequest) -> dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"AOT compilation endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/gguf/convert")
+async def convert_gguf(payload: ConvertRequest) -> dict[str, Any]:
+    """Transpile a local GGUF container into OpenVINO IR format.
+
+    Args:
+        payload: ConvertRequest containing source file path and output directory.
+
+    Returns:
+        Dictionary summarizing transpilation metadata and output artifacts.
+    """
+    input_path = Path(payload.path)
+    if not input_path.exists():
+        raise HTTPException(status_code=404, detail=f"GGUF container not found at '{payload.path}'")
+
+    try:
+        transpiler = GGUFTranspiler(str(input_path), payload.output_dir)
+        res = transpiler.transpile(precision=payload.precision, target_device=payload.device)
+        return {
+            "model_name": res.model_name,
+            "total_tensors": res.total_tensors,
+            "source_format": res.source_format,
+            "target_precision": res.target_precision,
+            "xml_path": str(res.xml_path),
+            "bin_path": str(res.bin_path),
+            "total_bytes": res.total_bytes,
+            "duration_ms": res.duration_ms,
+        }
+    except Exception as e:
+        logger.error(f"GGUF transpilation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/embeddings/test")
+async def test_embeddings(payload: EmbeddingTestRequest, request: Request) -> dict[str, Any]:
+    """Compute vector embeddings and cosine similarity between two queries on Intel NPU/GPU.
+
+    Args:
+        payload: EmbeddingTestRequest with two input queries.
+        request: FastAPI HTTP request with application state.
+
+    Returns:
+        Dictionary detailing vectors, dimensions, and cosine similarity metric.
+    """
+    model_mgr = request.app.state.model_manager
+    t_start = time.perf_counter()
+
+    try:
+        engine = model_mgr.get_or_load_embedding_engine(payload.model, device=payload.device)
+        vec_a = engine.embed_query(payload.query_a)
+        vec_b = engine.embed_query(payload.query_b)
+        sim = engine.compute_similarity(vec_a, vec_b)
+        duration_ms = (time.perf_counter() - t_start) * 1000.0
+
+        return {
+            "model": payload.model,
+            "device": engine.device,
+            "dimension": len(vec_a),
+            "cosine_similarity": sim,
+            "angular_distance": math.acos(max(-1.0, min(1.0, sim))) / math.pi,
+            "duration_ms": duration_ms,
+            "sample_vec_a": vec_a[:5],
+            "sample_vec_b": vec_b[:5],
+        }
+    except Exception as e:
+        logger.error(f"Embedding test bench failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
