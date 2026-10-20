@@ -25,6 +25,20 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]
+keywords = [
+    "intel-arc",
+    "openvino",
+    "npu",
+    "llm-runner",
+    "sycl",
+    "level-zero",
+    "speculative-decoding",
+    "local-ai",
+    "ollama-alternative",
+    "intel-core-ultra",
+    "fastapi",
+    "xmx"
+]
 dependencies = [
     "openvino>=2026.1.0",
     "openvino-genai>=2026.0.0.0",
@@ -36,6 +50,12 @@ dependencies = [
     "httpx>=0.27.0",
     "numpy>=1.24.0"
 ]
+
+[project.urls]
+Homepage = "https://github.com/techdeveloper-org/intel-arc-models-runner"
+Documentation = "https://github.com/techdeveloper-org/intel-arc-models-runner#readme"
+Repository = "https://github.com/techdeveloper-org/intel-arc-models-runner.git"
+Issues = "https://github.com/techdeveloper-org/intel-arc-models-runner/issues"
 
 [project.optional-dependencies]
 dev = [
