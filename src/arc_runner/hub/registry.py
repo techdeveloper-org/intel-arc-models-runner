@@ -22,6 +22,11 @@ class CuratedModelInfo(BaseModel):
     context_window: int = Field(description="Maximum native context window tokens")
     sha256_checksum: Optional[str] = Field(default=None, description="Published reference checksum")
 
+    @property
+    def model_id(self) -> str:
+        """Alias property matching model_id contract."""
+        return self.alias
+
 
 class ModelRegistry:
     """Registry maintaining curated Intel-optimized models and alias resolution logic."""
@@ -143,6 +148,15 @@ class ModelRegistry:
             size_bytes=2000000000,
             context_window=4096,
         )
+
+    @classmethod
+    def get_all(cls) -> Dict[str, CuratedModelInfo]:
+        """Retrieve copy of all registered models mapped by slug alias.
+
+        Returns:
+            Dictionary mapping alias strings to CuratedModelInfo instances.
+        """
+        return cls._MODELS.copy()
 
     @classmethod
     def list_curated(cls) -> List[CuratedModelInfo]:

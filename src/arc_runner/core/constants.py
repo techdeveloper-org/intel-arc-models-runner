@@ -1,5 +1,7 @@
 """System-wide default constants and execution limits for Intel Arc Models Runner."""
 
+from pathlib import Path
+
 DEFAULT_CONTEXT_WINDOW: int = 4096
 DEFAULT_MAX_NEW_TOKENS: int = 512
 DEFAULT_TEMPERATURE: float = 0.7
@@ -14,3 +16,8 @@ DEFAULT_PORT: int = 11434
 MIN_DECODE_RATE_TOKENS_PER_SEC: float = 8.0
 MIN_PREFILL_RATE_TOKENS_PER_SEC: float = 150.0
 WATCHDOG_OVERHEAD_SECONDS: float = 3.0
+GGUF_MAGIC: bytes = b"GGUF"
+GGUF_DEFAULT_ALIGNMENT: int = 32
+GGUF_SUPPORTED_VERSIONS: tuple[int, ...] = (2, 3)
+DEFAULT_CACHE_DIR: Path = Path.home() / ".arc-runner" / "cache"
+DEFAULT_OLLAMA_DIR: Path = Path.home() / ".ollama"

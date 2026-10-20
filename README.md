@@ -220,6 +220,30 @@ arc-runner benchmark deepseek-r1-1.5b --device NPU --runs 5
 arc-runner benchmark llama-3.2-3b --device GPU --json
 ```
 
+### 4. 🎨 "Intel Arc Model Studio" — Native Embedded Web UI
+`arc-runner serve` includes a zero-bloat, glassmorphic Web UI served directly from the embedded daemon at `http://localhost:11434/` or `http://localhost:11434/ui` (no Node.js, Docker, or npm build required):
+- **Heterogeneous Silicon Cockpit**: Live GPU VRAM, XMX matrix engine load, NPU 5W TDP state, and USM zero-copy bandwidth.
+- **Dual-Silicon Chat Playground**: Token-by-token streaming chat with live TTFT, TPOT, tokens/sec, speculative speedup gauge, and energy efficiency metrics.
+- **Ollama & GGUF Studio**: Live table of local Ollama models, GGUF tensor bit-width pie charts, 1-click import, and AOT compilation.
+- **Model Hub**: Curated models with real-time SSE progress bars.
+- **Hardware Benchmarks**: Run empirical latency benchmarks with Student's t 95% confidence intervals directly in the browser!
+
+### 5. 🔍 GGUF Inspection, Ollama Model Import & Ahead-of-Time (AOT) Cache
+```bash
+# Deep inspect any local GGUF container or Ollama blob (architecture, context, tensor bit-widths)
+arc-runner inspect-gguf "C:\Users\<user>\.ollama\models\blobs\sha256-<hash>"
+
+# Scan and list all locally installed Ollama models in ~/.ollama
+arc-runner import-ollama --list
+
+# Inspect an Ollama model and discover its recommended Intel OpenVINO mapping
+arc-runner import-ollama llama3.2:1b
+
+# Pre-compile execution graph ahead-of-time to eliminate 60s cold-start on Intel NPU & Arc GPU
+arc-runner aot-compile llama-3.2-3b --device GPU
+arc-runner aot-compile deepseek-r1-1.5b --device NPU
+```
+
 ---
 
 ## 📊 Quantitative Benchmarks: Intel Arc & NPU vs. Ollama

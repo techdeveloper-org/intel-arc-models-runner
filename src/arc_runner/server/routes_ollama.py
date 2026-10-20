@@ -7,12 +7,13 @@ with NDJSON streaming and non-blocking C++ execution.
 import asyncio
 from datetime import datetime, timezone
 import json
+from pathlib import Path
 import threading
 import time
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
 
 from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError
 from arc_runner.core.logging import get_logger, set_request_context
@@ -71,14 +72,19 @@ def get_hub_manager(request: Request) -> HubManager:
     return request.app.state.hub_manager
 
 
-@router.get("/", response_class=PlainTextResponse)
-async def root_probe() -> str:
+@router.get("/")
+async def root_probe(request: Request) -> Response:
     """Root health probe matching standard Ollama daemon probe contract.
 
-    Returns:
-        Canonical text string 'Ollama is running'.
+    Serves embedded Intel Arc Model Studio Web UI when accessed from browsers,
+    or returns canonical string 'Ollama is running' for CLI clients.
     """
-    return "Ollama is running"
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        template_path = Path(__file__).parent / "templates" / "index.html"
+        if template_path.exists():
+            return HTMLResponse(content=template_path.read_text(encoding="utf-8"))
+    return PlainTextResponse("Ollama is running")
 
 
 @router.get("/api/version", response_model=OllamaVersionResponse)

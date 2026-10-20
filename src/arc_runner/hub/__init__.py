@@ -3,6 +3,7 @@
 from typing import List
 from arc_runner.hub.downloader import DownloadProgress, ModelDownloader
 from arc_runner.hub.manager import HubManager
+from arc_runner.hub.ollama_importer import OllamaImporter
 from arc_runner.hub.registry import CuratedModelInfo, ModelRegistry
 
 __all__: List[str] = [
@@ -11,4 +12,5 @@ __all__: List[str] = [
     "DownloadProgress",
     "ModelDownloader",
     "HubManager",
+    "OllamaImporter",
 ]

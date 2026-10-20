@@ -20,8 +20,11 @@ from arc_runner.core.constants import DEFAULT_HOST, DEFAULT_PORT
 from arc_runner.core.logging import get_logger, setup_logging
 from arc_runner.devices.detector import DeviceDetector
 from arc_runner.devices.models import DeviceType, SystemTopology
+from arc_runner.engine.aot_cache import AOTCompilationManager
 from arc_runner.hub.manager import HubManager
+from arc_runner.hub.ollama_importer import OllamaImporter
 from arc_runner.hub.registry import ModelRegistry
+from arc_runner.quant.gguf_parser import GGUFParser
 from arc_runner.server.app import create_app
 from arc_runner.server.model_manager import ModelManager
 
@@ -288,6 +291,205 @@ def handle_benchmark(
         return 1
 
 
+def handle_inspect_gguf(file_path: str, json_output: bool = False) -> int:
+    """Inspect binary GGUF container headers, parameters, and quantization distribution.
+
+    Args:
+        file_path: Path to target .gguf file or Ollama blob.
+        json_output: If True, prints JSON telemetry.
+
+    Returns:
+        int: Process exit code (0 for success).
+    """
+    console = Console()
+    try:
+        parser = GGUFParser(file_path)
+        summary = parser.get_summary()
+
+        if json_output:
+            data = {
+                "file_path": summary.file_path,
+                "file_size_bytes": summary.file_size_bytes,
+                "architecture": summary.architecture,
+                "context_length": summary.context_length,
+                "embedding_length": summary.embedding_length,
+                "block_count": summary.block_count,
+                "head_count": summary.head_count,
+                "tensor_count": summary.tensor_count,
+                "total_parameters": summary.total_parameters,
+                "quant_distribution": summary.quant_distribution,
+                "primary_quant_type": summary.primary_quant_type,
+            }
+            print(json.dumps(data, indent=2))
+            return 0
+
+        table = Table(title=f"GGUF Container Inspection: {Path(file_path).name}", border_style="cyan")
+        table.add_column("Property", style="bold white", width=24)
+        table.add_column("Value", style="cyan")
+
+        param_billions = f"{summary.total_parameters / 1_000_000_000:.2f} B" if summary.total_parameters else "Unknown"
+        size_mb = f"{summary.file_size_bytes / (1024 * 1024):.1f} MB"
+
+        table.add_row("Architecture", summary.architecture)
+        table.add_row("Parameters", param_billions)
+        table.add_row("File Size", size_mb)
+        table.add_row("Context Window", f"{summary.context_length} tokens")
+        table.add_row("Embedding Dim", str(summary.embedding_length))
+        table.add_row("Block / Layer Count", str(summary.block_count))
+        table.add_row("Head Count", str(summary.head_count))
+        table.add_row("Tensor Count", str(summary.tensor_count))
+        table.add_row("Primary Quantization", summary.primary_quant_type)
+
+        console.print(table)
+
+        if summary.quant_distribution:
+            q_table = Table(title="Quantization Breakdown", border_style="magenta")
+            q_table.add_column("GGML Quant Type", style="bold")
+            q_table.add_column("Share of Tensors", style="magenta")
+            for q_type, pct in summary.quant_distribution.items():
+                q_table.add_row(q_type, f"{pct:.1f}%")
+            console.print(q_table)
+
+        return 0
+    except Exception as exc:
+        console.print(f"[bold red]GGUF inspection failed:[/bold red] {exc}")
+        return 1
+
+
+def handle_import_ollama(
+    model_name: Optional[str] = None,
+    list_only: bool = False,
+    json_output: bool = False,
+    pull_openvino: bool = False,
+) -> int:
+    """Discover and import local Ollama models into arc-runner.
+
+    Args:
+        model_name: Optional model tag or name to inspect/import.
+        list_only: If True, only lists local models without importing.
+        json_output: If True, outputs JSON format.
+        pull_openvino: If True, automatically pulls matched OpenVINO INT4 model.
+
+    Returns:
+        int: Process exit code.
+    """
+    console = Console()
+    importer = OllamaImporter()
+
+    if not importer.is_available:
+        console.print(f"[bold yellow]Ollama manifests not found at:[/bold yellow] {importer.manifests_dir}")
+        return 1
+
+    manifests = importer.discover_models()
+
+    if not model_name or list_only:
+        if json_output:
+            data = [
+                {
+                    "model_name": m.model_name,
+                    "tag": m.tag,
+                    "size_bytes": m.model_size_bytes,
+                    "blob_exists": m.model_blob_path is not None,
+                    "blob_path": m.model_blob_path,
+                }
+                for m in manifests
+            ]
+            print(json.dumps(data, indent=2))
+            return 0
+
+        table = Table(title="Locally Installed Ollama Models (~/.ollama)", border_style="green")
+        table.add_column("Model Name", style="bold white")
+        table.add_column("Tag", style="cyan")
+        table.add_column("Disk Size", style="dim")
+        table.add_column("Blob Status", style="magenta")
+        table.add_column("Recommended OpenVINO Mapping", style="green")
+
+        for m in manifests:
+            size_mb = f"{m.model_size_bytes / (1024 * 1024):.1f} MB"
+            blob_status = "[green]Ready[/green]" if m.model_blob_path else "[red]Missing[/red]"
+            rec = importer.map_to_openvino_profile(m.model_name)
+            rec_str = rec.model_id if rec else "[dim]Custom GGUF[/dim]"
+            table.add_row(m.model_name, m.tag, size_mb, blob_status, rec_str)
+
+        console.print(table)
+        return 0
+
+    manifest = importer.find_manifest(model_name)
+    if not manifest:
+        console.print(f"[bold red]Ollama model '{model_name}' not found locally.[/bold red]")
+        return 1
+
+    console.print(f"[bold cyan]Ollama Model Found:[/bold cyan] {manifest.model_name}:{manifest.tag}")
+    if manifest.model_blob_path:
+        console.print(f"[dim]Blob path: {manifest.model_blob_path}[/dim]")
+        handle_inspect_gguf(manifest.model_blob_path, json_output=json_output)
+
+    rec = importer.map_to_openvino_profile(manifest.model_name)
+    if rec:
+        console.print(f"\n[bold green]★ Recommended OpenVINO Accelerator Mapping:[/bold green] [bold cyan]{rec.model_id}[/bold cyan] ({rec.quantization})")
+        if pull_openvino:
+            console.print(f"Acquiring optimized OpenVINO weights for {rec.model_id}...")
+            from arc_runner.cli.main import handle_pull
+            return handle_pull(model_id=rec.model_id)
+        else:
+            console.print(f"[dim]Run 'arc-runner pull {rec.model_id}' to download OpenVINO weights optimized for XMX/NPU.[/dim]")
+
+    return 0
+
+
+def handle_aot_compile(
+    model_id: str,
+    device: str = "GPU",
+    prewarm: bool = True,
+    json_output: bool = False,
+) -> int:
+    """Execute ahead-of-time model graph compilation and report latency benchmarks.
+
+    Args:
+        model_id: Model name or physical directory path.
+        device: Accelerator silicon target ('GPU', 'NPU', 'CPU').
+        prewarm: Whether to execute a 1-token pre-flight pass.
+        json_output: If True, outputs JSON format.
+
+    Returns:
+        int: Process exit code.
+    """
+    console = Console()
+    aot_mgr = AOTCompilationManager()
+
+    console.print(f"[bold cyan]Pre-compiling '{model_id}' for {device.upper()} silicon...[/bold cyan]")
+    try:
+        result = aot_mgr.compile_model(model_path=model_id, device=device, prewarm=prewarm)
+        if json_output:
+            data = {
+                "model_id": result.model_id,
+                "device": result.device,
+                "compilation_time_ms": result.compilation_time_ms,
+                "warm_load_time_ms": result.warm_load_time_ms,
+                "blob_size_bytes": result.blob_size_bytes,
+                "cache_path": result.cache_path,
+                "speedup_multiplier": result.speedup_multiplier,
+            }
+            print(json.dumps(data, indent=2))
+            return 0
+
+        table = Table(title=f"AOT Compilation Summary: {result.model_id} ({result.device})", border_style="green")
+        table.add_column("Metric", style="bold white")
+        table.add_column("Measurement", style="cyan")
+
+        table.add_row("Compilation Latency", f"{result.compilation_time_ms:.1f} ms")
+        table.add_row("Warm Reload Latency", f"{result.warm_load_time_ms:.1f} ms")
+        table.add_row("Startup Speedup", f"[bold green]{result.speedup_multiplier:.2f}x[/bold green]")
+        table.add_row("Compiled Blob Footprint", f"{result.blob_size_bytes / (1024 * 1024):.2f} MB")
+        table.add_row("Cache Directory", result.cache_path)
+
+        console.print(table)
+        return 0
+    except Exception as exc:
+        console.print(f"[bold red]AOT compilation failed:[/bold red] {exc}")
+        return 1
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Execute the CLI application with parsed command line arguments.
 
@@ -341,7 +543,42 @@ def main(argv: Optional[List[str]] = None) -> int:
     bench_parser.add_argument("--tokens", type=int, default=64, help="Tokens to generate per run (default: 64)")
     bench_parser.add_argument("--json", action="store_true", help="Output benchmark metrics in JSON format")
 
+    gguf_parser_cmd = subparsers.add_parser("inspect-gguf", help="Inspect binary GGUF container headers and tensors")
+    gguf_parser_cmd.add_argument("path", help="Path to .gguf file or Ollama blob")
+    gguf_parser_cmd.add_argument("--json", action="store_true", help="Output GGUF metadata in JSON format")
+
+    ollama_parser = subparsers.add_parser("import-ollama", help="Discover and import local Ollama models into arc-runner")
+    ollama_parser.add_argument("model", nargs="?", default=None, help="Specific model name or tag to inspect/import")
+    ollama_parser.add_argument("--list", action="store_true", help="List all local Ollama models")
+    ollama_parser.add_argument("--pull", action="store_true", help="Automatically pull matched OpenVINO INT4 model")
+    ollama_parser.add_argument("--json", action="store_true", help="Output local model catalog in JSON format")
+
+    aot_parser = subparsers.add_parser("aot-compile", help="Ahead-of-Time compile model graph for Intel silicon")
+    aot_parser.add_argument("model", help="Model name or directory path to compile")
+    aot_parser.add_argument("--device", default="GPU", help="Target silicon (GPU, NPU, CPU)")
+    aot_parser.add_argument("--no-prewarm", action="store_true", help="Skip 1-token pre-flight execution pass")
+    aot_parser.add_argument("--json", action="store_true", help="Output compilation metrics in JSON format")
+
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+
+    if args.command == "inspect-gguf":
+        return handle_inspect_gguf(file_path=args.path, json_output=args.json)
+
+    if args.command == "import-ollama":
+        return handle_import_ollama(
+            model_name=args.model,
+            list_only=args.list,
+            json_output=args.json,
+            pull_openvino=args.pull,
+        )
+
+    if args.command == "aot-compile":
+        return handle_aot_compile(
+            model_id=args.model,
+            device=args.device,
+            prewarm=not args.no_prewarm,
+            json_output=args.json,
+        )
 
     if args.command == "serve":
         return run_server(

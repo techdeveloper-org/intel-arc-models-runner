@@ -72,6 +72,9 @@ arc-runner = "arc_runner.cli.main:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"arc_runner.server" = ["templates/*.html", "static/css/*.css", "static/js/*.js"]
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra -q --import-mode=importlib"
