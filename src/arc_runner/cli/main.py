@@ -5,6 +5,7 @@ server management, and heterogeneous performance benchmarking.
 """
 
 import argparse
+from pathlib import Path
 import sys
 from typing import List, Optional
 
@@ -13,8 +14,12 @@ from rich.panel import Panel
 from rich.table import Table
 
 from arc_runner import __version__
+from arc_runner.core.constants import DEFAULT_HOST, DEFAULT_PORT
+from arc_runner.core.logging import get_logger, setup_logging
 from arc_runner.devices.detector import DeviceDetector
 from arc_runner.devices.models import DeviceType, SystemTopology
+from arc_runner.server.app import create_app
+from arc_runner.server.model_manager import ModelManager
 
 
 def render_devices_dashboard(topology: SystemTopology, console: Optional[Console] = None) -> None:
@@ -81,6 +86,65 @@ def render_devices_dashboard(topology: SystemTopology, console: Optional[Console
     c.print(Panel("\n".join(status_lines), title="System Readiness Status", border_style="green" if topology.has_intel_arc else "yellow"))
 
 
+def run_server(
+    host: str = DEFAULT_HOST,
+    port: int = DEFAULT_PORT,
+    model_dirs: Optional[List[str]] = None,
+    default_model: Optional[str] = None,
+    debug: bool = False,
+    log_file: Optional[str] = None,
+) -> int:
+    """Initialize and run the high-throughput FastAPI daemon server.
+
+    Args:
+        host: Network interface address to bind.
+        port: TCP port number to listen on.
+        model_dirs: Optional list of directories containing OpenVINO models.
+        default_model: Optional model identifier to pre-compile on startup.
+        debug: Enable debug logging and stack trace exposition.
+        log_file: Optional path to rotating JSON file appender.
+
+    Returns:
+        int: Process exit code.
+    """
+    import uvicorn
+
+    setup_logging(debug=debug, log_file=Path(log_file) if log_file else None)
+    logger = get_logger("cli.server")
+
+    manager = ModelManager(model_dirs=[Path(d) for d in model_dirs] if model_dirs else None)
+    app = create_app(model_manager=manager, debug=debug)
+
+    console = Console()
+    startup_banner = (
+        f"[bold cyan]Intel Arc Models Runner Daemon[/bold cyan] [dim]v{__version__}[/dim]\n"
+        f"[green]Ollama API Parity:[/green] http://{host}:{port}/api/generate | http://{host}:{port}/api/chat\n"
+        f"[green]OpenAI API Parity:[/green] http://{host}:{port}/v1/chat/completions\n"
+        f"[green]Hardware Telemetry:[/green] http://{host}:{port}/api/devices\n"
+        f"[dim]Logging: Rich Console + arc-runner.log (Rule 27 MDC Tracing)[/dim]"
+    )
+    console.print(Panel(startup_banner, title="Daemon Server Initialized", border_style="cyan"))
+
+    if default_model:
+        try:
+            logger.info(f"Pre-compiling default model: {default_model}")
+            manager.get_or_load_engine(default_model)
+            logger.info(f"Successfully compiled default model: {default_model}")
+        except Exception as exc:
+            logger.warning(f"Could not pre-load default model '{default_model}': {exc}")
+
+    config = uvicorn.Config(
+        app=app,
+        host=host,
+        port=port,
+        log_level="debug" if debug else "info",
+        access_log=False,
+    )
+    server = uvicorn.Server(config)
+    server.run()
+    return 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Execute the CLI application with parsed command line arguments.
 
@@ -106,7 +170,25 @@ def main(argv: Optional[List[str]] = None) -> int:
     devices_parser = subparsers.add_parser("devices", help="Discover and report Intel Arc GPUs, NPUs, and CPUs")
     devices_parser.add_argument("--json", action="store_true", help="Output topology report in JSON format")
 
+    serve_parser = subparsers.add_parser("serve", help="Start high-throughput daemon server on port 11434")
+    serve_parser.add_argument("--host", default=DEFAULT_HOST, help=f"Host interface to bind (default: {DEFAULT_HOST})")
+    serve_parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"Port number to listen on (default: {DEFAULT_PORT})")
+    serve_parser.add_argument("--model-dir", action="append", help="Directory path to search for OpenVINO IR models")
+    serve_parser.add_argument("--default-model", help="Model name to pre-compile and keep hot in memory on startup")
+    serve_parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging and stack traces")
+    serve_parser.add_argument("--log-file", help="Path to write rotating JSON log file (default: arc-runner.log)")
+
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+
+    if args.command == "serve":
+        return run_server(
+            host=args.host,
+            port=args.port,
+            model_dirs=args.model_dir,
+            default_model=args.default_model,
+            debug=args.debug,
+            log_file=args.log_file,
+        )
 
     if args.command == "devices" or args.command is None:
         detector = DeviceDetector()
