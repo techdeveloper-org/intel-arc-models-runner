@@ -170,6 +170,58 @@ arc-runner devices --json
 
 ---
 
+## 📦 Model Hub, Daemon Server & Benchmarking
+
+### 1. Download & Manage OpenVINO IR Models
+Download curated, high-efficiency OpenVINO INT4/INT8 models with non-blocking progress and exponential moving average (EMA) bandwidth smoothing:
+```bash
+# Pull official curated models
+arc-runner pull llama-3.2-3b
+arc-runner pull qwen-2.5-7b
+arc-runner pull deepseek-r1-1.5b
+
+# List downloaded models with size, parameter count, and weight verification
+arc-runner models
+
+# Delete a downloaded model
+arc-runner rm llama-3.2-3b
+```
+
+#### Curated Out-of-the-Box Models
+| Model Slug | Architecture | Precision | Parameters | Default Device |
+|:---|:---|:---:|:---:|:---:|
+| `llama-3.2-3b` | Llama 3.2 | INT4 NNCF | 3.21 B | GPU |
+| `llama-3.2-1b` | Llama 3.2 | INT4 NNCF | 1.23 B | NPU / GPU |
+| `qwen-2.5-7b` | Qwen 2.5 | INT4 NNCF | 7.61 B | GPU |
+| `qwen-2.5-3b` | Qwen 2.5 | INT4 NNCF | 3.09 B | GPU |
+| `qwen-2.5-1.5b` | Qwen 2.5 | INT4 NNCF | 1.54 B | NPU / GPU |
+| `phi-3.5-mini` | Phi 3.5 | INT4 NNCF | 3.82 B | GPU |
+| `deepseek-r1-1.5b` | DeepSeek R1 | INT4 NNCF | 1.78 B | NPU / GPU |
+
+### 2. High-Throughput Daemon Server (Ollama & OpenAI Compatible)
+Launch the asynchronous HTTP gateway on port 11434 (or custom port):
+```bash
+arc-runner serve --host 127.0.0.1 --port 11434 --device GPU
+```
+- **Ollama Parity**: `/api/generate`, `/api/chat`, `/api/tags`, `/api/show`, `/api/pull`, `/api/delete`, `/api/copy`, `/api/version`
+- **OpenAI Parity**: `/v1/chat/completions`, `/v1/models`
+- **WebUI Plug-and-Play**: Point Open WebUI, Continue.dev, or Cursor directly to `http://localhost:11434`.
+
+### 3. Automated Hardware Benchmarking Engine
+Measure Time-to-First-Token (TTFT), Time-per-Output-Token (TPOT), and decode throughput with deterministic warmup rejection and Student's t 95% confidence intervals:
+```bash
+# Benchmark on Intel Arc GPU
+arc-runner benchmark llama-3.2-3b --device GPU --runs 5 --prompt "Explain quantum computing in three sentences."
+
+# Benchmark on Intel NPU
+arc-runner benchmark deepseek-r1-1.5b --device NPU --runs 5
+
+# Export benchmark telemetry as JSON for CI/CD pipelines
+arc-runner benchmark llama-3.2-3b --device GPU --json
+```
+
+---
+
 ## 📊 Quantitative Benchmarks: Intel Arc & NPU vs. Ollama
 
 Benchmarks executed across representative quantized models (INT4 NNCF Symmetric Quantization, Context Length = 2048, Prompt Prefill = 512 tokens, Generation = 256 tokens).

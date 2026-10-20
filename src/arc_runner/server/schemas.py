@@ -201,3 +201,41 @@ class OpenAIModelListResponse(BaseModel):
 
     object: str = Field(default="list", description="Object list identifier")
     data: List[OpenAIModelCard] = Field(default_factory=list, description="Model collection list")
+
+
+class OllamaPullRequest(BaseModel):
+    """Payload contract for Ollama POST /api/pull endpoint."""
+
+    name: str = Field(description="Model alias or repository identifier to download")
+    insecure: bool = Field(default=False, description="Allow insecure connections")
+    stream: bool = Field(default=True, description="Enable streaming NDJSON progress output")
+
+
+class OllamaPullProgressResponse(BaseModel):
+    """Progress frame emitted during Ollama POST /api/pull execution."""
+
+    status: str = Field(description="Current download status")
+    digest: Optional[str] = Field(default=None, description="Model short hash digest")
+    total: Optional[int] = Field(default=None, description="Total bytes expected")
+    completed: Optional[int] = Field(default=None, description="Bytes completed so far")
+
+
+class OllamaDeleteRequest(BaseModel):
+    """Payload contract for Ollama DELETE /api/delete endpoint."""
+
+    name: Optional[str] = Field(default=None, description="Model identifier to delete")
+    model: Optional[str] = Field(default=None, description="Alternate model identifier field")
+
+
+class OllamaCopyRequest(BaseModel):
+    """Payload contract for Ollama POST /api/copy endpoint."""
+
+    source: str = Field(description="Existing source model alias")
+    destination: str = Field(description="New destination model alias")
+
+
+class OllamaStatusResponse(BaseModel):
+    """Generic status response for Ollama commands."""
+
+    status: str = Field(default="success", description="Operation status string")
+

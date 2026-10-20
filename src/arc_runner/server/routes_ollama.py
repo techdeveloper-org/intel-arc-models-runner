@@ -17,16 +17,23 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError
 from arc_runner.core.logging import get_logger, set_request_context
 from arc_runner.engine.models import GenerationConfig, TokenChunk
+from arc_runner.hub.downloader import DownloadProgress
+from arc_runner.hub.manager import HubManager
 from arc_runner.server.model_manager import ModelManager
 from arc_runner.server.schemas import (
     OllamaChatMessage,
     OllamaChatRequest,
     OllamaChatResponse,
+    OllamaCopyRequest,
+    OllamaDeleteRequest,
     OllamaGenerateRequest,
     OllamaGenerateResponse,
     OllamaModelItem,
+    OllamaPullProgressResponse,
+    OllamaPullRequest,
     OllamaShowRequest,
     OllamaShowResponse,
+    OllamaStatusResponse,
     OllamaTagsResponse,
     OllamaVersionResponse,
 )
@@ -46,6 +53,22 @@ def get_model_manager(request: Request) -> ModelManager:
         Configured ModelManager instance.
     """
     return request.app.state.model_manager
+
+
+def get_hub_manager(request: Request) -> HubManager:
+    """Extract or lazily initialize HubManager instance from application state.
+
+    Args:
+        request: Active FastAPI HTTP request.
+
+    Returns:
+        Configured HubManager instance.
+    """
+    if not hasattr(request.app.state, "hub_manager") or request.app.state.hub_manager is None:
+        model_mgr = getattr(request.app.state, "model_manager", None)
+        base_dir = model_mgr.model_dirs[0] if (model_mgr and model_mgr.model_dirs) else None
+        request.app.state.hub_manager = HubManager(base_models_dir=base_dir, model_manager=model_mgr)
+    return request.app.state.hub_manager
 
 
 @router.get("/", response_class=PlainTextResponse)
@@ -368,3 +391,121 @@ async def chat(
         eval_count=tokens_count,
         eval_duration=int(duration_ns * 0.8),
     )
+
+
+@router.post("/api/pull")
+async def pull_model(
+    request: OllamaPullRequest,
+    hub: HubManager = Depends(get_hub_manager),
+) -> Any:
+    """Download and register a model from Hugging Face matching Ollama POST /api/pull.
+
+    Args:
+        request: OllamaPullRequest specifying model name and streaming flag.
+        hub: Injected HubManager instance.
+
+    Returns:
+        StreamingResponse (application/x-ndjson) or OllamaStatusResponse.
+
+    Raises:
+        HTTPException: If model name is empty or download fails.
+    """
+    if not request.name or not request.name.strip():
+        raise HTTPException(status_code=422, detail="Model name must not be empty")
+
+    if request.stream:
+        async def ndjson_pull_generator() -> AsyncIterator[str]:
+            queue: asyncio.Queue[Union[DownloadProgress, Exception, None]] = asyncio.Queue(maxsize=128)
+            loop = asyncio.get_running_loop()
+
+            def worker() -> None:
+                try:
+                    for prog in hub.pull(request.name, stream=True):
+                        while True:
+                            try:
+                                loop.call_soon_threadsafe(queue.put_nowait, prog)
+                                break
+                            except asyncio.QueueFull:
+                                time.sleep(0.005)
+                except Exception as exc:
+                    loop.call_soon_threadsafe(queue.put_nowait, exc)
+                finally:
+                    loop.call_soon_threadsafe(queue.put_nowait, None)
+
+            worker_thread = threading.Thread(target=worker, daemon=True)
+            worker_thread.start()
+
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                if isinstance(item, Exception):
+                    raise HTTPException(status_code=500, detail=str(item))
+                yield json.dumps(item.model_dump(exclude_none=True)) + "\n"
+
+            yield json.dumps({"status": "success"}) + "\n"
+
+        return StreamingResponse(ndjson_pull_generator(), media_type="application/x-ndjson")
+
+    try:
+        hub.pull(request.name, stream=False)
+        return OllamaStatusResponse(status="success")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.delete("/api/delete", response_model=OllamaStatusResponse)
+async def delete_model(
+    request: OllamaDeleteRequest,
+    hub: HubManager = Depends(get_hub_manager),
+) -> OllamaStatusResponse:
+    """Delete a local model repository from disk matching Ollama DELETE /api/delete.
+
+    Args:
+        request: OllamaDeleteRequest payload.
+        hub: Injected HubManager instance.
+
+    Returns:
+        OllamaStatusResponse with status 'success'.
+
+    Raises:
+        HTTPException: If model is missing or not found.
+    """
+    target = request.name or request.model
+    if not target or not target.strip():
+        raise HTTPException(status_code=400, detail="Missing required 'name' or 'model' field")
+
+    try:
+        hub.delete(target)
+        return OllamaStatusResponse(status="success")
+    except ModelNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/api/copy", response_model=OllamaStatusResponse)
+async def copy_model(
+    request: OllamaCopyRequest,
+    hub: HubManager = Depends(get_hub_manager),
+) -> OllamaStatusResponse:
+    """Clone an existing local model under a new alias matching Ollama POST /api/copy.
+
+    Args:
+        request: OllamaCopyRequest containing source and destination aliases.
+        hub: Injected HubManager instance.
+
+    Returns:
+        OllamaStatusResponse with status 'success'.
+
+    Raises:
+        HTTPException: If source is missing or destination already exists.
+    """
+    try:
+        hub.copy(request.source, request.destination)
+        return OllamaStatusResponse(status="success")
+    except ModelNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
