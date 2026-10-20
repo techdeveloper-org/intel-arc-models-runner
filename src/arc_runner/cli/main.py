@@ -21,10 +21,12 @@ from arc_runner.core.logging import get_logger, setup_logging
 from arc_runner.devices.detector import DeviceDetector
 from arc_runner.devices.models import DeviceType, SystemTopology
 from arc_runner.engine.aot_cache import AOTCompilationManager
+from arc_runner.engine.embedding_engine import EmbeddingEngine
 from arc_runner.hub.manager import HubManager
 from arc_runner.hub.ollama_importer import OllamaImporter
 from arc_runner.hub.registry import ModelRegistry
 from arc_runner.quant.gguf_parser import GGUFParser
+from arc_runner.quant.transpiler import GGUFTranspiler
 from arc_runner.server.app import create_app
 from arc_runner.server.model_manager import ModelManager
 
@@ -490,6 +492,97 @@ def handle_aot_compile(
         return 1
 
 
+def handle_embed(
+    model_id: str,
+    text: str,
+    device: str = "NPU",
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Generate dense vector embedding for text prompt on Intel NPU/GPU.
+
+    Args:
+        model_id: Model identifier name or path.
+        text: Query string to encode.
+        device: Hardware device target ('NPU', 'GPU', 'CPU').
+        json_output: Emit raw JSON vector array.
+        console: Optional Rich console.
+
+    Returns:
+        int: Exit status code (0 for success).
+    """
+    c = console or Console()
+    try:
+        model_mgr = ModelManager()
+        resolved_path = model_mgr.resolve_model_path(model_id)
+        engine = EmbeddingEngine(str(resolved_path), device=device)
+        vec = engine.embed_query(text)
+
+        if json_output:
+            print(json.dumps({"model": model_id, "device": engine.device, "dimension": len(vec), "embedding": vec}))
+        else:
+            c.print(f"[bold green]Embedding Generated Successfully[/bold green] on [cyan]{engine.device}[/cyan]")
+            c.print(f"Dimension: [bold]{len(vec)}[/bold] | Sample: {vec[:5]} ...")
+        return 0
+    except Exception as exc:
+        c.print(f"[bold red]Embedding generation failed:[/bold red] {exc}")
+        return 1
+
+
+def handle_convert(
+    input_path: str,
+    output_dir: str,
+    precision: str = "int4",
+    device: str = "GPU",
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Transpile a local GGUF container to OpenVINO IR format.
+
+    Args:
+        input_path: Source GGUF file path.
+        output_dir: Target directory path for generated IR XML/BIN.
+        precision: Quantization precision ('int4', 'int8', 'fp16').
+        device: Target execution silicon ('GPU', 'NPU', 'CPU').
+        json_output: Output result in JSON format.
+        console: Optional Rich console.
+
+    Returns:
+        int: Exit status code (0 for success).
+    """
+    c = console or Console()
+    try:
+        transpiler = GGUFTranspiler(input_path, output_dir)
+        res = transpiler.transpile(precision=precision, target_device=device)
+
+        if json_output:
+            print(json.dumps({
+                "model_name": res.model_name,
+                "total_tensors": res.total_tensors,
+                "source_format": res.source_format,
+                "target_precision": res.target_precision,
+                "xml_path": str(res.xml_path),
+                "bin_path": str(res.bin_path),
+                "total_bytes": res.total_bytes,
+                "duration_ms": res.duration_ms,
+            }, indent=2))
+        else:
+            table = Table(title="GGUF to OpenVINO IR Transpilation Complete", show_header=True, header_style="bold magenta")
+            table.add_column("Property", style="bold white")
+            table.add_column("Value", style="cyan")
+            table.add_row("Model Name", res.model_name)
+            table.add_row("Tensors Repacked", str(res.total_tensors))
+            table.add_row("Target Precision", f"[bold green]{res.target_precision}[/bold green]")
+            table.add_row("Output XML", str(res.xml_path))
+            table.add_row("Output BIN", f"{res.bin_path} ({res.total_bytes / (1024 * 1024):.2f} MB)")
+            table.add_row("Transpile Duration", f"{res.duration_ms:.1f} ms")
+            c.print(table)
+        return 0
+    except Exception as exc:
+        c.print(f"[bold red]Transpilation failed:[/bold red] {exc}")
+        return 1
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Execute the CLI application with parsed command line arguments.
 
@@ -559,7 +652,37 @@ def main(argv: Optional[List[str]] = None) -> int:
     aot_parser.add_argument("--no-prewarm", action="store_true", help="Skip 1-token pre-flight execution pass")
     aot_parser.add_argument("--json", action="store_true", help="Output compilation metrics in JSON format")
 
+    embed_parser = subparsers.add_parser("embed", help="Generate vector embedding for text on Intel NPU/GPU")
+    embed_parser.add_argument("model", help="Embedding model name or directory")
+    embed_parser.add_argument("text", help="Text string to generate embedding for")
+    embed_parser.add_argument("--device", default="NPU", help="Compute device (NPU, GPU, CPU)")
+    embed_parser.add_argument("--json", action="store_true", help="Output embedding vector in JSON format")
+
+    convert_parser = subparsers.add_parser("convert", help="Convert local GGUF container to OpenVINO IR format")
+    convert_parser.add_argument("input", help="Source .gguf model container path")
+    convert_parser.add_argument("--output", "-o", required=True, help="Destination directory for OpenVINO IR files")
+    convert_parser.add_argument("--precision", default="int4", choices=["int4", "int8", "fp16"], help="Target weight precision")
+    convert_parser.add_argument("--device", default="GPU", help="Target accelerator silicon")
+    convert_parser.add_argument("--json", action="store_true", help="Output result summary in JSON format")
+
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+
+    if args.command == "embed":
+        return handle_embed(
+            model_id=args.model,
+            text=args.text,
+            device=args.device,
+            json_output=args.json,
+        )
+
+    if args.command == "convert":
+        return handle_convert(
+            input_path=args.input,
+            output_dir=args.output,
+            precision=args.precision,
+            device=args.device,
+            json_output=args.json,
+        )
 
     if args.command == "inspect-gguf":
         return handle_inspect_gguf(file_path=args.path, json_output=args.json)

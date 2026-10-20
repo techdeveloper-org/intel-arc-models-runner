@@ -26,6 +26,7 @@ class OllamaGenerateRequest(BaseModel):
     context: Optional[List[int]] = Field(default=None, description="Token IDs context history")
     stream: bool = Field(default=True, description="Enable streaming NDJSON responses")
     raw: bool = Field(default=False, description="Bypass template formatting")
+    images: Optional[List[str]] = Field(default=None, description="Optional base64 encoded images")
     options: Optional[Dict[str, Any]] = Field(default=None, description="Runtime generation parameters")
 
 
@@ -238,4 +239,74 @@ class OllamaStatusResponse(BaseModel):
     """Generic status response for Ollama commands."""
 
     status: str = Field(default="success", description="Operation status string")
+
+
+class OllamaEmbeddingRequest(BaseModel):
+    """Payload contract for Ollama POST /api/embeddings legacy endpoint."""
+
+    model: str = Field(description="Target embedding model identifier")
+    prompt: str = Field(description="Text string to generate embedding for")
+    options: Optional[Dict[str, Any]] = Field(default=None, description="Optional runtime parameters")
+    keep_alive: Optional[str] = Field(default=None, description="Model unload timeout duration")
+
+
+class OllamaEmbeddingResponse(BaseModel):
+    """Response contract for Ollama POST /api/embeddings legacy endpoint."""
+
+    embedding: List[float] = Field(description="Generated dense vector embedding")
+
+
+class OllamaEmbedRequest(BaseModel):
+    """Payload contract for Ollama POST /api/embed v2 multi-prompt endpoint."""
+
+    model: str = Field(description="Target embedding model identifier")
+    input: Union[str, List[str]] = Field(description="Single text string or array of strings")
+    truncate: Optional[bool] = Field(default=True, description="Truncate inputs exceeding context window")
+    options: Optional[Dict[str, Any]] = Field(default=None, description="Optional runtime parameters")
+    keep_alive: Optional[str] = Field(default=None, description="Model unload timeout duration")
+
+
+class OllamaEmbedResponse(BaseModel):
+    """Response contract for Ollama POST /api/embed v2 multi-prompt endpoint."""
+
+    model: str = Field(description="Active embedding model evaluated")
+    embeddings: List[List[float]] = Field(description="Batch of generated dense vector embeddings")
+    total_duration: Optional[int] = Field(default=None, description="Total execution duration in nanoseconds")
+    load_duration: Optional[int] = Field(default=None, description="Model load duration in nanoseconds")
+    prompt_eval_count: Optional[int] = Field(default=None, description="Tokens evaluated")
+
+
+class OpenAIEmbeddingRequest(BaseModel):
+    """Payload contract for OpenAI POST /v1/embeddings endpoint."""
+
+    model: str = Field(description="Target model identifier")
+    input: Union[str, List[str]] = Field(description="Input text or array of input texts")
+    user: Optional[str] = Field(default=None, description="Unique identifier representing end-user")
+    dimensions: Optional[int] = Field(default=None, description="Expected dimensionality")
+    encoding_format: Optional[str] = Field(default="float", description="Output encoding format")
+
+
+class OpenAIEmbeddingData(BaseModel):
+    """Single embedding result object in OpenAI embedding response."""
+
+    object: str = Field(default="embedding", description="Object type identifier")
+    index: int = Field(description="Index in the batch sequence")
+    embedding: List[float] = Field(description="Dense vector embedding")
+
+
+class OpenAIEmbeddingUsage(BaseModel):
+    """Token usage metadata for embedding generation."""
+
+    prompt_tokens: int = Field(default=0, description="Tokens evaluated in prompt inputs")
+    total_tokens: int = Field(default=0, description="Total tokens consumed")
+
+
+class OpenAIEmbeddingResponse(BaseModel):
+    """Response contract for OpenAI POST /v1/embeddings endpoint."""
+
+    object: str = Field(default="list", description="List object type")
+    data: List[OpenAIEmbeddingData] = Field(description="Embedding data list")
+    model: str = Field(description="Target model identifier evaluated")
+    usage: OpenAIEmbeddingUsage = Field(default_factory=OpenAIEmbeddingUsage, description="Usage statistics")
+
 
