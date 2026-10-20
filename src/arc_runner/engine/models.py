@@ -59,6 +59,24 @@ class EngineTelemetry(BaseModel):
     tokens_per_second: float = Field(default=0.0, description="Decoding rate excluding prefill")
     total_tokens: int = Field(default=0, description="Total tokens generated in this request")
     total_latency_ms: float = Field(default=0.0, description="Total end-to-end wall-clock duration in milliseconds")
+    is_speculative: bool = Field(default=False, description="True if speculative decoding was active")
+    draft_device: str = Field(default="", description="Silicon device executing draft model")
+    draft_tokens_total: int = Field(default=0, description="Total draft tokens proposed across generation")
+    accepted_tokens_total: int = Field(default=0, description="Total draft tokens accepted by target model")
+    acceptance_rate: float = Field(default=0.0, description="Empirical acceptance rate alpha in [0.0, 1.0]")
+    speculative_speedup: float = Field(default=1.0, description="Effective throughput speedup factor over baseline")
+
+
+class SpeculativeConfig(BaseModel):
+    """Configuration parameters for heterogeneous dual-silicon speculative decoding."""
+
+    draft_model_path: str = Field(..., description="Filesystem directory containing OpenVINO IR draft model")
+    draft_device: str = Field(default="NPU", description="Silicon target for draft generation (NPU, GPU, CPU)")
+    num_assistant_tokens: int = Field(default=4, ge=1, le=16, description="Lookahead gamma count of draft tokens to propose per step")
+    assistant_confidence_threshold: float = Field(default=0.5, ge=0.0, le=1.0, description="Early stopping probability threshold for draft predictions")
+    dynamic_gamma: bool = Field(default=True, description="Whether to dynamically adapt gamma based on acceptance rate")
+    min_gamma: int = Field(default=1, ge=1, le=8, description="Minimum allowable lookahead horizon under dynamic adaptation")
+    max_gamma: int = Field(default=8, ge=2, le=16, description="Maximum allowable lookahead horizon under dynamic adaptation")
 
 
 class KVAllocation(BaseModel):
