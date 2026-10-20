@@ -6,6 +6,11 @@ Intel AI Boost NPUs.
 """
 
 from typing import List
+from arc_runner.benchmark.runner import (
+    BenchmarkRunner,
+    BenchmarkRunResult,
+    BenchmarkSummary,
+)
 from arc_runner.core.exceptions import (
     ArcRunnerError,
     ContextWindowExceededError,
@@ -41,6 +46,9 @@ from arc_runner.engine.models import (
 )
 from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
 from arc_runner.engine.speculative_engine import HybridSpeculativeEngine
+from arc_runner.hub.downloader import DownloadProgress, ModelDownloader
+from arc_runner.hub.manager import HubManager
+from arc_runner.hub.registry import CuratedModelInfo, ModelRegistry
 from arc_runner.server.app import create_app
 from arc_runner.server.model_manager import ModelManager
 from arc_runner.utils.dll_loader import initialize_windows_dll_environment
@@ -75,6 +83,14 @@ __all__: List[str] = [
     "InferenceTimeoutError",
     "create_app",
     "ModelManager",
+    "HubManager",
+    "ModelRegistry",
+    "CuratedModelInfo",
+    "DownloadProgress",
+    "ModelDownloader",
+    "BenchmarkRunner",
+    "BenchmarkRunResult",
+    "BenchmarkSummary",
     "setup_logging",
     "get_logger",
     "set_request_context",

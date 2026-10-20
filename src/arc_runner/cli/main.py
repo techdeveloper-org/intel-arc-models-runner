@@ -1,10 +1,11 @@
 """Main command-line entry point for Intel Arc Models Runner.
 
 Provides developer commands including hardware device discovery, model execution,
-server management, and heterogeneous performance benchmarking.
+server management, model hub acquisition, and heterogeneous performance benchmarking.
 """
 
 import argparse
+import json
 from pathlib import Path
 import sys
 from typing import List, Optional
@@ -14,10 +15,13 @@ from rich.panel import Panel
 from rich.table import Table
 
 from arc_runner import __version__
+from arc_runner.benchmark.runner import BenchmarkRunner
 from arc_runner.core.constants import DEFAULT_HOST, DEFAULT_PORT
 from arc_runner.core.logging import get_logger, setup_logging
 from arc_runner.devices.detector import DeviceDetector
 from arc_runner.devices.models import DeviceType, SystemTopology
+from arc_runner.hub.manager import HubManager
+from arc_runner.hub.registry import ModelRegistry
 from arc_runner.server.app import create_app
 from arc_runner.server.model_manager import ModelManager
 
@@ -145,6 +149,145 @@ def run_server(
     return 0
 
 
+def handle_pull(model_id: str, base_dir: Optional[str] = None) -> int:
+    """Handle CLI command to download and verify an OpenVINO model.
+
+    Args:
+        model_id: Target model name alias or repository identifier.
+        base_dir: Optional storage directory path.
+
+    Returns:
+        int: Process exit code.
+    """
+    console = Console()
+    hub = HubManager(base_models_dir=base_dir)
+    info = ModelRegistry.resolve(model_id)
+
+    console.print(f"[bold cyan]Pulling model:[/bold cyan] {info.alias} [dim]({info.repo_id})[/dim]")
+    try:
+        last_pct = -1.0
+        for progress in hub.pull(model_id, stream=True):
+            if progress.percent is not None and progress.percent != last_pct:
+                pct_str = f"{progress.percent:5.1f}%"
+                speed_str = f"{progress.speed_mbps:.1f} MB/s" if progress.speed_mbps else "calculating..."
+                eta_str = f"{progress.eta_seconds:.0f}s" if progress.eta_seconds else "-"
+                console.print(f"  [cyan]{progress.status:<26}[/cyan] [green]{pct_str}[/green] [dim]({speed_str} | ETA: {eta_str})[/dim]")
+                last_pct = progress.percent
+            elif progress.status in ("pulling manifest", "verifying checksum", "success"):
+                console.print(f"  [bold green]✔[/bold green] {progress.status}")
+
+        console.print(f"[bold green]Model '{info.alias}' successfully pulled and verified![/bold green]")
+        return 0
+    except Exception as exc:
+        console.print(f"[bold red]Pull failed:[/bold red] {exc}")
+        return 1
+
+
+def handle_models(base_dir: Optional[str] = None, json_output: bool = False) -> int:
+    """Handle CLI command to list all locally installed OpenVINO models.
+
+    Args:
+        base_dir: Optional model storage directory.
+        json_output: Output report in JSON format if True.
+
+    Returns:
+        int: Process exit code.
+    """
+    console = Console()
+    hub = HubManager(base_models_dir=base_dir)
+    models = hub.list_local()
+
+    if json_output:
+        print(json.dumps(models, indent=2))
+        return 0
+
+    table = Table(title="Installed OpenVINO Models", show_header=True, header_style="bold magenta")
+    table.add_column("Model Name", style="bold white", min_width=22)
+    table.add_column("Family", style="green", width=12)
+    table.add_column("Parameters", style="yellow", width=12)
+    table.add_column("Quantization", style="cyan", width=26)
+    table.add_column("Disk Size", justify="right", style="white", width=14)
+    table.add_column("Modified", style="dim", width=22)
+
+    for m in models:
+        details = m.get("details", {})
+        size_gb = m.get("size", 0) / (1024.0 * 1024.0 * 1024.0)
+        table.add_row(
+            m.get("name", "-"),
+            details.get("family", "-"),
+            details.get("parameter_size", "-"),
+            details.get("quantization_level", "-"),
+            f"{size_gb:.2f} GB",
+            m.get("modified_at", "-")[:19],
+        )
+
+    console.print(table)
+    return 0
+
+
+def handle_rm(model_id: str, base_dir: Optional[str] = None) -> int:
+    """Handle CLI command to remove a local model repository.
+
+    Args:
+        model_id: Model alias or directory name to purge.
+        base_dir: Optional model storage directory.
+
+    Returns:
+        int: Process exit code.
+    """
+    console = Console()
+    hub = HubManager(base_models_dir=base_dir)
+    try:
+        hub.delete(model_id)
+        console.print(f"[bold green]Successfully deleted model '{model_id}'[/bold green]")
+        return 0
+    except Exception as exc:
+        console.print(f"[bold red]Delete failed:[/bold red] {exc}")
+        return 1
+
+
+def handle_benchmark(
+    model_id: str,
+    device: str = "GPU",
+    iterations: int = 5,
+    warmup: int = 2,
+    tokens: int = 64,
+    json_output: bool = False,
+) -> int:
+    """Handle CLI command to execute hardware benchmark with statistical CI.
+
+    Args:
+        model_id: Target model identifier.
+        device: Hardware device string ('GPU', 'NPU', 'CPU').
+        iterations: Number of test measurement runs.
+        warmup: Number of initial discarded runs.
+        tokens: Number of completion tokens per iteration.
+        json_output: Output JSON report if True.
+
+    Returns:
+        int: Process exit code.
+    """
+    console = Console()
+    runner = BenchmarkRunner()
+
+    try:
+        summary = runner.run_benchmark(
+            model_id=model_id,
+            device=device,
+            iterations=iterations,
+            warmup=warmup,
+            max_new_tokens=tokens,
+        )
+        if json_output:
+            print(summary.model_dump_json(indent=2))
+        else:
+            runner.render_rich_table(summary, console=console)
+        return 0
+    except Exception as exc:
+        console.print(f"[bold red]Benchmark failed:[/bold red] {exc}")
+        return 1
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Execute the CLI application with parsed command line arguments.
 
@@ -178,6 +321,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     serve_parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging and stack traces")
     serve_parser.add_argument("--log-file", help="Path to write rotating JSON log file (default: arc-runner.log)")
 
+    pull_parser = subparsers.add_parser("pull", help="Download and verify an OpenVINO model from Hugging Face")
+    pull_parser.add_argument("model", help="Model alias name or full Hugging Face repository identifier")
+    pull_parser.add_argument("--dir", help="Target directory for downloaded model weights")
+
+    models_parser = subparsers.add_parser("models", help="List all locally installed OpenVINO models")
+    models_parser.add_argument("--dir", help="Directory path containing OpenVINO models")
+    models_parser.add_argument("--json", action="store_true", help="Output model inventory in JSON format")
+
+    rm_parser = subparsers.add_parser("rm", help="Remove an installed OpenVINO model from local disk")
+    rm_parser.add_argument("model", help="Model name or directory alias to delete")
+    rm_parser.add_argument("--dir", help="Directory path containing model to remove")
+
+    bench_parser = subparsers.add_parser("benchmark", help="Benchmark model latency and throughput on Intel silicon")
+    bench_parser.add_argument("--model", default="llama-3.2-3b", help="Model name or path to benchmark")
+    bench_parser.add_argument("--device", default="GPU", help="Silicon device target (GPU, NPU, CPU)")
+    bench_parser.add_argument("--iterations", type=int, default=5, help="Number of measurement runs (default: 5)")
+    bench_parser.add_argument("--warmup", type=int, default=2, help="Number of warmup runs to discard (default: 2)")
+    bench_parser.add_argument("--tokens", type=int, default=64, help="Tokens to generate per run (default: 64)")
+    bench_parser.add_argument("--json", action="store_true", help="Output benchmark metrics in JSON format")
+
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     if args.command == "serve":
@@ -190,11 +353,29 @@ def main(argv: Optional[List[str]] = None) -> int:
             log_file=args.log_file,
         )
 
+    if args.command == "pull":
+        return handle_pull(model_id=args.model, base_dir=args.dir)
+
+    if args.command == "models":
+        return handle_models(base_dir=args.dir, json_output=args.json)
+
+    if args.command == "rm":
+        return handle_rm(model_id=args.model, base_dir=args.dir)
+
+    if args.command == "benchmark":
+        return handle_benchmark(
+            model_id=args.model,
+            device=args.device,
+            iterations=args.iterations,
+            warmup=args.warmup,
+            tokens=args.tokens,
+            json_output=args.json,
+        )
+
     if args.command == "devices" or args.command is None:
         detector = DeviceDetector()
         topology = detector.detect_topology()
         if getattr(args, "json", False):
-            import json
             print(json.dumps(topology.model_dump(), indent=2))
         else:
             render_devices_dashboard(topology)
