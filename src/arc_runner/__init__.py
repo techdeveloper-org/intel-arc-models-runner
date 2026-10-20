@@ -34,6 +34,7 @@ from arc_runner.devices.models import (
     DeviceType,
     SystemTopology,
 )
+from arc_runner.engine.aot_cache import AOTCompilationManager
 from arc_runner.engine.base import BaseEngine
 from arc_runner.engine.kv_cache import KVCacheManager
 from arc_runner.engine.models import (
@@ -48,7 +49,19 @@ from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
 from arc_runner.engine.speculative_engine import HybridSpeculativeEngine
 from arc_runner.hub.downloader import DownloadProgress, ModelDownloader
 from arc_runner.hub.manager import HubManager
+from arc_runner.hub.ollama_importer import OllamaImporter
 from arc_runner.hub.registry import CuratedModelInfo, ModelRegistry
+from arc_runner.quant.gguf_parser import GGUFParser
+from arc_runner.quant.models import (
+    AOTCompilationResult,
+    CacheEntryInfo,
+    GGMLType,
+    GGUFHeader,
+    GGUFSummary,
+    GGUFTensorInfo,
+    GGUFValueType,
+    OllamaModelManifest,
+)
 from arc_runner.server.app import create_app
 from arc_runner.server.model_manager import ModelManager
 from arc_runner.utils.dll_loader import initialize_windows_dll_environment
@@ -91,6 +104,17 @@ __all__: List[str] = [
     "BenchmarkRunner",
     "BenchmarkRunResult",
     "BenchmarkSummary",
+    "GGUFParser",
+    "OllamaImporter",
+    "AOTCompilationManager",
+    "GGUFHeader",
+    "GGUFTensorInfo",
+    "GGUFSummary",
+    "GGMLType",
+    "GGUFValueType",
+    "OllamaModelManifest",
+    "AOTCompilationResult",
+    "CacheEntryInfo",
     "setup_logging",
     "get_logger",
     "set_request_context",

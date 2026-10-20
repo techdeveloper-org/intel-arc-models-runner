@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError
@@ -26,6 +27,7 @@ from arc_runner.devices.models import DeviceType
 from arc_runner.server.model_manager import ModelManager
 from arc_runner.server.routes_ollama import router as ollama_router
 from arc_runner.server.routes_openai import router as openai_router
+from arc_runner.server.routes_ui import router as ui_router
 
 logger = get_logger("server.app")
 
@@ -137,6 +139,11 @@ def create_app(
             "npu_boost_ready": topology.has_intel_npu,
         }
 
+    static_dir = Path(__file__).parent / "static"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+    app.include_router(ui_router)
     app.include_router(ollama_router)
     app.include_router(openai_router)
 

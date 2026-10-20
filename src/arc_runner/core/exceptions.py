@@ -114,3 +114,31 @@ class InferenceTimeoutError(ArcRunnerError):
         super().__init__(f"Inference timed out after {elapsed_seconds:.2f}s (threshold: {timeout_seconds:.2f}s)", "INFERENCE_TIMEOUT", 504)
         self.elapsed_seconds = elapsed_seconds
         self.timeout_seconds = timeout_seconds
+
+
+class InvalidGGUFError(ArcRunnerError):
+    """Raised when a file lacks valid GGUF container signatures or contains unsupported versions."""
+
+    def __init__(self, message: str, file_path: str = "") -> None:
+        """Initialize the invalid GGUF container exception."""
+        super().__init__(f"Invalid GGUF container '{file_path}': {message}", "INVALID_GGUF_CONTAINER", 400)
+        self.file_path = file_path
+
+
+class GGUFParseError(ArcRunnerError):
+    """Raised when decoding GGUF metadata or tensor tables fails due to data corruption or truncation."""
+
+    def __init__(self, message: str, offset: int = 0) -> None:
+        """Initialize the GGUF binary decoding exception."""
+        super().__init__(f"GGUF decode error at byte offset {offset}: {message}", "GGUF_PARSE_ERROR", 400)
+        self.offset = offset
+
+
+class AOTCompilationError(ArcRunnerError):
+    """Raised when ahead-of-time graph compilation fails on target accelerator silicon."""
+
+    def __init__(self, model_id: str, device: str, message: str) -> None:
+        """Initialize the AOT compilation failure exception."""
+        super().__init__(f"AOT compilation failed for '{model_id}' on {device}: {message}", "AOT_COMPILATION_FAILED", 500)
+        self.model_id = model_id
+        self.device = device
