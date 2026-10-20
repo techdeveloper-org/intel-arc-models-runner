@@ -8,15 +8,19 @@ from arc_runner.engine.models import (
     GenerationConfig,
     KVAllocation,
     ModelPrecision,
+    SpeculativeConfig,
     TokenChunk,
 )
 from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
+from arc_runner.engine.speculative_engine import HybridSpeculativeEngine
 
 __all__: List[str] = [
     "BaseEngine",
     "OpenVINOGenAIEngine",
+    "HybridSpeculativeEngine",
     "KVCacheManager",
     "GenerationConfig",
+    "SpeculativeConfig",
     "TokenChunk",
     "EngineTelemetry",
     "KVAllocation",
