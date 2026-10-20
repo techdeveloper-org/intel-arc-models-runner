@@ -22,6 +22,13 @@ from arc_runner.core.exceptions import (
     VRAMExhaustedError,
     InferenceTimeoutError,
 )
+from arc_runner.core.logging import (
+    clear_request_context,
+    get_logger,
+    get_request_id,
+    set_request_context,
+    setup_logging,
+)
 
 __all__: List[str] = [
     "DEFAULT_CONTEXT_WINDOW",
@@ -41,4 +48,9 @@ __all__: List[str] = [
     "ContextWindowExceededError",
     "VRAMExhaustedError",
     "InferenceTimeoutError",
+    "setup_logging",
+    "get_logger",
+    "set_request_context",
+    "clear_request_context",
+    "get_request_id",
 ]

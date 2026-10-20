@@ -61,6 +61,12 @@ checkpoints/
 *.log
 logs/
 
+# Test and coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
 # Antigravity & OS files
 .DS_Store
 Thumbs.db

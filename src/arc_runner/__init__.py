@@ -15,6 +15,13 @@ from arc_runner.core.exceptions import (
     ModelNotFoundError,
     VRAMExhaustedError,
 )
+from arc_runner.core.logging import (
+    clear_request_context,
+    get_logger,
+    get_request_id,
+    set_request_context,
+    setup_logging,
+)
 from arc_runner.devices.detector import DeviceDetector
 from arc_runner.devices.models import (
     DeviceArchitecture,
@@ -34,6 +41,8 @@ from arc_runner.engine.models import (
 )
 from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
 from arc_runner.engine.speculative_engine import HybridSpeculativeEngine
+from arc_runner.server.app import create_app
+from arc_runner.server.model_manager import ModelManager
 from arc_runner.utils.dll_loader import initialize_windows_dll_environment
 
 initialize_windows_dll_environment()
@@ -64,4 +73,11 @@ __all__: List[str] = [
     "ContextWindowExceededError",
     "VRAMExhaustedError",
     "InferenceTimeoutError",
+    "create_app",
+    "ModelManager",
+    "setup_logging",
+    "get_logger",
+    "set_request_context",
+    "clear_request_context",
+    "get_request_id",
 ]
