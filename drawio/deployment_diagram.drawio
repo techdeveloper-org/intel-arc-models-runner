@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" type="diagram" version="24.0.0">
+  <diagram id="diagram1" name="Deployment Diagram">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+    <mxCell id="2" value="&amp;lt;&amp;lt;Client PC (Windows 11 WDDM 3.1+ / Ubuntu 24.04 Kernel 6.8+)&amp;gt;&amp;gt;&amp;#xa;Host_System" style="shape=cube;html=1;whiteSpace=wrap;fontStyle=1;perimeter=cubePerimeter;fillColor=#FFE6CC;strokeColor=#D79B00;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="240" height="194" as="geometry" />
+    </mxCell>
+    <mxCell id="3" value="arc-runner-daemon (:11434)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="2">
+      <mxGeometry x="10" y="60" width="220" height="32" as="geometry" />
+    </mxCell>
+    <mxCell id="4" value="python311.dll / openvino_genai.dll" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="2">
+      <mxGeometry x="10" y="98" width="220" height="32" as="geometry" />
+    </mxCell>
+    <mxCell id="5" value="Local Model Cache (~/.arc-runner/models)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="2">
+      <mxGeometry x="10" y="136" width="220" height="32" as="geometry" />
+    </mxCell>
+    <mxCell id="6" value="&amp;lt;&amp;lt;PCIe Gen4 x16 Expansion Device&amp;gt;&amp;gt;&amp;#xa;Intel_Arc_Discrete_GPU" style="shape=cube;html=1;whiteSpace=wrap;fontStyle=1;perimeter=cubePerimeter;fillColor=#FFE6CC;strokeColor=#D79B00;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="360" y="40" width="240" height="232" as="geometry" />
+    </mxCell>
+    <mxCell id="7" value="ACM-G10 / BMG-G21 Silicon" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="6">
+      <mxGeometry x="10" y="60" width="220" height="32" as="geometry" />
+    </mxCell>
+    <mxCell id="8" value="WDDM Graphics Driver (igc64.dll)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="6">
+      <mxGeometry x="10" y="98" width="220" height="32" as="geometry" />
+    </mxCell>
+    <mxCell id="9" value="Level Zero Runtime (ze_loader.dll)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="6">
+      <mxGeometry x="10" y="136" width="220" height="32" as="geometry" />
+    </mxCell>
+    <mxCell id="10" value="16 GB Dedicated GDDR6 (560 GB/s)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="6">
+      <mxGeometry x="10" y="174" width="220" height="32" as="geometry" />
+    </mxCell>
+    <mxCell id="11" value="&amp;lt;&amp;lt;Processor Package&amp;gt;&amp;gt;&amp;#xa;Intel_Core_Ultra_SoC" style="shape=cube;html=1;whiteSpace=wrap;fontStyle=1;perimeter=cubePerimeter;fillColor=#FFE6CC;strokeColor=#D79B00;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="680" y="40" width="240" height="232" as="geometry" />
+    </mxCell>
+    <mxCell id="12" value="Host CPU (P-cores / E-cores / LP-E cores)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="11">
+      <mxGeometry x="10" y="60" width="220" height="32" as="geometry" />
+    </mxCell>
+    <mxCell id="13" value="AVX-512 &amp; AMX Matrix Acceleration" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="11">
+      <mxGeometry x="10" y="98" width="220" height="32" as="geometry" />
+    </mxCell>
+    <mxCell id="14" value="Intel NPU 3720/4000 (MCDM Driver ze_intel_npu.dll)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="11">
+      <mxGeometry x="10" y="136" width="220" height="32" as="geometry" />
+    </mxCell>
+    <mxCell id="15" value="16 MB Dedicated NPU SRAM + LPDDR5X Bus" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="11">
+      <mxGeometry x="10" y="174" width="220" height="32" as="geometry" />
+    </mxCell>
+    <mxCell id="16" value="PCIe Gen4 x16 (32 GB/s DMA)" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="6" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="17" value="Internal SoC Fabric (Direct Ring Interconnect)" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="11" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

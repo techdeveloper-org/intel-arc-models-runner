@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" type="diagram" version="24.0.0">
+  <diagram id="diagram1" name="Activity Diagram">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+    <mxCell id="2" value="" style="ellipse;html=1;strokeColor=#000000;fillColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="405" y="30" width="30" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="3" value="Start" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="100" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="4" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="3" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="5" value="Receive_Chat_Request" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="190" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="6" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="3" target="5" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="7" value="Validate_Request_DTO" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="280" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="8" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="5" target="7" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="9" value="Is_Prompt_Cached_In_KV" style="rhombus;html=1;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;perimeter=rhombusPerimeter;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="380" y="370" width="80" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="10" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="7" target="9" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="11" value="[yes] Is_Prompt_Cached_In_KV ok" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="490" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="12" value="[yes]" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="9" target="11" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="13" value="Reuse_Prefix_Cache" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="580" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="14" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="11" target="13" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="15" value="Prefill_Prompt_Attention_On_GPU" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="670" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="16" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="13" target="15" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="17" value="Is_Hybrid_Speculation_Enabled" style="rhombus;html=1;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;perimeter=rhombusPerimeter;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="380" y="760" width="80" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="18" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="15" target="17" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="19" value="[yes] Is_Hybrid_Speculation_Enabled ok" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="880" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="20" value="[yes]" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="17" target="19" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="21" value="Generate_Draft_Tokens_On_NPU" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="970" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="22" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="19" target="21" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="23" value="Verify_Tokens_Parallel_On_GPU" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="1060" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="24" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="21" target="23" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="25" value="Commit_Accepted_Tokens_To_KV" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="1150" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="26" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="23" target="25" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="27" value="Autoregressive_Decode_Step" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="1240" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="28" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="25" target="27" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="29" value="Yield_Token_Chunk_To_Stream" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="1330" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="30" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="27" target="29" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="31" value="Is_Stop_Token_Or_Max_Tokens" style="rhombus;html=1;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;perimeter=rhombusPerimeter;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="380" y="1420" width="80" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="32" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="29" target="31" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="33" value="[yes] Is_Stop_Token_Or_Max_Tokens ok" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="1540" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="34" value="[yes]" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="31" target="33" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="35" value="Emit_Final_Metrics_Chunk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="1630" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="36" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="33" target="35" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="37" value="End" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="1720" width="200" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="38" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="35" target="37" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="39" value="" style="shape=doubleEllipse;html=1;strokeColor=#000000;fillColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="405" y="1810" width="30" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="40" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="37" target="39" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
