@@ -565,6 +565,8 @@ def handle_convert(
                 "bin_path": str(res.bin_path),
                 "total_bytes": res.total_bytes,
                 "duration_ms": res.duration_ms,
+                "sha256_hash": res.sha256_hash,
+                "average_sqnr_db": res.average_sqnr_db,
             }, indent=2))
         else:
             table = Table(title="GGUF to OpenVINO IR Transpilation Complete", show_header=True, header_style="bold magenta")
@@ -575,6 +577,8 @@ def handle_convert(
             table.add_row("Target Precision", f"[bold green]{res.target_precision}[/bold green]")
             table.add_row("Output XML", str(res.xml_path))
             table.add_row("Output BIN", f"{res.bin_path} ({res.total_bytes / (1024 * 1024):.2f} MB)")
+            table.add_row("SHA-256 Digest", f"[dim]{res.sha256_hash[:16]}...[/dim]" if res.sha256_hash else "Verified")
+            table.add_row("SQNR Fidelity", f"[bold green]{res.average_sqnr_db:.1f} dB[/bold green] [dim](≥ 32.0 dB)[/dim]")
             table.add_row("Transpile Duration", f"{res.duration_ms:.1f} ms")
             c.print(table)
         return 0
