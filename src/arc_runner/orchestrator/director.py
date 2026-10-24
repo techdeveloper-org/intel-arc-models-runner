@@ -49,8 +49,9 @@ class StudioDirector:
         "]\n"
         "Rules:\n"
         "1. Sum of duration_seconds across all scenes must approximately equal {duration} seconds.\n"
-        "2. Each narration_text must be natural, engaging, and accurately timed for spoken cadence.\n"
-        "3. Output strictly between the boundary tokens. Do not include markdown codeblocks or conversational filler."
+        "2. Each narration_text must be natural, engaging, and accurately timed for spoken cadence (approx 2.0 words/sec).\n"
+        "3. Scene titles MUST be concise and punchy: strictly 2 to 4 words (maximum 24 characters).\n"
+        "4. Output strictly between the boundary tokens. Do not include markdown codeblocks or conversational filler."
     )
 
     def __init__(
@@ -190,31 +191,31 @@ class StudioDirector:
         if any(k in corpus for k in ("quantum", "physics", "wave", "schrodinger", "particle", "atom", "slit", "bohr")):
             storyboard = [
                 (
-                    "The Quantum Realm & Planck Constant",
+                    "The Quantum Realm",
                     "At the subatomic scale, classical physics breaks down. Energy is not continuous, but delivered in discrete quantum packets defined by Planck's constant.",
                     "Cosmic quantum vacuum field with glowing wave packets, neon cyan and gold energy fluctuations.",
                     "slow zoom in",
                 ),
                 (
-                    "Wave-Particle Duality & Double Slit",
+                    "Double Slit Experiment",
                     "When particles pass through a double slit, they interfere with themselves, producing an undeniable wave interference pattern on the detector screen.",
                     "Double-slit experiment interference fringes, oscillating probability waves, atomic orbital paths.",
                     "slow pan right",
                 ),
                 (
-                    "Schrodinger Wave Superposition",
+                    "Schrodinger Superposition",
                     "The Schrodinger equation governs this behavior, describing the quantum state vector as a superposition of all possible physical outcomes simultaneously.",
                     "Schrodinger wave function probability density distribution, glowing cyan waveform envelopes.",
                     "orbital drift",
                 ),
                 (
-                    "Heisenberg Uncertainty Principle",
+                    "Uncertainty Principle",
                     "Werner Heisenberg proved that position and momentum cannot be simultaneously measured with arbitrary precision, setting the fundamental limit of physical reality.",
                     "Heisenberg uncertainty phase space diagram, quantum measurement perturbation.",
                     "slow push in",
                 ),
                 (
-                    "Quantum Technology & Future Computing",
+                    "Future Quantum Tech",
                     "Today, harnessing superposition and entanglement empowers quantum cryptography and next-generation silicon-accelerated computation.",
                     "Quantum computing qubit lattice with glowing laser pulses and superconducting interconnects.",
                     "slow pan left",
@@ -223,25 +224,25 @@ class StudioDirector:
         elif any(k in corpus for k in ("black hole", "relativity", "gravity", "spacetime", "star", "cosmic", "universe")):
             storyboard = [
                 (
-                    "Curvature of Spacetime & Relativity",
+                    "Spacetime Curvature",
                     "Albert Einstein revealed that gravity is not a traditional force, but the geometrical curvature of four-dimensional spacetime warped by mass.",
                     "Deep cosmic canvas with curved spacetime coordinate mesh and glowing gravitational well.",
                     "slow zoom in",
                 ),
                 (
-                    "The Event Horizon Singularity",
+                    "Event Horizon Singularity",
                     "At the threshold of a black hole, escape velocity surpasses the speed of light, freezing time from the perspective of a distant observer.",
                     "Accretion disk glowing orange and violet surrounding supermassive black hole event horizon.",
                     "slow pan right",
                 ),
                 (
-                    "Gravitational Lensing & Geodesics",
+                    "Gravitational Lensing",
                     "Extreme mass bends passing light rays, acting as a cosmic magnifying glass and creating multiple distorted images of distant galaxies.",
                     "Einstein ring and gravitational lensing arcs across deep field stellar background.",
                     "orbital drift",
                 ),
                 (
-                    "Cosmic Expansion & Dark Energy",
+                    "Cosmic Expansion",
                     "Observations of distant supernovae demonstrate that our universe is expanding at an accelerating pace driven by mysterious dark energy.",
                     "Cosmic web of galaxy clusters stretching across expanding deep space filaments.",
                     "slow push in",
@@ -250,19 +251,19 @@ class StudioDirector:
         elif any(k in corpus for k in ("intel", "arc", "gpu", "npu", "cpu", "silicon", "hardware", "neural", "tensor")):
             storyboard = [
                 (
-                    "Intel Xe-LPG Silicon Architecture",
+                    "Intel Xe Architecture",
                     "The Intel Arc Xe-LPG architecture integrates dedicated XMX matrix math engines delivering extreme parallel throughput for deep learning inference.",
                     "Silicon microchip die visualization with glowing Xe cores and high-speed memory busses.",
                     "slow zoom in",
                 ),
                 (
-                    "Level Zero Zero-Copy USM Bridge",
+                    "Level Zero USM Bridge",
                     "Unified Shared Memory bridges CPU, Arc GPU, and AI Boost NPU, eliminating host-device serialization overhead with microsecond tensor handoffs.",
                     "Circuit board telemetry interconnect with glowing high-speed tensor data pipelines.",
                     "slow pan right",
                 ),
                 (
-                    "Multi-Modal Autonomous Dispatch",
+                    "Autonomous Dispatch",
                     "Heterogeneous scheduling dynamically routes speech synthesis to the low-power NPU while reserving full GPU compute for diffusion rendering.",
                     "Multi-agent DAG pipeline visualization with concurrent worker threads and join barrier.",
                     "orbital drift",

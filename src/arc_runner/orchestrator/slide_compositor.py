@@ -40,11 +40,11 @@ class EducationalSlideCompositor:
 
     _FORMULA_CATALOG: ClassVar[dict[str, list[str]]] = {
         "quantum": [
-            "|ψ(t)⟩ = α|0⟩ + β|1⟩",
-            "iℏ ∂ψ/∂t = Ĥψ",
-            "Δx · Δp ≥ ℏ/2",
-            "E = hν = ℏω",
-            "λ = h / p",
+            "|ψ(t)> = α|0> + β|1>",
+            "i·h_bar (∂ψ/∂t) = H·ψ",
+            "Δx · Δp ≥ h_bar / 2",
+            "E = h·ν = h_bar·ω",
+            "I(y) = I₀ · cos²(β) · sinc²(α)",
         ],
         "astrophysics": [
             "E² = (pc)² + (m₀c²)²",
@@ -116,7 +116,7 @@ class EducationalSlideCompositor:
             else:
                 canvas = self._render_cosmic_gradient(width, height)
                 self._draw_particles(canvas, particles, alpha, width, height)
-                self._draw_physics_simulation(canvas, domain_key, alpha, width, height)
+                self._draw_physics_simulation(canvas, domain_key, alpha, width, height, scene=scene)
 
             canvas_pil = Image.fromarray(canvas)
             draw = ImageDraw.Draw(canvas_pil, "RGBA")
@@ -317,6 +317,7 @@ class EducationalSlideCompositor:
         alpha: float,
         width: int,
         height: int,
+        scene: ScenePlan | None = None,
     ) -> None:
         """Dispatch domain-specific dynamic physics simulation renderer.
 
@@ -326,9 +327,18 @@ class EducationalSlideCompositor:
             alpha: Normalized progress parameter [0.0, 1.0].
             width: Canvas width.
             height: Canvas height.
+            scene: Optional target ScenePlan to inspect fine-grained physics cues.
         """
+        scene_cue = f"{scene.title} {scene.visual_prompt}".lower() if scene else ""
+
         if domain_key == "quantum":
-            if width >= 256:
+            if any(k in scene_cue for k in ("slit", "duality", "interference")):
+                self._draw_double_slit_experiment(canvas, alpha, width, height)
+            elif any(k in scene_cue for k in ("atom", "bohr", "electron", "realm")):
+                self._draw_bohr_orbitals(canvas, alpha, width, height)
+            elif any(k in scene_cue for k in ("superposition", "schrodinger", "packet")):
+                self._draw_quantum_wave_interference(canvas, alpha, width, height)
+            elif width >= 256:
                 self._draw_quantum_wave_interference(canvas, alpha, width, height)
                 self._draw_bohr_orbitals(canvas, alpha, width, height)
             else:
@@ -339,6 +349,64 @@ class EducationalSlideCompositor:
             self._draw_neural_lattice(canvas, alpha, width, height)
         else:
             self._draw_quantum_wave_interference(canvas, alpha, width, height)
+
+    def _draw_double_slit_experiment(
+        self,
+        canvas: np.ndarray,
+        alpha: float,
+        width: int,
+        height: int,
+    ) -> None:
+        """Render Young's double-slit experiment showing wave-particle duality (Proof M10).
+
+        Args:
+            canvas: Target RGB canvas.
+            alpha: Timeline progress.
+            width: Width in pixels.
+            height: Height in pixels.
+        """
+        center_y = int(height * 0.48)
+        barrier_x = int(width * 0.36)
+        slit_gap = max(16, int(height * 0.16))
+        slit_w = max(4, height // 50)
+
+        s1_y = center_y - slit_gap // 2
+        s2_y = center_y + slit_gap // 2
+
+        wave_spacing = max(16, width // 28)
+        wave_speed = 1.5 * alpha * wave_spacing
+        for i in range(12):
+            wx = int((i * wave_spacing + wave_speed) % max(1, barrier_x))
+            cv2.line(canvas, (wx, int(height * 0.18)), (wx, int(height * 0.78)), (0, 160, 255), 1, lineType=cv2.LINE_AA)
+
+        barrier_color = (60, 90, 140)
+        cv2.line(canvas, (barrier_x, int(height * 0.15)), (barrier_x, s1_y - slit_w), barrier_color, 3, cv2.LINE_AA)
+        cv2.line(canvas, (barrier_x, s1_y + slit_w), (barrier_x, s2_y - slit_w), barrier_color, 3, cv2.LINE_AA)
+        cv2.line(canvas, (barrier_x, s2_y + slit_w), (barrier_x, int(height * 0.82)), barrier_color, 3, cv2.LINE_AA)
+
+        cv2.circle(canvas, (barrier_x, s1_y), 3, (0, 240, 255), -1, cv2.LINE_AA)
+        cv2.circle(canvas, (barrier_x, s2_y), 3, (0, 240, 255), -1, cv2.LINE_AA)
+
+        max_r = int(width * 0.52)
+        for r_base in range(12, max_r, max(12, width // 32)):
+            r = int((r_base + alpha * max(16, width // 28)) % max_r)
+            if r > 4:
+                cv2.ellipse(canvas, (barrier_x, s1_y), (r, r), 0, -85, 85, (0, 210, 255), 1, cv2.LINE_AA)
+                cv2.ellipse(canvas, (barrier_x, s2_y), (r, r), 0, -85, 85, (160, 70, 255), 1, cv2.LINE_AA)
+
+        screen_x = int(width * 0.88)
+        cv2.line(canvas, (screen_x, int(height * 0.16)), (screen_x, int(height * 0.80)), (100, 120, 150), 2, cv2.LINE_AA)
+
+        for y in range(int(height * 0.18), int(height * 0.78), 2):
+            dy = float(y - center_y) / (height * 0.22)
+            beta = math.pi * 3.5 * dy - alpha * math.tau
+            sinc_arg = max(0.001, math.pi * 0.8 * dy)
+            intensity = (math.cos(beta) ** 2) * ((math.sin(sinc_arg) / sinc_arg) ** 2)
+            fringe_w = int(24 * intensity)
+            if fringe_w > 0:
+                bright = int(120 + 135 * intensity)
+                color = (int(bright * 0.1), int(bright * 0.8), bright)
+                cv2.line(canvas, (screen_x + 3, y), (screen_x + 3 + fringe_w, y), color, 1, lineType=cv2.LINE_AA)
 
     def _draw_quantum_wave_interference(self, canvas: np.ndarray, alpha: float, width: int, height: int) -> None:
         """Render time-dependent quantum probability wave packet and interference fringes (Proof M1).
@@ -503,15 +571,38 @@ class EducationalSlideCompositor:
         draw.text((margin_x + 8, badge_y + 3), badge_text, font=badge_font, fill=(0, 240, 255, 255))
 
         title_y = badge_y + badge_h + max(4, int(height * 0.012))
-        clean_title = scene.title.upper()
-        if len(clean_title) > 36:
-            clean_title = clean_title[:33] + "..."
+        clean_title = scene.title.upper().strip()
 
-        draw.text((margin_x, title_y), clean_title, font=title_font, fill=(255, 255, 255, 255))
+        card_w_est = max(int(width * 0.38), 180)
+        card_x_est = width - card_w_est - margin_x
+        max_title_w = max(100, card_x_est - margin_x - 16)
 
-        title_bbox = title_font.getbbox(clean_title)
-        line_y = title_y + (title_bbox[3] - title_bbox[1]) + max(6, int(height * 0.01))
-        draw.line([(margin_x, line_y), (margin_x + max(60, int(width * 0.35)), line_y)], fill=(0, 220, 255, 220), width=max(1, height // 300))
+        words = clean_title.split()
+        lines: list[str] = []
+        curr_line: list[str] = []
+
+        for word in words:
+            candidate = " ".join([*curr_line, word])
+            bbox = title_font.getbbox(candidate)
+            if bbox[2] - bbox[0] <= max_title_w:
+                curr_line.append(word)
+            else:
+                if curr_line:
+                    lines.append(" ".join(curr_line))
+                curr_line = [word]
+
+        if curr_line:
+            lines.append(" ".join(curr_line))
+
+        lines = lines[:2]
+        line_step = max(14, int(height * 0.042))
+
+        for idx, line in enumerate(lines):
+            draw.text((margin_x, title_y + (idx * line_step)), line, font=title_font, fill=(255, 255, 255, 255))
+
+        accent_y = title_y + (len(lines) * line_step) + max(4, int(height * 0.008))
+        accent_w = min(max_title_w, max(60, int(width * 0.35)))
+        draw.line([(margin_x, accent_y), (margin_x + accent_w, accent_y)], fill=(0, 220, 255, 220), width=max(1, height // 300))
 
     def _draw_formula_card(self, draw: ImageDraw.ImageDraw, formula: str, width: int, height: int) -> None:
         """Render translucent glassmorphic HUD formula card (Proof M4, M5).

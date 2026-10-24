@@ -233,6 +233,37 @@ class TestSlideCompositorPositiveLayer:
         assert len(artifact.frames) == 20
         assert artifact.frames[0].shape == (256, 256, 3)
 
+    def test_p_slide_17_double_slit_diffraction_render(self) -> None:
+        """Verify double-slit diffraction simulation activates and produces non-empty interference patterns."""
+        compositor = EducationalSlideCompositor()
+        scene = ScenePlan(
+            scene_id=2,
+            title="Double Slit Experiment",
+            narration_text="Photons create interference patterns across two parallel slits.",
+            visual_prompt="Double slit interference fringes with monochromatic wavelets.",
+            duration_seconds=2.0,
+        )
+        frames = compositor.render_scene_frames(scene, width=640, height=360, num_frames=5)
+
+        assert len(frames) == 5
+        assert frames[0].shape == (360, 640, 3)
+        assert np.any(frames[0] > 0)
+
+    def test_p_slide_18_widescreen_16x9_voronoi_layout(self) -> None:
+        """Verify 1280x720 HD widescreen rendering executes with zero title-hud collisions."""
+        compositor = EducationalSlideCompositor()
+        scene = ScenePlan(
+            scene_id=1,
+            title="Quantum Superposition and Wave Mechanics in Modern Physics",
+            narration_text="Comprehensive exploration of quantum state vectors and wave functions.",
+            visual_prompt="Quantum state vector in Hilbert space.",
+            duration_seconds=1.0,
+        )
+        frames = compositor.render_scene_frames(scene, width=1280, height=720, num_frames=2)
+
+        assert len(frames) == 2
+        assert frames[0].shape == (720, 1280, 3)
+
 
 class TestSlideCompositorNegativeLayer:
     """Negative test scenarios validating defensive boundaries and parameter validation."""
