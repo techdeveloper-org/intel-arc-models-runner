@@ -26,6 +26,7 @@ from arc_runner.devices.detector import DeviceDetector
 from arc_runner.devices.models import DeviceType
 from arc_runner.server.model_manager import ModelManager
 from arc_runner.server.routes_embeddings import embeddings_router
+from arc_runner.server.routes_lora import router as lora_router
 from arc_runner.server.routes_ollama import router as ollama_router
 from arc_runner.server.routes_openai import router as openai_router
 from arc_runner.server.routes_ui import router as ui_router
@@ -146,6 +147,7 @@ def create_app(
 
     app.include_router(ui_router)
     app.include_router(embeddings_router)
+    app.include_router(lora_router)
     app.include_router(ollama_router)
     app.include_router(openai_router)
 

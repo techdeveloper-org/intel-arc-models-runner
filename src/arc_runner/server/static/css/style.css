@@ -696,3 +696,161 @@ body {
     background: rgba(0, 199, 253, 0.25);
     border-radius: 3px;
 }
+
+/* Phase 10: Multi-LoRA Adapter Hot-Swap Studio (UX-7 to UX-11) */
+.lora-drawer {
+    background: rgba(13, 17, 23, 0.6);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    margin-bottom: var(--space-2);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    backdrop-filter: blur(8px);
+    transition: all 0.25s ease;
+}
+
+.lora-drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.lora-label-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.lora-subtitle {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.lora-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.lora-select {
+    padding: 4px 8px;
+    font-size: 0.78rem;
+    min-width: 170px;
+    border-radius: var(--radius-sm);
+    background: rgba(15, 23, 42, 0.9);
+}
+
+.lora-scale-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.lora-scale-label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+}
+
+.lora-slider {
+    width: 80px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+}
+
+.lora-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--intel-cyan);
+    box-shadow: 0 0 8px rgba(0, 199, 253, 0.6);
+    cursor: pointer;
+}
+
+.lora-scale-val {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--intel-cyan);
+    min-width: 28px;
+}
+
+.btn-outline-cyan {
+    background: transparent;
+    border: 1px solid var(--intel-cyan);
+    color: var(--intel-cyan);
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-outline-cyan:hover {
+    background: rgba(0, 199, 253, 0.15);
+    box-shadow: var(--shadow-glow-intel);
+}
+
+.active-lora-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-height: 24px;
+}
+
+.lora-empty-hint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.lora-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 199, 253, 0.1);
+    border: 1px solid rgba(0, 199, 253, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    animation: fadeIn 0.2s ease-in;
+}
+
+.lora-chip-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.lora-chip-scale {
+    font-family: var(--font-mono);
+    color: var(--intel-cyan);
+    font-size: 0.7rem;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+.lora-chip-remove {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    transition: color 0.15s;
+}
+
+.lora-chip-remove:hover {
+    color: var(--danger-red);
+}

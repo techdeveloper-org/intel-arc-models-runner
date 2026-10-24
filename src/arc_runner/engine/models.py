@@ -26,6 +26,14 @@ class ModelPrecision(str, Enum):
     FP32 = "FP32"
 
 
+class LoRAAdapterSpec(BaseModel):
+    """User-requested adapter binding with scaling weight multiplier."""
+
+    name: str = Field(..., description="Name or identifier of the LoRA adapter")
+    scale: float = Field(default=1.0, ge=0.0, le=2.0, description="Linear blending scale factor lambda")
+    path: Optional[str] = Field(default=None, description="Optional explicit filesystem path to adapter directory")
+
+
 class GenerationConfig(BaseModel):
     """Execution parameters controlling token sampling and decoding."""
 
@@ -37,6 +45,7 @@ class GenerationConfig(BaseModel):
     stop_strings: List[str] = Field(default_factory=list, description="Sequences that immediately halt generation")
     stop_token_ids: List[int] = Field(default_factory=list, description="Token IDs that halt generation")
     stream: bool = Field(default=False, description="Whether to stream tokens incrementally")
+    adapters: Optional[List[LoRAAdapterSpec]] = Field(default=None, description="Active LoRA adapters to compose during generation")
 
 
 class TokenChunk(BaseModel):

@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initModelHub();
     initBenchmarkStudio();
     initEmbeddingsStudio();
+    initLoRAStudio();
 });
 
 /**
@@ -135,15 +136,21 @@ function initChatPlayground() {
             userMessagePayload.images = [imageToSend];
         }
 
+        const activeAdapters = (typeof getActiveLoRAAdapters === 'function') ? getActiveLoRAAdapters() : [];
+        const requestPayload = {
+            model: selectedModel,
+            messages: [userMessagePayload],
+            stream: true
+        };
+        if (activeAdapters && activeAdapters.length > 0) {
+            requestPayload.adapters = activeAdapters;
+        }
+
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: selectedModel,
-                    messages: [userMessagePayload],
-                    stream: true
-                })
+                body: JSON.stringify(requestPayload)
             });
 
             if (!response.ok) {
@@ -770,4 +777,105 @@ function initEmbeddingsStudio() {
 function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+let activeLoRAAdapters = [];
+
+/**
+ * Get the currently blended LoRA adapters for inference requests.
+ * @returns {Array<{name: string, scale: number}>}
+ */
+function getActiveLoRAAdapters() {
+    return activeLoRAAdapters;
+}
+
+/**
+ * Initialize Multi-LoRA Adapter Hot-Swap Studio drawer controls and event handlers.
+ */
+function initLoRAStudio() {
+    const loraSelect = document.getElementById('lora-select');
+    const loraSlider = document.getElementById('lora-scale-slider');
+    const loraScaleVal = document.getElementById('lora-scale-val');
+    const btnAddLora = document.getElementById('btn-add-lora');
+    const chipsContainer = document.getElementById('active-lora-chips');
+    const metricLora = document.getElementById('metric-lora');
+
+    if (!loraSelect || !btnAddLora || !chipsContainer) return;
+
+    if (loraSlider && loraScaleVal) {
+        loraSlider.addEventListener('input', () => {
+            loraScaleVal.textContent = parseFloat(loraSlider.value).toFixed(2);
+        });
+    }
+
+    async function loadAvailableAdapters() {
+        try {
+            const resp = await fetch('/api/adapters');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const adapters = data.adapters || [];
+
+            loraSelect.innerHTML = '<option value="">-- Select LoRA Adapter --</option>';
+            adapters.forEach(ad => {
+                const opt = document.createElement('option');
+                opt.value = ad.name;
+                opt.textContent = `${ad.name} (r=${ad.rank || 16}, α=${ad.alpha || 32})`;
+                loraSelect.appendChild(opt);
+            });
+        } catch (err) {
+            console.error('Failed to load LoRA adapters:', err);
+        }
+    }
+
+    function renderActiveChips() {
+        chipsContainer.innerHTML = '';
+        if (activeLoRAAdapters.length === 0) {
+            chipsContainer.innerHTML = '<span class="lora-empty-hint">No LoRA adapters currently blended. Base model weights active.</span>';
+            if (metricLora) metricLora.textContent = 'None (Base)';
+            return;
+        }
+
+        activeLoRAAdapters.forEach((item, index) => {
+            const chip = document.createElement('div');
+            chip.className = 'lora-chip';
+            chip.innerHTML = `
+                <span class="lora-chip-name">${escapeHtml(item.name)}</span>
+                <span class="lora-chip-scale">&lambda;=${item.scale.toFixed(2)}</span>
+                <button type="button" class="lora-chip-remove" data-index="${index}" title="Remove adapter">&times;</button>
+            `;
+            chipsContainer.appendChild(chip);
+        });
+
+        chipsContainer.querySelectorAll('.lora-chip-remove').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.target.getAttribute('data-index'), 10);
+                if (!isNaN(idx)) {
+                    activeLoRAAdapters.splice(idx, 1);
+                    renderActiveChips();
+                }
+            });
+        });
+
+        if (metricLora) {
+            metricLora.textContent = activeLoRAAdapters.map(a => `${a.name}(${a.scale.toFixed(2)})`).join(', ');
+        }
+    }
+
+    btnAddLora.addEventListener('click', () => {
+        const selectedName = loraSelect.value;
+        if (!selectedName) return;
+
+        const scale = loraSlider ? parseFloat(loraSlider.value) : 1.0;
+        const existingIdx = activeLoRAAdapters.findIndex(a => a.name === selectedName);
+
+        if (existingIdx >= 0) {
+            activeLoRAAdapters[existingIdx].scale = scale;
+        } else {
+            activeLoRAAdapters.push({ name: selectedName, scale: scale });
+        }
+
+        renderActiveChips();
+    });
+
+    loadAvailableAdapters();
 }
