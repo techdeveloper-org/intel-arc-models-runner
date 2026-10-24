@@ -81,3 +81,6 @@ addopts = "-ra -q --import-mode=importlib"
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+markers = [
+    "hardware: integration tests requiring real Intel silicon (Arc GPU, AI Boost NPU, or Core Ultra CPU)",
+]

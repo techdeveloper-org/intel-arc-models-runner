@@ -168,6 +168,19 @@ Export structured topology telemetry via JSON:
 arc-runner devices --json
 ```
 
+### Physical Silicon Hardware Self-Test & In-Memory Triad Benchmarking
+Execute mathematically proven integration benchmarks directly on live physical silicon (Intel Arc GPU, AI Boost NPU, and Core Ultra CPU) with zero external network downloads:
+```bash
+# Run real silicon integration tests with Rich terminal telemetry cards
+arc-runner test-hardware
+
+# Target a specific accelerator with custom evaluation iterations
+arc-runner test-hardware --device GPU --iterations 20
+
+# Output structured telemetry JSON for CI/CD telemetry pipelines
+arc-runner test-hardware --json
+```
+
 ---
 
 ## 📦 Model Hub, Daemon Server & Benchmarking
@@ -466,7 +479,7 @@ Please review our [Contributing Guidelines](CONTRIBUTING.md) and submit Pull Req
 
 ---
 
-## 📊 Complete Test Coverage (275 Tests / 20 Test Modules)
+## 📊 Complete Test Coverage (296 Tests / 21 Test Modules)
 
 Every component ships with a full **Triad Test Suite** (Positive + Negative + Edge-Case) and mathematically proven invariants:
 
@@ -492,12 +505,13 @@ Every component ships with a full **Triad Test Suite** (Positive + Negative + Ed
 | `test_ui_endpoints.py` | 24 | Web UI SPA, SSE stream endpoints, embeddings test, GGUF convert |
 | `test_lora.py` | 16 | Multi-LoRA manager, safetensors zero-copy header (M26), LRU cache (M24) |
 | `test_lora_api.py` | 10 | LoRA REST API endpoints, hot-swapping dispatch (M23), request isolation (M27) |
-| **Total** | **275** | **0 failures · 0 errors** |
+| `test_real_hardware.py` | 21 | Real hardware integration (Arc Xe-LPG, AI Boost NPU, USM zero-copy, dual-silicon concurrency, Proofs M36–M43) |
+| **Total** | **296** | **0 failures · 0 errors** |
 
 ```bash
 # Run full test suite
 python -m pytest -v --tb=short
-# → 275 passed in ~7.0s
+# → 296 passed in ~11.0s
 ```
 
 ---
@@ -510,8 +524,8 @@ python -m pytest -v --tb=short
 | 🟢 Done | Multi-LoRA Adapter Hot-Swapping on Intel Arc GPU | **Completed ✅** |
 | 🟢 Done | OpenVINO Continuous Batching Pipeline wiring | **Completed ✅** |
 | 🟢 Done | Multi-user KV-Cache session isolation | **Completed ✅** |
+| 🟢 Done | Real hardware integration tests (Intel Core Ultra) | **Completed ✅** |
 | 🔥 High | PyPI Publish (`pip install arc-runner`) | Planned |
-| 🔥 High | Real hardware integration tests (Intel Core Ultra) | Planned |
 | 🟡 Medium | Docker image (`docker run arc-runner`) | Planned |
 
 ---
