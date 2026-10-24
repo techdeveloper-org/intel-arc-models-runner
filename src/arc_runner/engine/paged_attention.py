@@ -6,7 +6,8 @@ address translation (Proof M17), and Radix Tree prefix sharing for multi-turn ch
 
 from collections import deque
 import math
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+import threading
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 from arc_runner.core.exceptions import ArcRunnerError
 from arc_runner.core.logging import get_logger
@@ -47,6 +48,7 @@ class PagedBlockTable:
         self._free_blocks: deque[int] = deque(range(total_blocks))
         self._seq_to_blocks: Dict[str, List[int]] = {}
         self._seq_lengths: Dict[str, int] = {}
+        self._lock = threading.RLock()
 
     @property
     def block_size(self) -> int:
@@ -61,7 +63,42 @@ class PagedBlockTable:
     @property
     def free_blocks_count(self) -> int:
         """Return number of unallocated physical blocks remaining."""
-        return len(self._free_blocks)
+        with self._lock:
+            return len(self._free_blocks)
+
+    @property
+    def allocated_blocks_count(self) -> int:
+        """Return number of physical blocks currently allocated."""
+        with self._lock:
+            return self._total_blocks - len(self._free_blocks)
+
+    @property
+    def utilization_ratio(self) -> float:
+        """Return the ratio of allocated blocks to total capacity."""
+        with self._lock:
+            return float((self._total_blocks - len(self._free_blocks)) / self._total_blocks)
+
+    def get_sequence_blocks(self, seq_id: str) -> List[int]:
+        """Return list of physical block IDs assigned to a sequence.
+
+        Args:
+            seq_id: Sequence identifier.
+
+        Returns:
+            List of assigned physical block IDs.
+        """
+        with self._lock:
+            return list(self._seq_to_blocks.get(seq_id, []))
+
+    def get_block_map(self) -> List[int]:
+        """Return binary occupation map (1=allocated, 0=free) across all blocks.
+
+        Returns:
+            List of binary integer flags for each physical block index.
+        """
+        with self._lock:
+            free_set = set(self._free_blocks)
+            return [0 if i in free_set else 1 for i in range(self._total_blocks)]
 
     def allocate_sequence(self, seq_id: str, initial_tokens: int) -> List[int]:
         """Allocate physical blocks to accommodate initial sequence length.
@@ -198,12 +235,36 @@ class PagedBlockTable:
 
 
 class RadixPrefixCache:
-    """Radix tree prefix cache for shared KV blocks across requests (Proof M12)."""
+    """Radix tree prefix cache for shared KV blocks across requests (Proof M12, M31)."""
 
     def __init__(self) -> None:
         """Initialize empty radix prefix tree with root node."""
         self._tree: Dict[int, Any] = {}
         self._cached_prefixes: Dict[Tuple[int, ...], List[int]] = {}
+        self._hit_count: int = 0
+        self._miss_count: int = 0
+        self._lock = threading.RLock()
+
+    @property
+    def hit_count(self) -> int:
+        """Return total prefix cache hits."""
+        return self._hit_count
+
+    @property
+    def miss_count(self) -> int:
+        """Return total prefix cache misses."""
+        return self._miss_count
+
+    @property
+    def total_lookups(self) -> int:
+        """Return combined lookup operations."""
+        return self._hit_count + self._miss_count
+
+    @property
+    def hit_rate(self) -> float:
+        """Return empirical prefix hit rate ratio in [0.0, 1.0]."""
+        total = self.total_lookups
+        return float(self._hit_count / total) if total > 0 else 0.0
 
     def match_prefix(self, token_ids: Sequence[int]) -> Tuple[List[int], List[int]]:
         """Identify longest common prefix and return matched token IDs and block indices.
@@ -214,22 +275,28 @@ class RadixPrefixCache:
         Returns:
             Tuple of (matched_token_ids, matched_physical_block_ids).
         """
-        longest_match: List[int] = []
-        longest_blocks: List[int] = []
+        with self._lock:
+            longest_match: List[int] = []
+            longest_blocks: List[int] = []
 
-        tokens_tuple = tuple(token_ids)
-        for cached_key, blocks in self._cached_prefixes.items():
-            common_len = 0
-            for a, b in zip(tokens_tuple, cached_key):
-                if a == b:
-                    common_len += 1
-                else:
-                    break
-            if common_len > len(longest_match):
-                longest_match = list(tokens_tuple[:common_len])
-                longest_blocks = list(blocks[: (common_len // 16)])
+            tokens_tuple = tuple(token_ids)
+            for cached_key, blocks in self._cached_prefixes.items():
+                common_len = 0
+                for a, b in zip(tokens_tuple, cached_key):
+                    if a == b:
+                        common_len += 1
+                    else:
+                        break
+                if common_len > len(longest_match):
+                    longest_match = list(tokens_tuple[:common_len])
+                    longest_blocks = list(blocks[: (common_len // 16)])
 
-        return longest_match, longest_blocks
+            if longest_match:
+                self._hit_count += 1
+            else:
+                self._miss_count += 1
+
+            return longest_match, longest_blocks
 
     def insert_prefix(self, token_ids: Sequence[int], block_ids: Sequence[int]) -> None:
         """Register a computed prefix and its physical block IDs in the prefix cache.
@@ -238,10 +305,14 @@ class RadixPrefixCache:
             token_ids: Sequence of token integers in prefix.
             block_ids: List of physical block IDs assigned to prefix.
         """
-        if token_ids and block_ids:
-            self._cached_prefixes[tuple(token_ids)] = list(block_ids)
+        with self._lock:
+            if token_ids and block_ids:
+                self._cached_prefixes[tuple(token_ids)] = list(block_ids)
 
     def clear(self) -> None:
         """Purge all cached prefix associations."""
-        self._cached_prefixes.clear()
-        self._tree.clear()
+        with self._lock:
+            self._cached_prefixes.clear()
+            self._tree.clear()
+            self._hit_count = 0
+            self._miss_count = 0

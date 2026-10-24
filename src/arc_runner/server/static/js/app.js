@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initBenchmarkStudio();
     initEmbeddingsStudio();
     initLoRAStudio();
+    initBatchCockpit();
 });
 
 /**
@@ -878,4 +879,126 @@ function initLoRAStudio() {
     });
 
     loadAvailableAdapters();
+}
+
+/**
+ * Initialize Continuous Batching and Paged KV-Cache cockpit telemetry.
+ *
+ * Implements 2-second periodic polling of /api/batch/status, updates the SVG arc
+ * utilization gauge according to mathematical formulation UX-12, and dynamically
+ * renders active sequence slot cards.
+ */
+function initBatchCockpit() {
+    const gaugePath = document.getElementById('batch-gauge-path');
+    const gaugePct = document.getElementById('batch-gauge-pct');
+    const ribbonActive = document.getElementById('batch-ribbon-active');
+    const ribbonQueue = document.getElementById('batch-ribbon-queue');
+    const ribbonBlocks = document.getElementById('batch-ribbon-blocks');
+    const ribbonPrefix = document.getElementById('batch-ribbon-prefix');
+    const statusBadge = document.getElementById('batch-status-badge');
+    const slotsGrid = document.getElementById('batch-slots-grid');
+
+    if (!gaugePath || !gaugePct) {
+        return;
+    }
+
+    async function fetchBatchTelemetry() {
+        try {
+            const resp = await fetch('/api/batch/status');
+            if (!resp.ok) {
+                return;
+            }
+            const data = await resp.json();
+            updateBatchUI(data);
+        } catch (err) {
+            console.debug('Batch telemetry poll skipped:', err);
+        }
+    }
+
+    function updateBatchUI(data) {
+        const utilPct = typeof data.vram_block_utilization_pct === 'number' ? data.vram_block_utilization_pct : 0.0;
+        const mu = Math.max(0.0, Math.min(1.0, utilPct / 100.0));
+        const theta = mu * Math.PI;
+        const cx = 100;
+        const cy = 100;
+        const r = 80;
+
+        const x = cx - r * Math.cos(theta);
+        const y = cy - r * Math.sin(theta);
+
+        if (mu > 0.001) {
+            gaugePath.setAttribute('d', `M 20 100 A 80 80 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)}`);
+        } else {
+            gaugePath.setAttribute('d', 'M 20 100 A 80 80 0 0 1 20 100');
+        }
+
+        let strokeColor = '#10B981';
+        if (mu >= 0.90) {
+            strokeColor = '#EF4444';
+        } else if (mu >= 0.70) {
+            strokeColor = '#F59E0B';
+        }
+        gaugePath.setAttribute('stroke', strokeColor);
+        gaugePct.textContent = `${utilPct.toFixed(1)}%`;
+
+        if (ribbonActive) {
+            ribbonActive.textContent = `${data.running_sequences} / 16`;
+        }
+        if (ribbonQueue) {
+            ribbonQueue.textContent = `${data.waiting_sequences}`;
+        }
+        if (ribbonBlocks) {
+            const totalBlocks = (data.used_kv_blocks || 0) + (data.free_kv_blocks || 1024);
+            ribbonBlocks.textContent = `${data.used_kv_blocks || 0} / ${totalBlocks}`;
+        }
+        if (ribbonPrefix) {
+            const hitRate = typeof data.prefix_cache_hit_rate === 'number' ? data.prefix_cache_hit_rate : 0.0;
+            ribbonPrefix.textContent = `${hitRate.toFixed(1)}%`;
+        }
+        if (statusBadge) {
+            const isBusy = (data.running_sequences || 0) > 0;
+            statusBadge.textContent = `${isBusy ? 'ACTIVE' : 'IDLE'} • ${data.running_sequences || 0} / 16 SLOTS`;
+            statusBadge.className = isBusy ? 'speedup-badge badge-active-pulse' : 'speedup-badge';
+        }
+
+        if (slotsGrid) {
+            const runningIds = Array.isArray(data.running_sequence_ids) ? data.running_sequence_ids : [];
+            const waitingIds = Array.isArray(data.waiting_sequence_ids) ? data.waiting_sequence_ids : [];
+
+            if (runningIds.length === 0 && waitingIds.length === 0) {
+                slotsGrid.innerHTML = '<div class="slot-empty-state">No concurrent requests in flight. Scheduler idle.</div>';
+                return;
+            }
+
+            slotsGrid.innerHTML = '';
+            runningIds.forEach(id => {
+                const card = document.createElement('div');
+                card.className = 'slot-card';
+                card.innerHTML = `
+                    <div class="slot-card-header">
+                        <span class="slot-card-id">${escapeHtml(id)}</span>
+                        <span class="slot-card-badge slot-badge-running">RUNNING</span>
+                    </div>
+                    <div class="slot-card-meta">Paged Block Table Mapped</div>
+                `;
+                slotsGrid.appendChild(card);
+            });
+
+            waitingIds.forEach(id => {
+                const card = document.createElement('div');
+                card.className = 'slot-card';
+                card.innerHTML = `
+                    <div class="slot-card-header">
+                        <span class="slot-card-id">${escapeHtml(id)}</span>
+                        <span class="slot-card-badge slot-badge-waiting">WAITING</span>
+                    </div>
+                    <div class="slot-card-meta">In Queue (Little's Law)</div>
+                `;
+                slotsGrid.appendChild(card);
+            });
+        }
+    }
+
+    fetchBatchTelemetry();
+    setInterval(fetchBatchTelemetry, 2000);
 }
