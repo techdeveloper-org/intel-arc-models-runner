@@ -24,7 +24,9 @@ from arc_runner.core.logging import (
 )
 from arc_runner.devices.detector import DeviceDetector
 from arc_runner.devices.models import DeviceType
+from arc_runner.server.batch_pipeline import BatchExecutionPipeline
 from arc_runner.server.model_manager import ModelManager
+from arc_runner.server.routes_batch import router as batch_router
 from arc_runner.server.routes_embeddings import embeddings_router
 from arc_runner.server.routes_lora import router as lora_router
 from arc_runner.server.routes_ollama import router as ollama_router
@@ -70,12 +72,14 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
 def create_app(
     model_manager: Optional[ModelManager] = None,
+    batch_pipeline: Optional[BatchExecutionPipeline] = None,
     debug: bool = False,
 ) -> FastAPI:
     """Instantiate and configure the FastAPI daemon server application.
 
     Args:
         model_manager: Optional pre-configured ModelManager instance.
+        batch_pipeline: Optional pre-configured BatchExecutionPipeline instance.
         debug: If True, enables API docs endpoints and verbose tracebacks.
 
     Returns:
@@ -91,6 +95,8 @@ def create_app(
 
     manager = model_manager or ModelManager()
     app.state.model_manager = manager
+    pipeline = batch_pipeline or BatchExecutionPipeline()
+    app.state.batch_pipeline = pipeline
 
     app.add_middleware(LoggingMiddleware)
     app.add_middleware(
@@ -148,6 +154,7 @@ def create_app(
     app.include_router(ui_router)
     app.include_router(embeddings_router)
     app.include_router(lora_router)
+    app.include_router(batch_router)
     app.include_router(ollama_router)
     app.include_router(openai_router)
 

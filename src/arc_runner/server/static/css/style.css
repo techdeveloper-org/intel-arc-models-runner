@@ -854,3 +854,144 @@ body {
 .lora-chip-remove:hover {
     color: var(--danger-red);
 }
+
+/* ==========================================================================
+   Continuous Batching & Paged KV-Cache Cockpit Styles
+   ========================================================================== */
+
+.batch-cockpit-layout {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.batch-gauge-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 180px;
+    flex-shrink: 0;
+}
+
+.batch-gauge-svg {
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+}
+
+#batch-gauge-path {
+    transition: stroke-dasharray 0.3s ease, stroke 0.3s ease;
+}
+
+.batch-telemetry-panel {
+    flex: 1;
+    min-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.batch-telemetry-ribbon {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    padding: var(--space-2) var(--space-3);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+}
+
+.ribbon-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ribbon-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.ribbon-val {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.batch-slots-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.batch-slots-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.batch-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: var(--space-2);
+    min-height: 52px;
+}
+
+.slot-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    animation: fadeIn 0.2s ease-in;
+}
+
+.slot-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.slot-card-id {
+    font-weight: 700;
+    color: var(--intel-cyan);
+    font-size: 0.75rem;
+}
+
+.slot-card-badge {
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+.slot-badge-running {
+    background: rgba(16, 185, 129, 0.18);
+    color: var(--npu-emerald);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.slot-badge-waiting {
+    background: rgba(245, 158, 11, 0.18);
+    color: #F59E0B;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.slot-card-meta {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.slot-empty-state {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: var(--space-2) 0;
+}

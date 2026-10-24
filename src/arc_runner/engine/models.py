@@ -53,6 +53,7 @@ class TokenChunk(BaseModel):
 
     text: str = Field(default="", description="Decoded string delta for this token")
     token_id: Optional[int] = Field(default=None, description="Vocabulary token integer index")
+    seq_id: Optional[str] = Field(default=None, description="Sequence identifier for continuous batch routing")
     is_finished: bool = Field(default=False, description="True if generation has concluded")
     finish_reason: Optional[str] = Field(default=None, description="Completion reason (stop, length, cancelled)")
     prompt_tokens: Optional[int] = Field(default=None, description="Total input prompt token count")

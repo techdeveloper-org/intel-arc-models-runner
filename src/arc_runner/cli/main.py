@@ -704,6 +704,95 @@ def handle_adapter_inspect(
         return 1
 
 
+def handle_batch_status(
+    daemon_url: str = "http://localhost:11434",
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Query and display live continuous batch scheduler telemetry and VRAM blocks.
+
+    Args:
+        daemon_url: Base URL of active runner daemon.
+        json_output: If True, outputs raw JSON.
+        console: Optional Rich console.
+
+    Returns:
+        int: Process exit code.
+    """
+    c = console or Console()
+    try:
+        import urllib.request
+        req = urllib.request.Request(f"{daemon_url}/api/batch/status", headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        if json_output:
+            print(json.dumps(data, indent=2))
+            return 0
+
+        table = Table(title="Continuous Batching & Paged KV-Cache Status", show_header=True, header_style="bold magenta")
+        table.add_column("Metric", style="bold white")
+        table.add_column("Value", style="cyan")
+
+        table.add_row("Running Sequences", f"[bold green]{data.get('running_sequences', 0)}[/bold green]")
+        table.add_row("Waiting Queue Depth", str(data.get("waiting_sequences", 0)))
+        table.add_row("Completed Requests", str(data.get("completed_requests", 0)))
+        table.add_row("Total Tokens Produced", str(data.get("total_tokens_produced", 0)))
+        table.add_row("Used KV Blocks", str(data.get("used_kv_blocks", 0)))
+        table.add_row("Free KV Blocks", str(data.get("free_kv_blocks", 1024)))
+        util_pct = data.get("vram_block_utilization_pct", 0.0)
+        color = "green" if util_pct < 70 else "yellow" if util_pct < 90 else "red"
+        table.add_row("VRAM Block Utilization", f"[{color}]{util_pct:.1f}%[/{color}]")
+        table.add_row("Radix Prefix Hit Rate", f"{data.get('prefix_cache_hit_rate', 0.0):.1f}%")
+
+        c.print(table)
+        return 0
+    except Exception as exc:
+        c.print(f"[yellow]Could not query live daemon ({daemon_url}): {exc}[/yellow]")
+        c.print("[dim]Ensure daemon is running ('arc-runner serve') to view live multi-user batch metrics.[/dim]")
+        return 1
+
+
+def handle_batch_preempt(
+    seq_id: str,
+    daemon_url: str = "http://localhost:11434",
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Administratively preempt a running sequence from the batch.
+
+    Args:
+        seq_id: Sequence ID to preempt.
+        daemon_url: Base URL of active runner daemon.
+        json_output: If True, formats output as JSON.
+        console: Optional Rich console.
+
+    Returns:
+        int: Process exit code.
+    """
+    c = console or Console()
+    try:
+        import urllib.request
+        payload = json.dumps({"seq_id": seq_id}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{daemon_url}/api/batch/preempt",
+            data=payload,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        if json_output:
+            print(json.dumps(data, indent=2))
+        else:
+            c.print(f"[bold green]Successfully preempted sequence '{seq_id}'[/bold green]")
+        return 0
+    except Exception as exc:
+        c.print(f"[bold red]Preemption failed for '{seq_id}':[/bold red] {exc}")
+        return 1
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Execute the CLI application with parsed command line arguments.
 
@@ -797,7 +886,24 @@ def main(argv: Optional[List[str]] = None) -> int:
     adapter_inspect.add_argument("path", help="Path to adapter directory or safetensors file")
     adapter_inspect.add_argument("--json", action="store_true", help="Output in JSON format")
 
+    batch_parser = subparsers.add_parser("batch", help="Monitor and manage continuous batch execution")
+    batch_sub = batch_parser.add_subparsers(dest="batch_action", help="Batch action")
+
+    batch_status_cmd = batch_sub.add_parser("status", help="View live continuous batch telemetry and VRAM blocks")
+    batch_status_cmd.add_argument("--url", default="http://localhost:11434", help="Daemon API URL (default: http://localhost:11434)")
+    batch_status_cmd.add_argument("--json", action="store_true", help="Output in JSON format")
+
+    batch_preempt_cmd = batch_sub.add_parser("preempt", help="Preempt an active sequence from batch")
+    batch_preempt_cmd.add_argument("seq_id", help="Sequence ID to preempt")
+    batch_preempt_cmd.add_argument("--url", default="http://localhost:11434", help="Daemon API URL")
+    batch_preempt_cmd.add_argument("--json", action="store_true", help="Output in JSON format")
+
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+
+    if args.command == "batch":
+        if getattr(args, "batch_action", None) == "preempt":
+            return handle_batch_preempt(seq_id=args.seq_id, daemon_url=args.url, json_output=args.json)
+        return handle_batch_status(daemon_url=getattr(args, "url", "http://localhost:11434"), json_output=args.json)
 
     if args.command == "embed":
         return handle_embed(

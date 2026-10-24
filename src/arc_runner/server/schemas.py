@@ -391,3 +391,27 @@ class LoRAInspectRequest(BaseModel):
         return self
 
 
+class BatchStatusResponse(BaseModel):
+    """Telemetry response describing continuous batching queue and VRAM saturation."""
+
+    running_sequences: int = Field(description="Number of sequences currently in running batch")
+    waiting_sequences: int = Field(description="Number of sequences currently queued in waiting state")
+    completed_requests: int = Field(description="Total sequences successfully completed since startup")
+    total_tokens_produced: int = Field(description="Aggregate token count decoded across all sequences")
+    used_kv_blocks: int = Field(description="Physical memory blocks currently allocated to sequences")
+    free_kv_blocks: int = Field(description="Physical memory blocks available in the free pool")
+    vram_block_utilization_pct: float = Field(description="Percentage of total physical blocks consumed")
+    prefix_cache_hit_rate: float = Field(default=0.0, description="Empirical Radix prefix hit rate percentage")
+    prefix_cache_hits: int = Field(default=0, description="Total Radix prefix cache hits")
+    prefix_cache_misses: int = Field(default=0, description="Total Radix prefix cache misses")
+    active_client_connections: int = Field(default=0, description="Active HTTP client streaming connections")
+    running_sequence_ids: List[str] = Field(default_factory=list, description="IDs of currently running sequences")
+    waiting_sequence_ids: List[str] = Field(default_factory=list, description="IDs of currently waiting sequences")
+
+
+class BatchPreemptRequest(BaseModel):
+    """Request payload to preemptively evict a running sequence from the batch."""
+
+    seq_id: str = Field(..., description="Target sequence identifier to preempt")
+
+
