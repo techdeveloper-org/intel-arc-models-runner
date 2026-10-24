@@ -518,13 +518,51 @@ This project stands on the shoulders of the global open-source community. We exp
 
 ## 🌟 Open to Contributions
 
-`intel-arc-models-runner` is a community-driven, 100% open-source project and we actively welcome contributions from developers worldwide!
+`intel-arc-models-runner` is a community-driven, 100% open-source project and we actively welcome contributions from developers, researchers, and hardware enthusiasts worldwide!
 
-### How You Can Contribute
-1. **Hardware Validation Reports**: Test `arc-runner devices` on your Intel hardware (Arc A770, A750, A580, A380, Arc B580 Battlemage, Core Ultra Meteor Lake, Lunar Lake, Arrow Lake) and open an issue with your device telemetry.
-2. **Quantized Models & Benchmarks**: Share NNCF INT4/INT8 benchmark profiles and accuracy evaluations.
-3. **Frontend Integrations**: Help expand test suites and verification for Open WebUI, Continue.dev, Cursor, and LangChain.
-4. **Core Optimization**: Assist in kernel tuning, Level Zero USM memory pool improvements, and dynamic $\gamma$ speculative decoding heuristics.
+### 📢 Calling Open-Source Contributors: Help Us Benchmark Across Intel Silicon!
+
+> [!IMPORTANT]
+> **We Need Your Hardware Telemetry!** While we have physically verified and benchmarked models (`qwen-2.5-1.5b`, `llama-3.2-1b`, `deepseek-r1-1.5b`, `all-minilm-l6-v2`) on our physical testbed (**Intel Core Ultra 5 125H** with Xe-LPG iGPU and AI Boost NPU), our mission is to build the industry's most exhaustive, empirically-backed open benchmark matrix across every tier of Intel computing silicon.
+
+If you have access to any of the following hardware, **we need your help**:
+
+| Hardware Category | Target Architectures & Models |
+|:---|:---|
+| **Discrete Arc GPUs (Alchemist)** | Intel® Arc™ **A770** (16GB & 8GB), **A750**, **A580**, **A380**, **A310** |
+| **Next-Gen Discrete GPUs (Battlemage)** | Intel® Arc™ **B580**, **B570** (Xe2-HPG Architecture) |
+| **Core Ultra Series 2 (Lunar Lake)** | Intel® Core™ Ultra 7 **258V** / **268V** / **256V** (Xe2-LPG iGPU + 48 TOPS NPU 4000) |
+| **Core Ultra Series 2 (Arrow Lake)** | Intel® Core™ Ultra 9 **285K**, Ultra 7 **265K**, Ultra 5 **245K** |
+| **Core Ultra Series 1 (Meteor Lake)** | Intel® Core™ Ultra 7 **155H**, Ultra 9 **185H**, Ultra 5 **135H** |
+| **Workstation & Data Center Silicon** | Intel® Data Center GPU **Flex 170** / **Max 1100**, Intel® Xeon® Scalable with AMX |
+
+#### ⚡ How to Run Benchmarks & Contribute in 3 Steps:
+
+1. **Verify Your Intel Hardware Discovery**:
+   ```bash
+   arc-runner devices
+   ```
+2. **Execute an Empirical Benchmark (Disk-Safe & Automatic Cleanup)**:
+   You don't need hundreds of gigabytes of disk space! Our sequential runner downloads, compiles, tests, logs telemetry, and automatically reclaims disk space ($< 5\text{ GB}$ peak storage):
+   ```bash
+   # Benchmark an individual model:
+   python scratch/run_live_sequential_model_benchmarks.py --model qwen-2.5-1.5b
+
+   # Or run the comprehensive 12-model triad verification audit:
+   python scratch/run_full_catalog_benchmark_audit.py
+   ```
+3. **Submit Your Telemetry**:
+   - The runner generates structured telemetry in `scratch/live_physical_benchmark_results.json` (and logs to stdout).
+   - [**Open a GitHub Issue**](https://github.com/techdeveloper-org/intel-arc-models-runner/issues/new) titled `[Community Benchmark] <Your Silicon Model> - <Model Slug>` and paste your telemetry.
+   - Or open a Pull Request updating the benchmark matrix in `README.md`!
+   - **All community benchmark contributors receive permanent credit in the project's Hall of Fame and README!**
+
+---
+
+### Other Ways You Can Contribute
+1. **Quantized Models & Benchmarks**: Share NNCF INT4/INT8 benchmark profiles, custom calibration datasets, and accuracy evaluations.
+2. **Frontend Integrations**: Help expand test suites and verification for Open WebUI, Continue.dev, Cursor, and LangChain.
+3. **Core Optimization**: Assist in kernel tuning, Level Zero USM memory pool improvements, and dynamic $\gamma$ speculative decoding heuristics.
 
 Please review our [Contributing Guidelines](CONTRIBUTING.md) and submit Pull Requests directly to the `main` branch.
 
