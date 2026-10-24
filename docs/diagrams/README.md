@@ -3,8 +3,8 @@
 This directory houses the comprehensive visual architecture suite for `intel-arc-models-runner`, modeled with connected MCP tools (`uml-diagram` and `drawio-diagram`) using authoritative Universal Diagram Model (UDM) payloads in strict accordance with **Rule `45-uml-diagram-lifecycle.md` (Level 2.3)**.
 
 Every diagram is mathematically grounded in empirical physical silicon proofs (**Proofs M1–M6, M8–M9, M15–M20, M29–M34, M50–M58**) and available in two synchronized formats:
-1. **Mermaid / PlantUML Markdown (`uml/*.md`)**: Directly renderable in GitHub, IDE previews, and markdown viewers.
-2. **Editable Draw.io XML (`drawio/*.drawio`)**: Full visual XML diagrams with rich complexity-based styling, editable in [diagrams.net](https://app.diagrams.net), Draw.io Desktop, or VS Code Draw.io extension.
+1. **Mermaid Markdown (`uml/*.md`)**: Directly renderable in GitHub, IDE previews, and markdown viewers.
+2. **Editable Draw.io XML (`drawio/*.drawio`)**: Full visual XML diagrams with rich complexity-based styling, editable in [diagrams.net](https://app.diagrams.net) with zero-auth `#R` instant rendering.
 
 ---
 
@@ -28,67 +28,10 @@ Every diagram is mathematically grounded in empirical physical silicon proofs (*
 
 ---
 
-## 🔍 Embedded Visual Previews
+## 🔍 Embedded Visual Previews (All 13 Diagrams)
 
-### 1. Component Diagram
-```mermaid
-flowchart TB
-    CLI_Subsystem["<<component>> CLI_Subsystem: arc-runner CLI, Rich Terminals"]
-    WebUI_Studio["<<component>> WebUI_Studio: 6-Tab Studio, SSE Progress"]
-    Daemon_Gateway["<<component>> Daemon_Gateway: FastAPI (:11434), Ollama / OpenAI APIs"]
-    ModelManager["<<component>> ModelManager: Engine Registry, VRAM Budgeting"]
-    BatchExecutionPipeline["<<component>> BatchExecutionPipeline: Async Worker Loop, Client Disconnects"]
-    ContinuousBatcher["<<component>> ContinuousBatcher: Iteration Batching (Proof M29), Little's Law Gate (Proof M30)"]
-    Paged_Attention["<<component>> Paged_Attention: Virtual Paged Blocks, Radix Prefix Dedup (Proof M31)"]
-    LoRA_Manager["<<component>> LoRA_Manager: Dynamic Multi-Adapter Swapping, Safetensors Fusion"]
-    OpenVINOGenAIEngine["<<component>> OpenVINOGenAIEngine: Level Zero Immediate Cmds (Proof M4), Unified Silicon GenAI"]
-    HybridSpeculativeEngine["<<component>> HybridSpeculativeEngine: NPU Draft + Arc GPU Verify (Proof M6), 43.4% Power Reduction"]
-    Vision_Engine["<<component>> Vision_Engine: Multimodal Visual Tokens, Phi-3.5-V & MiniCPM-V"]
-    Embedding_Engine["<<component>> Embedding_Engine: NPU / GPU Embeddings, L2 Unit Normalization (Proof M1)"]
-    GGUF_Transpiler["<<component>> GGUF_Transpiler: O(1) Streaming Buffer (Proof M15), 34.6dB SQNR Bound (Proof M8)"]
-    Sysman_Telemetry["<<component>> Sysman_Telemetry: Level Zero Sysman VRAM Metrics, Thermal & Power Telemetry"]
-    Intel_Arc_GPU["<<component>> Intel_Arc_GPU: 32 Xe-Cores / 256 XMX (260 TFLOPs), 560 GB/s GDDR6 VRAM"]
-    CLI_Subsystem -->|HTTP :11434| Daemon_Gateway
-    WebUI_Studio -->|SSE / REST| Daemon_Gateway
-    Daemon_Gateway -->|get_or_load_engine| ModelManager
-    Daemon_Gateway -->|enqueue_request| BatchExecutionPipeline
-    BatchExecutionPipeline -->|iteration_step| ContinuousBatcher
-    ContinuousBatcher -->|allocate_blocks| Paged_Attention
-    ContinuousBatcher -->|forward_batch| OpenVINOGenAIEngine
-    ModelManager -->|initialize_pipeline| HybridSpeculativeEngine
-    ModelManager -->|apply_adapter| LoRA_Manager
-    HybridSpeculativeEngine -->|dual_instance_dispatch| OpenVINOGenAIEngine
-    OpenVINOGenAIEngine -->|zeCommandListExecuteImmediate| Intel_Arc_GPU
-    ModelManager -->|query_telemetry| Sysman_Telemetry
-    Daemon_Gateway -->|transpile_stream| GGUF_Transpiler
-```
+### 1. Package Diagram (10 Clean Core Packages & Import Architecture)
 
-### 2. Sequence Diagram (Hybrid Speculative & Continuous Batching)
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Gateway
-    participant BatchPipeline
-    participant ContinuousBatcher
-    participant SpecEngine
-    participant NPU_Draft
-    participant GPU_Target
-    Client->>Gateway: POST /api/chat (stream=true, prompt='Explain quantum computing')
-    Gateway->>BatchPipeline: enqueue_request(AsyncBatchRequest)
-    BatchPipeline->>ContinuousBatcher: step() -> check Little's Law theta_sat <= 0.92 (Proof M30)
-    ContinuousBatcher->>SpecEngine: forward_batch([seq])
-    SpecEngine->>GPU_Target: prefill_prompt(tokens) [Compute-Bound AI >= 464.3]
-    GPU_Target-->>SpecEngine: prompt_kv_cache_initialized
-    SpecEngine->>NPU_Draft: generate_speculative_tokens(gamma=4) [5W TDP, Proof M50]
-    NPU_Draft-->>SpecEngine: emit_draft_tokens([t1, t2, t3, t4])
-    SpecEngine->>GPU_Target: verify_parallel([t1, t2, t3, t4]) [Single Forward Pass]
-    GPU_Target-->>SpecEngine: verification_result(accepted=3.36, bonus=t') [Proof M6]
-    SpecEngine->>BatchPipeline: yield_token_burst([t1, t2, t3, t'])
-    BatchPipeline->>Gateway: format_sse_chunks()
-    Gateway->>Client: Stream chunks (1.93x faster, 43.4% less power)
-```
-
-### 3. Package Diagram (10 Packages Complete)
 ```mermaid
 flowchart LR
     arc_runner_core["arc_runner.core: constants, exceptions, logging"]
@@ -119,7 +62,228 @@ flowchart LR
     arc_runner_testing -->|tests_silicon| arc_runner_devices
 ```
 
-### 4. State Diagram (Hardware Degradation & Scheduling Lifecycle)
+[Mermaid Source](file:///uml/package_diagram.md) | [Editable Draw.io Source](file:///drawio/package_diagram.drawio)
+
+---
+
+### 2. Component Diagram (Hardware Execution Engine, Gateway & Silicon Subsystems)
+
+```mermaid
+flowchart TB
+    CLI_Subsystem["<<component>> CLI_Subsystem: arc-runner CLI, Rich Terminals"]
+    WebUI_Studio["<<component>> WebUI_Studio: 6-Tab Studio, SSE Progress"]
+    Daemon_Gateway["<<component>> Daemon_Gateway: FastAPI (:11434), Ollama / OpenAI APIs"]
+    ModelManager["<<component>> ModelManager: Engine Registry, VRAM Budgeting"]
+    BatchExecutionPipeline["<<component>> BatchExecutionPipeline: Async Worker Loop, Client Disconnects"]
+    ContinuousBatcher["<<component>> ContinuousBatcher: Iteration Batching (Proof M29), Little's Law Gate (Proof M30)"]
+    Paged_Attention["<<component>> Paged_Attention: Virtual Paged Blocks, Radix Prefix Dedup (Proof M31)"]
+    LoRA_Manager["<<component>> LoRA_Manager: Dynamic Multi-Adapter Swapping, Safetensors Fusion"]
+    OpenVINOGenAIEngine["<<component>> OpenVINOGenAIEngine: Level Zero Immediate Cmds (Proof M4), Unified Silicon GenAI"]
+    HybridSpeculativeEngine["<<component>> HybridSpeculativeEngine: NPU Draft + Arc GPU Verify (Proof M6), 43.4% Power Reduction"]
+    Vision_Engine["<<component>> Vision_Engine: Multimodal Visual Tokens, Phi-3.5-V & MiniCPM-V"]
+    Embedding_Engine["<<component>> Embedding_Engine: NPU / GPU Embeddings, L2 Unit Normalization (Proof M1)"]
+    GGUF_Transpiler["<<component>> GGUF_Transpiler: O(1) Streaming Buffer (Proof M15), 34.6dB SQNR Bound (Proof M8)"]
+    Sysman_Telemetry["<<component>> Sysman_Telemetry: Level Zero Sysman VRAM Metrics, Thermal & Power Telemetry"]
+    Intel_Arc_GPU["<<component>> Intel_Arc_GPU: 32 Xe-Cores / 256 XMX (260 TFLOPs), 560 GB/s GDDR6 VRAM"]
+    CLI_Subsystem -->|HTTP :11434| Daemon_Gateway
+    WebUI_Studio -->|SSE / REST| Daemon_Gateway
+    Daemon_Gateway -->|get_or_load_engine| ModelManager
+    Daemon_Gateway -->|enqueue_request| BatchExecutionPipeline
+    BatchExecutionPipeline -->|iteration_step| ContinuousBatcher
+    ContinuousBatcher -->|allocate_blocks| Paged_Attention
+    ContinuousBatcher -->|forward_batch| OpenVINOGenAIEngine
+    ModelManager -->|initialize_pipeline| HybridSpeculativeEngine
+    ModelManager -->|apply_adapter| LoRA_Manager
+    HybridSpeculativeEngine -->|dual_instance_dispatch| OpenVINOGenAIEngine
+    OpenVINOGenAIEngine -->|zeCommandListExecuteImmediate| Intel_Arc_GPU
+    ModelManager -->|query_telemetry| Sysman_Telemetry
+    Daemon_Gateway -->|transpile_stream| GGUF_Transpiler
+    iface_CLI_Subsystem_Daemon_Gateway(["Daemon_Gateway"])
+    CLI_Subsystem -.->|requires| iface_CLI_Subsystem_Daemon_Gateway
+    iface_CLI_Subsystem_WindowsDllLoader(["WindowsDllLoader"])
+    CLI_Subsystem -.->|requires| iface_CLI_Subsystem_WindowsDllLoader
+    iface_WebUI_Studio_Daemon_Gateway(["Daemon_Gateway"])
+    WebUI_Studio -.->|requires| iface_WebUI_Studio_Daemon_Gateway
+    iface_Daemon_Gateway_ModelManager(["ModelManager"])
+    Daemon_Gateway -.->|requires| iface_Daemon_Gateway_ModelManager
+    iface_Daemon_Gateway_BatchExecutionPipeline(["BatchExecutionPipeline"])
+    Daemon_Gateway -.->|requires| iface_Daemon_Gateway_BatchExecutionPipeline
+    iface_ModelManager_OpenVINOGenAIEngine(["OpenVINOGenAIEngine"])
+    ModelManager -.->|requires| iface_ModelManager_OpenVINOGenAIEngine
+    iface_ModelManager_HybridSpeculativeEngine(["HybridSpeculativeEngine"])
+    ModelManager -.->|requires| iface_ModelManager_HybridSpeculativeEngine
+    iface_BatchExecutionPipeline_ContinuousBatcher(["ContinuousBatcher"])
+    BatchExecutionPipeline -.->|requires| iface_BatchExecutionPipeline_ContinuousBatcher
+    iface_BatchExecutionPipeline_PagedBlockTable(["PagedBlockTable"])
+    BatchExecutionPipeline -.->|requires| iface_BatchExecutionPipeline_PagedBlockTable
+    iface_ContinuousBatcher_OpenVINOGenAIEngine(["OpenVINOGenAIEngine"])
+    ContinuousBatcher -.->|requires| iface_ContinuousBatcher_OpenVINOGenAIEngine
+    iface_ContinuousBatcher_RadixPrefixCache(["RadixPrefixCache"])
+    ContinuousBatcher -.->|requires| iface_ContinuousBatcher_RadixPrefixCache
+    iface_Paged_Attention_Arc_GPU_VRAM(["Arc_GPU_VRAM"])
+    Paged_Attention -.->|requires| iface_Paged_Attention_Arc_GPU_VRAM
+    iface_LoRA_Manager_Arc_GPU_XMX(["Arc_GPU_XMX"])
+    LoRA_Manager -.->|requires| iface_LoRA_Manager_Arc_GPU_XMX
+    iface_OpenVINOGenAIEngine_Intel_Arc_GPU(["Intel_Arc_GPU"])
+    OpenVINOGenAIEngine -.->|requires| iface_OpenVINOGenAIEngine_Intel_Arc_GPU
+    iface_OpenVINOGenAIEngine_Intel_Ultra_NPU(["Intel_Ultra_NPU"])
+    OpenVINOGenAIEngine -.->|requires| iface_OpenVINOGenAIEngine_Intel_Ultra_NPU
+    iface_HybridSpeculativeEngine_OpenVINOGenAIEngine(["OpenVINOGenAIEngine"])
+    HybridSpeculativeEngine -.->|requires| iface_HybridSpeculativeEngine_OpenVINOGenAIEngine
+    iface_Vision_Engine_Intel_Arc_GPU(["Intel_Arc_GPU"])
+    Vision_Engine -.->|requires| iface_Vision_Engine_Intel_Arc_GPU
+    iface_Embedding_Engine_Intel_Ultra_NPU(["Intel_Ultra_NPU"])
+    Embedding_Engine -.->|requires| iface_Embedding_Engine_Intel_Ultra_NPU
+    iface_Embedding_Engine_Intel_Arc_GPU(["Intel_Arc_GPU"])
+    Embedding_Engine -.->|requires| iface_Embedding_Engine_Intel_Arc_GPU
+    iface_GGUF_Transpiler_Local_NVMe_Cache(["Local_NVMe_Cache"])
+    GGUF_Transpiler -.->|requires| iface_GGUF_Transpiler_Local_NVMe_Cache
+    iface_Sysman_Telemetry_Level_Zero_Driver(["Level_Zero_Driver"])
+    Sysman_Telemetry -.->|requires| iface_Sysman_Telemetry_Level_Zero_Driver
+    iface_Intel_Arc_GPU_PCIe_Gen4_x16_Bus(["PCIe_Gen4_x16_Bus"])
+    Intel_Arc_GPU -.->|requires| iface_Intel_Arc_GPU_PCIe_Gen4_x16_Bus
+```
+
+[Mermaid Source](file:///uml/component_diagram.md) | [Editable Draw.io Source](file:///drawio/component_diagram.drawio)
+
+---
+
+### 3. Class Diagram (22 Core Engine Classes, Inheritance & Signatures)
+
+```mermaid
+classDiagram
+    class BaseEngine {
+        +is_loaded
+        +model_path
+        +device
+        +*load_model(model_path: Path, device: DeviceType) 
+        +*generate_stream(prompt: str, config: GenerationConfig) 
+        +*get_telemetry() 
+        +*unload() 
+    }
+    class OpenVINOGenAIEngine {
+        -_pipeline
+        -_device
+        +load_model(model_path: Path, device: DeviceType) 
+        +generate_stream(prompt: str, config: GenerationConfig) 
+        -_build_ov_generation_config(config: GenerationConfig) 
+    }
+    class HybridSpeculativeEngine {
+        -target_engine
+        -draft_engine
+        +current_gamma
+        +load_model(model_path: Path, draft_model_path: Path) 
+        +generate_stream(prompt: str, config: GenerationConfig) 
+        -_validate_path(path: Path) 
+    }
+    class ContinuousBatcher {
+        +active_sequences_count
+        +waiting_sequences_count
+        +add_request(seq: BatchSequence) 
+        +step() 
+        +preempt_sequence(seq_id: str) 
+    }
+    class PagedBlockTable {
+        +block_size
+        +total_blocks
+        +utilization_ratio
+        +get_sequence_blocks(seq_id: str) 
+        +get_block_map() 
+    }
+    class RadixPrefixCache {
+        +hit_rate
+        +total_lookups
+        +match_prefix(tokens: List[int]) 
+        +insert_prefix(tokens: List[int], blocks: List[int]) 
+    }
+    class LoRAManager {
+        +adapters_dir
+        +max_cached
+        +inspect_safetensors_header(path: Path) 
+        +parse_adapter_metadata(path: Path) 
+    }
+    class VisionEngine {
+        +patch_size
+        +device
+        +calculate_visual_tokens(width: int, height: int) 
+        +decode_image_tensor(image_bytes: bytes) 
+        +generate(prompt: str, image_bytes: bytes) 
+    }
+    class EmbeddingEngine {
+        +dimension
+        +device
+        +embed_query(query: str) 
+        +embed_documents(docs: List[str]) 
+        +l2_normalize(vec: np.ndarray) 
+    }
+    class GGUFTranspiler {
+        +input_path
+        +output_dir
+        +dequantize_q4_0_block(block_bytes: bytes) 
+        +pack_xmx_nibbles(weights: np.ndarray) 
+        +compute_sqnr(fp_orig: np.ndarray, dequant: np.ndarray) 
+        +transpile_stream(target_precision: str) 
+    }
+    class ModelManager {
+        +model_dirs
+        +get_or_load_engine(model_id: str, device: str) 
+        +get_or_load_embedding_engine(model_id: str) 
+        +get_or_load_vision_engine(model_id: str) 
+    }
+    class BatchExecutionPipeline {
+        +is_running
+        +start() 
+        +stop() 
+        +tick_step() 
+    }
+    class DeviceDetector {
+        +detect_topology() 
+        -_classify_gpu_architecture(name: str) 
+    }
+    class LevelZeroSysman {
+        +is_available() 
+        +query_gpu_memory() 
+    }
+    BaseEngine <|-- OpenVINOGenAIEngine
+    BaseEngine <|-- HybridSpeculativeEngine
+```
+
+[Mermaid Source](file:///uml/class_diagram.md) | [Editable Draw.io Source](file:///drawio/class_diagram.drawio)
+
+---
+
+### 4. Sequence Diagram (Heterogeneous Speculative Decoding & Continuous Batching Flow)
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Gateway
+    participant BatchPipeline
+    participant ContinuousBatcher
+    participant SpecEngine
+    participant NPU_Draft
+    participant GPU_Target
+    Client->>Gateway: POST /api/chat (stream=true, prompt='Explain quantum computing')
+    Gateway->>BatchPipeline: enqueue_request(AsyncBatchRequest)
+    BatchPipeline->>ContinuousBatcher: step() -> check Little's Law theta_sat <= 0.92 (Proof M30)
+    ContinuousBatcher->>SpecEngine: forward_batch([seq])
+    SpecEngine->>GPU_Target: prefill_prompt(tokens) [Compute-Bound AI >= 464.3]
+    GPU_Target-->>SpecEngine: prompt_kv_cache_initialized
+    SpecEngine->>NPU_Draft: generate_speculative_tokens(gamma=4) [5W TDP, Proof M50]
+    NPU_Draft-->>SpecEngine: emit_draft_tokens([t1, t2, t3, t4])
+    SpecEngine->>GPU_Target: verify_parallel([t1, t2, t3, t4]) [Single Forward Pass]
+    GPU_Target-->>SpecEngine: verification_result(accepted=3.36, bonus=t') [Proof M6]
+    SpecEngine->>BatchPipeline: yield_token_burst([t1, t2, t3, t'])
+    BatchPipeline->>Gateway: format_sse_chunks()
+    Gateway->>Client: Stream chunks (1.93x faster, 43.4% less power)
+```
+
+[Mermaid Source](file:///uml/sequence_diagram.md) | [Editable Draw.io Source](file:///drawio/sequence_diagram.drawio)
+
+---
+
+### 5. State Diagram (Engine Lifecycle, Admission Control & Thermal/Memory Degradation)
+
 ```mermaid
 stateDiagram-v2
     [*] --> Uninitialized
@@ -141,12 +305,387 @@ stateDiagram-v2
     IdleReady --> GGUF_Transpiling : convert_gguf_request (Proof M15/M16)
     GGUF_Transpiling --> IdleReady : ir_transpiled_and_cached (SQNR >= 32dB, Proof M8)
     ContinuousBatchingActive --> IdleReady : all_sequences_completed
+    GGUF_Transpiling --> [*]
 ```
+
+[Mermaid Source](file:///uml/state_diagram.md) | [Editable Draw.io Source](file:///drawio/state_diagram.drawio)
+
+---
+
+### 6. Activity Diagram (End-to-End Request Pipeline & Little's Law Scheduling)
+
+```mermaid
+flowchart TD
+    __start__((( )))
+    Start["Start"]
+    __start__ --> Start
+    Receive_Chat_Request["Receive_Chat_Request"]
+    Start --> Receive_Chat_Request
+    Validate_Request_DTO["Validate_Request_DTO"]
+    Receive_Chat_Request --> Validate_Request_DTO
+    Check_Little_Law_Admission_Limit{"Check_Little_Law_Admission_Limit"}
+    Validate_Request_DTO --> Check_Little_Law_Admission_Limit
+    Lookup_Radix_Prefix_Cache{"Lookup_Radix_Prefix_Cache"}
+    Check_Little_Law_Admission_Limit -->|yes| Lookup_Radix_Prefix_Cache
+    Reuse_Physical_KV_Blocks["Reuse_Physical_KV_Blocks"]
+    Lookup_Radix_Prefix_Cache -->|yes| Reuse_Physical_KV_Blocks
+    Prefill_Prompt_Attention_On_Arc_GPU["Prefill_Prompt_Attention_On_Arc_GPU"]
+    Reuse_Physical_KV_Blocks --> Prefill_Prompt_Attention_On_Arc_GPU
+    Is_Speculative_Acceleration_Enabled{"Is_Speculative_Acceleration_Enabled"}
+    Prefill_Prompt_Attention_On_Arc_GPU --> Is_Speculative_Acceleration_Enabled
+    Generate_Draft_Tokens_On_NPU["Generate_Draft_Tokens_On_NPU"]
+    Is_Speculative_Acceleration_Enabled -->|yes| Generate_Draft_Tokens_On_NPU
+    Verify_Tokens_Parallel_On_Arc_GPU["Verify_Tokens_Parallel_On_Arc_GPU"]
+    Generate_Draft_Tokens_On_NPU --> Verify_Tokens_Parallel_On_Arc_GPU
+    Commit_Accepted_Tokens_To_KV["Commit_Accepted_Tokens_To_KV"]
+    Verify_Tokens_Parallel_On_Arc_GPU --> Commit_Accepted_Tokens_To_KV
+    Check_Client_Connection_Status{"Check_Client_Connection_Status"}
+    Commit_Accepted_Tokens_To_KV --> Check_Client_Connection_Status
+    Yield_SSE_Token_Chunk["Yield_SSE_Token_Chunk"]
+    Check_Client_Connection_Status -->|yes| Yield_SSE_Token_Chunk
+    Is_Stop_Token_Or_Max_Tokens{"Is_Stop_Token_Or_Max_Tokens"}
+    Yield_SSE_Token_Chunk --> Is_Stop_Token_Or_Max_Tokens
+    Emit_Final_Telemetry_Chunk["Emit_Final_Telemetry_Chunk"]
+    Is_Stop_Token_Or_Max_Tokens -->|yes| Emit_Final_Telemetry_Chunk
+    __end__((( )))
+    Emit_Final_Telemetry_Chunk --> __end__
+```
+
+[Mermaid Source](file:///uml/activity_diagram.md) | [Editable Draw.io Source](file:///drawio/activity_diagram.drawio)
+
+---
+
+### 7. Deployment Diagram (Physical Intel Arc Silicon, NPU, CPU & Host Memory Buses)
+
+```mermaid
+flowchart TD
+    subgraph HostSystem ["Host Workstation / Edge Server (Windows 11 / Linux)"]
+        subgraph DaemonRuntime ["Python 3.10-3.13 Runtime"]
+            Daemon["arc-runner Daemon (:11434)\nFastAPI / Uvicorn Server"]
+            Studio["6-Tab Studio WebUI (:11434/ui)\nReal-time SSE Status"]
+            OVGenAIDLL["openvino_genai.dll / Level Zero Loader\nC++ Native Bindings"]
+        end
+    end
+
+    subgraph StorageSubsystem ["NVMe SSD PCIe Gen4/5 (7000 MB/s Bandwidth)"]
+        IRCache["~/.arc-runner/models/\nOpenVINO IR Cache (FP16 / INT4 Sym / Asym)"]
+        NPUCache["~/.arc-runner/aot_cache/\nNPU Compiled AOT Blobs (MCDM Driver)"]
+        OllamaManifests["~/.ollama/models/\nLocal Ollama Manifests & Blobs (Zero-Copy)"]
+        LoRAStore["~/.arc-runner/adapters/\nSafetensors LoRA Adapters Store"]
+    end
+
+    subgraph ArcGPU ["Intel Arc Discrete GPU (ACM-G10 / BMG-G21)"]
+        ArcSilicon["32 Xe-Cores / 256 XMX Engines (260 TFLOPs)\nProof M4: Level Zero Immediate Cmds (tau <= 2.1us)"]
+        ArcVRAM["16 GB Dedicated GDDR6 (560 GB/s, AI* = 464.3)\nProof M30: Little's Law VRAM Gate (theta_sat <= 0.92)"]
+        ArcDriver["Intel Graphics Driver / igc64.dll\nze_loader.dll Level Zero Driver"]
+    end
+
+    subgraph UltraSoC ["Intel Core Ultra SoC (Meteor Lake / Lunar Lake)"]
+        HostCPU["Host CPU (P-Cores + E-Cores)\nAVX2 / AVX-512 / AMX Matrix Fallback"]
+        IntelNPU["Intel NPU 3720 / 4000 (ze_intel_npu.dll)\n48 TOPs Systolic Array (5W TDP, Proof M50)"]
+        SharedRAM["16-64 GB LPDDR5X (136 GB/s) + 16MB NPU SRAM\nUnified Host Memory"]
+    end
+
+    DaemonRuntime -->|PCIe Gen4 x4 DMA 7000 MB/s| StorageSubsystem
+    DaemonRuntime -->|PCIe Gen4 x16 DMA 32 GB/s| ArcGPU
+    DaemonRuntime -->|Direct Ring Interconnect| UltraSoC
+    ArcGPU <-->|Heterogeneous Speculative Bus Proof M6| UltraSoC
+```
+
+[Mermaid Source](file:///uml/deployment_diagram.md) | [Editable Draw.io Source](file:///drawio/deployment_diagram.drawio)
+
+---
+
+### 8. Use Case Diagram (Core Actor Roles & Functional Capabilities)
+
+```mermaid
+flowchart LR
+    subgraph Actors ["Primary Actors"]
+        Dev["fa:fa-terminal Developer / CLI User"]
+        WebUser["fa:fa-desktop WebUI Operator"]
+        AppClient["fa:fa-code Ecosystem Client (OpenAI / Ollama SDK)"]
+        Bench["fa:fa-chart-line Benchmark Harness"]
+    end
+
+    subgraph SystemBoundary ["arc-runner Execution System"]
+        UC1(["Run Heterogeneous Speculative Inference\n(NPU Draft + Arc GPU Verify, Proof M6, M50)"])
+        UC2(["Continuous Multi-User Batch Inference\n(Token-Level Iteration & Little's Law Gate, Proof M29, M30)"])
+        UC3(["Dynamic Hot-Swap LoRA Adapters\n(Safetensors Runtime Fusion, Zero Cold Restart)"])
+        UC4(["O(1) Streaming GGUF Transpilation\n(64KB Chunk Buffer <= 32MB RAM, Proof M15, M8)"])
+        UC5(["Zero-Copy Local Ollama Model Ingestion\n(Instant Symlink / Hardlink Manifest Parse)"])
+        UC6(["Generate High-Throughput Embeddings\n(NPU / GPU Pipeline with L2 Normalization, Proof M1)"])
+        UC7(["Real-Time Level Zero Sysman Telemetry\n(VRAM Allocation, Thermal Temp & Power Draw)"])
+        UC8(["Automated Silicon Benchmarking\n(Sequential TTFT, Inter-Token Latency & TCO Evaluation)"])
+    end
+
+    Dev --> UC1
+    Dev --> UC2
+    Dev --> UC3
+    Dev --> UC4
+    Dev --> UC5
+    Dev --> UC7
+    WebUser --> UC1
+    WebUser --> UC3
+    WebUser --> UC7
+    AppClient --> UC1
+    AppClient --> UC2
+    AppClient --> UC6
+    Bench --> UC8
+    Bench --> UC7
+```
+
+[Mermaid Source](file:///uml/usecase_diagram.md) | [Editable Draw.io Source](file:///drawio/usecase_diagram.drawio)
+
+---
+
+### 9. Object Diagram (Runtime Snapshot of Active Instances and Proof Metrics)
+
+```mermaid
+classDiagram
+    note "Runtime Snapshot: Heterogeneous Inference with Continuous Batching"
+    class app {
+        title = 'arc-runner-daemon'
+        port = 11434
+        status = 'healthy'
+    }
+    class model_mgr {
+        loaded_engine_count = 1
+        vram_budget_mb = 12288
+        active_engine = 'HybridSpeculativeEngine'
+    }
+    class batch_pipe {
+        is_running = true
+        active_requests = 3
+        queue_size = 0
+    }
+    class batcher {
+        theta_sat = 0.64 (Proof M30 <= 0.92)
+        active_sequences = 3
+        max_batch_tokens = 4096
+    }
+    class spec_engine {
+        gamma = 4 (Proof M6)
+        alpha_empirical = 0.82
+        expected_k = 3.44
+        speedup = 1.96x
+    }
+    class gpu_pipeline {
+        device = 'GPU'
+        precision = 'INT4_SYM'
+        command_list = 'immediate' (Proof M4 tau <= 2.1us)
+    }
+    class npu_pipeline {
+        device = 'NPU'
+        precision = 'INT4'
+        power_tdp_w = 5.0 (Proof M50)
+    }
+    class paged_table {
+        total_blocks = 2048
+        free_blocks = 738
+        block_size = 16
+    }
+    class prefix_cache {
+        hit_rate = 0.68 (Proof M31 63.2% TTFT Reduction)
+        cached_prefixes = 152
+    }
+    class sysman {
+        gpu_temp_c = 68.4
+        power_w = 85.2
+        vram_allocated_mb = 8192
+    }
+
+    app --> model_mgr : manages
+    app --> batch_pipe : dispatches
+    batch_pipe --> batcher : steps
+    batcher --> paged_table : allocates
+    paged_table --> prefix_cache : deduplicates
+    batcher --> spec_engine : forwards
+    spec_engine --> gpu_pipeline : verify_target
+    spec_engine --> npu_pipeline : draft_tokens
+    model_mgr --> sysman : queries_telemetry
+```
+
+[Mermaid Source](file:///uml/object_diagram.md) | [Editable Draw.io Source](file:///drawio/object_diagram.drawio)
+
+---
+
+### 10. Composite Structure Diagram (Internal Sub-Assemblies & Port Boundaries)
+
+```mermaid
+flowchart TB
+    subgraph SpecEngineComposite ["<<composite>> HybridSpeculativeEngine"]
+        subgraph Ports_SpecEngine ["External Interface Ports"]
+            InPort_Prompt["Port: prompt_stream_in"]
+            OutPort_Tokens["Port: token_stream_out"]
+            Port_Telemetry["Port: sysman_telemetry"]
+        end
+
+        subgraph Internal_SpecEngine ["Internal Microarchitecture"]
+            DraftController["DraftController: NPU Coordinator (gamma=4, Proof M50)"]
+            TargetVerifier["TargetVerifier: Arc GPU Batch Verifier (Proof M6)"]
+            BonusCalculator["BonusTokenEvaluator: Acceptance Logic (E[K]=3.36)"]
+        end
+
+        InPort_Prompt --> DraftController
+        DraftController -->|draft_tokens| TargetVerifier
+        TargetVerifier -->|logits| BonusCalculator
+        BonusCalculator --> OutPort_Tokens
+    end
+
+    subgraph BatchPipelineComposite ["<<composite>> BatchExecutionPipeline"]
+        subgraph Ports_Pipeline ["Pipeline Boundary Ports"]
+            Port_HTTPQueue["Port: http_request_queue"]
+            Port_AbortListen["Port: client_disconnect_listener"]
+            Port_SSEFormat["Port: sse_stream_formatter"]
+        end
+
+        subgraph Internal_Pipeline ["Internal Scheduling Assembly"]
+            AdmissionGate["AdmissionGate: Little's Law theta_sat <= 0.92 (Proof M30)"]
+            ContScheduler["ContinuousScheduler: Token-Level Iteration (Proof M29)"]
+            AbortHandler["AbortHandler: 0.02s Instant VRAM Reclaim (Proof M32)"]
+            PagedMemorySubsystem["PagedAttentionSubsystem: Virtual Block Allocation (Proof M31)"]
+        end
+
+        Port_HTTPQueue --> AdmissionGate
+        AdmissionGate --> ContScheduler
+        ContScheduler <--> PagedMemorySubsystem
+        Port_AbortListen --> AbortHandler
+        AbortHandler -->|free_blocks| PagedMemorySubsystem
+        ContScheduler --> Port_SSEFormat
+    end
+
+    OutPort_Tokens --> ContScheduler
+    BonusCalculator --> Port_Telemetry
+```
+
+[Mermaid Source](file:///uml/composite_diagram.md) | [Editable Draw.io Source](file:///drawio/composite_diagram.drawio)
+
+---
+
+### 11. Interaction Diagram (High-Level Inter-Subsystem Interaction Overview)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Gateway as HTTP Gateway (:11434)
+    participant Pipeline as BatchExecutionPipeline
+    participant Gate as AdmissionGate (Proof M30)
+    participant Batcher as ContinuousBatcher (Proof M29)
+    participant SpecEngine as HybridSpeculativeEngine
+    participant NPU as Intel NPU (Draft, Proof M50)
+    participant GPU as Intel Arc GPU (Target, Proof M4)
+    participant Cache as RadixPrefixCache (Proof M31)
+
+    Gateway->>Pipeline: enqueue_request(prompt, stream=True)
+    Pipeline->>Gate: check_admission(active_seqs, free_blocks)
+    alt theta_sat > 0.92 (Little's Law Saturation)
+        Gate-->>Pipeline: Reject / 429 Retry-After (Proof M30)
+        Pipeline-->>Gateway: 429 System Backpressure
+    else theta_sat <= 0.92 (Admitted)
+        Gate-->>Pipeline: Admitted to Scheduler
+        Pipeline->>Cache: match_prefix(prompt_tokens)
+        Cache-->>Pipeline: prefix_blocks (63.2% TTFT Reduction, Proof M31)
+        Pipeline->>Batcher: add_sequence(seq)
+        loop Token Generation Iteration (Proof M29)
+            Batcher->>SpecEngine: forward_iteration([seqs])
+            SpecEngine->>NPU: generate_draft(gamma=4, 5W TDP)
+            NPU-->>SpecEngine: draft_tokens [t1..t4]
+            SpecEngine->>GPU: verify_parallel([t1..t4], ImmediateCmdList)
+            GPU-->>SpecEngine: accepted_tokens (E[K]=3.36, Proof M6)
+            SpecEngine-->>Batcher: burst_tokens [t1..t_acc, bonus]
+            Batcher-->>Pipeline: yield_tokens
+            Pipeline-->>Gateway: SSE token chunk
+        end
+        Batcher->>Cache: insert_prefix(prompt + generated)
+        Pipeline-->>Gateway: [DONE]
+    end
+```
+
+[Mermaid Source](file:///uml/interaction_diagram.md) | [Editable Draw.io Source](file:///drawio/interaction_diagram.drawio)
+
+---
+
+### 12. Communication Diagram (Numbered Collaboration Pathways & Direct Silicon Routing)
+
+```mermaid
+flowchart LR
+    Client(["1: HTTP Client\n(Browser / CLI / SDK)"])
+    Gateway["2: HTTP Gateway\n(FastAPI / Uvicorn)"]
+    BatchPipe["3: BatchExecutionPipeline\n(Async Worker Queue)"]
+    ContBatcher["4: ContinuousBatcher\n(Token Scheduler)"]
+    ModelMgr["5: ModelManager\n(VRAM & Engine Cache)"]
+    SpecEngine["6: HybridSpeculativeEngine\n(Dual Silicon Orchestrator)"]
+    NPU["7: Intel NPU 4000\n(5W Draft Pipeline, Proof M50)"]
+    GPU["8: Intel Arc A770 GPU\n(Level Zero Target, Proof M4)"]
+    Sysman["9: LevelZeroSysman\n(Telemetry Monitor)"]
+
+    Client -->|1. POST /api/chat\n12. SSE Stream Chunks| Gateway
+    Gateway -->|2. enqueue_request()\n11. stream_results()| BatchPipe
+    BatchPipe -->|3. iteration_step()\n10. yield_tokens()| ContBatcher
+    ContBatcher -->|4. get_engine()| ModelMgr
+    ModelMgr -->|5. forward_batch()| SpecEngine
+    SpecEngine -->|6. draft_gamma=4 (Proof M50)\n7. draft_tokens| NPU
+    SpecEngine -->|8. parallel_verify (Proof M6)\n9. accepted_burst| GPU
+    GPU -.->|telemetry query| Sysman
+```
+
+[Mermaid Source](file:///uml/communication_diagram.md) | [Editable Draw.io Source](file:///drawio/communication_diagram.drawio)
+
+---
+
+### 13. Call Graph Diagram (AST Invocations from CLI/Gateway down to Level Zero Sysman)
+
+```mermaid
+flowchart LR
+    subgraph BatchExecutionPipeline_group[BatchExecutionPipeline]
+        arc_runner_server_batch_pipeline__BatchExecutionPipeline_enqueue_request["enqueue_request(request)"]
+    end
+    subgraph ContinuousBatcher_group[ContinuousBatcher]
+        arc_runner_engine_continuous_batcher__ContinuousBatcher_step["step()"]
+    end
+    subgraph HybridSpeculativeEngine_group[HybridSpeculativeEngine]
+        arc_runner_engine_speculative_engine__HybridSpeculativeEngine_generate_stream["generate_stream(prompt, config)"]
+    end
+    subgraph LLMPipeline_group[LLMPipeline]
+        openvino_genai__LLMPipeline_generate["generate(inputs)"]
+    end
+    subgraph LevelZeroSysman_group[LevelZeroSysman]
+        arc_runner_devices_sysman__LevelZeroSysman_query_gpu_memory["query_gpu_memory()"]
+    end
+    subgraph OpenVINOGenAIEngine_group[OpenVINOGenAIEngine]
+        arc_runner_engine_openvino_engine__OpenVINOGenAIEngine_generate_stream["generate_stream(prompt, config)"]
+    end
+    subgraph PagedBlockTable_group[PagedBlockTable]
+        arc_runner_engine_paged_attention__PagedBlockTable_get_sequence_blocks["get_sequence_blocks(seq_id)"]
+    end
+    subgraph RadixPrefixCache_group[RadixPrefixCache]
+        arc_runner_engine_paged_attention__RadixPrefixCache_match_prefix["match_prefix(tokens)"]
+    end
+    subgraph arc_runner_cli_main_group[arc_runner.cli.main]
+        arc_runner_cli_main__run["run(args)"]
+    end
+    subgraph arc_runner_server_routes_ollama_group[arc_runner.server.routes_ollama]
+        arc_runner_server_routes_ollama__generate["generate(req)"]
+    end
+    arc_runner_cli_main__run --> arc_runner_server_batch_pipeline__BatchExecutionPipeline_enqueue_request
+    arc_runner_server_routes_ollama__generate --> arc_runner_server_batch_pipeline__BatchExecutionPipeline_enqueue_request
+    arc_runner_server_batch_pipeline__BatchExecutionPipeline_enqueue_request --> arc_runner_engine_continuous_batcher__ContinuousBatcher_step
+    arc_runner_engine_continuous_batcher__ContinuousBatcher_step --> arc_runner_engine_paged_attention__PagedBlockTable_get_sequence_blocks
+    arc_runner_engine_continuous_batcher__ContinuousBatcher_step --> arc_runner_engine_paged_attention__RadixPrefixCache_match_prefix
+    arc_runner_engine_continuous_batcher__ContinuousBatcher_step --> arc_runner_engine_speculative_engine__HybridSpeculativeEngine_generate_stream
+    arc_runner_engine_speculative_engine__HybridSpeculativeEngine_generate_stream --> arc_runner_engine_openvino_engine__OpenVINOGenAIEngine_generate_stream
+    arc_runner_engine_openvino_engine__OpenVINOGenAIEngine_generate_stream --> openvino_genai__LLMPipeline_generate
+    arc_runner_engine_openvino_engine__OpenVINOGenAIEngine_generate_stream --> arc_runner_devices_sysman__LevelZeroSysman_query_gpu_memory
+    style arc_runner_cli_main__run stroke-width:3px
+    style arc_runner_server_routes_ollama__generate stroke-width:3px
+```
+
+[Mermaid Source](file:///uml/call_graph_diagram.md) | [Editable Draw.io Source](file:///drawio/call_graph_diagram.drawio)
 
 ---
 
 ## 🛠️ Editing and Modifying Diagrams
 
 1. **In Browser**: Click any `Open in app.diagrams.net` link above to load and edit the XML diagram with rich styles.
-2. **In VS Code**: Install the official `Draw.io Integration` extension and open any file in the `drawio/` folder.
-3. **In Draw.io Desktop**: Open `drawio/*.drawio` directly.
+2. **In VS Code / Cursor**: Install the *Draw.io Integration* extension by Henning Dieterichs and open any file in `drawio/` directly.
+3. **Programmatic Synchronization**: When modifying architecture or codebase methods, update the authoritative UDM definitions and regenerate both Mermaid and Draw.io formats simultaneously in accordance with Rule `45-uml-diagram-lifecycle.md`.
