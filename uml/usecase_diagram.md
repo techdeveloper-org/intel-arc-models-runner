@@ -68,6 +68,13 @@ flowchart LR
     AppClient --> UC_ContinuousBatch
 
     BenchHarness --> UC_BenchSeq
+
+        UC_Txt2Video((Generate Video Sequence\nProof M94, M102))
+        UC_HighFPSVideo((High-FPS INT8 Video\nProof M114))
+        UC_GIFExport((Animated GIF Export\nProof M98))
+        Artist --> UC_Txt2Video
+        Artist --> UC_HighFPSVideo
+        Artist --> UC_GIFExport
 ```
 
 ## Mathematical Proofs & Invariants
@@ -85,3 +92,6 @@ flowchart LR
 - **Proof M91**: Level Zero immediate command list submission latency ceiling $\tau_{\text{submit}} \le 2.1\,\mu\text{s}$.
 - **Proof M92**: Sliced Latent Tile Streaming memory footprint ceiling $\le 580\text{ MB}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: Video use cases, UC_Txt2Video, UC_HighFPSVideo -->

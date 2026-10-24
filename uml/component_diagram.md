@@ -81,3 +81,6 @@ flowchart TB
 - **Proof M91**: Level Zero immediate command list submission latency ceiling $\tau_{\text{submit}} \le 2.1\,\mu\text{s}$.
 - **Proof M92**: Sliced Latent Tile Streaming bounding transient VAE activation memory $\le 580\text{ MB}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: Video_Engine component, Sliced Temporal VAE (M110), USM streaming (M98) -->

@@ -5,26 +5,32 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-    <mxCell id="2" value="arc_runner.engine&amp;#xa;ImageEngine&amp;#xa;AudioEngine&amp;#xa;OpenVINOGenAIEngine&amp;#xa;ContinuousBatcher" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="2" value="arc_runner.engine.video_engine" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="40" y="40" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="3" value="arc_runner.cli&amp;#xa;main (run, transcribe, tts, generate-image)" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="3" value="arc_runner.engine.image_engine" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="320" y="40" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="4" value="arc_runner.hub&amp;#xa;registry (sd-1.5, sdxl, lcm)&amp;#xa;downloader" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="4" value="arc_runner.engine.audio_engine" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="600" y="40" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="5" value="arc_runner.server&amp;#xa;app&amp;#xa;batch_pipeline&amp;#xa;model_manager" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="5" value="arc_runner.hub.registry" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="40" y="240" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="6" value="arc_runner.devices&amp;#xa;detector&amp;#xa;sysman&amp;#xa;models" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="6" value="arc_runner.cli.main" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="320" y="240" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="7" value="arc_runner.quant&amp;#xa;gguf_parser&amp;#xa;transpiler" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="7" value="openvino_genai.Text2VideoPipeline" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="600" y="240" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="8" value="arc_runner.core&amp;#xa;constants&amp;#xa;logging" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="440" width="200" height="120" as="geometry" />
+    <mxCell id="8" value="invokes" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="6" target="2" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="9" value="wraps" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="7" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="10" value="resolves" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="5" parent="1">
+      <mxGeometry relative="1" as="geometry" />
     </mxCell>
       </root>
     </mxGraphModel>

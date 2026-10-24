@@ -5,59 +5,29 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-    <mxCell id="2" value="image_engine_sd15 : ImageEngine" style="swimlane;fontStyle=5;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="40" width="220" height="236" as="geometry" />
+    <mxCell id="2" value="video_engine_ltx_int8" style="swimlane;fontStyle=5;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="220" height="60" as="geometry" />
     </mxCell>
     <mxCell id="3" value="" style="line;html=1;strokeColor=#6C8EBF;strokeWidth=1;fillColor=none;" vertex="1" parent="2">
       <mxGeometry x="0" y="26" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="4" value="model_name = 'stable-diffusion-v1-5-int8'&amp;#xa;precision = 'INT8 NNCF'&amp;#xa;resolution = '512x512'&amp;#xa;steps = 25&amp;#xa;iteration_rate = 14.70 it/s (Proof M89)&amp;#xa;speedup_vs_cpu = 6.10x&amp;#xa;energy_yield = 100781 img/kWh (Proof M82)&amp;#xa;anti_burn_clipping = 0.0 (Proof M84)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="2">
-      <mxGeometry x="0" y="34" width="220" height="202" as="geometry" />
+    <mxCell id="4" value="video_engine_cogvideo" style="swimlane;fontStyle=5;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="340" y="40" width="220" height="60" as="geometry" />
     </mxCell>
-    <mxCell id="5" value="image_engine_sdxl : ImageEngine" style="swimlane;fontStyle=5;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="340" y="40" width="220" height="214" as="geometry" />
-    </mxCell>
-    <mxCell id="6" value="" style="line;html=1;strokeColor=#6C8EBF;strokeWidth=1;fillColor=none;" vertex="1" parent="5">
+    <mxCell id="5" value="" style="line;html=1;strokeColor=#6C8EBF;strokeWidth=1;fillColor=none;" vertex="1" parent="4">
       <mxGeometry x="0" y="26" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="7" value="model_name = 'sdxl-turbo'&amp;#xa;precision = 'INT8 NNCF'&amp;#xa;resolution = '1024x1024'&amp;#xa;steps = 1&amp;#xa;latency_s = 4.003s&amp;#xa;speedup_vs_cpu = 6.60x&amp;#xa;sliced_vae_ram = 540MB (Proof M92 &lt;= 580MB)&amp;#xa;zero_disk_residue = true (Proof M79)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="5">
-      <mxGeometry x="0" y="34" width="220" height="180" as="geometry" />
+    <mxCell id="6" value="video_engine_animatediff" style="swimlane;fontStyle=5;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="640" y="40" width="220" height="60" as="geometry" />
     </mxCell>
-    <mxCell id="8" value="audio_engine_whisper : AudioEngine" style="swimlane;fontStyle=5;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="640" y="40" width="220" height="126" as="geometry" />
-    </mxCell>
-    <mxCell id="9" value="" style="line;html=1;strokeColor=#6C8EBF;strokeWidth=1;fillColor=none;" vertex="1" parent="8">
+    <mxCell id="7" value="" style="line;html=1;strokeColor=#6C8EBF;strokeWidth=1;fillColor=none;" vertex="1" parent="6">
       <mxGeometry x="0" y="26" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="10" value="model_name = 'whisper-large-v3-turbo'&amp;#xa;device = 'GPU'&amp;#xa;rtf = 0.0125 (80x RT, Proof M59)&amp;#xa;zero_disk_residue = true (Proof M66)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="8">
-      <mxGeometry x="0" y="34" width="220" height="92" as="geometry" />
+    <mxCell id="8" value="heterogeneous comparison" style="endArrow=none;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" source="2" target="4" parent="1">
+      <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="11" value="audio_engine_kokoro : AudioEngine" style="swimlane;fontStyle=5;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="268" width="220" height="148" as="geometry" />
-    </mxCell>
-    <mxCell id="12" value="" style="line;html=1;strokeColor=#6C8EBF;strokeWidth=1;fillColor=none;" vertex="1" parent="11">
-      <mxGeometry x="0" y="26" width="220" height="8" as="geometry" />
-    </mxCell>
-    <mxCell id="13" value="model_name = 'kokoro-82m-int8'&amp;#xa;device = 'GPU'&amp;#xa;sample_rate = 24000&amp;#xa;voice = 'af_heart'&amp;#xa;rtf = 0.0754 (Proof M59)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="11">
-      <mxGeometry x="0" y="34" width="220" height="114" as="geometry" />
-    </mxCell>
-    <mxCell id="14" value="device_gpu : IntelArcGPU" style="swimlane;fontStyle=5;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="340" y="224" width="220" height="104" as="geometry" />
-    </mxCell>
-    <mxCell id="15" value="" style="line;html=1;strokeColor=#6C8EBF;strokeWidth=1;fillColor=none;" vertex="1" parent="14">
-      <mxGeometry x="0" y="26" width="220" height="8" as="geometry" />
-    </mxCell>
-    <mxCell id="16" value="xe_cores = 8&amp;#xa;vram_mb = 4620&amp;#xa;level_zero_immediate = true (Proof M91)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="14">
-      <mxGeometry x="0" y="34" width="220" height="70" as="geometry" />
-    </mxCell>
-    <mxCell id="17" value="device_npu : IntelNPU" style="swimlane;fontStyle=5;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="640" y="224" width="220" height="104" as="geometry" />
-    </mxCell>
-    <mxCell id="18" value="" style="line;html=1;strokeColor=#6C8EBF;strokeWidth=1;fillColor=none;" vertex="1" parent="17">
-      <mxGeometry x="0" y="26" width="220" height="8" as="geometry" />
-    </mxCell>
-    <mxCell id="19" value="tops = 48&amp;#xa;power_tdp = 5.0W (Proof M50)&amp;#xa;mode = 'draft_accelerator'" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="17">
-      <mxGeometry x="0" y="34" width="220" height="70" as="geometry" />
+    <mxCell id="9" value="motion architecture diff" style="endArrow=none;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" source="2" target="6" parent="1">
+      <mxGeometry relative="1" as="geometry" />
     </mxCell>
       </root>
     </mxGraphModel>

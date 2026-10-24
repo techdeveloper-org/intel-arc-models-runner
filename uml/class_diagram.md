@@ -127,6 +127,63 @@ classDiagram
         -_extract_pil_image(ov_tensor)
         +unload()
     }
+    class VideoEngineConfig {
+        +device: str
+        +default_num_frames: int
+        +default_fps: int
+        +default_width: int
+        +default_height: int
+        +default_steps: int
+        +default_guidance_scale: float
+        +enable_temporal_slicing: bool
+        +output_container: str
+    }
+    class VideoGenerationRequest {
+        +prompt: str
+        +negative_prompt: str
+        +num_frames: int
+        +fps: int
+        +width: int
+        +height: int
+        +num_inference_steps: int
+        +guidance_scale: float
+        +rng_seed: Optional[int]
+        +output_path: Optional[str]
+        +export_container: str
+    }
+    class VideoGenerationBreakdown {
+        +text_encoder_ms: float
+        +denoise_transformer_ms: float
+        +vae_decoder_ms: float
+        +video_encode_ms: float
+        +step_latency_ms: float
+        +iteration_rate_it_s: float
+        +frames_per_second: float
+        +real_time_factor: float
+        +energy_yield_frames_per_kwh: float
+    }
+    class VideoGenerationResult {
+        +frames: List[np.ndarray]
+        +output_path: Optional[str]
+        +num_frames: int
+        +fps: int
+        +duration_sec: float
+        +resolution: Tuple[int, int]
+        +breakdown: VideoGenerationBreakdown
+        +total_latency_ms: float
+    }
+    class VideoEngine {
+        -_pipeline: Text2VideoPipeline
+        -_device: str
+        -_config: VideoEngineConfig
+        +load_model(model_path: Path, device: str)
+        +generate(request: VideoGenerationRequest)
+        +extract_frame_tensors(ov_video_result)
+        +encode_video(frames, output_path, fps, container)
+        +compute_warp_error(frames)
+        +unload()
+    }
+
     class ContinuousBatcher {
         +active_sequences_count
         +waiting_sequences_count
@@ -188,3 +245,6 @@ classDiagram
 - **Proof M87**: Gram-Schmidt Negative Guidance Projection Invariant.
 - **Proof M91**: Level Zero immediate command list driver latency ceiling $\tau_{\text{submit}} \le 2.1\,\mu\text{s}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: Spatio-Temporal 3D Latent Compression (M94), Factorized Attention (M95), OFWE (M96), Zero-Disk Residue (M100) -->

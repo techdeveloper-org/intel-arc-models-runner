@@ -32,7 +32,7 @@ Every diagram is mathematically grounded in empirical physical silicon proofs (*
 
 ## 🔍 Embedded Visual Previews (All 13 Diagrams)
 
-### 1. Package Diagram (10 Clean Core Packages, ImageEngine & Level Zero Bindings)
+### 1. Package Diagram (10 Clean Core Packages, ImageEngine, VideoEngine & Level Zero Bindings)
 
 ```mermaid
 flowchart LR
@@ -70,7 +70,7 @@ flowchart LR
 
 ---
 
-### 2. Component Diagram (Hardware Execution Engine, ImageEngine & Level Zero Silicon)
+### 2. Component Diagram (Hardware Execution Engine, ImageEngine, VideoEngine & Level Zero Silicon)
 
 ```mermaid
 flowchart TB
@@ -143,7 +143,7 @@ flowchart TB
 
 ---
 
-### 3. Class Diagram (BaseEngine Hierarchy, ImageEngine, AudioEngine & Batch Scheduling)
+### 3. Class Diagram (BaseEngine Hierarchy, ImageEngine, VideoEngine, AudioEngine & Batch Scheduling)
 
 ```mermaid
 classDiagram

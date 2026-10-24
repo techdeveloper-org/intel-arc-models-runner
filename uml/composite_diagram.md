@@ -103,6 +103,22 @@ flowchart TB
         USMZeroCopyExtractor --> OutPort_Image
         UNetDenoiserDPAS --> OutPort_ImageMetrics
     end
+
+    subgraph VideoEngineComposite ["VideoEngine Composite Structure (Proof M94, M110)"]
+        port p_video_req
+        port p_video_res
+        subgraph InternalVideoParts ["Internal Execution Pipeline"]
+            V_PromptEncoder["Prompt Text Encoder (T5/CLIP)"]
+            V_DiTTransformer["Factorized 3D DiT Transformer (Proof M95, M97)"]
+            V_SlicedVAE["Sliced Temporal VAE Decoder (Proof M110)"]
+            V_Encoder["Container Video Muxer (MP4/AVI/GIF)"]
+        end
+        p_video_req --> V_PromptEncoder
+        V_PromptEncoder --> V_DiTTransformer
+        V_DiTTransformer --> V_SlicedVAE
+        V_SlicedVAE --> V_Encoder
+        V_Encoder --> p_video_res
+    end
 ```
 
 ## Mathematical Proofs & Invariants
@@ -120,3 +136,6 @@ flowchart TB
 - **Proof M89**: INT8 NNCF Quantization DPAS Roofline Transition doubling iteration rate to $14.70\text{ it/s}$.
 - **Proof M92**: Sliced Latent Tile Streaming memory footprint ceiling $\le 580\text{ MB}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: VideoEngineComposite internal parts, sliced VAE -->

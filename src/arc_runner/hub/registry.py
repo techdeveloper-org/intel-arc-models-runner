@@ -20,7 +20,7 @@ class CuratedModelInfo(BaseModel):
     target_device: str = Field(description="Recommended silicon target (GPU, NPU, HYBRID)")
     size_bytes: int = Field(description="Estimated on-disk weight footprint in bytes")
     context_window: int = Field(description="Maximum native context window tokens")
-    model_type: str = Field(default="llm", description="Model modality: 'llm', 'embedding', 'vision', 'stt', 'tts'")
+    model_type: str = Field(default="llm", description="Model modality: 'llm', 'embedding', 'vision', 'stt', 'tts', 'image_gen', 'video_gen'")
     sha256_checksum: str | None = Field(default=None, description="Published reference checksum")
 
     @property
@@ -370,6 +370,66 @@ class ModelRegistry:
             context_window=77,
             model_type="image_gen",
         ),
+        "ltx-video": CuratedModelInfo(
+            alias="ltx-video",
+            repo_id="Lightricks/LTX-Video-openvino",
+            parameter_size="2B",
+            quantization="FP16 (OpenVINO IR)",
+            family="ltx-video",
+            description="Lightricks LTX-Video 0.9.1 real-time DiT spatial-temporal transformer for video generation on Intel Arc GPUs",
+            target_device="GPU",
+            size_bytes=4200000000,
+            context_window=128,
+            model_type="video_gen",
+        ),
+        "ltx-video-int8": CuratedModelInfo(
+            alias="ltx-video-int8",
+            repo_id="Lightricks/LTX-Video-openvino-int8",
+            parameter_size="2B",
+            quantization="INT8 (Symmetric NNCF)",
+            family="ltx-video",
+            description="NNCF INT8 quantized Lightricks LTX-Video model optimized for high FPS throughput on Arc Xe-LPG",
+            target_device="GPU",
+            size_bytes=2100000000,
+            context_window=128,
+            model_type="video_gen",
+        ),
+        "cogvideox-2b": CuratedModelInfo(
+            alias="cogvideox-2b",
+            repo_id="THUDM/CogVideoX-2b-openvino",
+            parameter_size="2.2B",
+            quantization="FP16 (OpenVINO IR)",
+            family="cogvideox",
+            description="THUDM CogVideoX-2B expert transformer with 3D causal VAE for cinematic video synthesis on Intel Arc GPUs",
+            target_device="GPU",
+            size_bytes=4600000000,
+            context_window=226,
+            model_type="video_gen",
+        ),
+        "animatediff-v1-5": CuratedModelInfo(
+            alias="animatediff-v1-5",
+            repo_id="OpenVINO/AnimateDiff-v1-5-ov",
+            parameter_size="1.2B",
+            quantization="FP16 (OpenVINO IR)",
+            family="animatediff",
+            description="AnimateDiff motion modeling adapter integrated with Stable Diffusion 1.5 for fluid animation on Arc GPUs",
+            target_device="GPU",
+            size_bytes=2400000000,
+            context_window=77,
+            model_type="video_gen",
+        ),
+        "svd-xt": CuratedModelInfo(
+            alias="svd-xt",
+            repo_id="OpenVINO/stable-video-diffusion-img2vid-xt-ov",
+            parameter_size="1.5B",
+            quantization="FP16 (OpenVINO IR)",
+            family="svd",
+            description="Stability AI Stable Video Diffusion XT 25-frame high-resolution video generator for Intel Arc GPUs",
+            target_device="GPU",
+            size_bytes=3200000000,
+            context_window=77,
+            model_type="video_gen",
+        ),
     }
 
     @classmethod
@@ -407,6 +467,9 @@ class ModelRegistry:
         elif any(k in clean_key for k in ("diffusion", "sd-", "sdxl", "lcm", "turbo", "flux")):
             family = "diffusion"
             m_type = "image_gen"
+        elif any(k in clean_key for k in ("video", "ltx", "cogvideo", "svd", "animatediff", "t2v")):
+            family = "video"
+            m_type = "video_gen"
 
         return CuratedModelInfo(
             alias=alias_or_repo,

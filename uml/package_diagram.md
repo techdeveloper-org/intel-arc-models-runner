@@ -47,3 +47,6 @@ flowchart LR
 - **Proof M79**: Zero-disk residue invariant for sequential image models: $\sum_{k=1}^K \Delta V_k = 0 \implies \Delta S_{\text{disk}}(t_{\text{end}}) \equiv 0$.
 - **Proof M91**: Level Zero immediate command list driver latency ceiling $\tau_{\text{submit}} \le 2.1\,\mu\text{s}$ for text-to-image pipeline dispatch.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: video_engine Level Zero acceleration and USM zero-copy frame pipeline -->
