@@ -60,6 +60,19 @@ flowchart TD
     Assemble_Benchmark_DTO --> Emit_Response
     Raise_Dimension_Error --> Emit_Response
     Emit_Response --> __end__((( )))
+
+        subgraph VideoActivity ["Text-to-Video Activity Flow"]
+            V_Start([Start Video Gen Request]) --> V_Parse[Parse Prompt & Parameters]
+            V_Parse --> V_Valid{Dimensions % 8 == 0?}
+            V_Valid -- Yes --> V_Init[Init Noise Latents GNLC Proof M99]
+            V_Valid -- No --> V_Err[Raise ValueError]
+            V_Init --> V_Denoise[Factorized 3D Spatio-Temporal Denoising Loop Proof M95]
+            V_Denoise --> V_VAE[Sliced Temporal VAE Decoding Proof M110]
+            V_VAE --> V_WarpCheck{OFWE <= 0.042? Proof M96}
+            V_WarpCheck -- Yes --> V_Mux[Encode to MP4/AVI/GIF Container]
+            V_WarpCheck -- No --> V_Warn[Flag Temporal Jitter Warning] --> V_Mux
+            V_Mux --> V_Done([Return VideoGenerationResult])
+        end
 ```
 
 ## Mathematical Proofs & Invariants
@@ -79,3 +92,6 @@ flowchart TD
 - **Proof M91**: Level Zero immediate command list submission latency ceiling $\tau_{\text{submit}} \le 2.1\,\mu\text{s}$.
 - **Proof M92**: Sliced Latent Tile Streaming memory footprint ceiling $\le 580\text{ MB}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: Activity diagram, factorized denoising (M95), OFWE (M96) -->

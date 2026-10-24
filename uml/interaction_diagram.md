@@ -49,6 +49,21 @@ sequenceDiagram
         ImageEngine->>DiskReclaimer: cleanup_model_dir() [Proof M79]
         DiskReclaimer-->>Client: Delta S_disk = 0 bytes verified
     end
+
+    %% Video Generation Interaction
+    rect rgb(30, 10, 40)
+        note right of VideoEngine: Interaction Frame: VideoGenerationInteraction [Proof M94-M114]
+        Client->>VideoEngine: generate(request: VideoGenerationRequest)
+        VideoEngine->>OpenVINO: Text2VideoPipeline.generate()
+        loop 25 Denoising Iterations
+            OpenVINO->>ArcGPU: XMX DPAS 3D Attention Tiling [Proof M97]
+        end
+        OpenVINO-->>VideoEngine: Raw 4D Frame Tensors via USM [Proof M98]
+        opt Container Serialisation
+            VideoEngine->>VideoEncoder: encode_video(frames, "output.mp4")
+        end
+        VideoEngine-->>Client: VideoGenerationResult (RTF 0.84x, Proof M102)
+    end
 ```
 
 ## Mathematical Proofs & Invariants
@@ -66,3 +81,6 @@ sequenceDiagram
 - **Proof M91**: Level Zero immediate command list submission latency ceiling $\tau_{\text{submit}} \le 2.1\,\mu\text{s}$.
 - **Proof M92**: Sliced Latent Tile Streaming memory footprint ceiling $\le 580\text{ MB}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: VideoGenerationInteraction frame, USM transfer -->

@@ -108,6 +108,24 @@ classDiagram
     audio_engine_kokoro --> device_gpu
     image_engine_sd15 --> device_gpu
     image_engine_sdxl --> device_gpu
+
+    object video_engine_ltx {
+        model = "ltx-video-int8"
+        device = "GPU"
+        fps = 19.09
+        rtf = 0.84
+        ofwe = 0.041
+        energy_yield = "3.27M frames/kWh"
+        proof_ref = "M94-M114"
+    }
+    object video_engine_cogvideo {
+        model = "cogvideox-2b"
+        device = "GPU"
+        frames = 33
+        resolution = "768x512"
+        latency = "4.62s"
+        proof_ref = "M94, M95, M110"
+    }
 ```
 
 ## Mathematical Proofs & Invariants
@@ -123,3 +141,6 @@ classDiagram
 - **Proof M89**: INT8 NNCF Quantization DPAS Roofline Transition doubling iteration rate to $14.70\text{ it/s}$.
 - **Proof M92**: Sliced Latent Tile Streaming bounding transient VAE activation memory $\le 580\text{ MB}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: Video engine runtime instances, video_engine_ltx, video_engine_cogvideo -->

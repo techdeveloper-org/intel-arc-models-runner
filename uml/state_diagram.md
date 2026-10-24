@@ -82,6 +82,15 @@ stateDiagram-v2
     }
 
     RepetitionLoopGuard --> IdleReady : emit_transcription_result (RTF=0.0125, Proof M59)
+
+        state VideoGenerationWorkflow {
+            [*] --> LoadingVideoPipeline : load_model("ltx-video", "GPU")
+            LoadingVideoPipeline --> AOTCacheCheck : check .aot_cache/ [Proof M112]
+            AOTCacheCheck --> Factorized3DDenoisingLoop : compile or load blob
+            Factorized3DDenoisingLoop --> SlicedTemporalVAEDecoding : 25 steps complete [Proof M95]
+            SlicedTemporalVAEDecoding --> VideoContainerEncoding : chunk <= 806MB [Proof M110]
+            VideoContainerEncoding --> [*] : VideoGenerationResult (Proof M102)
+        }
 ```
 
 ## Mathematical Proofs & Invariants
@@ -97,3 +106,6 @@ stateDiagram-v2
 - **Proof M92**: Sliced Latent Tile Streaming memory footprint ceiling $\le 580\text{ MB}$.
 - **Proof M93**: Ahead-of-Time OpenVINO Blob Caching delivering $52.6\times$ faster warm load ($0.54\text{s}$).
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: Video generation state transitions, LoadingVideoPipeline, Sliced VAE -->

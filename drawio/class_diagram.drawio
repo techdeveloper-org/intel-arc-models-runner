@@ -5,146 +5,77 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-    <mxCell id="2" value="ImageEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="40" width="220" height="222" as="geometry" />
+    <mxCell id="2" value="VideoEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="220" height="262" as="geometry" />
     </mxCell>
-    <mxCell id="3" value="-_pipeline: Text2ImagePipeline&amp;#xa;-_device: str&amp;#xa;-_config: ImageEngineConfig&amp;#xa;-_current_model_path: Optional[Path]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="2">
+    <mxCell id="3" value="-_pipeline: Text2VideoPipeline&amp;#xa;-_device: str&amp;#xa;-_config: VideoEngineConfig&amp;#xa;-_current_model_path: Optional[Path]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="2">
       <mxGeometry x="0" y="26" width="220" height="84" as="geometry" />
     </mxCell>
     <mxCell id="4" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="2">
       <mxGeometry x="0" y="110" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="5" value="+load_model(model_path, device, compile_cache)&amp;#xa;+generate(request: ImageGenerationRequest)&amp;#xa;-_execute_generation(request)&amp;#xa;-_extract_pil_image(ov_tensor)&amp;#xa;+unload()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="2">
-      <mxGeometry x="0" y="118" width="220" height="104" as="geometry" />
+    <mxCell id="5" value="+load_model(model_path, device)&amp;#xa;+generate(request_or_prompt, **kwargs)&amp;#xa;+extract_frame_tensors(ov_video_result)&amp;#xa;+encode_video(frames, output_path, fps, container)&amp;#xa;+compute_warp_error(frames)&amp;#xa;+unload()&amp;#xa;+close()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="2">
+      <mxGeometry x="0" y="118" width="220" height="144" as="geometry" />
     </mxCell>
-    <mxCell id="6" value="ImageEngineConfig" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="330" y="40" width="220" height="186" as="geometry" />
+    <mxCell id="6" value="VideoEngineConfig" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="330" y="40" width="220" height="246" as="geometry" />
     </mxCell>
-    <mxCell id="7" value="+device: str&amp;#xa;+default_steps: int&amp;#xa;+default_guidance_scale: float&amp;#xa;+default_width: int&amp;#xa;+default_height: int&amp;#xa;+enable_compile_cache: bool" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="6">
-      <mxGeometry x="0" y="26" width="220" height="124" as="geometry" />
+    <mxCell id="7" value="+device: str = 'GPU'&amp;#xa;+default_num_frames: int = 16&amp;#xa;+default_fps: int = 16&amp;#xa;+default_width: int = 512&amp;#xa;+default_height: int = 512&amp;#xa;+default_steps: int = 25&amp;#xa;+default_guidance_scale: float = 7.5&amp;#xa;+enable_temporal_slicing: bool = True&amp;#xa;+output_container: str = 'mp4'" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="6">
+      <mxGeometry x="0" y="26" width="220" height="184" as="geometry" />
     </mxCell>
     <mxCell id="8" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="6">
-      <mxGeometry x="0" y="150" width="220" height="8" as="geometry" />
+      <mxGeometry x="0" y="210" width="220" height="8" as="geometry" />
     </mxCell>
     <mxCell id="9" value=" " style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="6">
-      <mxGeometry x="0" y="158" width="220" height="28" as="geometry" />
+      <mxGeometry x="0" y="218" width="220" height="28" as="geometry" />
     </mxCell>
-    <mxCell id="10" value="ImageGenerationRequest" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="620" y="40" width="220" height="206" as="geometry" />
+    <mxCell id="10" value="VideoGenerationRequest" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="620" y="40" width="220" height="266" as="geometry" />
     </mxCell>
-    <mxCell id="11" value="+prompt: str&amp;#xa;+negative_prompt: str&amp;#xa;+width: int&amp;#xa;+height: int&amp;#xa;+steps: int&amp;#xa;+guidance_scale: float&amp;#xa;+seed: Optional[int]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="10">
-      <mxGeometry x="0" y="26" width="220" height="144" as="geometry" />
+    <mxCell id="11" value="+prompt: str&amp;#xa;+negative_prompt: Optional[str]&amp;#xa;+num_frames: int = 16&amp;#xa;+fps: int = 16&amp;#xa;+width: int = 512&amp;#xa;+height: int = 512&amp;#xa;+num_inference_steps: int = 25&amp;#xa;+guidance_scale: float = 7.5&amp;#xa;+rng_seed: Optional[int]&amp;#xa;+output_path: Optional[str]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="10">
+      <mxGeometry x="0" y="26" width="220" height="204" as="geometry" />
     </mxCell>
     <mxCell id="12" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="10">
-      <mxGeometry x="0" y="170" width="220" height="8" as="geometry" />
+      <mxGeometry x="0" y="230" width="220" height="8" as="geometry" />
     </mxCell>
     <mxCell id="13" value=" " style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="10">
-      <mxGeometry x="0" y="178" width="220" height="28" as="geometry" />
+      <mxGeometry x="0" y="238" width="220" height="28" as="geometry" />
     </mxCell>
-    <mxCell id="14" value="ImageGenerationBreakdown" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="910" y="40" width="220" height="126" as="geometry" />
+    <mxCell id="14" value="VideoGenerationBreakdown" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="910" y="40" width="220" height="246" as="geometry" />
     </mxCell>
-    <mxCell id="15" value="+text_encoder_ms: float&amp;#xa;+denoise_unet_ms: float&amp;#xa;+vae_decoder_ms: float" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="14">
-      <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
+    <mxCell id="15" value="+text_encoder_ms: float&amp;#xa;+denoise_transformer_ms: float&amp;#xa;+vae_decoder_ms: float&amp;#xa;+video_encode_ms: float&amp;#xa;+step_latency_ms: float&amp;#xa;+iteration_rate_it_s: float&amp;#xa;+frames_per_second: float&amp;#xa;+real_time_factor: float&amp;#xa;+energy_yield_frames_per_kwh: float" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="14">
+      <mxGeometry x="0" y="26" width="220" height="184" as="geometry" />
     </mxCell>
     <mxCell id="16" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="14">
-      <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
+      <mxGeometry x="0" y="210" width="220" height="8" as="geometry" />
     </mxCell>
     <mxCell id="17" value=" " style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="14">
-      <mxGeometry x="0" y="98" width="220" height="28" as="geometry" />
+      <mxGeometry x="0" y="218" width="220" height="28" as="geometry" />
     </mxCell>
-    <mxCell id="18" value="ImageGenerationResult" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="326" width="220" height="206" as="geometry" />
+    <mxCell id="18" value="VideoGenerationResult" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="346" width="220" height="226" as="geometry" />
     </mxCell>
-    <mxCell id="19" value="+image: PIL.Image&amp;#xa;+latency_s: float&amp;#xa;+step_latency_ms: float&amp;#xa;+iteration_rate_it_s: float&amp;#xa;+megapixels_per_sec: float&amp;#xa;+device_used: str&amp;#xa;+seed_used: int" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="18">
-      <mxGeometry x="0" y="26" width="220" height="144" as="geometry" />
+    <mxCell id="19" value="+frames: list[np.ndarray]&amp;#xa;+output_path: Optional[str]&amp;#xa;+num_frames: int&amp;#xa;+fps: int&amp;#xa;+duration_sec: float&amp;#xa;+resolution: tuple[int, int]&amp;#xa;+breakdown: VideoGenerationBreakdown&amp;#xa;+total_latency_ms: float" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="18">
+      <mxGeometry x="0" y="26" width="220" height="164" as="geometry" />
     </mxCell>
     <mxCell id="20" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="18">
-      <mxGeometry x="0" y="170" width="220" height="8" as="geometry" />
+      <mxGeometry x="0" y="190" width="220" height="8" as="geometry" />
     </mxCell>
     <mxCell id="21" value=" " style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="18">
-      <mxGeometry x="0" y="178" width="220" height="28" as="geometry" />
+      <mxGeometry x="0" y="198" width="220" height="28" as="geometry" />
     </mxCell>
-    <mxCell id="22" value="BaseEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="330" y="302" width="220" height="182" as="geometry" />
+    <mxCell id="22" value="ImageEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="330" y="282" width="220" height="162" as="geometry" />
     </mxCell>
-    <mxCell id="23" value="+is_loaded&amp;#xa;+model_path&amp;#xa;+device" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="22">
+    <mxCell id="23" value="-_pipeline: Text2ImagePipeline&amp;#xa;-_device: str&amp;#xa;-_config: ImageEngineConfig" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="22">
       <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
     </mxCell>
     <mxCell id="24" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="22">
       <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="25" value="+*load_model()&amp;#xa;+*generate_stream()&amp;#xa;+*get_telemetry()&amp;#xa;+*unload()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="22">
-      <mxGeometry x="0" y="98" width="220" height="84" as="geometry" />
-    </mxCell>
-    <mxCell id="26" value="OpenVINOGenAIEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="620" y="262" width="220" height="142" as="geometry" />
-    </mxCell>
-    <mxCell id="27" value="-_pipeline&amp;#xa;-_device" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="26">
-      <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
-    </mxCell>
-    <mxCell id="28" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="26">
-      <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
-    </mxCell>
-    <mxCell id="29" value="+load_model()&amp;#xa;+generate_stream()&amp;#xa;-_build_ov_generation_config()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="26">
-      <mxGeometry x="0" y="78" width="220" height="64" as="geometry" />
-    </mxCell>
-    <mxCell id="30" value="HybridSpeculativeEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="910" y="282" width="220" height="162" as="geometry" />
-    </mxCell>
-    <mxCell id="31" value="-target_engine&amp;#xa;-draft_engine&amp;#xa;+current_gamma" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="30">
-      <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
-    </mxCell>
-    <mxCell id="32" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="30">
-      <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
-    </mxCell>
-    <mxCell id="33" value="+load_model()&amp;#xa;+generate_stream()&amp;#xa;-_validate_path()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="30">
+    <mxCell id="25" value="+load_model(model_path, device)&amp;#xa;+generate(request)&amp;#xa;+unload()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="22">
       <mxGeometry x="0" y="98" width="220" height="64" as="geometry" />
-    </mxCell>
-    <mxCell id="34" value="AudioEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="564" width="220" height="182" as="geometry" />
-    </mxCell>
-    <mxCell id="35" value="-_pipeline&amp;#xa;-_device&amp;#xa;-_config: AudioEngineConfig" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="34">
-      <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
-    </mxCell>
-    <mxCell id="36" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="34">
-      <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
-    </mxCell>
-    <mxCell id="37" value="+load_model()&amp;#xa;+transcribe()&amp;#xa;+synthesize()&amp;#xa;+unload()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="34">
-      <mxGeometry x="0" y="98" width="220" height="84" as="geometry" />
-    </mxCell>
-    <mxCell id="38" value="ContinuousBatcher" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="330" y="484" width="220" height="142" as="geometry" />
-    </mxCell>
-    <mxCell id="39" value="+active_sequences_count&amp;#xa;+waiting_sequences_count" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="38">
-      <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
-    </mxCell>
-    <mxCell id="40" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="38">
-      <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
-    </mxCell>
-    <mxCell id="41" value="+add_request()&amp;#xa;+step()&amp;#xa;+preempt_sequence()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="38">
-      <mxGeometry x="0" y="78" width="220" height="64" as="geometry" />
-    </mxCell>
-    <mxCell id="42" value="" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="22" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="43" value="" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="34" target="22" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="44" value="" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="26" target="22" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="45" value="" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="30" target="22" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="46" value="" style="endArrow=diamond;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="6" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="47" value="" style="endArrow=open;endSize=8;dashed=1;html=1;strokeColor=#000000;strokeWidth=1;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="10" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="48" value="" style="endArrow=open;endSize=8;dashed=1;html=1;strokeColor=#000000;strokeWidth=1;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="18" parent="1">
-      <mxGeometry relative="1" as="geometry" />
     </mxCell>
       </root>
     </mxGraphModel>

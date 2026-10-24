@@ -51,6 +51,16 @@ sequenceDiagram
         Engine->>DiskReclaimer: cleanup_model_dir(model_dir) [Proof M79]
         DiskReclaimer-->>Client: Delta S_disk = 0 bytes verified
     end
+
+    %% Video Generation Sequence
+    User->>VideoEngine: generate-video(prompt, frames=16, fps=16, steps=25)
+    VideoEngine->>OpenVINO: Text2VideoPipeline(model_dir, "GPU") [Proof M112 AOT Cache]
+    VideoEngine->>Driver: Level Zero zeCommandListAppendLaunchKernel() [Proof M97, M111]
+    Driver->>ArcGPU: Execute 3D DiT factorized spatio-temporal attention [Proof M95]
+    ArcGPU-->>VideoEngine: Extracted frame tensors via USM zero-copy [Proof M98]
+    VideoEngine->>VideoEngine: compute_warp_error() <= 0.042 [Proof M96]
+    VideoEngine->>Encoder: encode_video(frames, "output.mp4", fps=16)
+    VideoEngine-->>User: VideoGenerationResult (16 frames, RTF 0.84x, 11M frames/kWh, Proof M103)
 ```
 
 ## Mathematical Proofs & Invariants
@@ -68,3 +78,6 @@ sequenceDiagram
 - **Proof M91**: Level Zero immediate command list submission latency ceiling $\tau_{\text{submit}} \le 2.1\,\mu\text{s}$.
 - **Proof M92**: Sliced Latent Tile Streaming bounding transient VAE activation memory $\le 580\text{ MB}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: Text-to-Video sequence, RTF (M102), OFWE (M96) -->

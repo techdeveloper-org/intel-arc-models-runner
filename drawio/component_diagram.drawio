@@ -5,95 +5,23 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-    <mxCell id="2" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Image_Engine&amp;#xa;generate()&amp;#xa;Level Zero tau &lt;= 2.1us (Proof M91)&amp;#xa;Anti-Burn Bound (Proof M84)" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="2" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Video_Engine" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="40" y="40" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="3" value="generate()" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="245" y="60" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="4" value="Level Zero tau &lt;= 2.1us (Proof M91)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="245" y="100" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="5" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Audio_Engine&amp;#xa;transcribe()&amp;#xa;synthesize()&amp;#xa;VAD Gating (Proof M69)" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="3" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Image_Engine" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="320" y="40" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="6" value="transcribe()" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="525" y="60" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="7" value="synthesize()" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="525" y="100" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="8" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;OpenVINOGenAIEngine&amp;#xa;generate_stream()&amp;#xa;Unified Silicon" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="4" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Audio_Engine" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="600" y="40" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="9" value="generate_stream()" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="805" y="60" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="10" value="Unified Silicon" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="805" y="100" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="11" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;ContinuousBatcher&amp;#xa;Little's Law theta_sat &lt;= 0.92 (Proof M30)" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="5" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;LevelZero_Driver" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="40" y="240" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="12" value="Little's Law theta_sat &lt;= 0.92 (Proof M30)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="245" y="260" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="13" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;ModelManager&amp;#xa;Engine Registry&amp;#xa;VRAM Budgeting" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="6" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Intel_Arc_GPU" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="320" y="240" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="14" value="Engine Registry" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="525" y="260" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="15" value="VRAM Budgeting" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="525" y="300" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="16" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;CLI_Subsystem&amp;#xa;CLI (run, transcribe, tts, generate-image)" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="7" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Video_Encoder" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="600" y="240" width="200" height="120" as="geometry" />
-    </mxCell>
-    <mxCell id="17" value="CLI (run, transcribe, tts, generate-image)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="805" y="260" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="18" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Intel_Arc_GPU&amp;#xa;32 Xe-Cores / 256 XMX&amp;#xa;560 GB/s GDDR6" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="440" width="200" height="120" as="geometry" />
-    </mxCell>
-    <mxCell id="19" value="32 Xe-Cores / 256 XMX" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="245" y="460" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="20" value="560 GB/s GDDR6" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="245" y="500" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="21" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Intel_Ultra_NPU&amp;#xa;48 TOPs Systolic Array&amp;#xa;5W TDP (Proof M50)" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="320" y="440" width="200" height="120" as="geometry" />
-    </mxCell>
-    <mxCell id="22" value="48 TOPs Systolic Array" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="525" y="460" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="23" value="5W TDP (Proof M50)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="525" y="500" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="24" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Host_CPU&amp;#xa;AVX2 / AMX Matrix Host Fallback" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="600" y="440" width="200" height="120" as="geometry" />
-    </mxCell>
-    <mxCell id="25" value="AVX2 / AMX Matrix Host Fallback" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
-      <mxGeometry x="805" y="460" width="20" height="20" as="geometry" />
-    </mxCell>
-    <mxCell id="26" value="direct_generate_image" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="16" target="2" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="27" value="direct_transcribe_tts" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="16" target="5" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="28" value="initialize_image" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="13" target="2" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="29" value="zeCommandListExecuteImmediate" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="18" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="30" value="cpu_fallback" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="24" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="31" value="zeCommandListExecuteImmediate" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="5" target="18" parent="1">
-      <mxGeometry relative="1" as="geometry" />
     </mxCell>
       </root>
     </mxGraphModel>

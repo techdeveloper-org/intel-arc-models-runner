@@ -59,6 +59,15 @@ flowchart LR
     scratch__SequentialImageBenchmark_run_model --> ImageEngine__generate
     scratch__SequentialImageBenchmark_run_model --> ImageEngine__unload
     scratch__SequentialImageBenchmark_run_model --> scratch__SequentialImageBenchmark_cleanup
+
+    %% Video Call Graph Subgraph
+    CLI_Vid["CLI: handle_generate_video()"] --> VidEng_Load["VideoEngine.load_model()"]
+    CLI_Vid --> VidEng_Gen["VideoEngine.generate()"]
+    VidEng_Gen --> OV_VidGen["Text2VideoPipeline.generate() [Proof M94, M95]"]
+    VidEng_Gen --> VidEng_Extract["VideoEngine.extract_frame_tensors() [Proof M98]"]
+    VidEng_Gen --> VidEng_Warp["VideoEngine.compute_warp_error() [Proof M96]"]
+    VidEng_Gen --> VidEng_Enc["VideoEngine.encode_video() [imageio/cv2]"]
+    VidEng_Gen --> VidEng_Close["VideoEngine.close() [Proof M100]"]
 ```
 
 ## Mathematical Proofs & Invariants
@@ -75,3 +84,6 @@ flowchart LR
 - **Proof M89**: INT8 NNCF Quantization DPAS Roofline Transition doubling iteration rate to $14.70\text{ it/s}$.
 - **Proof M91**: Level Zero immediate command list submission latency ceiling $\tau_{\text{submit}} \le 2.1\,\mu\text{s}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: Video call graph AST invocations, handle_generate_video -->

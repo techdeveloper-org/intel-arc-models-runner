@@ -27,6 +27,15 @@ flowchart LR
     SlicedVAEDecoder -->|9. decoded RGB plane [Proof M78, M92]| ImageEngine
     ImageEngine -->|10. cleanup_model_dir() [Proof M79]\n11. Delta S_disk = 0 bytes confirmed| DiskReclaimer
     AudioEngine -->|15. cleanup_model_dir() [Proof M66]\n16. Delta S_disk = 0 bytes confirmed| DiskReclaimer
+
+    %% VideoEngine Communication Pathway
+    Client -- "1. generate(prompt, frames=16) [Proof M94]" --> VideoEngine
+    VideoEngine -- "2. dispatch_3d_denoise() [Proof M95, M97]" --> LevelZeroDriver
+    LevelZeroDriver -- "3. zeCommandListExecuteImmediate() [Proof M111]" --> IntelArcGPU
+    IntelArcGPU -- "4. USM zero-copy frame tensor extraction [Proof M98]" --> VideoEngine
+    VideoEngine -- "5. encode_video(frames, container='mp4') [Proof M96]" --> VideoEncoder
+    VideoEngine -- "6. VideoGenerationResult [Proof M102, M103]" --> Client
+    VideoEngine -- "7. purge_model_cache() [Proof M100: Zero-Disk]" --> DiskReclaimer
 ```
 
 ## Mathematical Proofs & Invariants
@@ -45,3 +54,6 @@ flowchart LR
 - **Proof M91**: Level Zero immediate command list submission latency ceiling $\tau_{\text{submit}} \le 2.1\,\mu\text{s}$.
 - **Proof M92**: Sliced Latent Tile Streaming memory footprint ceiling $\le 580\text{ MB}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: VideoEngine communication graph, Proof M96, M100 -->

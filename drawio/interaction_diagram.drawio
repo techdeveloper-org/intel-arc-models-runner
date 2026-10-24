@@ -8,52 +8,46 @@
     <mxCell id="2" value="" style="ellipse;html=1;strokeColor=#000000;fillColor=#000000;" vertex="1" parent="1">
       <mxGeometry x="425" y="30" width="30" height="30" as="geometry" />
     </mxCell>
-    <mxCell id="3" value="ref&amp;#xa;Validate Dimensions Multiple of 8 (Proof M73)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="3" value="ref&amp;#xa;Client issues arc-runner generate-video" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="310" y="100" width="260" height="60" as="geometry" />
     </mxCell>
     <mxCell id="4" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="3" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="5" value="ref&amp;#xa;Seed Philox4x32-10 PRNG (Proof M80)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="5" value="ref&amp;#xa;VideoEngine loads Text2VideoPipeline via AOT Cache (Proof M112)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="310" y="200" width="260" height="60" as="geometry" />
     </mxCell>
     <mxCell id="6" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="3" target="5" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="7" value="ref&amp;#xa;Level Zero UNet CFG Denoise 14.7 it/s (Proof M74, M91)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="7" value="ref&amp;#xa;Execute 25-40 Factorized 3D Denoising Steps (Proof M95, M97)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="310" y="300" width="260" height="60" as="geometry" />
     </mxCell>
     <mxCell id="8" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="5" target="7" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="9" value="Dynamic Quantile Saturation Clamp s_t (Proof M84)" style="rhombus;html=1;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;perimeter=rhombusPerimeter;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxCell id="9" value="OFWE &lt;= 0.042? (Proof M96)" style="rhombus;html=1;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;perimeter=rhombusPerimeter;whiteSpace=wrap;" vertex="1" parent="1">
       <mxGeometry x="400" y="400" width="80" height="80" as="geometry" />
     </mxCell>
     <mxCell id="10" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="7" target="9" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="11" value="ref&amp;#xa;Sliced VAE Decoding &lt;= 580MB RAM (Proof M88, M92)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="11" value="ref&amp;#xa;Sliced Temporal VAE Latent Decoding (Proof M110)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="310" y="520" width="260" height="60" as="geometry" />
     </mxCell>
     <mxCell id="12" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="9" target="11" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="13" value="ref&amp;#xa;Zero-Copy Pointer Handoff tau_copy=0 (Proof M78)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="13" value="ref&amp;#xa;Encode Video Container &amp; Zero Disk Residue (Proof M100)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="310" y="620" width="260" height="60" as="geometry" />
     </mxCell>
     <mxCell id="14" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="11" target="13" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="15" value="ref&amp;#xa;Emit ImageGenerationResult DTO (Proof M82)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="310" y="720" width="260" height="60" as="geometry" />
+    <mxCell id="15" value="" style="shape=doubleEllipse;html=1;strokeColor=#000000;fillColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="425" y="720" width="30" height="30" as="geometry" />
     </mxCell>
     <mxCell id="16" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="13" target="15" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="17" value="" style="shape=doubleEllipse;html=1;strokeColor=#000000;fillColor=#000000;" vertex="1" parent="1">
-      <mxGeometry x="425" y="820" width="30" height="30" as="geometry" />
-    </mxCell>
-    <mxCell id="18" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="15" target="17" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
       </root>

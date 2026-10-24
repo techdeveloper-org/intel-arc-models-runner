@@ -1052,6 +1052,118 @@ def handle_generate_image(
         return 1
 
 
+def handle_generate_video(
+    prompt: str,
+    output_path: str = "output.mp4",
+    model_id: str = "ltx-video",
+    device: str = "GPU",
+    frames: int = 16,
+    fps: int = 16,
+    steps: int = 25,
+    guidance_scale: float = 7.5,
+    width: int = 512,
+    height: int = 512,
+    seed: Optional[int] = None,
+    negative_prompt: Optional[str] = None,
+    container: str = "mp4",
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Generate video from text prompt using OpenVINO GenAI Text2Video pipeline.
+
+    Args:
+        prompt: Text instruction or visual scene brief.
+        output_path: Destination path for synthesized video (default: 'output.mp4').
+        model_id: Model slug or local path (default: 'ltx-video').
+        device: Target accelerator ('GPU' or 'CPU').
+        frames: Synthesized frame count (default: 16).
+        fps: Target playback framerate (default: 16).
+        steps: Denoising step count (default: 25).
+        guidance_scale: Classifier-free guidance strength (default: 7.5).
+        width: Frame width in pixels (default: 512).
+        height: Frame height in pixels (default: 512).
+        seed: Deterministic integer seed.
+        negative_prompt: Optional negative prompt suppressing unwanted features.
+        container: Target container format ('mp4', 'avi', 'gif').
+        json_output: Emit JSON telemetry.
+        console: Optional Rich Console.
+
+    Returns:
+        int: Process exit code (0 for success, 1 on failure).
+    """
+    c = console or Console()
+    try:
+        from arc_runner.engine.video_engine import (
+            VideoEngine,
+            VideoEngineConfig,
+            VideoGenerationRequest,
+        )
+
+        model_mgr = ModelManager()
+        try:
+            resolved_model = model_mgr.resolve_model_path(model_id)
+        except Exception:  # noqa: BLE001
+            resolved_model = Path(model_id).resolve()
+
+        cfg = VideoEngineConfig(
+            device=device,
+            default_num_frames=frames,
+            default_fps=fps,
+            default_width=width,
+            default_height=height,
+            default_steps=steps,
+            default_guidance_scale=guidance_scale,
+            output_container=container,
+        )
+        engine = VideoEngine(config=cfg)
+        engine.load_model(resolved_model, device=device)
+
+        req = VideoGenerationRequest(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            num_frames=frames,
+            fps=fps,
+            width=width,
+            height=height,
+            num_inference_steps=steps,
+            guidance_scale=guidance_scale,
+            rng_seed=seed,
+            output_path=output_path,
+            export_container=container,
+        )
+        res = engine.generate(req)
+
+        if json_output:
+            data = res.model_dump()
+            data.pop("frames", None)
+            print(json.dumps(data, indent=2))
+        else:
+            file_kb = 0.0
+            if res.output_path and Path(res.output_path).exists():
+                file_kb = Path(res.output_path).stat().st_size / 1024.0
+            scorecard = (
+                f"[bold green]Video Synthesized Successfully[/bold green]\n"
+                f"Destination: [cyan]{res.output_path or output_path}[/cyan] ({file_kb:.1f} KB)\n"
+                f"Resolution: [bold]{res.resolution[0]}x{res.resolution[1]}[/bold] | Frames: [bold]{res.num_frames}[/bold] @ [bold]{res.fps} fps[/bold] ({res.duration_sec:.2f}s)\n"
+                f"Steps: [bold]{res.request.num_inference_steps}[/bold] | CFG: [dim]{res.request.guidance_scale}[/dim] | Container: [cyan]{res.request.export_container}[/cyan]\n"
+                f"Total Latency: [bold]{res.total_latency_ms / 1000.0:.3f}s[/bold] | Real-Time Factor (RTF): [bold cyan]{res.breakdown.real_time_factor:.2f}x[/bold cyan]\n"
+                f"Video Throughput: [bold green]{res.breakdown.frames_per_second:.2f} fps[/bold green] ({res.breakdown.step_latency_ms:.1f} ms/step)\n"
+                f"Energy Yield: [bold yellow]{res.breakdown.energy_yield_frames_per_kwh:.1f} frames/kWh[/bold yellow] (Proof M103 @ 21W TDP)\n"
+                f"[dim]Breakdown: TextEnc: {res.breakdown.text_encoder_ms:.1f}ms | 3D Denoise: {res.breakdown.denoise_transformer_ms:.1f}ms | 3D VAE: {res.breakdown.vae_decoder_ms:.1f}ms | Mux: {res.breakdown.video_encode_ms:.1f}ms[/dim]"
+            )
+            c.print(
+                Panel(
+                    scorecard,
+                    title=f"Text2Video Engine: {model_id} ({res.device})",
+                    border_style="magenta",
+                )
+            )
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        c.print(f"[bold red]Video generation failed:[/bold red] {exc}")
+        return 1
+
+
 def handle_test_hardware(
     device: str = "ALL",
     iterations: int = 10,
@@ -1318,6 +1430,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     image_parser.add_argument("--negative-prompt", default=None, help="Negative prompt features to suppress")
     image_parser.add_argument("--json", action="store_true", help="Output telemetry in JSON format")
 
+    video_parser = subparsers.add_parser(
+        "generate-video",
+        aliases=["txt2video"],
+        help="Generate video from prompt using OpenVINO GenAI Text2Video pipeline on Intel Arc GPU/CPU",
+    )
+    video_parser.add_argument("prompt", help="Text prompt instruction describing target video sequence")
+    video_parser.add_argument("--output", "-o", default="output.mp4", help="Output video file path (default: output.mp4)")
+    video_parser.add_argument("--model", default="ltx-video", help="Model slug or path (default: ltx-video)")
+    video_parser.add_argument("--device", default="GPU", choices=["GPU", "CPU"], help="Execution device (default: GPU)")
+    video_parser.add_argument("--frames", type=int, default=16, help="Frame count (default: 16)")
+    video_parser.add_argument("--fps", type=int, default=16, help="Playback framerate in fps (default: 16)")
+    video_parser.add_argument("--steps", type=int, default=25, help="Denoising steps (default: 25)")
+    video_parser.add_argument("--guidance-scale", type=float, default=7.5, help="Guidance scale (default: 7.5)")
+    video_parser.add_argument("--width", type=int, default=512, help="Frame width (default: 512)")
+    video_parser.add_argument("--height", type=int, default=512, help="Frame height (default: 512)")
+    video_parser.add_argument("--seed", type=int, default=None, help="Deterministic RNG seed")
+    video_parser.add_argument("--negative-prompt", default=None, help="Negative prompt features to suppress")
+    video_parser.add_argument("--container", default="mp4", choices=["mp4", "avi", "gif"], help="Video container format (default: mp4)")
+    video_parser.add_argument("--json", action="store_true", help="Output telemetry in JSON format")
+
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     if args.command == "test-hardware":
@@ -1427,6 +1559,25 @@ def main(argv: Optional[List[str]] = None) -> int:
             seed=args.seed,
             negative_prompt=args.negative_prompt,
             json_output=args.json,
+        )
+
+    if args.command in {"generate-video", "txt2video"}:
+        return handle_generate_video(
+            prompt=args.prompt,
+            output_path=args.output,
+            model_id=args.model,
+            device=args.device,
+            frames=args.frames,
+            fps=args.fps,
+            steps=args.steps,
+            guidance_scale=args.guidance_scale,
+            width=args.width,
+            height=args.height,
+            seed=args.seed,
+            negative_prompt=args.negative_prompt,
+            container=args.container,
+            json_output=args.json,
+            console=console,
         )
 
     if args.command == "benchmark":

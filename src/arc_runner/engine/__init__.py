@@ -31,6 +31,14 @@ from arc_runner.engine.image_engine import (
     ImageGenerationRequest,
     ImageGenerationResult,
 )
+from arc_runner.engine.video_engine import (
+    VideoEngine,
+    VideoEngineConfig,
+    VideoEngineError,
+    VideoGenerationBreakdown,
+    VideoGenerationRequest,
+    VideoGenerationResult,
+)
 from arc_runner.engine.kv_cache import KVCacheManager
 from arc_runner.engine.models import (
     EngineTelemetry,
@@ -78,6 +86,12 @@ __all__: List[str] = [
     "InvalidImageFormatError",
     "OpenVINOGenAIEngine",
     "HybridSpeculativeEngine",
+    "VideoEngine",
+    "VideoEngineConfig",
+    "VideoEngineError",
+    "VideoGenerationBreakdown",
+    "VideoGenerationRequest",
+    "VideoGenerationResult",
     "KVCacheManager",
     "GenerationConfig",
     "PagedAttentionError",

@@ -9,6 +9,7 @@ flowchart TD
             Daemon["arc-runner Daemon (:11434)\nFastAPI / Uvicorn Server"]
             Studio["6-Tab Studio WebUI (:11434/ui)\nReal-time SSE Status"]
             AudioEngineRuntime["AudioEngine Runtime (Whisper ASR & Kokoro TTS)\nProof M67: Immediate Cmd tau <= 2.1us\nProof M68: Linear PCM Bound M <= 19.2MB"]
+            VideoEngineRuntime["VideoEngine Runtime (Text2VideoPipeline: LTX-Video, CogVideoX, SVD)\nProof M95: Factorized 3D Attention\nProof M110: Sliced VAE RAM <= 806MB"]
             ImageEngineRuntime["ImageEngine Runtime (Text2ImagePipeline: SD 1.5, SDXL, LCM, Turbo)\nProof M91: Immediate Cmd tau <= 2.1us\nProof M92: Sliced VAE RAM <= 580MB"]
             CLIHandlers["CLI Handlers (run, transcribe, tts, generate-image)\nZero-Disk Residue Streaming (Proof M66, M79)"]
             OVGenAIDLL["openvino_genai.dll / Level Zero Loader\nC++ Native Bindings"]
@@ -39,6 +40,8 @@ flowchart TD
     DaemonRuntime -->|PCIe Gen4 x4 DMA 7000 MB/s| StorageSubsystem
     AudioEngineRuntime -->|resolves_models| AudioModelStore
     ImageEngineRuntime -->|resolves_models| ImageModelStore
+    VideoEngineRuntime -->|resolves_models| ImageModelStore
+    VideoEngineRuntime -->|zeCommandListExecuteImmediate tau <= 2.1us Proof M97| ArcGPU
     DaemonRuntime -->|PCIe Gen4 x16 DMA 32 GB/s| ArcGPU
     AudioEngineRuntime -->|zeCommandListExecuteImmediate tau <= 2.1us Proof M67| ArcGPU
     ImageEngineRuntime -->|zeCommandListExecuteImmediate tau <= 2.1us Proof M91| ArcGPU
@@ -61,3 +64,9 @@ flowchart TD
 - **Proof M92**: Sliced Latent Tile Streaming memory footprint ceiling $\le 580\text{ MB}$.
 - **Proof M93**: Ahead-of-Time OpenVINO Blob Caching delivering $52.6\times$ faster warm load ($0.54\text{s}$).
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
+
+
+<!-- Grounded in Proofs M94-M114: VideoEngine deployment on Intel Arc Xe-LPG iGPU -->
+
+
+<!-- Grounded in Proofs M94-M114: VideoEngine deployment on Intel Arc Xe-LPG iGPU -->
