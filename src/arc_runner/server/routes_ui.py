@@ -4,12 +4,14 @@ Serves embedded single-page application assets, local Ollama model catalogs,
 binary GGUF inspection data, and Ahead-of-Time compilation triggers.
 """
 
+import asyncio
+import json
 import math
 from pathlib import Path
 import time
 from typing import Any, Optional
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from arc_runner.core.logging import get_logger
@@ -17,7 +19,11 @@ from arc_runner.engine.aot_cache import AOTCompilationManager
 from arc_runner.engine.embedding_engine import EmbeddingEngine
 from arc_runner.hub.ollama_importer import OllamaImporter
 from arc_runner.quant.gguf_parser import GGUFParser
-from arc_runner.quant.transpiler import GGUFTranspiler
+from arc_runner.quant.transpiler import (
+    GGUFTranspiler,
+    TranspilationError,
+    UnsupportedBitWidthError,
+)
 
 logger = get_logger(__name__)
 
@@ -230,6 +236,105 @@ async def convert_gguf(payload: ConvertRequest) -> dict[str, Any]:
     except Exception as e:
         logger.error(f"GGUF transpilation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/gguf/convert/stream")
+async def convert_gguf_stream(
+    path: str = Query(..., description="Filesystem path to source GGUF container"),
+    output_dir: str = Query(..., description="Target export directory"),
+    precision: str = Query("int4", description="Quantization precision ('int4', 'int8', 'fp16')"),
+    device: str = Query("GPU", description="Target hardware ('GPU', 'NPU', 'CPU')"),
+) -> StreamingResponse:
+    """Stream real-time GGUF to OpenVINO IR transpilation progress via Server-Sent Events.
+
+    Args:
+        path: Filesystem path to source GGUF file.
+        output_dir: Target directory for OpenVINO IR files.
+        precision: Quantization precision string.
+        device: Hardware device identifier.
+
+    Returns:
+        StreamingResponse with media type 'text/event-stream' transmitting 'progress',
+        'log', 'complete', and 'error' SSE frames.
+    """
+    async def sse_event_generator():
+        resolved_path = Path(path).resolve()
+        resolved_out = Path(output_dir).resolve()
+
+        if not resolved_path.exists():
+            err_payload = json.dumps({"error": f"Source GGUF file does not exist: {path}"})
+            yield f"event: error\ndata: {err_payload}\n\n"
+            return
+
+        init_msg = json.dumps({"timestamp": time.strftime("%H:%M:%S"), "level": "INFO", "message": f"Initializing transpiler for {resolved_path.name}"})
+        yield f"event: log\ndata: {init_msg}\n\n"
+
+        queue: asyncio.Queue = asyncio.Queue()
+        loop = asyncio.get_running_loop()
+
+        def worker_thread() -> None:
+            try:
+                transpiler = GGUFTranspiler(str(resolved_path), str(resolved_out))
+                for progress in transpiler.transpile_stream(
+                    precision=precision,
+                    target_device=device,
+                ):
+                    loop.call_soon_threadsafe(queue.put_nowait, ("progress", progress))
+                loop.call_soon_threadsafe(queue.put_nowait, ("complete", transpiler.last_result))
+            except Exception as exc:
+                loop.call_soon_threadsafe(queue.put_nowait, ("error", str(exc)))
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, ("done", None))
+
+        worker_task = asyncio.to_thread(worker_thread)
+        asyncio.create_task(worker_task)
+
+        while True:
+            item_type, item_data = await queue.get()
+            if item_type == "done":
+                break
+            elif item_type == "progress":
+                payload = {
+                    "tensor_index": item_data.tensor_index,
+                    "total_tensors": item_data.total_tensors,
+                    "current_tensor_name": item_data.current_tensor_name,
+                    "current_tensor_type": item_data.current_tensor_type,
+                    "tensor_bytes": item_data.tensor_bytes,
+                    "processed_bytes": item_data.processed_bytes,
+                    "total_bytes": item_data.total_bytes,
+                    "progress_pct": item_data.progress_pct,
+                    "throughput_mb_s": item_data.throughput_mb_s,
+                    "elapsed_ms": item_data.elapsed_ms,
+                    "eta_seconds": item_data.eta_seconds,
+                    "sqnr_db": item_data.sqnr_db,
+                    "sha256_partial": item_data.sha256_partial,
+                }
+                yield f"event: progress\ndata: {json.dumps(payload)}\n\n"
+            elif item_type == "complete":
+                payload = {
+                    "model_name": item_data.model_name,
+                    "total_tensors": item_data.total_tensors,
+                    "target_precision": item_data.target_precision,
+                    "xml_path": str(item_data.xml_path),
+                    "bin_path": str(item_data.bin_path),
+                    "total_bytes": item_data.total_bytes,
+                    "duration_ms": item_data.duration_ms,
+                    "final_sqnr_db": item_data.average_sqnr_db,
+                    "sha256_hash": item_data.sha256_hash,
+                }
+                yield f"event: complete\ndata: {json.dumps(payload)}\n\n"
+            elif item_type == "error":
+                yield f"event: error\ndata: {json.dumps({'error': item_data})}\n\n"
+
+    return StreamingResponse(
+        sse_event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/api/embeddings/test")

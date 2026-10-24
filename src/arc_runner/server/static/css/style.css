@@ -627,3 +627,72 @@ body {
 .text-purple { color: var(--accent-purple); }
 .text-muted { color: var(--text-muted); }
 .text-center { text-align: center; }
+
+/* Phase 9: GGUF Transpilation Progress Studio (UX-1 to UX-5) */
+.convert-controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 13px;
+}
+
+.convert-progress-card {
+    background: rgba(13, 17, 23, 0.7);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 13px 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.metric-mini-card {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border-glass);
+    border-radius: 6px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.metric-mini-card .metric-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+}
+
+.metric-value-text {
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: #F0F6FC;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.metric-value-num {
+    font-size: 13px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: #00C7FD;
+}
+
+.metric-value-badge {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: #10B981;
+}
+
+.convert-terminal-box::-webkit-scrollbar {
+    width: 6px;
+}
+
+.convert-terminal-box::-webkit-scrollbar-track {
+    background: #070a0e;
+}
+
+.convert-terminal-box::-webkit-scrollbar-thumb {
+    background: rgba(0, 199, 253, 0.25);
+    border-radius: 3px;
+}

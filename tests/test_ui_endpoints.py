@@ -5,6 +5,7 @@ static CSS/JS asset resolution, local Ollama inspection endpoints, GGUF
 transpilation API, and NPU embedding similarity test endpoints.
 """
 
+import json
 from pathlib import Path
 from unittest import mock
 import struct
@@ -230,4 +231,135 @@ def test_api_embeddings_test_model_not_found_returns_error(
         },
     )
     assert resp.status_code in (404, 500)
+
+
+def test_sse_convert_endpoint_200_stream_headers(client: TestClient, tmp_path: Path) -> None:
+    """Verify GET /api/gguf/convert/stream returns 200 OK with text/event-stream content type."""
+    gguf_path = tmp_path / "model.gguf"
+    out_dir = tmp_path / "ov_out"
+    _make_minimal_gguf(gguf_path)
+
+    resp = client.get(f"/api/gguf/convert/stream?path={gguf_path}&output_dir={out_dir}")
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers.get("content-type", "")
+
+
+def test_sse_convert_endpoint_wire_framing(client: TestClient, tmp_path: Path) -> None:
+    """Verify SSE frames adhere to standard 'event: ...\\ndata: ...\\n\\n' wire framing."""
+    gguf_path = tmp_path / "model.gguf"
+    out_dir = tmp_path / "ov_out"
+    _make_minimal_gguf(gguf_path)
+
+    resp = client.get(f"/api/gguf/convert/stream?path={gguf_path}&output_dir={out_dir}")
+    assert resp.status_code == 200
+    text = resp.text
+    assert "event: log\n" in text or "event: progress\n" in text
+    assert "data: " in text
+
+
+def test_sse_convert_endpoint_full_lifecycle(client: TestClient, tmp_path: Path) -> None:
+    """Verify stream lifecycle contains log, progress, and complete events."""
+    gguf_path = tmp_path / "model.gguf"
+    out_dir = tmp_path / "ov_out"
+    _make_minimal_gguf(gguf_path)
+
+    resp = client.get(f"/api/gguf/convert/stream?path={gguf_path}&output_dir={out_dir}")
+    assert resp.status_code == 200
+    text = resp.text
+    assert "event: log" in text
+    assert "event: progress" in text
+    assert "event: complete" in text
+
+
+def test_sse_convert_endpoint_complete_payload_keys(client: TestClient, tmp_path: Path) -> None:
+    """Verify event: complete payload contains all expected artifact metadata keys."""
+    gguf_path = tmp_path / "model.gguf"
+    out_dir = tmp_path / "ov_out"
+    _make_minimal_gguf(gguf_path)
+
+    resp = client.get(f"/api/gguf/convert/stream?path={gguf_path}&output_dir={out_dir}")
+    assert resp.status_code == 200
+
+    complete_data = None
+    for block in resp.text.split("\n\n"):
+        if "event: complete" in block:
+            for line in block.split("\n"):
+                if line.startswith("data: "):
+                    complete_data = json.loads(line[6:])
+
+    assert complete_data is not None
+    assert "model_name" in complete_data
+    assert "total_tensors" in complete_data
+    assert "target_precision" in complete_data
+    assert "xml_path" in complete_data
+    assert "bin_path" in complete_data
+    assert "sha256_hash" in complete_data
+    assert "final_sqnr_db" in complete_data
+
+
+def test_sse_convert_endpoint_missing_file_error_frame(client: TestClient, tmp_path: Path) -> None:
+    """Verify non-existent GGUF path yields event: error frame with descriptive message."""
+    missing_path = tmp_path / "nonexistent.gguf"
+    out_dir = tmp_path / "ov_out"
+
+    resp = client.get(f"/api/gguf/convert/stream?path={missing_path}&output_dir={out_dir}")
+    assert resp.status_code == 200
+    assert "event: error" in resp.text
+    assert "Source GGUF file does not exist" in resp.text
+
+
+def test_sse_convert_endpoint_missing_required_params(client: TestClient) -> None:
+    """Verify request missing required query parameters returns 422 Unprocessable Entity."""
+    resp = client.get("/api/gguf/convert/stream")
+    assert resp.status_code == 422
+
+
+def test_sse_convert_endpoint_invalid_precision_error(client: TestClient, tmp_path: Path) -> None:
+    """Verify unsupported target precision yields event: error frame."""
+    gguf_path = tmp_path / "model.gguf"
+    out_dir = tmp_path / "ov_out"
+    _make_minimal_gguf(gguf_path)
+
+    resp = client.get(f"/api/gguf/convert/stream?path={gguf_path}&output_dir={out_dir}&precision=int2")
+    assert resp.status_code == 200
+    assert "event: error" in resp.text
+    assert "Unsupported target precision" in resp.text
+
+
+def test_sse_convert_endpoint_directory_traversal_protection(client: TestClient, tmp_path: Path) -> None:
+    """Verify path traversal outside permitted space yields event: error frame."""
+    out_dir = tmp_path / "ov_out"
+    resp = client.get(f"/api/gguf/convert/stream?path=../../../../nonexistent.gguf&output_dir={out_dir}")
+    assert resp.status_code == 200
+    assert "event: error" in resp.text
+
+
+def test_sse_convert_endpoint_special_characters_in_path(client: TestClient, tmp_path: Path) -> None:
+    """Verify URL encoded paths with spaces and symbols are resolved without 500 error."""
+    special_dir = tmp_path / "Models Dir (v1.0)"
+    special_dir.mkdir(parents=True, exist_ok=True)
+    gguf_path = special_dir / "my model [llama].gguf"
+    out_dir = tmp_path / "ov out"
+    _make_minimal_gguf(gguf_path)
+
+    resp = client.get(f"/api/gguf/convert/stream?path={gguf_path}&output_dir={out_dir}")
+    assert resp.status_code == 200
+    assert "event: complete" in resp.text
+
+
+def test_ui_html_modal_contains_accessible_progress_attributes(client: TestClient) -> None:
+    """Verify GET /ui template includes Phase 9 conversion controls and progress studio elements."""
+    resp = client.get("/ui")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert 'id="convert-precision-select"' in html
+    assert 'id="convert-device-select"' in html
+    assert 'id="convert-output-dir-input"' in html
+    assert 'id="gguf-convert-progress-card"' in html
+    assert 'id="convert-progress-fill"' in html
+    assert 'id="convert-progress-pct"' in html
+    assert 'id="convert-terminal-box"' in html
+    assert 'id="convert-completion-banner"' in html
+
 

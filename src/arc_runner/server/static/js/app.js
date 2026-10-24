@@ -258,33 +258,140 @@ function initOllamaStudio() {
                 alert('No local GGUF container path detected for conversion.');
                 return;
             }
+
+            const precisionSelect = document.getElementById('convert-precision-select');
+            const deviceSelect = document.getElementById('convert-device-select');
+            const outputDirInput = document.getElementById('convert-output-dir-input');
+
+            const precision = precisionSelect ? precisionSelect.value : 'int4';
+            const device = deviceSelect ? deviceSelect.value : 'GPU';
+            const cleanName = (currentModelName || 'custom-model').replace(/[^a-zA-Z0-9_-]/g, '_');
+            const outputDir = (outputDirInput && outputDirInput.value.trim()) ? outputDirInput.value.trim() : `./models/${cleanName}-openvino`;
+
             btnConvertGguf.disabled = true;
-            btnConvertGguf.textContent = 'Transpiling GGUF to OpenVINO IR...';
-            try {
-                const cleanName = (currentModelName || 'custom-model').replace(/[^a-zA-Z0-9_-]/g, '_');
-                const outDir = `./models/${cleanName}-openvino`;
-                const resp = await fetch('/api/gguf/convert', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        path: currentGgufFilePath,
-                        output_dir: outDir,
-                        precision: 'int4',
-                        device: 'GPU'
-                    })
-                });
-                const res = await resp.json();
-                if (resp.ok) {
-                    alert(`GGUF Transpiled Successfully!\nModel: ${res.model_name}\nPrecision: ${res.target_precision}\nDuration: ${res.duration_ms.toFixed(1)}ms\nXML: ${res.xml_path}\nBIN: ${res.bin_path}`);
-                } else {
-                    alert(`Transpilation error: ${res.detail}`);
+            btnConvertGguf.textContent = 'Transpiling in Progress...';
+
+            const progressCard = document.getElementById('gguf-convert-progress-card');
+            const progressFill = document.getElementById('convert-progress-fill');
+            const progressPct = document.getElementById('convert-progress-pct');
+            const currTensorEl = document.getElementById('convert-current-tensor');
+            const counterEl = document.getElementById('convert-tensor-counter');
+            const throughputEl = document.getElementById('convert-throughput');
+            const etaEl = document.getElementById('convert-eta');
+            const sqnrEl = document.getElementById('convert-sqnr');
+            const terminalBox = document.getElementById('convert-terminal-box');
+            const completionBanner = document.getElementById('convert-completion-banner');
+            const completionDetails = document.getElementById('convert-completion-details');
+
+            if (progressCard) progressCard.classList.remove('hidden');
+            if (completionBanner) completionBanner.classList.add('hidden');
+            if (progressFill) progressFill.style.width = '0%';
+            if (progressPct) progressPct.textContent = '0.0%';
+            if (terminalBox) terminalBox.innerHTML = '';
+
+            function appendTerminalLog(msg, color) {
+                if (!terminalBox) return;
+                const line = document.createElement('div');
+                line.className = 'term-line';
+                if (color) line.style.color = color;
+                line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                terminalBox.appendChild(line);
+
+                while (terminalBox.childElementCount > 100) {
+                    terminalBox.removeChild(terminalBox.firstElementChild);
                 }
-            } catch (err) {
-                alert(`Transpilation failed: ${err.message}`);
-            } finally {
+                terminalBox.scrollTop = terminalBox.scrollHeight;
+            }
+
+            appendTerminalLog(`Initiating streaming transpilation for: ${currentGgufFilePath}`, '#00C7FD');
+            appendTerminalLog(`Target: ${precision.toUpperCase()} on Intel ${device} -> ${outputDir}`, '#a0aec0');
+
+            const streamUrl = `/api/gguf/convert/stream?path=${encodeURIComponent(currentGgufFilePath)}&output_dir=${encodeURIComponent(outputDir)}&precision=${encodeURIComponent(precision)}&device=${encodeURIComponent(device)}`;
+            const eventSource = new EventSource(streamUrl);
+
+            let pendingProgress = null;
+            let rafScheduled = false;
+
+            eventSource.addEventListener('log', (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    appendTerminalLog(data.message, '#a0aec0');
+                } catch (_) {}
+            });
+
+            eventSource.addEventListener('progress', (e) => {
+                try {
+                    pendingProgress = JSON.parse(e.data);
+                    if (!rafScheduled) {
+                        rafScheduled = true;
+                        requestAnimationFrame(() => {
+                            if (pendingProgress) {
+                                const d = pendingProgress;
+                                if (progressFill) progressFill.style.width = `${d.progress_pct}%`;
+                                if (progressPct) progressPct.textContent = `${d.progress_pct.toFixed(1)}%`;
+                                if (currTensorEl) {
+                                    currTensorEl.textContent = d.current_tensor_name;
+                                    currTensorEl.title = d.current_tensor_name;
+                                }
+                                if (counterEl) {
+                                    const procMb = (d.processed_bytes / (1024 * 1024)).toFixed(0);
+                                    const totMb = (d.total_bytes / (1024 * 1024)).toFixed(0);
+                                    counterEl.textContent = `${d.tensor_index}/${d.total_tensors} (${procMb}/${totMb} MB)`;
+                                }
+                                if (throughputEl) throughputEl.textContent = `${d.throughput_mb_s.toFixed(1)} MB/s`;
+                                if (etaEl) {
+                                    const elapsedS = (d.elapsed_ms / 1000).toFixed(1);
+                                    etaEl.textContent = `${elapsedS}s / ETA ${d.eta_seconds.toFixed(1)}s`;
+                                }
+                                if (sqnrEl) sqnrEl.textContent = `${d.sqnr_db} dB`;
+
+                                appendTerminalLog(`[${d.tensor_index}/${d.total_tensors}] Transpiled ${d.current_tensor_name} (${d.current_tensor_type}) - ${d.progress_pct}%`);
+                            }
+                            rafScheduled = false;
+                        });
+                    }
+                } catch (_) {}
+            });
+
+            eventSource.addEventListener('complete', (e) => {
+                eventSource.close();
                 btnConvertGguf.disabled = false;
                 btnConvertGguf.textContent = 'Convert to OpenVINO IR';
-            }
+
+                try {
+                    const d = JSON.parse(e.data);
+                    if (progressFill) progressFill.style.width = '100%';
+                    if (progressPct) progressPct.textContent = '100.0%';
+                    appendTerminalLog(`✔ Transpilation finished in ${(d.duration_ms / 1000).toFixed(2)}s! XML: ${d.xml_path}`, '#10B981');
+                    if (completionBanner && completionDetails) {
+                        completionDetails.innerHTML = `
+                            <div><strong>Model:</strong> ${d.model_name} | <strong>Precision:</strong> ${d.target_precision} | <strong>Tensors:</strong> ${d.total_tensors}</div>
+                            <div><strong>XML:</strong> ${d.xml_path}</div>
+                            <div><strong>BIN:</strong> ${d.bin_path} (${(d.total_bytes / (1024*1024)).toFixed(1)} MB)</div>
+                            <div><strong>SHA-256:</strong> ${d.sha256_hash ? d.sha256_hash.substring(0, 32) + '...' : 'Verified'} | <strong>SQNR:</strong> ${d.final_sqnr_db} dB</div>
+                        `;
+                        completionBanner.classList.remove('hidden');
+                    }
+                } catch (err) {
+                    appendTerminalLog(`Completion parsing error: ${err.message}`, '#EF4444');
+                }
+            });
+
+            eventSource.addEventListener('error', (e) => {
+                eventSource.close();
+                btnConvertGguf.disabled = false;
+                btnConvertGguf.textContent = 'Convert to OpenVINO IR';
+
+                let errMsg = 'Connection to transpilation stream interrupted.';
+                if (e.data) {
+                    try {
+                        const d = JSON.parse(e.data);
+                        if (d.error) errMsg = d.error;
+                    } catch (_) {}
+                }
+                appendTerminalLog(`✖ Error: ${errMsg}`, '#EF4444');
+                alert(`Transpilation error: ${errMsg}`);
+            });
         });
     }
 
@@ -361,6 +468,17 @@ function initOllamaStudio() {
             }
 
             currentGgufFilePath = info.file_path || null;
+
+            const cleanName = (currentModelName || 'custom-model').replace(/[^a-zA-Z0-9_-]/g, '_');
+            const outputDirInput = document.getElementById('convert-output-dir-input');
+            if (outputDirInput) {
+                outputDirInput.value = `./models/${cleanName}-openvino`;
+            }
+
+            const progressCard = document.getElementById('gguf-convert-progress-card');
+            if (progressCard) progressCard.classList.add('hidden');
+            const completionBanner = document.getElementById('convert-completion-banner');
+            if (completionBanner) completionBanner.classList.add('hidden');
 
             let quantRows = '';
             for (const [qType, pct] of Object.entries(info.quant_distribution || {})) {
