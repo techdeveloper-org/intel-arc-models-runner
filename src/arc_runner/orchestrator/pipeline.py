@@ -138,7 +138,7 @@ class StudioPipeline:
             progress_callback(PipelineStage.TIMELINE_MUXING, 85.0, "Muxing synchronized video and audio timeline...")
 
         t_mux_start = time.perf_counter()
-        output_filename = request.output_filename or f"{project_id}.mp4"
+        output_filename = Path(request.output_filename).name if request.output_filename else f"{project_id}.mp4"
         dest_path = Path(".benchmarks/studio_exports") / output_filename
 
         try:
