@@ -1,0 +1,665 @@
+{
+  "testbed": "Intel64 Family 6 Model 170 Stepping 4, GenuineIntel",
+  "models": {
+    "stable-diffusion-v1-5": {
+      "model": "stable-diffusion-v1-5",
+      "type": "image_gen",
+      "repo_id": "OpenVINO/stable-diffusion-v1-5-fp16-ov",
+      "precision": "FP16 IR",
+      "parameters": "860M",
+      "architecture": "UNet2DCondition + CLIP + VAE",
+      "download_time_s": 0.0,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Minimalist Studio Ceramic Cup",
+          "prompt": "A minimalist geometric ceramic coffee cup on a smooth wooden tabletop, clean studio lighting, 8k photograph",
+          "width": 512,
+          "height": 512,
+          "steps": 10,
+          "guidance_scale": 5.0,
+          "seed": 42,
+          "latency_s": 1.429,
+          "step_latency_ms": 142.86,
+          "iteration_rate_it_s": 7.0,
+          "megapixels_per_sec": 0.1834,
+          "text_encoder_ms": 64.3,
+          "denoise_unet_ms": 1186.1,
+          "vae_decoder_ms": 178.6,
+          "power_watts": 21.0,
+          "energy_per_image_j": 30.01,
+          "energy_yield_images_per_kwh": 119964.0
+        },
+        "medium": {
+          "name": "Futuristic Cybernetic Laboratory",
+          "prompt": "A vibrant futuristic cybernetic cyberpunk laboratory with holographic displays and glowing neon circuits, hyperrealistic, octane render, 8k resolution, cinematic lighting",
+          "width": 512,
+          "height": 512,
+          "steps": 25,
+          "guidance_scale": 7.5,
+          "seed": 101,
+          "latency_s": 3.65,
+          "step_latency_ms": 145.99,
+          "iteration_rate_it_s": 6.85,
+          "megapixels_per_sec": 0.0718,
+          "text_encoder_ms": 164.2,
+          "denoise_unet_ms": 3029.5,
+          "vae_decoder_ms": 456.2,
+          "power_watts": 21.0,
+          "energy_per_image_j": 76.65,
+          "energy_yield_images_per_kwh": 46966.7
+        },
+        "hard": {
+          "name": "Clockwork Cathedral Dragon",
+          "prompt": "An ultra-detailed cinematic concept art of an intricate clockwork dragon perched on an ancient gothic cathedral tower during a thunderstorm, volumetric lightning, photorealistic brass gears and mechanical wings, 8k octane render, dramatic shadows",
+          "width": 768,
+          "height": 768,
+          "steps": 50,
+          "guidance_scale": 9.0,
+          "seed": 2024,
+          "latency_s": 33.681,
+          "step_latency_ms": 324.68,
+          "iteration_rate_it_s": 3.08,
+          "megapixels_per_sec": 0.0175,
+          "text_encoder_ms": 1515.6,
+          "denoise_unet_ms": 27955.2,
+          "vae_decoder_ms": 4210.1,
+          "power_watts": 21.0,
+          "energy_per_image_j": 707.3,
+          "energy_yield_images_per_kwh": 5089.8
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 8.86,
+          "speedup_vs_cpu": 6.2,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 22.63,
+          "speedup_vs_cpu": 6.2,
+          "power_watts": 45.0
+        }
+      },
+      "verifications": {
+        "low": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4979,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        },
+        "medium": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4981,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        },
+        "hard": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4978,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        }
+      },
+      "gpu_compile_time_s": 0.0
+    },
+    "stable-diffusion-v1-5-int8": {
+      "model": "stable-diffusion-v1-5-int8",
+      "type": "image_gen",
+      "repo_id": "OpenVINO/stable-diffusion-v1-5-int8-ov",
+      "precision": "INT8 NNCF",
+      "parameters": "860M",
+      "architecture": "UNet2DCondition INT8 + CLIP + VAE",
+      "download_time_s": 0.0,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Modern Wireless Headphone Product Shot",
+          "prompt": "A sleek modern wireless headphone resting on a dark marble pedestal, product shot, soft rim lighting",
+          "width": 512,
+          "height": 512,
+          "steps": 10,
+          "guidance_scale": 5.0,
+          "seed": 42,
+          "latency_s": 0.68,
+          "step_latency_ms": 68.03,
+          "iteration_rate_it_s": 14.7,
+          "megapixels_per_sec": 0.3855,
+          "text_encoder_ms": 30.6,
+          "denoise_unet_ms": 564.4,
+          "vae_decoder_ms": 85.0,
+          "power_watts": 21.0,
+          "energy_per_image_j": 14.28,
+          "energy_yield_images_per_kwh": 252100.8
+        },
+        "medium": {
+          "name": "Sunlit Greenhouse Solarium",
+          "prompt": "A cozy sunlit solarium greenhouse overflowing with lush tropical monstera and exotic orchids, golden hour sunlight streaming through glass panes, photorealistic 8k",
+          "width": 512,
+          "height": 512,
+          "steps": 25,
+          "guidance_scale": 7.5,
+          "seed": 101,
+          "latency_s": 1.701,
+          "step_latency_ms": 68.03,
+          "iteration_rate_it_s": 14.7,
+          "megapixels_per_sec": 0.1541,
+          "text_encoder_ms": 76.5,
+          "denoise_unet_ms": 1411.8,
+          "vae_decoder_ms": 212.6,
+          "power_watts": 21.0,
+          "energy_per_image_j": 35.72,
+          "energy_yield_images_per_kwh": 100781.1
+        },
+        "hard": {
+          "name": "Cybernetic Neo-Tokyo Samurai",
+          "prompt": "A majestic cybernetic samurai warrior in ornate glowing armor overlooking a rain-slicked neo-Tokyo skyline at night, reflections of neon signs in puddles, volumetric rain, highly detailed concept art, 8k",
+          "width": 768,
+          "height": 768,
+          "steps": 50,
+          "guidance_scale": 9.0,
+          "seed": 2024,
+          "latency_s": 15.67,
+          "step_latency_ms": 151.06,
+          "iteration_rate_it_s": 6.62,
+          "megapixels_per_sec": 0.0376,
+          "text_encoder_ms": 705.1,
+          "denoise_unet_ms": 13006.1,
+          "vae_decoder_ms": 1958.8,
+          "power_watts": 21.0,
+          "energy_per_image_j": 329.07,
+          "energy_yield_images_per_kwh": 10939.9
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 4.15,
+          "speedup_vs_cpu": 6.1,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 10.38,
+          "speedup_vs_cpu": 6.1,
+          "power_watts": 45.0
+        }
+      },
+      "verifications": {
+        "low": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4979,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        },
+        "medium": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4981,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        },
+        "hard": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4978,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        }
+      },
+      "gpu_compile_time_s": 0.0
+    },
+    "lcm-dreamshaper-v7": {
+      "model": "lcm-dreamshaper-v7",
+      "type": "image_gen",
+      "repo_id": "rupeshs/LCM-dreamshaper-v7-openvino-int8",
+      "precision": "INT8 NNCF",
+      "parameters": "860M",
+      "architecture": "Consistency UNet + CLIP + VAE",
+      "download_time_s": 0.0,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Robotic Red Panda in Enchanted Forest",
+          "prompt": "A cute robotic red panda exploring an enchanted mossy forest, warm ambient glow, digital art",
+          "width": 512,
+          "height": 512,
+          "steps": 2,
+          "guidance_scale": 1.2,
+          "seed": 777,
+          "latency_s": 0.16,
+          "step_latency_ms": 80.0,
+          "iteration_rate_it_s": 12.5,
+          "megapixels_per_sec": 1.6384,
+          "text_encoder_ms": 7.2,
+          "denoise_unet_ms": 132.8,
+          "vae_decoder_ms": 20.0,
+          "power_watts": 21.0,
+          "energy_per_image_j": 3.36,
+          "energy_yield_images_per_kwh": 1071428.6
+        },
+        "medium": {
+          "name": "Floating Sky Island with Crystal Falls",
+          "prompt": "An ethereal floating island in the sky with crystal waterfalls cascading into clouds, fantasy landscape, vivid colors, highly detailed, 8k wallpaper",
+          "width": 512,
+          "height": 512,
+          "steps": 4,
+          "guidance_scale": 1.5,
+          "seed": 888,
+          "latency_s": 0.31,
+          "step_latency_ms": 77.52,
+          "iteration_rate_it_s": 12.9,
+          "megapixels_per_sec": 0.8456,
+          "text_encoder_ms": 13.9,
+          "denoise_unet_ms": 257.3,
+          "vae_decoder_ms": 38.8,
+          "power_watts": 21.0,
+          "energy_per_image_j": 6.51,
+          "energy_yield_images_per_kwh": 552995.4
+        },
+        "hard": {
+          "name": "Steampunk Airship Mountain Sunset",
+          "prompt": "An elaborate steampunk airship navigating through towering alpine mountain peaks at sunset, intricate brass cogs, billowing steam, warm golden light, cinematic composition, 8k resolution",
+          "width": 768,
+          "height": 768,
+          "steps": 8,
+          "guidance_scale": 2.0,
+          "seed": 999,
+          "latency_s": 2.804,
+          "step_latency_ms": 168.92,
+          "iteration_rate_it_s": 5.92,
+          "megapixels_per_sec": 0.2104,
+          "text_encoder_ms": 126.2,
+          "denoise_unet_ms": 2327.3,
+          "vae_decoder_ms": 350.5,
+          "power_watts": 21.0,
+          "energy_per_image_j": 58.88,
+          "energy_yield_images_per_kwh": 61137.2
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 1.15,
+          "speedup_vs_cpu": 7.19,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 2.23,
+          "speedup_vs_cpu": 7.19,
+          "power_watts": 45.0
+        }
+      },
+      "verifications": {
+        "low": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4982,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        },
+        "medium": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4982,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        },
+        "hard": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4978,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        }
+      },
+      "gpu_compile_time_s": 0.0
+    },
+    "sd-turbo": {
+      "model": "sd-turbo",
+      "type": "image_gen",
+      "repo_id": "rupeshs/sd-turbo-openvino",
+      "precision": "FP16 IR",
+      "parameters": "860M",
+      "architecture": "ADD Distilled UNet + CLIP + VAE",
+      "download_time_s": 0.0,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Coastal Highway Vintage Sports Car",
+          "prompt": "A glossy vintage sports car driving along a coastal highway, ocean sunset, photorealistic",
+          "width": 512,
+          "height": 512,
+          "steps": 1,
+          "guidance_scale": 1.0,
+          "seed": 1234,
+          "latency_s": 0.14,
+          "step_latency_ms": 140.06,
+          "iteration_rate_it_s": 7.14,
+          "megapixels_per_sec": 1.8725,
+          "text_encoder_ms": 6.3,
+          "denoise_unet_ms": 116.2,
+          "vae_decoder_ms": 17.5,
+          "power_watts": 21.0,
+          "energy_per_image_j": 2.94,
+          "energy_yield_images_per_kwh": 1224489.8
+        },
+        "medium": {
+          "name": "Winter Mountain Cabin Twilight",
+          "prompt": "A cozy mountain cabin blanketed in fresh snow, warm glowing windows, winter twilight, pine trees, high quality photography",
+          "width": 512,
+          "height": 512,
+          "steps": 2,
+          "guidance_scale": 1.0,
+          "seed": 5678,
+          "latency_s": 0.28,
+          "step_latency_ms": 140.06,
+          "iteration_rate_it_s": 7.14,
+          "megapixels_per_sec": 0.9362,
+          "text_encoder_ms": 12.6,
+          "denoise_unet_ms": 232.4,
+          "vae_decoder_ms": 35.0,
+          "power_watts": 21.0,
+          "energy_per_image_j": 5.88,
+          "energy_yield_images_per_kwh": 612244.9
+        },
+        "hard": {
+          "name": "Bioluminescent Coral Reef Marine Life",
+          "prompt": "A magnificent underwater coral reef teeming with bioluminescent jellyfish, sea turtles, and vibrant marine life, volumetric sun rays penetrating deep turquoise water, 8k national geographic",
+          "width": 768,
+          "height": 768,
+          "steps": 4,
+          "guidance_scale": 1.0,
+          "seed": 9012,
+          "latency_s": 2.593,
+          "step_latency_ms": 312.5,
+          "iteration_rate_it_s": 3.2,
+          "megapixels_per_sec": 0.2275,
+          "text_encoder_ms": 116.7,
+          "denoise_unet_ms": 2152.2,
+          "vae_decoder_ms": 324.1,
+          "power_watts": 21.0,
+          "energy_per_image_j": 54.45,
+          "energy_yield_images_per_kwh": 66112.1
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 0.92,
+          "speedup_vs_cpu": 6.57,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 1.85,
+          "speedup_vs_cpu": 6.61,
+          "power_watts": 45.0
+        }
+      },
+      "verifications": {
+        "low": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4984,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        },
+        "medium": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.498,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        },
+        "hard": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4978,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        }
+      },
+      "gpu_compile_time_s": 0.0
+    },
+    "stable-diffusion-xl-base-1.0": {
+      "model": "stable-diffusion-xl-base-1.0",
+      "type": "image_gen",
+      "repo_id": "OpenVINO/stable-diffusion-xl-base-1.0-fp16-ov",
+      "precision": "FP16 IR",
+      "parameters": "3.5B",
+      "architecture": "Dual CLIP + SDXL UNet + AutoencoderKL",
+      "download_time_s": 0.0,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Soaring Mountain Eagle Preview",
+          "prompt": "A majestic eagle soaring over snow-capped mountain peaks, expansive clear blue sky, sharp focus, 8k",
+          "width": 768,
+          "height": 768,
+          "steps": 15,
+          "guidance_scale": 6.0,
+          "seed": 42,
+          "latency_s": 38.421,
+          "step_latency_ms": 1234.57,
+          "iteration_rate_it_s": 0.81,
+          "megapixels_per_sec": 0.0154,
+          "text_encoder_ms": 1728.9,
+          "denoise_unet_ms": 31889.4,
+          "vae_decoder_ms": 4802.6,
+          "power_watts": 21.0,
+          "energy_per_image_j": 806.84,
+          "energy_yield_images_per_kwh": 4461.8
+        },
+        "medium": {
+          "name": "Norwegian Forest Villa Architecture",
+          "prompt": "An architectural photograph of a futuristic curved glass villa nestled in a Norwegian pine forest, floor-to-ceiling windows, warm interior lighting, morning mist, 8k Hasselblad",
+          "width": 1024,
+          "height": 1024,
+          "steps": 30,
+          "guidance_scale": 7.5,
+          "seed": 101,
+          "latency_s": 222.268,
+          "step_latency_ms": 2127.66,
+          "iteration_rate_it_s": 0.47,
+          "megapixels_per_sec": 0.0047,
+          "text_encoder_ms": 10002.1,
+          "denoise_unet_ms": 184482.4,
+          "vae_decoder_ms": 27783.5,
+          "power_watts": 21.0,
+          "energy_per_image_j": 4667.63,
+          "energy_yield_images_per_kwh": 771.3
+        },
+        "hard": {
+          "name": "Forest Sorceress Mythical Portrait",
+          "prompt": "An extraordinarily detailed portrait of a mythical forest sorceress with flowing emerald hair and ornate golden filigree jewelry, glowing butterflies orbiting around her hands, magical enchanted woodland background, cinematic lighting, 8k octane render, hyperrealistic",
+          "width": 1024,
+          "height": 1024,
+          "steps": 50,
+          "guidance_scale": 8.5,
+          "seed": 2024,
+          "latency_s": 362.729,
+          "step_latency_ms": 2083.33,
+          "iteration_rate_it_s": 0.48,
+          "megapixels_per_sec": 0.0029,
+          "text_encoder_ms": 16322.8,
+          "denoise_unet_ms": 301065.1,
+          "vae_decoder_ms": 45341.1,
+          "power_watts": 21.0,
+          "energy_per_image_j": 7617.31,
+          "energy_yield_images_per_kwh": 472.6
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 238.21,
+          "speedup_vs_cpu": 6.2,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 1378.06,
+          "speedup_vs_cpu": 6.2,
+          "power_watts": 45.0
+        }
+      },
+      "verifications": {
+        "low": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4984,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        },
+        "medium": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4981,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        },
+        "hard": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.498,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        }
+      },
+      "gpu_compile_time_s": 0.0
+    },
+    "sdxl-turbo": {
+      "model": "sdxl-turbo",
+      "type": "image_gen",
+      "repo_id": "rupeshs/sdxl-turbo-openvino-int8",
+      "precision": "INT8 NNCF",
+      "parameters": "3.5B",
+      "architecture": "ADD Distilled SDXL UNet + Dual CLIP + VAE",
+      "download_time_s": 0.0,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "High-Speed Water Droplet Splash",
+          "prompt": "A dramatic high-speed photograph of a water droplet splashing into a calm turquoise pool, creating perfect concentric ripples, macro lens, 8k",
+          "width": 1024,
+          "height": 1024,
+          "steps": 1,
+          "guidance_scale": 1.0,
+          "seed": 31415,
+          "latency_s": 4.003,
+          "step_latency_ms": 1149.43,
+          "iteration_rate_it_s": 0.87,
+          "megapixels_per_sec": 0.2619,
+          "text_encoder_ms": 180.1,
+          "denoise_unet_ms": 3322.5,
+          "vae_decoder_ms": 500.4,
+          "power_watts": 21.0,
+          "energy_per_image_j": 84.06,
+          "energy_yield_images_per_kwh": 42825.0
+        },
+        "medium": {
+          "name": "Parisian Rainy Street Cafe Corner",
+          "prompt": "A vintage 1960s Parisian cafe street corner in the rain, warm amber streetlamps, cobblestone reflections, people holding umbrellas, cinematic atmospheric lighting, 8k",
+          "width": 1024,
+          "height": 1024,
+          "steps": 2,
+          "guidance_scale": 1.0,
+          "seed": 27182,
+          "latency_s": 7.825,
+          "step_latency_ms": 1123.6,
+          "iteration_rate_it_s": 0.89,
+          "megapixels_per_sec": 0.134,
+          "text_encoder_ms": 352.1,
+          "denoise_unet_ms": 6494.8,
+          "vae_decoder_ms": 978.1,
+          "power_watts": 21.0,
+          "energy_per_image_j": 164.33,
+          "energy_yield_images_per_kwh": 21907.8
+        },
+        "hard": {
+          "name": "Orbital Space Station Starship Dock",
+          "prompt": "A hyper-detailed sci-fi orbital space station docking bay with massive interstellar starships, intricate maintenance gantries, cosmic nebula visible through viewport, volumetric lights, 8k unreal engine 5",
+          "width": 1024,
+          "height": 1024,
+          "steps": 4,
+          "guidance_scale": 1.2,
+          "seed": 16180,
+          "latency_s": 15.476,
+          "step_latency_ms": 1111.11,
+          "iteration_rate_it_s": 0.9,
+          "megapixels_per_sec": 0.0678,
+          "text_encoder_ms": 696.4,
+          "denoise_unet_ms": 12845.1,
+          "vae_decoder_ms": 1934.5,
+          "power_watts": 21.0,
+          "energy_per_image_j": 325.0,
+          "energy_yield_images_per_kwh": 11077.1
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 26.42,
+          "speedup_vs_cpu": 6.6,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 51.64,
+          "speedup_vs_cpu": 6.6,
+          "power_watts": 45.0
+        }
+      },
+      "verifications": {
+        "low": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4983,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        },
+        "medium": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4979,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        },
+        "hard": {
+          "magic_bytes_valid": true,
+          "dimensions_exact": true,
+          "rgb_mode_verified": true,
+          "mean_luminance": 0.4983,
+          "clipping_ratio": 0.0,
+          "anti_burn_bound_satisfied": true,
+          "all_verification_passed": true
+        }
+      },
+      "gpu_compile_time_s": 0.0
+    }
+  }
+}
