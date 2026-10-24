@@ -7,6 +7,7 @@ Strictly adheres to Level 2.2 Docstrings-Only standards and Proofs M1-M5.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -56,18 +57,43 @@ async def generate_studio_project(
         HTTPException: If pipeline execution encounters fatal generation failure.
     """
     if stream:
+        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+        loop = asyncio.get_running_loop()
+
+        def progress_cb(stg: PipelineStage, pct: float, msg: str) -> None:
+            loop.call_soon_threadsafe(
+                queue.put_nowait,
+                {"stage": stg.value, "progress": pct, "message": msg},
+            )
+
+        async def worker() -> None:
+            try:
+                payload = await asyncio.to_thread(_PIPELINE.execute, request, progress_cb)
+                _PROJECT_CACHE[payload.project_id] = payload
+                await queue.put(
+                    {
+                        "stage": "COMPLETED",
+                        "progress": 100.0,
+                        "project_id": payload.project_id,
+                        "video_url": f"/v1/studio/projects/{payload.project_id}/video",
+                        "payload": payload.model_dump(),
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.error(f"SSE pipeline failed: {exc}")
+                await queue.put({"stage": "FAILED", "error": str(exc)})
+            finally:
+                await queue.put(None)
+
+        asyncio.create_task(worker())
+
         async def event_generator() -> AsyncIterator[str]:
             yield f"data: {json.dumps({'stage': 'INITIATED', 'progress': 0.0, 'message': 'Project accepted by orchestrator'})}\n\n"
-
-            def progress_cb(stg: PipelineStage, pct: float, msg: str) -> None:
-                logger.debug(f"SSE progress: {stg.value} ({pct}%) - {msg}")
-
-            try:
-                payload = _PIPELINE.execute(request, progress_callback=progress_cb)
-                _PROJECT_CACHE[payload.project_id] = payload
-                yield f"data: {json.dumps({'stage': 'COMPLETED', 'progress': 100.0, 'payload': payload.model_dump()})}\n\n"
-            except Exception as exc:  # noqa: BLE001
-                yield f"data: {json.dumps({'stage': 'FAILED', 'error': str(exc)})}\n\n"
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                yield f"data: {json.dumps(item)}\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 

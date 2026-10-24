@@ -9,7 +9,8 @@ import time
 from typing import Any, Callable, Dict, Optional
 import uuid
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, Request, Response
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -129,7 +130,7 @@ def create_app(
         """Handle Pydantic schema validation failures with HTTP 422 payload."""
         return JSONResponse(
             status_code=422,
-            content={"error": "Request validation failed", "details": exc.errors()},
+            content={"error": "Request validation failed", "details": jsonable_encoder(exc.errors())},
         )
 
     @app.get("/api/devices")

@@ -58,6 +58,13 @@
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
                     <span>NPU Embeddings</span>
                 </button>
+                <button class="nav-item" data-tab="tab-studio">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="23 7 16 12 23 17 23 7"/>
+                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                    </svg>
+                    <span>MultiModal Studio</span>
+                </button>
             </nav>
 
             <div class="sidebar-footer">
@@ -554,6 +561,223 @@
 
                     <div id="embed-results" class="embed-results-area" style="margin-top: 24px;">
                         <p class="text-muted text-center">Click 'Compute Cosine Similarity' to benchmark NPU vector embedding generation and semantic similarity.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 7: ARCMULTIMODAL STUDIO -->
+            <section id="tab-studio" class="tab-pane">
+                <div class="glass-card">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title-group" style="display: flex; align-items: center; gap: 8px;">
+                                <span class="badge badge-intel">Autonomous Multi-Agent DAG</span>
+                                <h3>Intel® Arc™ Multi-Modal Studio</h3>
+                            </div>
+                            <p class="subtitle">Heterogeneous Silicon Agentic Orchestration: Director (NPU) + Kokoro Audio (5W) + Visual Worker (Arc Xe-LPG) + Level Zero USM Bridge.</p>
+                        </div>
+                        <span class="status-indicator online">STUDIO READY</span>
+                    </div>
+
+                    <!-- Creative Brief & Generation Form -->
+                    <div class="studio-controls-container" style="margin-top: 16px;">
+                        <div class="form-group">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <label for="studio-prompt" style="font-weight: 600;">Creative Brief / Production Prompt:</label>
+                                <div class="preset-pills" style="display: flex; gap: 6px;">
+                                    <button type="button" class="btn-preset" data-preset="quantum">🔬 Quantum Stars</button>
+                                    <button type="button" class="btn-preset" data-preset="blackhole">🌌 Black Hole Horizon</button>
+                                    <button type="button" class="btn-preset" data-preset="silicon">⚡ Intel XMX Architecture</button>
+                                </div>
+                            </div>
+                            <textarea id="studio-prompt" class="form-input font-mono" rows="3" style="width: 100%; resize: vertical;" placeholder="Enter natural language production brief (e.g. Create a 15-second scientific documentary teaser explaining quantum entanglement in binary stars with dramatic voiceover and cosmic visual slides)...">Create a 15-second scientific documentary teaser explaining quantum entanglement in binary stars with dramatic voiceover and cosmic visual slides.</textarea>
+                        </div>
+
+                        <div class="studio-parameters-grid">
+                            <div class="form-group">
+                                <label for="studio-duration">Target Duration:</label>
+                                <select id="studio-duration" class="form-select">
+                                    <option value="5.0">5 Seconds (Short Teaser)</option>
+                                    <option value="10.0">10 Seconds (Standard Clip)</option>
+                                    <option value="15.0" selected>15 Seconds (Documentary Scene)</option>
+                                    <option value="30.0">30 Seconds (Extended Reel)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="studio-resolution">Resolution & Aspect:</label>
+                                <select id="studio-resolution" class="form-select">
+                                    <option value="512x512" selected>512x512 (1:1 Square)</option>
+                                    <option value="768x512">768x512 (16:9 Landscape)</option>
+                                    <option value="512x768">512x768 (9:16 Mobile Reel)</option>
+                                    <option value="256x256">256x256 (Fast Preview)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="studio-fps">Target Framerate:</label>
+                                <select id="studio-fps" class="form-select">
+                                    <option value="8">8 FPS (Fast Slide Motion)</option>
+                                    <option value="16" selected>16 FPS (Smooth Diffusion)</option>
+                                    <option value="24">24 FPS (Cinematic 35mm)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="studio-modality">Visual Modality:</label>
+                                <select id="studio-modality" class="form-select">
+                                    <option value="IMAGE_SLIDE" selected>IMAGE_SLIDE (Dynamic Pan/Zoom Keyframes)</option>
+                                    <option value="ANIMATED_VIDEO">ANIMATED_VIDEO (3D Diffusion Motion)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="studio-exec-mode">Compute Strategy:</label>
+                                <select id="studio-exec-mode" class="form-select">
+                                    <option value="HETEROGENEOUS_PARALLEL" selected>Parallel (NPU Audio + Arc GPU Visual)</option>
+                                    <option value="SEQUENTIAL_EXCLUSIVE">Sequential (Low VRAM 8GB Safe Purge)</option>
+                                </select>
+                            </div>
+                            <div class="form-group studio-actions" style="display: flex; gap: 8px; align-self: flex-end;">
+                                <button id="btn-produce-video" class="btn btn-primary" style="flex: 1;">
+                                    🚀 Produce Multi-Modal Video
+                                </button>
+                                <button id="btn-studio-bench" class="btn btn-outline" title="Benchmark Multi-Model Co-Execution & Cloud ROI">
+                                    ⚡ Run Co-Benchmark
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Real-Time Progress & Stage Stepper (Proof M131 & M132) -->
+                    <div id="studio-progress-card" class="studio-progress-card hidden" style="margin-top: 20px;">
+                        <div class="progress-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span id="studio-progress-status" class="progress-status-text">Initializing Autonomous Agentic Pipeline...</span>
+                            <span id="studio-progress-pct" class="font-mono text-cyan" style="font-weight: 700;">0%</span>
+                        </div>
+                        <div class="studio-progress-bar-bg">
+                            <div id="studio-progress-fill" class="studio-progress-bar-fill" style="width: 0%;"></div>
+                        </div>
+
+                        <!-- 5-Stage Stepper -->
+                        <div class="studio-stage-stepper" style="margin-top: 14px;">
+                            <div id="step-planning" class="stage-step">
+                                <div class="step-icon">1</div>
+                                <div class="step-info">
+                                    <span class="step-title">Director (NPU)</span>
+                                    <span class="step-sub">Scene Decomp</span>
+                                </div>
+                            </div>
+                            <div id="step-audio" class="stage-step">
+                                <div class="step-icon">2</div>
+                                <div class="step-info">
+                                    <span class="step-title">Voiceover (5W)</span>
+                                    <span class="step-sub">Kokoro Speech</span>
+                                </div>
+                            </div>
+                            <div id="step-visual" class="stage-step">
+                                <div class="step-icon">3</div>
+                                <div class="step-info">
+                                    <span class="step-title">Visuals (GPU)</span>
+                                    <span class="step-sub">Arc Xe-LPG</span>
+                                </div>
+                            </div>
+                            <div id="step-usm" class="stage-step">
+                                <div class="step-icon">4</div>
+                                <div class="step-info">
+                                    <span class="step-title">USM Bridge</span>
+                                    <span class="step-sub">≤50µs Zero-Copy</span>
+                                </div>
+                            </div>
+                            <div id="step-muxing" class="stage-step">
+                                <div class="step-icon">5</div>
+                                <div class="step-info">
+                                    <span class="step-title">Compositor</span>
+                                    <span class="step-sub">0.0s Pacing Sync</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Output Theater Grid (Video Player + Telemetry & ROI) -->
+                    <div id="studio-theater-grid" class="studio-theater-grid" style="margin-top: 24px;">
+                        <!-- Left: HTML5 Video Player (Proof M133 & M134) -->
+                        <div class="studio-video-container">
+                            <div class="section-title-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <h4>Broadcast Video Output</h4>
+                                <span id="studio-video-badge" class="badge badge-subtle">Ready</span>
+                            </div>
+                            <div class="video-viewport-wrapper">
+                                <video id="studio-video-player" class="studio-video-player hidden" controls playsinline></video>
+                                <div id="studio-video-placeholder" class="video-placeholder">
+                                    <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-muted); margin-bottom: 12px;">
+                                        <polygon points="23 7 16 12 23 17 23 7"/>
+                                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                                    </svg>
+                                    <p class="text-muted text-center">Video render output will appear here with live playback and seek controls.</p>
+                                </div>
+                            </div>
+                            <div class="video-action-bar" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                                <div id="studio-video-meta" class="font-mono text-muted" style="font-size: 0.8rem;">Container: MP4 (H.264 / AAC)</div>
+                                <a id="studio-download-btn" class="btn btn-outline btn-sm hidden" download="arc_studio_production.mp4">
+                                    📥 Download MP4
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Right: Multi-Agent Telemetry & Cloud ROI (Proof M135) -->
+                        <div class="studio-telemetry-container">
+                            <div class="section-title-group" style="margin-bottom: 8px;">
+                                <h4>Multi-Agent Pipeline Telemetry & Cloud ROI</h4>
+                            </div>
+
+                            <div class="telemetry-table-wrapper">
+                                <table id="studio-telemetry-table" class="telemetry-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Stage</th>
+                                            <th>Silicon</th>
+                                            <th>Latency</th>
+                                            <th>VRAM</th>
+                                            <th>Throughput</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="studio-telemetry-body">
+                                        <tr>
+                                            <td colspan="5" class="text-muted text-center" style="padding: 16px;">Production telemetry will display after pipeline run.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Enterprise Cloud API Replacement ROI Card -->
+                            <div id="studio-roi-container" class="roi-scorecard-card" style="margin-top: 16px;">
+                                <div class="roi-card-header">
+                                    <span class="roi-title">Cloud API Replacement ROI (Proof M135)</span>
+                                    <span class="badge badge-emerald">100% Free Silicon</span>
+                                </div>
+                                <div class="roi-stats-grid">
+                                    <div class="roi-stat-item">
+                                        <span class="roi-label">Local Intel Arc Cost</span>
+                                        <span class="roi-val text-emerald font-mono">$0.00</span>
+                                    </div>
+                                    <div class="roi-stat-item">
+                                        <span class="roi-label">Cloud API Equivalent</span>
+                                        <span class="roi-val text-cyan font-mono" id="roi-cloud-cost">~$0.35</span>
+                                    </div>
+                                    <div class="roi-stat-item">
+                                        <span class="roi-label">Monthly Savings (1k vids)</span>
+                                        <span class="roi-val text-emerald font-mono" id="roi-monthly-savings">$350.00</span>
+                                    </div>
+                                    <div class="roi-stat-item">
+                                        <span class="roi-label">Hardware Payback</span>
+                                        <span class="roi-val font-mono" id="roi-payback">&lt; 850 runs</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scene Breakdown Drawer -->
+                    <div id="studio-scenes-container" class="studio-scenes-container hidden" style="margin-top: 24px;">
+                        <h4 style="margin-bottom: 12px;">Director Scene Breakdown</h4>
+                        <div id="studio-scenes-grid" class="scenes-grid"></div>
                     </div>
                 </div>
             </section>

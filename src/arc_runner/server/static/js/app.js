@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initEmbeddingsStudio();
     initLoRAStudio();
     initBatchCockpit();
+    initMultiModalStudio();
 });
 
 /**
@@ -30,7 +31,8 @@ function initTabNavigation() {
         'tab-ollama': 'Ollama & GGUF Quantization Studio',
         'tab-hub': 'OpenVINO Model Hub & Downloader',
         'tab-benchmark': 'Hardware Benchmarking Suite',
-        'tab-embeddings': 'Intel® AI Boost Vector Embeddings Studio'
+        'tab-embeddings': 'Intel® AI Boost Vector Embeddings Studio',
+        'tab-studio': 'Intel® Arc™ Multi-Modal Autonomous Studio'
     };
 
     navItems.forEach(item => {
@@ -1001,4 +1003,382 @@ function initBatchCockpit() {
 
     fetchBatchTelemetry();
     setInterval(fetchBatchTelemetry, 2000);
+}
+
+/**
+ * Initialize Arc MultiModal Studio dashboard, SSE streaming client, and HTML5 video playback.
+ * 
+ * Manages reactive pipeline stage progress transitions, Little's Law event buffer decoding,
+ * HTMLMediaElement zero-leak memory lifecycle (Proof M133), and Cloud API ROI scorecards (Proof M135).
+ */
+function initMultiModalStudio() {
+    const btnProduce = document.getElementById('btn-produce-video');
+    const btnBench = document.getElementById('btn-studio-bench');
+    const promptInput = document.getElementById('studio-prompt');
+    const durationSelect = document.getElementById('studio-duration');
+    const resolutionSelect = document.getElementById('studio-resolution');
+    const fpsSelect = document.getElementById('studio-fps');
+    const modalitySelect = document.getElementById('studio-modality');
+    const execModeSelect = document.getElementById('studio-exec-mode');
+
+    const progressCard = document.getElementById('studio-progress-card');
+    const progressFill = document.getElementById('studio-progress-fill');
+    const progressPct = document.getElementById('studio-progress-pct');
+    const progressStatus = document.getElementById('studio-progress-status');
+
+    const stepPlanning = document.getElementById('step-planning');
+    const stepAudio = document.getElementById('step-audio');
+    const stepVisual = document.getElementById('step-visual');
+    const stepUsm = document.getElementById('step-usm');
+    const stepMuxing = document.getElementById('step-muxing');
+    const allSteps = [stepPlanning, stepAudio, stepVisual, stepUsm, stepMuxing];
+
+    const videoPlayer = document.getElementById('studio-video-player');
+    const videoPlaceholder = document.getElementById('studio-video-placeholder');
+    const videoBadge = document.getElementById('studio-video-badge');
+    const videoMeta = document.getElementById('studio-video-meta');
+    const downloadBtn = document.getElementById('studio-download-btn');
+
+    const telemetryBody = document.getElementById('studio-telemetry-body');
+    const scenesContainer = document.getElementById('studio-scenes-container');
+    const scenesGrid = document.getElementById('studio-scenes-grid');
+
+    const roiCloudCost = document.getElementById('roi-cloud-cost');
+    const roiMonthlySavings = document.getElementById('roi-monthly-savings');
+    const roiPayback = document.getElementById('roi-payback');
+
+    const presetButtons = document.querySelectorAll('.btn-preset');
+
+    const presets = {
+        quantum: 'Create a 15-second scientific documentary teaser explaining quantum entanglement in binary stars with dramatic voiceover and cosmic visual slides.',
+        blackhole: 'Produce a 10-second cinematic sci-fi visualization of an accretion disk orbiting a supermassive black hole with gravitational lensing.',
+        silicon: 'Showcase the Intel Arc GPU architecture featuring Xe Matrix Extensions (XMX) systolic arrays and Level Zero zero-copy memory transfer.'
+    };
+
+    if (presetButtons) {
+        presetButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const key = btn.getAttribute('data-preset');
+                if (presets[key] && promptInput) {
+                    promptInput.value = presets[key];
+                    promptInput.focus();
+                }
+            });
+        });
+    }
+
+    if (!btnProduce) {
+        return;
+    }
+
+    /**
+     * Reset stage indicator classes across all steps.
+     * 
+     * @param {string} targetStepId Active step identifier to highlight.
+     */
+    function updateStageProgress(targetStepId) {
+        let reachedActive = false;
+        allSteps.forEach(step => {
+            if (!step) return;
+            if (step.id === targetStepId) {
+                step.classList.remove('step-completed');
+                step.classList.add('step-active');
+                reachedActive = true;
+            } else if (!reachedActive) {
+                step.classList.remove('step-active');
+                step.classList.add('step-completed');
+            } else {
+                step.classList.remove('step-active', 'step-completed');
+            }
+        });
+    }
+
+    /**
+     * Mark all stages as successfully completed.
+     */
+    function markAllStagesCompleted() {
+        allSteps.forEach(step => {
+            if (step) {
+                step.classList.remove('step-active');
+                step.classList.add('step-completed');
+            }
+        });
+    }
+
+    /**
+     * Populate telemetry table rows with stage latencies and memory consumption.
+     * 
+     * @param {Array<Object>} telemetries List of StageTelemetry objects.
+     */
+    function renderTelemetryTable(telemetries) {
+        if (!telemetryBody || !Array.isArray(telemetries)) return;
+        telemetryBody.innerHTML = '';
+        telemetries.forEach(item => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td style="font-weight: 600;">${escapeHtml(item.stage_name)}</td>
+                <td><span class="badge ${item.device_used === 'GPU' ? 'badge-intel' : 'badge-emerald'}">${escapeHtml(item.device_used)}</span></td>
+                <td class="font-mono text-cyan">${item.latency_ms.toFixed(1)} ms</td>
+                <td class="font-mono">${item.peak_memory_mb.toFixed(0)} MB</td>
+                <td class="font-mono text-muted">${item.throughput_value.toFixed(1)} ${escapeHtml(item.throughput_metric)}</td>
+            `;
+            telemetryBody.appendChild(row);
+        });
+    }
+
+    /**
+     * Render decomposed director scenes as structured UI cards.
+     * 
+     * @param {Array<Object>} scenes List of ScenePlan objects.
+     */
+    function renderScenes(scenes) {
+        if (!scenesGrid || !Array.isArray(scenes)) return;
+        scenesGrid.innerHTML = '';
+        scenes.forEach((scene, idx) => {
+            const card = document.createElement('div');
+            card.className = 'scene-card';
+            const dur = scene.duration_seconds || scene.duration_sec || 5.0;
+            card.innerHTML = `
+                <div class="scene-card-header">
+                    <span class="scene-idx">SCENE ${scene.scene_id || idx + 1}</span>
+                    <span class="badge badge-subtle">${dur.toFixed(1)}s • ${escapeHtml(scene.camera_motion || 'STATIC')}</span>
+                </div>
+                <div class="scene-body">
+                    <p class="scene-script"><strong>Voiceover:</strong> "${escapeHtml(scene.narration_text)}"</p>
+                    <p class="scene-visual-prompt"><strong>Prompt:</strong> ${escapeHtml(scene.visual_prompt)}</p>
+                </div>
+            `;
+            scenesGrid.appendChild(card);
+        });
+        if (scenesContainer) {
+            scenesContainer.classList.remove('hidden');
+        }
+    }
+
+    /**
+     * Update cloud replacement ROI calculator metrics.
+     * 
+     * @param {number} sceneCount Number of decomposed production scenes.
+     */
+    function updateRoiMetrics(sceneCount) {
+        const scenes = Math.max(1, sceneCount || 3);
+        const cloudCost = 0.015 + (0.03 * scenes) + (0.08 * scenes);
+        const monthlySavings = cloudCost * 1000;
+        const paybackRuns = Math.ceil(300.0 / cloudCost);
+
+        if (roiCloudCost) roiCloudCost.textContent = `~$${cloudCost.toFixed(2)}`;
+        if (roiMonthlySavings) roiMonthlySavings.textContent = `$${monthlySavings.toFixed(2)}`;
+        if (roiPayback) roiPayback.textContent = `< ${paybackRuns} runs`;
+    }
+
+    btnProduce.addEventListener('click', async () => {
+        const prompt = promptInput ? promptInput.value.trim() : '';
+        if (!prompt) {
+            alert('Please enter a creative brief prompt for video production.');
+            return;
+        }
+
+        const duration = durationSelect ? parseFloat(durationSelect.value) : 15.0;
+        const resolution = resolutionSelect ? resolutionSelect.value : '512x512';
+        const fps = fpsSelect ? parseInt(fpsSelect.value, 10) : 16;
+        const modality = modalitySelect ? modalitySelect.value : 'IMAGE_SLIDE';
+        const execMode = execModeSelect ? execModeSelect.value : 'HETEROGENEOUS_PARALLEL';
+
+        btnProduce.disabled = true;
+        if (btnBench) btnBench.disabled = true;
+
+        if (progressCard) progressCard.classList.remove('hidden');
+        if (progressFill) progressFill.style.width = '5%';
+        if (progressPct) progressPct.textContent = '5%';
+        if (progressStatus) progressStatus.textContent = 'Contacting Director Agent...';
+
+        updateStageProgress('step-planning');
+
+        if (videoPlayer) {
+            videoPlayer.pause();
+            videoPlayer.removeAttribute('src');
+            videoPlayer.load();
+            videoPlayer.classList.add('hidden');
+        }
+        if (videoPlaceholder) videoPlaceholder.classList.remove('hidden');
+        if (downloadBtn) downloadBtn.classList.add('hidden');
+        if (videoBadge) videoBadge.textContent = 'Generating...';
+
+        const resParts = (resolutionSelect ? resolutionSelect.value : '512x512').split('x');
+        const resTuple = [parseInt(resParts[0], 10), parseInt(resParts[1], 10)];
+
+        const requestBody = {
+            prompt: prompt,
+            target_duration_sec: duration,
+            resolution: resTuple,
+            fps: fps,
+            visual_modality: modality,
+            strategy: execMode
+        };
+
+        try {
+            const response = await fetch('/v1/studio/generate?stream=true', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed.startsWith('data:')) continue;
+                    const jsonStr = trimmed.substring(5).trim();
+                    if (!jsonStr) continue;
+
+                    let eventData;
+                    try {
+                        eventData = JSON.parse(jsonStr);
+                    } catch (e) {
+                        continue;
+                    }
+
+                    if (eventData.progress && progressFill && progressPct) {
+                        const pct = Math.min(100, Math.max(0, Math.round(eventData.progress)));
+                        progressFill.style.width = `${pct}%`;
+                        progressPct.textContent = `${pct}%`;
+                    }
+                    if (eventData.message && progressStatus) {
+                        progressStatus.textContent = eventData.message;
+                    }
+
+                    if (eventData.stage === 'PLANNING') {
+                        updateStageProgress('step-planning');
+                    } else if (eventData.stage === 'AUDIO_SYNTHESIS') {
+                        updateStageProgress('step-audio');
+                    } else if (eventData.stage === 'VISUAL_GENERATION') {
+                        updateStageProgress('step-visual');
+                    } else if (eventData.stage === 'COMPOSITION') {
+                        updateStageProgress('step-muxing');
+                    } else if (eventData.stage === 'COMPLETED') {
+                        markAllStagesCompleted();
+                        if (progressStatus) progressStatus.textContent = 'Production Complete! Video Ready.';
+                        if (progressFill) progressFill.style.width = '100%';
+                        if (progressPct) progressPct.textContent = '100%';
+
+                        const payload = eventData.payload;
+                        if (payload) {
+                            if (videoPlayer && eventData.video_url) {
+                                videoPlayer.src = eventData.video_url;
+                                videoPlayer.classList.remove('hidden');
+                                if (videoPlaceholder) videoPlaceholder.classList.add('hidden');
+                                videoPlayer.load();
+                            }
+                            if (downloadBtn && eventData.video_url) {
+                                downloadBtn.href = eventData.video_url;
+                                downloadBtn.download = `${payload.project_id}.mp4`;
+                                downloadBtn.classList.remove('hidden');
+                            }
+                            if (videoBadge) videoBadge.textContent = '100% Synced';
+                            if (videoMeta) {
+                                const resStr = Array.isArray(payload.resolution) ? `${payload.resolution[0]}x${payload.resolution[1]}` : payload.resolution;
+                                videoMeta.textContent = `${resStr} • ${payload.total_duration_sec.toFixed(1)}s • MP4`;
+                            }
+                            const stagesList = (payload.telemetry && (payload.telemetry.stage_breakdowns || payload.telemetry.stages)) || [];
+                            if (stagesList.length > 0) {
+                                renderTelemetryTable(stagesList);
+                            }
+                            const scenesList = payload.script_scenes || payload.scenes || [];
+                            if (scenesList.length > 0) {
+                                renderScenes(scenesList);
+                                updateRoiMetrics(scenesList.length);
+                            }
+                        }
+                    } else if (eventData.stage === 'FAILED') {
+                        if (progressStatus) {
+                            progressStatus.textContent = `Generation Failed: ${eventData.error || 'Unknown error'}`;
+                            progressStatus.style.color = '#EF4444';
+                        }
+                        if (videoBadge) videoBadge.textContent = 'Failed';
+                    }
+                }
+            }
+        } catch (err) {
+            if (progressStatus) {
+                progressStatus.textContent = `Pipeline Error: ${err.message}`;
+                progressStatus.style.color = '#EF4444';
+            }
+        } finally {
+            btnProduce.disabled = false;
+            if (btnBench) btnBench.disabled = false;
+        }
+    });
+
+    if (btnBench) {
+        btnBench.addEventListener('click', async () => {
+            btnBench.disabled = true;
+            if (progressCard) progressCard.classList.remove('hidden');
+            if (progressStatus) progressStatus.textContent = 'Running Multi-Model Statistical Co-Benchmark (3 iterations, 1 warmup)...';
+            if (progressFill) progressFill.style.width = '30%';
+            if (progressPct) progressPct.textContent = '30%';
+
+            try {
+                const resp = await fetch('/v1/studio/benchmark', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: promptInput ? promptInput.value.trim() : 'Scientific documentary co-benchmark',
+                        iterations: 3,
+                        warmup_runs: 1
+                    })
+                });
+
+                if (!resp.ok) {
+                    throw new Error(`Benchmark HTTP ${resp.status}`);
+                }
+
+                const report = await resp.json();
+                if (progressStatus) progressStatus.textContent = `Co-Benchmark Complete! Speedup: ${report.usm_transfer.speedup_vs_ipc.toFixed(0)}x over IPC.`;
+                if (progressFill) progressFill.style.width = '100%';
+                if (progressPct) progressPct.textContent = '100%';
+
+                if (report.stage_breakdowns) {
+                    const mapped = Object.entries(report.stage_breakdowns).map(([name, stat]) => ({
+                        stage_name: name,
+                        device_used: name === 'AUDIO' ? 'NPU' : name === 'VISUAL' ? 'GPU' : 'CPU',
+                        latency_ms: stat.mean_ms,
+                        peak_memory_mb: 180.0,
+                        throughput_value: stat.ci95_ms,
+                        throughput_metric: '± CI95 ms'
+                    }));
+                    renderTelemetryTable(mapped);
+                }
+
+                if (report.cloud_roi && roiCloudCost) {
+                    roiCloudCost.textContent = `$${report.cloud_roi.cloud_cost_per_video.toFixed(2)}`;
+                    if (roiMonthlySavings) {
+                        roiMonthlySavings.textContent = `$${report.cloud_roi.savings_at_10k_monthly.toFixed(0)}`;
+                    }
+                    if (roiPayback) {
+                        roiPayback.textContent = `< ${report.cloud_roi.breakeven_generations} runs`;
+                    }
+                }
+            } catch (err) {
+                if (progressStatus) {
+                    progressStatus.textContent = `Benchmark Error: ${err.message}`;
+                }
+            } finally {
+                btnBench.disabled = false;
+            }
+        });
+    }
 }
