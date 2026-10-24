@@ -12,7 +12,7 @@ import subprocess
 import time
 import wave
 from pathlib import Path
-from typing import List, Optional, Tuple
+
 import numpy as np
 
 from arc_runner.core.exceptions import ArcRunnerError
@@ -31,7 +31,7 @@ class StudioTimelineCompositor:
 
     def __init__(
         self,
-        output_dir: Optional[Path] = None,
+        output_dir: Path | None = None,
         convergence_tolerance_sec: float = 0.05,
     ) -> None:
         """Initialize StudioTimelineCompositor with destination path and alignment tolerance.
@@ -46,11 +46,11 @@ class StudioTimelineCompositor:
 
     def compose_and_mux(
         self,
-        scenes: List[ScenePlan],
-        artifacts: List[SceneArtifact],
+        scenes: list[ScenePlan],
+        artifacts: list[SceneArtifact],
         output_path: Path,
         fps: int = 16,
-    ) -> Tuple[Path, float, int]:
+    ) -> tuple[Path, float, int]:
         """Align scene timelines, concatenate streams, and encode final synchronized MP4 video.
 
         Args:
@@ -71,7 +71,7 @@ class StudioTimelineCompositor:
         t_start = time.perf_counter()
         logger.info(f"Composing timeline across {len(artifacts)} scenes at {fps} FPS")
 
-        aligned_artifacts: List[SceneArtifact] = []
+        aligned_artifacts: list[SceneArtifact] = []
         total_iterations = 0
 
         for art in artifacts:
@@ -104,7 +104,7 @@ class StudioTimelineCompositor:
         self,
         artifact: SceneArtifact,
         target_fps: int,
-    ) -> Tuple[SceneArtifact, int]:
+    ) -> tuple[SceneArtifact, int]:
         """Execute closed-loop pacing convergence algorithm to eliminate audio-video drift.
 
         Ensures neither speech audio nor visual frames are prematurely truncated:
@@ -135,7 +135,7 @@ class StudioTimelineCompositor:
 
         iterations = 1
         target_duration = max(audio_dur, raw_video_dur)
-        target_frames = max(1, int(round(target_duration * target_fps)))
+        target_frames = max(1, round(target_duration * target_fps))
 
         if current_frames < target_frames:
             pad_count = target_frames - current_frames
@@ -147,7 +147,7 @@ class StudioTimelineCompositor:
 
         video_dur = float(len(frames)) / float(target_fps)
 
-        needed_audio_samples = int(round(video_dur * sample_rate))
+        needed_audio_samples = round(video_dur * sample_rate)
         if audio_samples is not None:
             curr_samples = len(audio_samples)
             if curr_samples < needed_audio_samples:
@@ -176,8 +176,8 @@ class StudioTimelineCompositor:
 
     def _concatenate_audio_tracks(
         self,
-        artifacts: List[SceneArtifact],
-    ) -> Tuple[np.ndarray, int]:
+        artifacts: list[SceneArtifact],
+    ) -> tuple[np.ndarray, int]:
         """Concatenate PCM audio waveforms across all scenes with zero-crossing smoothing.
 
         Args:
@@ -186,7 +186,7 @@ class StudioTimelineCompositor:
         Returns:
             Tuple of (concatenated_1D_float32_array, sample_rate).
         """
-        valid_tracks: List[np.ndarray] = []
+        valid_tracks: list[np.ndarray] = []
         sample_rate = 24000
 
         for art in artifacts:
@@ -202,8 +202,8 @@ class StudioTimelineCompositor:
 
     def _concatenate_video_frames(
         self,
-        artifacts: List[SceneArtifact],
-    ) -> List[np.ndarray]:
+        artifacts: list[SceneArtifact],
+    ) -> list[np.ndarray]:
         """Stitch all scene frame sequences into a continuous playback video timeline.
 
         Args:
@@ -212,7 +212,7 @@ class StudioTimelineCompositor:
         Returns:
             List of continuous uint8 RGB numpy frame arrays.
         """
-        all_frames: List[np.ndarray] = []
+        all_frames: list[np.ndarray] = []
         for art in artifacts:
             if art.frames:
                 all_frames.extend(art.frames)
@@ -220,7 +220,7 @@ class StudioTimelineCompositor:
 
     def _encode_mp4_container(
         self,
-        frames: List[np.ndarray],
+        frames: list[np.ndarray],
         audio_pcm: np.ndarray,
         sample_rate: int,
         fps: int,
@@ -263,7 +263,7 @@ class StudioTimelineCompositor:
         except Exception as exc:
             raise MuxerError(f"Failed to encode MP4 container to '{output_dest}': {exc}") from exc
 
-    def _write_raw_video(self, frames: List[np.ndarray], fps: int, dest: Path) -> None:
+    def _write_raw_video(self, frames: list[np.ndarray], fps: int, dest: Path) -> None:
         """Write frame sequence to an MP4 video file using imageio or OpenCV.
 
         Args:
@@ -278,7 +278,7 @@ class StudioTimelineCompositor:
             import imageio
 
             imageio.mimsave(str(dest), frames, fps=fps)
-        except Exception:
+        except Exception:  # noqa: BLE001
             import cv2
 
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -328,7 +328,7 @@ class StudioTimelineCompositor:
             "-shortest",
             str(final_path),
         ]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if result.returncode != 0:
             logger.warning(f"FFmpeg muxing returned code {result.returncode}, falling back to video stream copy.")
             shutil.copyfile(str(video_path), str(final_path))

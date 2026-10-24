@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any
+
 import numpy as np
 
 from arc_runner.core.logging import get_logger
@@ -32,7 +33,7 @@ class USMZeroCopyBridge:
         self._total_bytes: int = 0
         self._lock = threading.Lock()
 
-    def wrap_tensor_shared(self, tensor_or_array: Any) -> Tuple[Any, float]:
+    def wrap_tensor_shared(self, tensor_or_array: Any) -> tuple[Any, float]:
         """Wrap an input array or tensor into a zero-copy shared memory view.
 
         Measures the memory-mapping handoff overhead in microseconds via high-precision
@@ -74,7 +75,7 @@ class USMZeroCopyBridge:
         self,
         audio_data: np.ndarray,
         sample_rate: int,
-    ) -> Tuple[np.ndarray, float]:
+    ) -> tuple[np.ndarray, float]:
         """Transfer synthesized speech PCM audio to timeline compositor via zero-copy view.
 
         Args:
@@ -90,8 +91,8 @@ class USMZeroCopyBridge:
 
     def transfer_frames_to_muxer(
         self,
-        frames: List[np.ndarray],
-    ) -> Tuple[List[np.ndarray], float]:
+        frames: list[np.ndarray],
+    ) -> tuple[list[np.ndarray], float]:
         """Transfer synthesized RGB video frames to container muxer via zero-copy pointer views.
 
         Args:
@@ -116,7 +117,7 @@ class USMZeroCopyBridge:
         logger.debug(f"USM video handoff: {len(frames)} frames ({latency_us:.2f} µs)")
         return shared_views, latency_us
 
-    def get_cumulative_transfer_stats(self) -> Dict[str, float]:
+    def get_cumulative_transfer_stats(self) -> dict[str, float]:
         """Retrieve aggregated transfer telemetry statistics for the session.
 
         Returns:

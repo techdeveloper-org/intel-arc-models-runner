@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, List, Optional
 
 from arc_runner.core.exceptions import ArcRunnerError
 from arc_runner.core.logging import get_logger
@@ -56,8 +55,8 @@ class StudioDirector:
 
     def __init__(
         self,
-        engine: Optional[BaseEngine] = None,
-        model_manager: Optional[ModelManager] = None,
+        engine: BaseEngine | None = None,
+        model_manager: ModelManager | None = None,
         device: str = "NPU",
     ) -> None:
         """Initialize the StudioDirector with optional LLM engine or model manager.
@@ -76,7 +75,7 @@ class StudioDirector:
         prompt: str,
         target_duration_sec: float = 30.0,
         visual_modality: VisualModality = VisualModality.IMAGE_SLIDE,
-    ) -> List[ScenePlan]:
+    ) -> list[ScenePlan]:
         """Decompose a high-level creative prompt into a validated list of ScenePlan items.
 
         Args:
@@ -114,7 +113,7 @@ class StudioDirector:
             if not isinstance(parsed_data, list) or len(parsed_data) == 0:
                 raise DirectorParsingError("Extracted JSON does not contain a non-empty scene list.")
 
-            scenes: List[ScenePlan] = []
+            scenes: list[ScenePlan] = []
             for item in parsed_data:
                 if not isinstance(item, dict):
                     continue
@@ -128,7 +127,7 @@ class StudioDirector:
             logger.info(f"Successfully planned {len(scenes)} scenes via Director.")
             return scenes
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.warning(f"JSON parsing/repair failed ({exc}), engaging deterministic fallback segmentation.")
             return self._fallback_heuristic_segmentation(clean_prompt, target_duration_sec, visual_modality)
 
@@ -162,7 +161,7 @@ class StudioDirector:
             top_p=0.9,
         )
 
-        tokens: List[str] = []
+        tokens: list[str] = []
         for chunk in self._engine.generate_stream(full_prompt, config):
             tokens.append(chunk.text)
 
@@ -184,7 +183,7 @@ class StudioDirector:
         Returns:
             JSON string wrapped in boundary tokens.
         """
-        scene_count = max(2, min(6, int(round(target_duration_sec / 7.0))))
+        scene_count = max(2, min(6, round(target_duration_sec / 7.0)))
         per_scene_sec = round(target_duration_sec / scene_count, 1)
 
         scenes = []
@@ -258,7 +257,7 @@ class StudioDirector:
         prompt: str,
         target_duration_sec: float,
         visual_modality: VisualModality,
-    ) -> List[ScenePlan]:
+    ) -> list[ScenePlan]:
         """Deterministic heuristic scene breakdown guaranteeing 100% pipeline reliability.
 
         Args:
@@ -269,10 +268,10 @@ class StudioDirector:
         Returns:
             Guaranteed valid list of ScenePlan objects.
         """
-        scene_count = max(2, min(5, int(round(target_duration_sec / 8.0))))
+        scene_count = max(2, min(5, round(target_duration_sec / 8.0)))
         sec_per_scene = round(target_duration_sec / scene_count, 1)
 
-        plans: List[ScenePlan] = []
+        plans: list[ScenePlan] = []
         for i in range(1, scene_count + 1):
             plans.append(
                 ScenePlan(

@@ -8,7 +8,7 @@ Strictly adheres to Level 2.2 Docstrings-Only standards and Proofs M1 and M2.
 from __future__ import annotations
 
 import time
-from typing import Any, List, Optional, Tuple
+
 import numpy as np
 
 from arc_runner.core.exceptions import ArcRunnerError
@@ -31,9 +31,9 @@ class StudioVisualWorker:
 
     def __init__(
         self,
-        image_engine: Optional[ImageEngine] = None,
-        video_engine: Optional[VideoEngine] = None,
-        model_manager: Optional[ModelManager] = None,
+        image_engine: ImageEngine | None = None,
+        video_engine: VideoEngine | None = None,
+        model_manager: ModelManager | None = None,
         device: str = "GPU",
     ) -> None:
         """Initialize StudioVisualWorker with optional engines or model manager.
@@ -52,9 +52,9 @@ class StudioVisualWorker:
     def render_scene(
         self,
         scene: ScenePlan,
-        resolution: Tuple[int, int] = (512, 512),
+        resolution: tuple[int, int] = (512, 512),
         fps: int = 16,
-        usm_bridge: Optional[USMZeroCopyBridge] = None,
+        usm_bridge: USMZeroCopyBridge | None = None,
     ) -> SceneArtifact:
         """Render visual frames for a single scene according to its selected modality.
 
@@ -71,7 +71,7 @@ class StudioVisualWorker:
             VisualWorkerExecutionError: When image or video generation fails.
         """
         t_start = time.perf_counter()
-        target_frames = max(1, int(round(scene.duration_seconds * fps)))
+        target_frames = max(1, round(scene.duration_seconds * fps))
         logger.info(
             f"Rendering Scene {scene.scene_id} visual ({scene.modality.value}, {target_frames} frames) on {self._device}"
         )
@@ -103,11 +103,11 @@ class StudioVisualWorker:
 
     def render_all_scenes(
         self,
-        scenes: List[ScenePlan],
-        resolution: Tuple[int, int] = (512, 512),
+        scenes: list[ScenePlan],
+        resolution: tuple[int, int] = (512, 512),
         fps: int = 16,
-        usm_bridge: Optional[USMZeroCopyBridge] = None,
-    ) -> List[SceneArtifact]:
+        usm_bridge: USMZeroCopyBridge | None = None,
+    ) -> list[SceneArtifact]:
         """Render visuals sequentially for all planned production scenes.
 
         Args:
@@ -119,7 +119,7 @@ class StudioVisualWorker:
         Returns:
             List of SceneArtifact items containing rendered frame sequences.
         """
-        artifacts: List[SceneArtifact] = []
+        artifacts: list[SceneArtifact] = []
         for scene in scenes:
             artifacts.append(self.render_scene(scene, resolution=resolution, fps=fps, usm_bridge=usm_bridge))
         return artifacts
@@ -131,7 +131,7 @@ class StudioVisualWorker:
         height: int,
         num_frames: int,
         fps: int,
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """Synthesize video sequence using OpenVINO GenAI Text2Video pipeline.
 
         Args:
@@ -159,7 +159,7 @@ class StudioVisualWorker:
                 reps = int(np.ceil(num_frames / len(frames)))
                 frames = (frames * reps)[:num_frames]
             return frames
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.warning(f"Video engine failed ({exc}), falling back to camera motion slide.")
             return self._render_synthetic_frames(scene, width, height, num_frames)
 
@@ -170,7 +170,7 @@ class StudioVisualWorker:
         height: int,
         num_frames: int,
         motion: str,
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """Synthesize static image using ImageEngine and interpolate camera motion.
 
         Args:
@@ -195,7 +195,7 @@ class StudioVisualWorker:
             if not isinstance(base_image, np.ndarray):
                 base_image = np.array(base_image)
             return self._interpolate_slide_frames(base_image, num_frames, motion)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.warning(f"Image engine failed ({exc}), falling back to synthetic frames.")
             return self._render_synthetic_frames(scene, width, height, num_frames)
 
@@ -204,7 +204,7 @@ class StudioVisualWorker:
         base_image: np.ndarray,
         num_frames: int,
         motion: str = "slow pan",
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """Interpolate camera pan/zoom motion across frames from a single base image.
 
         Args:
@@ -215,16 +215,11 @@ class StudioVisualWorker:
         Returns:
             List of interpolated uint8 RGB frame arrays.
         """
-        h, w = base_image.shape[:2]
-        frames: List[np.ndarray] = []
+        frames: list[np.ndarray] = []
 
         for i in range(num_frames):
             alpha = float(i) / max(1.0, float(num_frames - 1))
             if "zoom" in motion:
-                scale = 1.0 + (0.08 * alpha)
-                new_w, new_h = int(w * scale), int(h * scale)
-                pad_x = (new_w - w) // 2
-                pad_y = (new_h - h) // 2
                 frame = base_image.copy()
             elif "pan" in motion:
                 shift_x = int(12.0 * alpha)
@@ -242,7 +237,7 @@ class StudioVisualWorker:
         width: int,
         height: int,
         num_frames: int,
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """Generate high-contrast educational slide frames for silicon-free verification.
 
         Args:
@@ -254,7 +249,7 @@ class StudioVisualWorker:
         Returns:
             List of generated RGB frame numpy arrays.
         """
-        frames: List[np.ndarray] = []
+        frames: list[np.ndarray] = []
 
         base_color = np.array([
             (32 + scene.scene_id * 25) % 256,

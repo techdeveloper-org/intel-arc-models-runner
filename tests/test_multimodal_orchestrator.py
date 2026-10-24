@@ -6,6 +6,7 @@ Strictly adheres to Level 2.2 Docstrings-Only standards and Proofs M1-M5.
 """
 
 from pathlib import Path
+
 import pytest
 
 from arc_runner.benchmark.multimodal_runner import MultiModelCoBenchmarker

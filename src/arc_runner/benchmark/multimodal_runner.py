@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import math
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import ClassVar
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -30,7 +31,7 @@ logger = get_logger("benchmark.multimodal")
 class MultiModelCoBenchmarker:
     """Orchestrates multi-modal co-benchmarking passes across heterogeneous Intel silicon."""
 
-    STUDENT_T_95_TABLE = {
+    STUDENT_T_95_TABLE: ClassVar[dict[int, float]] = {
         1: 12.706,
         2: 4.303,
         3: 3.182,
@@ -47,8 +48,8 @@ class MultiModelCoBenchmarker:
 
     def __init__(
         self,
-        pipeline: Optional[StudioPipeline] = None,
-        console: Optional[Console] = None,
+        pipeline: StudioPipeline | None = None,
+        console: Console | None = None,
     ) -> None:
         """Initialize MultiModelCoBenchmarker with studio pipeline and console.
 
@@ -94,9 +95,9 @@ class MultiModelCoBenchmarker:
             logger.info(f"Executing discarded warmup run {w + 1}/{warmup_runs}...")
             self._pipeline.execute(req)
 
-        measured_latencies_ms: List[float] = []
-        measured_usm_us: List[float] = []
-        stage_sums: Dict[str, float] = {}
+        measured_latencies_ms: list[float] = []
+        measured_usm_us: list[float] = []
+        stage_sums: dict[str, float] = {}
 
         for i in range(iterations):
             logger.info(f"Executing measured benchmark run {i + 1}/{iterations}...")
@@ -115,7 +116,7 @@ class MultiModelCoBenchmarker:
 
         cloud_cost_per_run = 0.350
         hardware_cost_usd = 300.0
-        payback_runs = max(1, int(math.ceil(hardware_cost_usd / cloud_cost_per_run)))
+        payback_runs = max(1, math.ceil(hardware_cost_usd / cloud_cost_per_run))
 
         benchmark_id = f"bench_mm_{int(time.time())}"
         report = MultiModelBenchmarkReport(
@@ -139,7 +140,7 @@ class MultiModelCoBenchmarker:
     def render_benchmark_scorecard(
         self,
         report: MultiModelBenchmarkReport,
-        console: Optional[Console] = None,
+        console: Console | None = None,
     ) -> None:
         """Render Rich visual terminal scorecard presenting latency breakdown and Cloud ROI.
 
@@ -209,7 +210,7 @@ class MultiModelCoBenchmarker:
         roi_table.add_row("Intel Arc Hardware Payback Period", "N/A", f"<{report.hardware_payback_runs} Generations")
         c.print(roi_table)
 
-    def _compute_confidence_interval_95(self, samples: List[float]) -> Tuple[float, float]:
+    def _compute_confidence_interval_95(self, samples: list[float]) -> tuple[float, float]:
         """Compute sample mean and 95% Student's t confidence interval half-width.
 
         Args:

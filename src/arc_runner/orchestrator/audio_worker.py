@@ -8,7 +8,7 @@ Strictly adheres to Level 2.2 Docstrings-Only standards and Proof M3.
 from __future__ import annotations
 
 import time
-from typing import List, Optional
+
 import numpy as np
 
 from arc_runner.core.exceptions import ArcRunnerError
@@ -30,8 +30,8 @@ class StudioAudioWorker:
 
     def __init__(
         self,
-        audio_engine: Optional[AudioEngine] = None,
-        model_manager: Optional[ModelManager] = None,
+        audio_engine: AudioEngine | None = None,
+        model_manager: ModelManager | None = None,
         device: str = "NPU",
         sample_rate: int = 24000,
     ) -> None:
@@ -51,7 +51,7 @@ class StudioAudioWorker:
     def synthesize_scene(
         self,
         scene: ScenePlan,
-        usm_bridge: Optional[USMZeroCopyBridge] = None,
+        usm_bridge: USMZeroCopyBridge | None = None,
     ) -> SceneArtifact:
         """Synthesize natural speech audio for a single scene plan.
 
@@ -105,9 +105,9 @@ class StudioAudioWorker:
 
     def synthesize_all_scenes(
         self,
-        scenes: List[ScenePlan],
-        usm_bridge: Optional[USMZeroCopyBridge] = None,
-    ) -> List[SceneArtifact]:
+        scenes: list[ScenePlan],
+        usm_bridge: USMZeroCopyBridge | None = None,
+    ) -> list[SceneArtifact]:
         """Synthesize speech audio sequentially across all planned production scenes.
 
         Args:
@@ -117,7 +117,7 @@ class StudioAudioWorker:
         Returns:
             List of SceneArtifact items containing synthesized audio waveforms.
         """
-        artifacts: List[SceneArtifact] = []
+        artifacts: list[SceneArtifact] = []
         for scene in scenes:
             artifacts.append(self.synthesize_scene(scene, usm_bridge=usm_bridge))
         return artifacts
@@ -136,7 +136,7 @@ class StudioAudioWorker:
         Returns:
             1D float32 numpy array filled with zeros.
         """
-        sample_count = max(1, int(round(duration_sec * sample_rate)))
+        sample_count = max(1, round(duration_sec * sample_rate))
         return np.zeros(sample_count, dtype=np.float32)
 
     def _generate_synthetic_speech_waveform(
@@ -153,7 +153,7 @@ class StudioAudioWorker:
         """
         target_sec = max(0.5, scene.duration_seconds)
         sample_rate = self._sample_rate
-        total_samples = int(round(target_sec * sample_rate))
+        total_samples = round(target_sec * sample_rate)
 
         t = np.linspace(0.0, target_sec, total_samples, endpoint=False, dtype=np.float32)
 

@@ -66,6 +66,7 @@ logs/
 .coverage.*
 htmlcov/
 .pytest_cache/
+.benchmarks/
 
 # Antigravity & OS files
 .DS_Store
