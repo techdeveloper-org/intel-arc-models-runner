@@ -8,99 +8,180 @@ classDiagram
         +is_loaded
         +model_path
         +device
-        +*load_model(model_path: Path, device: DeviceType) 
-        +*generate_stream(prompt: str, config: GenerationConfig) 
-        +*get_telemetry() 
-        +*unload() 
+        +*load_model(model_path: Path, device: DeviceType)
+        +*generate_stream(prompt: str, config: GenerationConfig)
+        +*get_telemetry()
+        +*unload()
     }
     class OpenVINOGenAIEngine {
         -_pipeline
         -_device
-        +load_model(model_path: Path, device: DeviceType) 
-        +generate_stream(prompt: str, config: GenerationConfig) 
-        -_build_ov_generation_config(config: GenerationConfig) 
+        +load_model(model_path: Path, device: DeviceType)
+        +generate_stream(prompt: str, config: GenerationConfig)
+        -_build_ov_generation_config(config: GenerationConfig)
     }
     class HybridSpeculativeEngine {
         -target_engine
         -draft_engine
         +current_gamma
-        +load_model(model_path: Path, draft_model_path: Path) 
-        +generate_stream(prompt: str, config: GenerationConfig) 
-        -_validate_path(path: Path) 
+        +load_model(model_path: Path, draft_model_path: Path)
+        +generate_stream(prompt: str, config: GenerationConfig)
+        -_validate_path(path: Path)
+    }
+    class AudioEngineConfig {
+        +device: str
+        +sample_rate: int
+        +tts_sample_rate: int
+        +default_tts_voice: str
+        +default_tts_speed: float
+        +language: Optional[str]
+        +return_timestamps: bool
+        +word_timestamps: bool
+        +vad_energy_threshold: float
+        +vad_entropy_threshold: float
+        +max_compression_ratio: float
+    }
+    class TranscriptionSegment {
+        +start_ts: float
+        +end_ts: float
+        +text: str
+    }
+    class TranscriptionResult {
+        +text: str
+        +segments: List[TranscriptionSegment]
+        +latency_s: float
+        +audio_duration_s: float
+        +rtf: float
+        +throughput_audio_s_per_s: float
+        +device_used: str
+        +model_name: str
+        +compression_ratio: float
+    }
+    class SynthesisResult {
+        +audio_samples: List[float]
+        +sample_rate: int
+        +duration_s: float
+        +latency_s: float
+        +rtf: float
+        +throughput_audio_s_per_s: float
+        +device_used: str
+        +voice_used: str
+        +model_name: str
+    }
+    class AudioEngine {
+        -_config: AudioEngineConfig
+        -_model_path: Optional[Path]
+        -_device: str
+        -_task_type: Optional[str]
+        -_whisper_pipe: Any
+        -_tts_pipe: Any
+        -_speaker_cache: Dict[str, Any]
+        -_topology: DeviceTopology
+        +is_loaded: bool
+        +model_path: Optional[Path]
+        +device: str
+        +task_type: Optional[str]
+        +load_model(model_path, device, task_type)
+        +transcribe(audio, language, task, return_timestamps): TranscriptionResult
+        +synthesize(text, voice, speed): SynthesisResult
+        -_normalize_audio_input(audio): Tuple[List[float], float]
+        -_is_silence_or_noise(samples): bool
+        -_detect_repetition_loop(text): float
+        -_load_speaker_embedding(voice_name): Any
+        +save_audio_wav(samples, output_path, sample_rate) Path
+        +unload(): void
+    }
+    class ArcRunnerError {
+        +message: str
+        +error_code: str
+        +status_code: int
+    }
+    class AudioEngineError {
+        +message: str
+        +error_code: str
+        +status_code: int
+    }
+    class AudioTranscriptionError {
+        +message: str
+    }
+    class AudioSynthesisError {
+        +message: str
+    }
+    class InvalidAudioFormatError {
+        +message: str
+    }
+    class VoiceNotFoundError {
+        +voice_name: str
+        +available_voices: List[str]
+    }
+    class CuratedModelInfo {
+        +alias: str
+        +repo_id: str
+        +parameter_size: str
+        +quantization: str
+        +family: str
+        +target_device: str
+        +size_bytes: int
+        +model_type: str
+    }
+    class ModelManager {
+        +model_dirs
+        +get_or_load_engine(model_id: str, device: str)
+        +get_or_load_embedding_engine(model_id: str)
+        +get_or_load_vision_engine(model_id: str)
     }
     class ContinuousBatcher {
         +active_sequences_count
         +waiting_sequences_count
-        +add_request(seq: BatchSequence) 
-        +step() 
-        +preempt_sequence(seq_id: str) 
+        +add_request(seq: BatchSequence)
+        +step()
+        +preempt_sequence(seq_id: str)
     }
     class PagedBlockTable {
         +block_size
         +total_blocks
         +utilization_ratio
-        +get_sequence_blocks(seq_id: str) 
-        +get_block_map() 
+        +get_sequence_blocks(seq_id: str)
+        +get_block_map()
     }
     class RadixPrefixCache {
         +hit_rate
         +total_lookups
-        +match_prefix(tokens: List[int]) 
-        +insert_prefix(tokens: List[int], blocks: List[int]) 
-    }
-    class LoRAManager {
-        +adapters_dir
-        +max_cached
-        +inspect_safetensors_header(path: Path) 
-        +parse_adapter_metadata(path: Path) 
-    }
-    class VisionEngine {
-        +patch_size
-        +device
-        +calculate_visual_tokens(width: int, height: int) 
-        +decode_image_tensor(image_bytes: bytes) 
-        +generate(prompt: str, image_bytes: bytes) 
-    }
-    class EmbeddingEngine {
-        +dimension
-        +device
-        +embed_query(query: str) 
-        +embed_documents(docs: List[str]) 
-        +l2_normalize(vec: np.ndarray) 
-    }
-    class GGUFTranspiler {
-        +input_path
-        +output_dir
-        +dequantize_q4_0_block(block_bytes: bytes) 
-        +pack_xmx_nibbles(weights: np.ndarray) 
-        +compute_sqnr(fp_orig: np.ndarray, dequant: np.ndarray) 
-        +transpile_stream(target_precision: str) 
-    }
-    class ModelManager {
-        +model_dirs
-        +get_or_load_engine(model_id: str, device: str) 
-        +get_or_load_embedding_engine(model_id: str) 
-        +get_or_load_vision_engine(model_id: str) 
-    }
-    class BatchExecutionPipeline {
-        +is_running
-        +start() 
-        +stop() 
-        +tick_step() 
+        +match_prefix(tokens: List[int])
+        +insert_prefix(tokens: List[int], blocks: List[int])
     }
     class DeviceDetector {
-        +detect_topology() 
-        -_classify_gpu_architecture(name: str) 
+        +detect_topology()
+        -_classify_gpu_architecture(name: str)
     }
     class LevelZeroSysman {
-        +is_available() 
-        +query_gpu_memory() 
+        +is_available()
+        +query_gpu_memory()
     }
+
     BaseEngine <|-- OpenVINOGenAIEngine
     BaseEngine <|-- HybridSpeculativeEngine
+    ArcRunnerError <|-- AudioEngineError
+    AudioEngineError <|-- AudioTranscriptionError
+    AudioEngineError <|-- AudioSynthesisError
+    AudioEngineError <|-- InvalidAudioFormatError
+    AudioEngineError <|-- VoiceNotFoundError
+    AudioEngine *-- AudioEngineConfig
+    AudioEngine ..> TranscriptionResult : creates
+    AudioEngine ..> SynthesisResult : creates
+    AudioEngine ..> AudioEngineError : raises
+    AudioEngine --> DeviceDetector : probes
+    TranscriptionResult *-- TranscriptionSegment
+    ModelManager --> AudioEngine : loads
 ```
 
 ## Mathematical Proofs & Invariants
 
-- Grounded in proofs M1-M6, M8-M9, M15-M20, M29-M34, M50-M58.
+- **Proofs M1-M6, M8-M9, M15-M20, M29-M34, M50-M58**: Core LLM continuous batching, speculative verification, and XMX quantization invariants.
+- **Proof M59**: Real-Time Factor invariant $\text{RTF} = \frac{\text{latency\_s}}{\text{duration\_s}} \le 1.0$ for real-time streaming audio.
+- **Proof M66**: Zero-disk residue invariant — transient audio buffers and compiled pipelines execute strictly in-memory without persistent disk cache pollution.
+- **Proof M67**: Level Zero immediate command list dispatch latency ceiling $\tau \le 2.1\,\mu\text{s}$ for synchronous audio tensor execution.
+- **Proof M68**: Linear PCM buffer bound $M \le 19.2\,\text{MB}$ ($300\,\text{s} \times 16000\,\text{Hz} \times 4\,\text{B}$) with zero memory leaks across successive pipeline invocations.
+- **Proof M69**: Anti-hallucination Voice Activity Detection (VAD) RMS energy ($E_{\text{rms}} < 10^{-4}$) and spectral entropy ($H_{\text{spectral}} < 0.05$) silence gating bypassing speech decoders.
+- **Proof M70**: Auto-regressive repetition loop suppression bounding Kolmogorov LZ77 compression ratio $r \le 2.40$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.

@@ -1,109 +1,55 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mxfile host="app.diagrams.net" type="diagram" version="24.0.0">
   <diagram id="diagram1" name="Sequence Diagram">
-    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1810" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-    <mxCell id="2" value="Client" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1">
-      <mxGeometry x="60" y="20" width="140" height="960" as="geometry" />
-    </mxCell>
-    <mxCell id="3" value="Gateway" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1">
-      <mxGeometry x="280" y="20" width="140" height="960" as="geometry" />
-    </mxCell>
-    <mxCell id="4" value="BatchPipeline" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1">
-      <mxGeometry x="500" y="20" width="140" height="960" as="geometry" />
-    </mxCell>
-    <mxCell id="5" value="ContinuousBatcher" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1">
-      <mxGeometry x="720" y="20" width="140" height="960" as="geometry" />
-    </mxCell>
-    <mxCell id="6" value="SpecEngine" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1">
-      <mxGeometry x="940" y="20" width="140" height="960" as="geometry" />
-    </mxCell>
-    <mxCell id="7" value="NPU_Draft" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1">
-      <mxGeometry x="1160" y="20" width="140" height="960" as="geometry" />
-    </mxCell>
-    <mxCell id="8" value="GPU_Target" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1">
-      <mxGeometry x="1380" y="20" width="140" height="960" as="geometry" />
-    </mxCell>
-    <mxCell id="9" value="POST /api/chat (stream=true, prompt='Explain quantum computing')" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="130" y="100" as="sourcePoint" />
-        <mxPoint x="350" y="100" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="10" value="enqueue_request(AsyncBatchRequest)" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="350" y="160" as="sourcePoint" />
-        <mxPoint x="570" y="160" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="11" value="step() -&gt; check Little's Law theta_sat &lt;= 0.92 (Proof M30)" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="570" y="220" as="sourcePoint" />
-        <mxPoint x="790" y="220" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="12" value="forward_batch([seq])" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="790" y="280" as="sourcePoint" />
-        <mxPoint x="1010" y="280" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="13" value="prefill_prompt(tokens) [Compute-Bound AI &gt;= 464.3]" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="1010" y="340" as="sourcePoint" />
-        <mxPoint x="1450" y="340" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="14" value="prompt_kv_cache_initialized" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="1450" y="400" as="sourcePoint" />
-        <mxPoint x="1010" y="400" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="15" value="generate_speculative_tokens(gamma=4) [5W TDP, Proof M50]" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="1010" y="460" as="sourcePoint" />
-        <mxPoint x="1230" y="460" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="16" value="emit_draft_tokens([t1, t2, t3, t4])" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="1230" y="520" as="sourcePoint" />
-        <mxPoint x="1010" y="520" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="17" value="verify_parallel([t1, t2, t3, t4]) [Single Forward Pass]" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="1010" y="580" as="sourcePoint" />
-        <mxPoint x="1450" y="580" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="18" value="verification_result(accepted=3.36, bonus=t') [Proof M6]" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="1450" y="640" as="sourcePoint" />
-        <mxPoint x="1010" y="640" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="19" value="yield_token_burst([t1, t2, t3, t'])" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="1010" y="700" as="sourcePoint" />
-        <mxPoint x="570" y="700" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="20" value="format_sse_chunks()" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="570" y="760" as="sourcePoint" />
-        <mxPoint x="350" y="760" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="21" value="Stream chunks (1.93x faster, 43.4% less power)" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <mxPoint x="350" y="820" as="sourcePoint" />
-        <mxPoint x="130" y="820" as="targetPoint" />
-      </mxGeometry>
-    </mxCell>
+        <mxCell id="2" value="Client" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1"><mxGeometry x="50" y="30" width="140" height="1750" as="geometry" /></mxCell>
+        <mxCell id="3" value="AudioEngine" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1"><mxGeometry x="270" y="30" width="140" height="1750" as="geometry" /></mxCell>
+        <mxCell id="4" value="DeviceDetector" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1"><mxGeometry x="490" y="30" width="140" height="1750" as="geometry" /></mxCell>
+        <mxCell id="5" value="VADGate" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1"><mxGeometry x="710" y="30" width="140" height="1750" as="geometry" /></mxCell>
+        <mxCell id="6" value="SpeakerCache" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1"><mxGeometry x="930" y="30" width="140" height="1750" as="geometry" /></mxCell>
+        <mxCell id="7" value="LevelZero_GPU" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1"><mxGeometry x="1150" y="30" width="140" height="1750" as="geometry" /></mxCell>
+        <mxCell id="8" value="CPU_Fallback" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1"><mxGeometry x="1370" y="30" width="140" height="1750" as="geometry" /></mxCell>
+        <mxCell id="9" value="LZ77LoopGuard" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1"><mxGeometry x="1590" y="30" width="140" height="1750" as="geometry" /></mxCell>
+        <mxCell id="10" value="DiskReclaimer" style="shape=mxgraph.uml.lifeline;align=center;startSize=40;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;html=1;resizable=0;" vertex="1" parent="1"><mxGeometry x="1810" y="30" width="140" height="1750" as="geometry" /></mxCell>
+        <mxCell id="11" value="1. load_model(&quot;whisper-tiny&quot;, device=&quot;GPU&quot;)" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="120" y="90" as="sourcePoint" /><mxPoint x="340" y="90" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="12" value="2. detect_topology()" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="135" as="sourcePoint" /><mxPoint x="560" y="135" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="13" value="3. Topology(has_intel_arc=True, has_intel_npu=True)" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="560" y="180" as="sourcePoint" /><mxPoint x="340" y="180" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="14" value="4. WhisperPipeline(model, &quot;GPU&quot;) [Immediate CmdList, Proof M67]" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="225" as="sourcePoint" /><mxPoint x="1220" y="225" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="15" value="5. GPU Level Zero Pipeline Compiled (tau &lt;= 2.1us)" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1220" y="270" as="sourcePoint" /><mxPoint x="340" y="270" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="16" value="6. Pipeline Loaded &amp; Ready" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="315" as="sourcePoint" /><mxPoint x="120" y="315" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="17" value="7. transcribe(audio, return_timestamps=True)" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="120" y="360" as="sourcePoint" /><mxPoint x="340" y="360" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="18" value="8. _normalize_audio_input() [16kHz PCM, Proof M68]" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="405" as="sourcePoint" /><mxPoint x="340" y="435" as="targetPoint" /><Array as="points"><mxPoint x="380" y="405" /><mxPoint x="380" y="435" /></Array></mxGeometry></mxCell>
+        <mxCell id="19" value="9. _is_silence_or_noise(samples) [Proof M69]" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="450" as="sourcePoint" /><mxPoint x="780" y="450" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="20" value="10. Silence Check (RMS &lt; 1e-4 or H_spectral &lt; 0.15)" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="780" y="495" as="sourcePoint" /><mxPoint x="340" y="495" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="21" value="11. generate(samples, WhisperGenConfig) [USM Zero-Copy, Proof M71]" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="540" as="sourcePoint" /><mxPoint x="1220" y="540" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="22" value="12. Mel-STFT DPAS (Proof M60) + Roofline Token Decode (Proof M61)" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1220" y="585" as="sourcePoint" /><mxPoint x="1220" y="615" as="targetPoint" /><Array as="points"><mxPoint x="1260" y="585" /><mxPoint x="1260" y="615" /></Array></mxGeometry></mxCell>
+        <mxCell id="23" value="13. raw_transcript + timestamp_segments" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1220" y="630" as="sourcePoint" /><mxPoint x="340" y="630" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="24" value="14. _detect_repetition_loop(raw_text) [Proof M70]" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="675" as="sourcePoint" /><mxPoint x="1660" y="675" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="25" value="15. rho_comp check: clean if &lt;= 2.40, truncate if &gt; 2.40" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1660" y="720" as="sourcePoint" /><mxPoint x="340" y="720" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="26" value="16. TranscriptionResult(text, RTF=0.0125 [80x], WER=0.018, Proof M59, M63)" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="765" as="sourcePoint" /><mxPoint x="120" y="765" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="27" value="17. synthesize(&quot;Natural speech prompt&quot;, voice=&quot;af_heart&quot;, speed=1.0)" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="120" y="810" as="sourcePoint" /><mxPoint x="340" y="810" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="28" value="18. _load_speaker_embedding(&quot;af_heart&quot;) [Proof M68]" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="855" as="sourcePoint" /><mxPoint x="1000" y="855" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="29" value="19. ov.Tensor(522,240-byte flat float32 tensor)" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1000" y="900" as="sourcePoint" /><mxPoint x="340" y="900" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="30" value="20. generate([text], speaker_embedding, SpeechGenConfig)" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="945" as="sourcePoint" /><mxPoint x="1220" y="945" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="31" value="21. StyleTTS2 Prosody + 24kHz Vocoder Synthesis (Proof M64)" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1220" y="990" as="sourcePoint" /><mxPoint x="1220" y="1020" as="targetPoint" /><Array as="points"><mxPoint x="1260" y="990" /><mxPoint x="1260" y="1020" /></Array></mxGeometry></mxCell>
+        <mxCell id="32" value="22. raw_speech_samples (24000 Hz float32)" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1220" y="1035" as="sourcePoint" /><mxPoint x="340" y="1035" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="33" value="23. save_audio_wav(samples, &quot;output.wav&quot;)" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="1080" as="sourcePoint" /><mxPoint x="340" y="1110" as="targetPoint" /><Array as="points"><mxPoint x="380" y="1080" /><mxPoint x="380" y="1110" /></Array></mxGeometry></mxCell>
+        <mxCell id="34" value="24. SynthesisResult(samples, RTF=0.078 [12.8x], yield=0.64 aud-s/J, Proof M62)" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="1125" as="sourcePoint" /><mxPoint x="120" y="1125" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="35" value="25. benchmark_model(alias=&quot;whisper-large-v3-turbo&quot;)" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="120" y="1170" as="sourcePoint" /><mxPoint x="340" y="1170" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="36" value="26. download_model(repo_id, dest_dir)" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="1215" as="sourcePoint" /><mxPoint x="340" y="1245" as="targetPoint" /><Array as="points"><mxPoint x="380" y="1215" /><mxPoint x="380" y="1245" /></Array></mxGeometry></mxCell>
+        <mxCell id="37" value="27. warmup_pass() [Proof M65: Discard JIT t0]" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="1260" as="sourcePoint" /><mxPoint x="1220" y="1260" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="38" value="28. execute_workloads([low, medium, hard])" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="1305" as="sourcePoint" /><mxPoint x="1220" y="1305" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="39" value="29. GPU Telemetry (RTF=0.0531, 18.83x real-time)" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1220" y="1350" as="sourcePoint" /><mxPoint x="340" y="1350" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="40" value="30. thermal_cooldown_pause(1.5s, Proof M72: Tj &lt; 90C)" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="1395" as="sourcePoint" /><mxPoint x="340" y="1425" as="targetPoint" /><Array as="points"><mxPoint x="380" y="1395" /><mxPoint x="380" y="1425" /></Array></mxGeometry></mxCell>
+        <mxCell id="41" value="31. execute_workloads([low, medium])" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="1440" as="sourcePoint" /><mxPoint x="1440" y="1440" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="42" value="32. CPU Baseline Telemetry (RTF=0.2115)" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1440" y="1485" as="sourcePoint" /><mxPoint x="340" y="1485" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="43" value="33. unload() &amp; gc.collect()" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="1530" as="sourcePoint" /><mxPoint x="340" y="1560" as="targetPoint" /><Array as="points"><mxPoint x="380" y="1530" /><mxPoint x="380" y="1560" /></Array></mxGeometry></mxCell>
+        <mxCell id="44" value="34. cleanup_model_dir(dest_dir) [Proof M66]" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="1575" as="sourcePoint" /><mxPoint x="1880" y="1575" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="45" value="35. Delta S_disk = 0 (Zero-Disk Residue Guaranteed)" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1880" y="1620" as="sourcePoint" /><mxPoint x="340" y="1620" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="46" value="36. BenchmarkReport(GPU_vs_CPU, yield_ratio=17.89x)" style="dashed=1;endArrow=open;html=1;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="340" y="1665" as="sourcePoint" /><mxPoint x="120" y="1665" as="targetPoint" /></mxGeometry></mxCell>
       </root>
     </mxGraphModel>
   </diagram>
