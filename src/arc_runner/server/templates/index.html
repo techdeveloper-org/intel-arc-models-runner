@@ -298,7 +298,7 @@
 
                 <!-- GGUF Inspection Modal -->
                 <div id="gguf-modal" class="modal-backdrop hidden">
-                    <div class="modal-box glass-card">
+                    <div class="modal-box glass-card" style="max-width: 720px; width: 95%;">
                         <div class="modal-header">
                             <h3 id="modal-model-title">GGUF Container Architecture</h3>
                             <button id="btn-close-modal" class="btn-close">&times;</button>
@@ -306,6 +306,77 @@
                         <div class="modal-body" id="modal-model-body">
                             <!-- Populated dynamically by app.js -->
                         </div>
+
+                        <!-- Conversion Controls (Phase 9) -->
+                        <div id="convert-controls-box" class="convert-controls-grid" style="margin-top: 16px; padding: 13px 16px; background: rgba(0,0,0,0.25); border-radius: var(--radius-sm); border: 1px solid var(--border-glass);">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Precision</label>
+                                <select id="convert-precision-select" class="form-select" style="font-size: 13px; padding: 6px 10px;">
+                                    <option value="int4" selected>INT4 (XMX / DPAS)</option>
+                                    <option value="int8">INT8 (Balanced)</option>
+                                    <option value="fp16">FP16 (Full Fidelity)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Target Silicon</label>
+                                <select id="convert-device-select" class="form-select" style="font-size: 13px; padding: 6px 10px;">
+                                    <option value="GPU" selected>GPU (Intel Arc / iGPU)</option>
+                                    <option value="NPU">NPU (Intel AI Boost 5W)</option>
+                                    <option value="CPU">CPU (AVX-512 / AMX)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
+                                <label style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Export Destination</label>
+                                <input type="text" id="convert-output-dir-input" class="form-input" style="font-size: 13px; padding: 6px 10px;" placeholder="./models/model-openvino">
+                            </div>
+                        </div>
+
+                        <!-- Real-Time Progress Studio Card (Phase 9 / UX-1 to UX-5) -->
+                        <div id="gguf-convert-progress-card" class="convert-progress-card hidden" style="margin-top: 16px;">
+                            <div class="progress-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">Transpilation Stream Progress</span>
+                                <span id="convert-progress-pct" class="badge-blue" style="font-size: 14px; font-weight: 700; padding: 3px 10px;">0.0%</span>
+                            </div>
+                            <div class="progress-bar-container" style="height: 10px; background: rgba(0,0,0,0.4); border-radius: 5px; overflow: hidden; border: 1px solid var(--border-glass);">
+                                <div id="convert-progress-fill" class="progress-bar-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0071C5, #00C7FD); transition: width 150ms cubic-bezier(0.25, 0.1, 0.25, 1.0); transform: translate3d(0,0,0);"></div>
+                            </div>
+
+                            <!-- 5-Metric Telemetry Grid (UX-1, UX-3) -->
+                            <div class="convert-metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 13px;">
+                                <div class="metric-mini-card">
+                                    <div class="metric-label">Current Tensor</div>
+                                    <div id="convert-current-tensor" class="metric-value-text" title="-">-</div>
+                                </div>
+                                <div class="metric-mini-card">
+                                    <div class="metric-label">Tensors / Volume</div>
+                                    <div id="convert-tensor-counter" class="metric-value-text">0 / 0</div>
+                                </div>
+                                <div class="metric-mini-card">
+                                    <div class="metric-label">Throughput</div>
+                                    <div id="convert-throughput" class="metric-value-num">0.0 MB/s</div>
+                                </div>
+                                <div class="metric-mini-card">
+                                    <div class="metric-label">Elapsed / ETA</div>
+                                    <div id="convert-eta" class="metric-value-num">0.0s / 0.0s</div>
+                                </div>
+                                <div class="metric-mini-card">
+                                    <div class="metric-label">SQNR Fidelity</div>
+                                    <div id="convert-sqnr" class="metric-value-badge">-</div>
+                                </div>
+                            </div>
+
+                            <!-- Live Monospace Terminal Log (UX-5) -->
+                            <div id="convert-terminal-box" class="convert-terminal-box" style="margin-top: 12px; height: 110px; overflow-y: auto; background: #070a0e; border: 1px solid rgba(0,199,253,0.2); border-radius: var(--radius-sm); padding: 8px 12px; font-family: var(--font-mono); font-size: 11px; color: #a0aec0; line-height: 1.5;">
+                                <div class="term-line" style="color: var(--accent-intel-cyan);">&gt; Ready for GGUF transpilation...</div>
+                            </div>
+
+                            <!-- Completion Banner -->
+                            <div id="convert-completion-banner" class="alert alert-success hidden" style="margin-top: 12px; padding: 10px 14px; background: rgba(0,200,83,0.15); border: 1px solid rgba(0,200,83,0.4); border-radius: var(--radius-sm); font-size: 12px; color: #b9f6ca;">
+                                <div style="font-weight: 700; margin-bottom: 4px;">✔ Transpilation Complete!</div>
+                                <div id="convert-completion-details" style="font-family: var(--font-mono); font-size: 11px;"></div>
+                            </div>
+                        </div>
+
                         <div class="modal-footer" id="modal-model-footer" style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-glass); display: flex; justify-content: flex-end; gap: 8px;">
                             <button id="btn-convert-gguf" class="btn btn-primary btn-sm">
                                 Convert to OpenVINO IR
