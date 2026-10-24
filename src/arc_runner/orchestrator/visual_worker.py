@@ -16,6 +16,7 @@ from arc_runner.core.logging import get_logger
 from arc_runner.engine.image_engine import ImageEngine, ImageGenerationRequest
 from arc_runner.engine.video_engine import VideoEngine, VideoGenerationRequest
 from arc_runner.orchestrator.models import SceneArtifact, ScenePlan, VisualModality
+from arc_runner.orchestrator.slide_compositor import EducationalSlideCompositor
 from arc_runner.orchestrator.usm_bridge import USMZeroCopyBridge
 from arc_runner.server.model_manager import ModelManager
 
@@ -48,6 +49,7 @@ class StudioVisualWorker:
         self._video_engine = video_engine
         self._model_manager = model_manager
         self._device = device
+        self._compositor = EducationalSlideCompositor()
 
     def render_scene(
         self,
@@ -81,9 +83,9 @@ class StudioVisualWorker:
         if scene.modality == VisualModality.ANIMATED_VIDEO and self._video_engine is not None:
             frames = self._render_animated_video(scene, width, height, target_frames, fps)
         elif self._image_engine is not None:
-            frames = self._render_slide_with_camera_motion(scene, width, height, target_frames, scene.camera_motion)
+            frames = self._render_slide_with_camera_motion(scene, width, height, target_frames, fps)
         else:
-            frames = self._render_synthetic_frames(scene, width, height, target_frames)
+            frames = self._render_synthetic_frames(scene, width, height, target_frames, fps)
 
         if usm_bridge is not None:
             shared_frames, _ = usm_bridge.transfer_frames_to_muxer(frames)
@@ -161,7 +163,7 @@ class StudioVisualWorker:
             return frames
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"Video engine failed ({exc}), falling back to camera motion slide.")
-            return self._render_synthetic_frames(scene, width, height, num_frames)
+            return self._render_synthetic_frames(scene, width, height, num_frames, fps)
 
     def _render_slide_with_camera_motion(
         self,
@@ -169,7 +171,7 @@ class StudioVisualWorker:
         width: int,
         height: int,
         num_frames: int,
-        motion: str,
+        fps: int = 16,
     ) -> list[np.ndarray]:
         """Synthesize static image using ImageEngine and interpolate camera motion.
 
@@ -178,7 +180,7 @@ class StudioVisualWorker:
             width: Frame width.
             height: Frame height.
             num_frames: Frame count.
-            motion: Camera motion descriptor.
+            fps: Playback framerate.
 
         Returns:
             List of uint8 RGB frame numpy arrays.
@@ -194,10 +196,17 @@ class StudioVisualWorker:
             base_image = res.images[0]
             if not isinstance(base_image, np.ndarray):
                 base_image = np.array(base_image)
-            return self._interpolate_slide_frames(base_image, num_frames, motion)
+            return self._compositor.render_scene_frames(
+                scene=scene,
+                width=width,
+                height=height,
+                num_frames=num_frames,
+                fps=fps,
+                base_background=base_image,
+            )
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"Image engine failed ({exc}), falling back to synthetic frames.")
-            return self._render_synthetic_frames(scene, width, height, num_frames)
+            return self._render_synthetic_frames(scene, width, height, num_frames, fps)
 
     def _interpolate_slide_frames(
         self,
@@ -237,42 +246,24 @@ class StudioVisualWorker:
         width: int,
         height: int,
         num_frames: int,
+        fps: int = 16,
     ) -> list[np.ndarray]:
-        """Generate high-contrast educational slide frames for silicon-free verification.
+        """Generate broadcast-grade educational presentation slide frames.
 
         Args:
             scene: Target scene plan.
             width: Frame width.
             height: Frame height.
             num_frames: Output frame count.
+            fps: Playback framerate.
 
         Returns:
             List of generated RGB frame numpy arrays.
         """
-        frames: list[np.ndarray] = []
-
-        base_color = np.array([
-            (32 + scene.scene_id * 25) % 256,
-            (48 + scene.scene_id * 35) % 256,
-            (96 + scene.scene_id * 45) % 256,
-        ], dtype=np.uint8)
-
-        base_canvas = np.zeros((height, width, 3), dtype=np.uint8)
-        base_canvas[:, :] = base_color
-
-        for y in range(0, height, 32):
-            base_canvas[y : y + 1, :] = [255, 255, 255]
-        for x in range(0, width, 32):
-            base_canvas[:, x : x + 1] = [255, 255, 255]
-
-        for i in range(num_frames):
-            alpha = float(i) / max(1.0, float(num_frames - 1))
-            frame = base_canvas.copy()
-
-            cursor_x = int((width - 64) * alpha)
-            cursor_y = int(height // 2)
-            frame[cursor_y : cursor_y + 16, cursor_x : cursor_x + 16] = [255, 215, 0]
-
-            frames.append(frame)
-
-        return frames
+        return self._compositor.render_scene_frames(
+            scene=scene,
+            width=width,
+            height=height,
+            num_frames=num_frames,
+            fps=fps,
+        )

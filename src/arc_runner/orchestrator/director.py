@@ -173,29 +173,135 @@ class StudioDirector:
         target_duration_sec: float,
         visual_modality: VisualModality,
     ) -> str:
-        """Generate structured response via built-in heuristic template when no engine is attached.
+        """Generate structured response via built-in domain-aware storyboard templates.
 
         Args:
             user_prompt: User prompt text.
-            target_duration_sec: Target duration.
+            target_duration_sec: Target video duration.
             visual_modality: Visual modality.
 
         Returns:
             JSON string wrapped in boundary tokens.
         """
-        scene_count = max(2, min(6, round(target_duration_sec / 7.0)))
+        scene_count = max(2, min(5, round(target_duration_sec / 7.5)))
         per_scene_sec = round(target_duration_sec / scene_count, 1)
+
+        corpus = user_prompt.lower()
+        if any(k in corpus for k in ("quantum", "physics", "wave", "schrodinger", "particle", "atom", "slit", "bohr")):
+            storyboard = [
+                (
+                    "The Quantum Realm & Planck Constant",
+                    "At the subatomic scale, classical physics breaks down. Energy is not continuous, but delivered in discrete quantum packets defined by Planck's constant.",
+                    "Cosmic quantum vacuum field with glowing wave packets, neon cyan and gold energy fluctuations.",
+                    "slow zoom in",
+                ),
+                (
+                    "Wave-Particle Duality & Double Slit",
+                    "When particles pass through a double slit, they interfere with themselves, producing an undeniable wave interference pattern on the detector screen.",
+                    "Double-slit experiment interference fringes, oscillating probability waves, atomic orbital paths.",
+                    "slow pan right",
+                ),
+                (
+                    "Schrodinger Wave Superposition",
+                    "The Schrodinger equation governs this behavior, describing the quantum state vector as a superposition of all possible physical outcomes simultaneously.",
+                    "Schrodinger wave function probability density distribution, glowing cyan waveform envelopes.",
+                    "orbital drift",
+                ),
+                (
+                    "Heisenberg Uncertainty Principle",
+                    "Werner Heisenberg proved that position and momentum cannot be simultaneously measured with arbitrary precision, setting the fundamental limit of physical reality.",
+                    "Heisenberg uncertainty phase space diagram, quantum measurement perturbation.",
+                    "slow push in",
+                ),
+                (
+                    "Quantum Technology & Future Computing",
+                    "Today, harnessing superposition and entanglement empowers quantum cryptography and next-generation silicon-accelerated computation.",
+                    "Quantum computing qubit lattice with glowing laser pulses and superconducting interconnects.",
+                    "slow pan left",
+                ),
+            ]
+        elif any(k in corpus for k in ("black hole", "relativity", "gravity", "spacetime", "star", "cosmic", "universe")):
+            storyboard = [
+                (
+                    "Curvature of Spacetime & Relativity",
+                    "Albert Einstein revealed that gravity is not a traditional force, but the geometrical curvature of four-dimensional spacetime warped by mass.",
+                    "Deep cosmic canvas with curved spacetime coordinate mesh and glowing gravitational well.",
+                    "slow zoom in",
+                ),
+                (
+                    "The Event Horizon Singularity",
+                    "At the threshold of a black hole, escape velocity surpasses the speed of light, freezing time from the perspective of a distant observer.",
+                    "Accretion disk glowing orange and violet surrounding supermassive black hole event horizon.",
+                    "slow pan right",
+                ),
+                (
+                    "Gravitational Lensing & Geodesics",
+                    "Extreme mass bends passing light rays, acting as a cosmic magnifying glass and creating multiple distorted images of distant galaxies.",
+                    "Einstein ring and gravitational lensing arcs across deep field stellar background.",
+                    "orbital drift",
+                ),
+                (
+                    "Cosmic Expansion & Dark Energy",
+                    "Observations of distant supernovae demonstrate that our universe is expanding at an accelerating pace driven by mysterious dark energy.",
+                    "Cosmic web of galaxy clusters stretching across expanding deep space filaments.",
+                    "slow push in",
+                ),
+            ]
+        elif any(k in corpus for k in ("intel", "arc", "gpu", "npu", "cpu", "silicon", "hardware", "neural", "tensor")):
+            storyboard = [
+                (
+                    "Intel Xe-LPG Silicon Architecture",
+                    "The Intel Arc Xe-LPG architecture integrates dedicated XMX matrix math engines delivering extreme parallel throughput for deep learning inference.",
+                    "Silicon microchip die visualization with glowing Xe cores and high-speed memory busses.",
+                    "slow zoom in",
+                ),
+                (
+                    "Level Zero Zero-Copy USM Bridge",
+                    "Unified Shared Memory bridges CPU, Arc GPU, and AI Boost NPU, eliminating host-device serialization overhead with microsecond tensor handoffs.",
+                    "Circuit board telemetry interconnect with glowing high-speed tensor data pipelines.",
+                    "slow pan right",
+                ),
+                (
+                    "Multi-Modal Autonomous Dispatch",
+                    "Heterogeneous scheduling dynamically routes speech synthesis to the low-power NPU while reserving full GPU compute for diffusion rendering.",
+                    "Multi-agent DAG pipeline visualization with concurrent worker threads and join barrier.",
+                    "orbital drift",
+                ),
+            ]
+        else:
+            storyboard = [
+                (
+                    f"Introduction: {user_prompt[:36]}",
+                    f"Welcome to this comprehensive overview of {user_prompt}. Here we investigate foundational principles and structural dynamics.",
+                    f"High-contrast educational presentation slide depicting {user_prompt}, cinematic 8k lighting.",
+                    "slow zoom in",
+                ),
+                (
+                    f"Core Analysis: {user_prompt[:36]}",
+                    f"Examining deeper mechanisms reveals how interconnected variables govern the behavior and performance of {user_prompt}.",
+                    f"Detailed schematic diagram and technical flow visualization for {user_prompt}.",
+                    "slow pan right",
+                ),
+                (
+                    f"Practical Implications: {user_prompt[:36]}",
+                    "These core mechanics directly determine efficiency and scalability in modern computational and physical architectures.",
+                    f"Architectural breakdown and summary HUD telemetry for {user_prompt}.",
+                    "orbital drift",
+                ),
+            ]
 
         scenes = []
         for i in range(1, scene_count + 1):
+            s_idx = (i - 1) % len(storyboard)
+            title, narration, visual, motion = storyboard[s_idx]
             scenes.append({
                 "scene_id": i,
-                "title": f"Part {i}: {user_prompt[:30]}",
-                "narration_text": f"This is section {i} exploring {user_prompt}. Here we examine fundamental mechanics.",
-                "visual_prompt": f"Cinematic photorealistic view depicting {user_prompt}, segment {i}, 8k volumetric lighting.",
+                "title": title,
+                "narration_text": narration,
+                "visual_prompt": visual,
                 "duration_seconds": per_scene_sec,
                 "modality": visual_modality.value,
-                "camera_motion": "slow pan right",
+                "camera_motion": motion,
             })
 
         return f"{self.PLAN_START_TOKEN}\n{json.dumps(scenes, indent=2)}\n{self.PLAN_END_TOKEN}"
