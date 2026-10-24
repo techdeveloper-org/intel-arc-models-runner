@@ -23,6 +23,14 @@ from arc_runner.engine.embedding_engine import (
     EmbeddingEngineError,
     EmptyMaskError,
 )
+from arc_runner.engine.image_engine import (
+    ImageEngine,
+    ImageEngineConfig,
+    ImageEngineError,
+    ImageGenerationBreakdown,
+    ImageGenerationRequest,
+    ImageGenerationResult,
+)
 from arc_runner.engine.kv_cache import KVCacheManager
 from arc_runner.engine.models import (
     EngineTelemetry,
@@ -61,6 +69,12 @@ __all__: List[str] = [
     "EmbeddingEngine",
     "EmbeddingEngineError",
     "EmptyMaskError",
+    "ImageEngine",
+    "ImageEngineConfig",
+    "ImageEngineError",
+    "ImageGenerationBreakdown",
+    "ImageGenerationRequest",
+    "ImageGenerationResult",
     "InvalidImageFormatError",
     "OpenVINOGenAIEngine",
     "HybridSpeculativeEngine",

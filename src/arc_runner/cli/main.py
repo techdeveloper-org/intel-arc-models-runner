@@ -959,6 +959,99 @@ def handle_tts(
         return 1
 
 
+def handle_generate_image(
+    prompt: str,
+    output_path: str = "output.png",
+    model_id: str = "sd-1.5",
+    device: str = "GPU",
+    steps: int = 20,
+    guidance_scale: float = 7.5,
+    width: int = 512,
+    height: int = 512,
+    seed: Optional[int] = None,
+    negative_prompt: Optional[str] = None,
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Generate image from text prompt using OpenVINO GenAI Text2Image pipeline.
+
+    Args:
+        prompt: Text instruction or visual brief.
+        output_path: Destination path for synthesized image (default: 'output.png').
+        model_id: Model slug or local path (default: 'sd-1.5').
+        device: Target accelerator ('GPU' or 'CPU').
+        steps: Denoising step count (default: 20).
+        guidance_scale: Classifier-free guidance strength (default: 7.5).
+        width: Image width in pixels (default: 512).
+        height: Image height in pixels (default: 512).
+        seed: Deterministic integer seed.
+        negative_prompt: Optional negative prompt.
+        json_output: Emit JSON telemetry.
+        console: Optional Rich Console.
+
+    Returns:
+        int: Process exit code (0 for success, 1 on failure).
+    """
+    c = console or Console()
+    try:
+        from arc_runner.engine.image_engine import (
+            ImageEngine,
+            ImageEngineConfig,
+            ImageGenerationRequest,
+        )
+
+        model_mgr = ModelManager()
+        try:
+            resolved_model = model_mgr.resolve_model_path(model_id)
+        except Exception:  # noqa: BLE001
+            resolved_model = Path(model_id).resolve()
+
+        cfg = ImageEngineConfig(device=device, default_steps=steps, default_guidance_scale=guidance_scale)
+        engine = ImageEngine(cfg)
+        engine.load_model(resolved_model, device=device)
+
+        req = ImageGenerationRequest(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            num_inference_steps=steps,
+            guidance_scale=guidance_scale,
+            width=width,
+            height=height,
+            rng_seed=seed,
+        )
+        res = engine.generate(req)
+
+        saved_path = engine.save_image(res.image_bytes, output_path)
+
+        if json_output:
+            data = res.model_dump()
+            data["image_bytes_length"] = len(res.image_bytes) if res.image_bytes else 0
+            data.pop("image_bytes", None)
+            data["output_file"] = str(saved_path)
+            print(json.dumps(data, indent=2))
+        else:
+            file_kb = saved_path.stat().st_size / 1024.0
+            scorecard = (
+                f"[bold green]Image Synthesized Successfully[/bold green]\n"
+                f"Destination: [cyan]{saved_path}[/cyan] ({file_kb:.1f} KB)\n"
+                f"Resolution: [bold]{res.width}x{res.height}[/bold] | Steps: [bold]{res.num_inference_steps}[/bold] | CFG: [dim]{res.guidance_scale}[/dim] | Seed: [dim]{res.seed_used}[/dim]\n"
+                f"Total Latency: [bold]{res.total_latency_s:.3f}s[/bold] | Step Rate: [bold green]{res.breakdown.iteration_rate_it_s:.2f} it/s[/bold green] ({res.breakdown.step_latency_ms:.1f} ms/step)\n"
+                f"Raster Throughput: [bold cyan]{res.breakdown.megapixels_per_sec:.3f} MP/s[/bold cyan]\n"
+                f"[dim]Breakdown: TextEnc: {res.breakdown.text_encoder_ms:.1f}ms | UNet Denoise: {res.breakdown.denoise_unet_ms:.1f}ms | VAE Decode: {res.breakdown.vae_decoder_ms:.1f}ms[/dim]"
+            )
+            c.print(
+                Panel(
+                    scorecard,
+                    title=f"Text2Image Engine: {model_id} ({res.device})",
+                    border_style="cyan",
+                )
+            )
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        c.print(f"[bold red]Image generation failed:[/bold red] {exc}")
+        return 1
+
+
 def handle_test_hardware(
     device: str = "ALL",
     iterations: int = 10,
@@ -1212,6 +1305,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     tts_parser.add_argument("--device", default="GPU", choices=["GPU", "CPU"], help="Execution device (default: GPU)")
     tts_parser.add_argument("--json", action="store_true", help="Output in JSON format")
 
+    image_parser = subparsers.add_parser("generate-image", aliases=["txt2img"], help="Generate image from prompt using OpenVINO GenAI Text2Image pipeline on Intel Arc GPU/CPU")
+    image_parser.add_argument("prompt", help="Text prompt instruction describing target image")
+    image_parser.add_argument("--output", "-o", default="output.png", help="Output image file path (default: output.png)")
+    image_parser.add_argument("--model", default="sd-1.5", help="Model slug or path (default: sd-1.5)")
+    image_parser.add_argument("--device", default="GPU", choices=["GPU", "CPU"], help="Execution device (default: GPU)")
+    image_parser.add_argument("--steps", type=int, default=20, help="Denoising steps (default: 20)")
+    image_parser.add_argument("--guidance-scale", type=float, default=7.5, help="Guidance scale (default: 7.5)")
+    image_parser.add_argument("--width", type=int, default=512, help="Image width (default: 512)")
+    image_parser.add_argument("--height", type=int, default=512, help="Image height (default: 512)")
+    image_parser.add_argument("--seed", type=int, default=None, help="Deterministic RNG seed")
+    image_parser.add_argument("--negative-prompt", default=None, help="Negative prompt features to suppress")
+    image_parser.add_argument("--json", action="store_true", help="Output telemetry in JSON format")
+
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     if args.command == "test-hardware":
@@ -1305,6 +1411,21 @@ def main(argv: Optional[List[str]] = None) -> int:
             voice=args.voice,
             speed=args.speed,
             device=args.device,
+            json_output=args.json,
+        )
+
+    if args.command in {"generate-image", "txt2img"}:
+        return handle_generate_image(
+            prompt=args.prompt,
+            output_path=args.output,
+            model_id=args.model,
+            device=args.device,
+            steps=args.steps,
+            guidance_scale=args.guidance_scale,
+            width=args.width,
+            height=args.height,
+            seed=args.seed,
+            negative_prompt=args.negative_prompt,
             json_output=args.json,
         )
 
