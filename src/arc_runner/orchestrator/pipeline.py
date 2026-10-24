@@ -11,9 +11,9 @@ import concurrent.futures
 import gc
 import time
 import uuid
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
 
 from arc_runner.core.exceptions import ArcRunnerError
 from arc_runner.core.logging import get_logger
@@ -46,12 +46,12 @@ class StudioPipeline:
 
     def __init__(
         self,
-        model_manager: Optional[ModelManager] = None,
-        director: Optional[StudioDirector] = None,
-        audio_worker: Optional[StudioAudioWorker] = None,
-        visual_worker: Optional[StudioVisualWorker] = None,
-        muxer: Optional[StudioTimelineCompositor] = None,
-        usm_bridge: Optional[USMZeroCopyBridge] = None,
+        model_manager: ModelManager | None = None,
+        director: StudioDirector | None = None,
+        audio_worker: StudioAudioWorker | None = None,
+        visual_worker: StudioVisualWorker | None = None,
+        muxer: StudioTimelineCompositor | None = None,
+        usm_bridge: USMZeroCopyBridge | None = None,
     ) -> None:
         """Initialize StudioPipeline with workers and zero-copy interconnect bridge.
 
@@ -73,7 +73,7 @@ class StudioPipeline:
     def execute(
         self,
         request: StudioProjectRequest,
-        progress_callback: Optional[Callable[[PipelineStage, float, str], None]] = None,
+        progress_callback: Callable[[PipelineStage, float, str], None] | None = None,
     ) -> StudioArtifactPayload:
         """Execute end-to-end multi-modal media production DAG.
 
@@ -91,7 +91,7 @@ class StudioPipeline:
         t_pipeline_start = time.perf_counter()
         logger.info(f"Starting Multi-Modal Studio production '{project_id}' for prompt: '{request.prompt[:40]}...'")
 
-        stage_telemetries: List[StageTelemetry] = []
+        stage_telemetries: list[StageTelemetry] = []
 
         if progress_callback:
             progress_callback(PipelineStage.PLANNING, 5.0, "Director agent analyzing creative brief...")
@@ -197,9 +197,9 @@ class StudioPipeline:
     def _execute_parallel_dag(
         self,
         request: StudioProjectRequest,
-        scenes: List[ScenePlan],
-        progress_callback: Optional[Callable],
-    ) -> Tuple[List[SceneArtifact], List[StageTelemetry]]:
+        scenes: list[ScenePlan],
+        progress_callback: Callable | None,
+    ) -> tuple[list[SceneArtifact], list[StageTelemetry]]:
         """Execute fork-join parallel generation: Audio on NPU and Visuals on GPU simultaneously.
 
         Args:
@@ -250,9 +250,9 @@ class StudioPipeline:
     def _execute_sequential_dag(
         self,
         request: StudioProjectRequest,
-        scenes: List[ScenePlan],
-        progress_callback: Optional[Callable],
-    ) -> Tuple[List[SceneArtifact], List[StageTelemetry]]:
+        scenes: list[ScenePlan],
+        progress_callback: Callable | None,
+    ) -> tuple[list[SceneArtifact], list[StageTelemetry]]:
         """Execute sequential generation with deterministic memory garbage collection between phases.
 
         Args:
@@ -307,10 +307,10 @@ class StudioPipeline:
 
     def _merge_worker_artifacts(
         self,
-        scenes: List[ScenePlan],
-        audio_artifacts: List[SceneArtifact],
-        visual_artifacts: List[SceneArtifact],
-    ) -> List[SceneArtifact]:
+        scenes: list[ScenePlan],
+        audio_artifacts: list[SceneArtifact],
+        visual_artifacts: list[SceneArtifact],
+    ) -> list[SceneArtifact]:
         """Merge independent audio and visual artifacts into unified SceneArtifact items.
 
         Args:
@@ -321,7 +321,7 @@ class StudioPipeline:
         Returns:
             List of combined SceneArtifact objects.
         """
-        merged: List[SceneArtifact] = []
+        merged: list[SceneArtifact] = []
         for i, scene in enumerate(scenes):
             audio = audio_artifacts[i] if i < len(audio_artifacts) else None
             visual = visual_artifacts[i] if i < len(visual_artifacts) else None

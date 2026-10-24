@@ -6,6 +6,7 @@ Strictly adheres to Level 2.2 Docstrings-Only standards and Proof M3.
 """
 
 from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -53,7 +54,7 @@ class TestStudioMuxerPositive:
             ),
         ]
 
-        final_path, total_dur, iters = compositor.compose_and_mux(scenes, artifacts, output_file, fps=16)
+        final_path, total_dur, _iters = compositor.compose_and_mux(scenes, artifacts, output_file, fps=16)
 
         assert final_path.exists()
         assert final_path.stat().st_size > 0

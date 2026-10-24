@@ -15,6 +15,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from arc_runner import __version__
+from arc_runner.benchmark.multimodal_runner import MultiModelCoBenchmarker
 from arc_runner.benchmark.runner import BenchmarkRunner
 from arc_runner.core.constants import DEFAULT_HOST, DEFAULT_PORT
 from arc_runner.core.logging import get_logger, setup_logging
@@ -26,6 +27,13 @@ from arc_runner.engine.lora_manager import LoRAManager
 from arc_runner.hub.manager import HubManager
 from arc_runner.hub.ollama_importer import OllamaImporter
 from arc_runner.hub.registry import ModelRegistry
+from arc_runner.orchestrator.models import (
+    DeviceSchedulingStrategy,
+    PipelineStage,
+    StudioProjectRequest,
+    VisualModality,
+)
+from arc_runner.orchestrator.pipeline import StudioPipeline
 from arc_runner.quant.gguf_parser import GGUFParser
 from arc_runner.quant.transpiler import GGUFTranspiler
 from arc_runner.server.app import create_app
@@ -1164,6 +1172,137 @@ def handle_generate_video(
         return 1
 
 
+def handle_studio(
+    prompt: str,
+    duration: float = 30.0,
+    voice: str = "af_heart",
+    modality: str = "IMAGE_SLIDE",
+    strategy: str = "HETEROGENEOUS_PARALLEL",
+    resolution: str = "512x512",
+    fps: int = 16,
+    output: Optional[str] = None,
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Execute end-to-end multi-modal studio production from creative prompt.
+
+    Args:
+        prompt: Creative brief or topic description.
+        duration: Target video duration in seconds.
+        voice: Kokoro TTS speaker voice slug.
+        modality: Visual generation modality ('IMAGE_SLIDE' or 'ANIMATED_VIDEO').
+        strategy: Silicon scheduling strategy ('HETEROGENEOUS_PARALLEL' or 'SEQUENTIAL_EXCLUSIVE').
+        resolution: Target video resolution string formatted as 'WIDTHxHEIGHT'.
+        fps: Playback framerate.
+        output: Destination filename for exported MP4.
+        json_output: Whether to dump machine-readable JSON payload.
+        console: Optional Rich console.
+
+    Returns:
+        Exit code 0 on success, non-zero on error.
+    """
+    c = console or Console()
+    try:
+        w_str, h_str = resolution.lower().split("x")
+        res_tuple = (int(w_str), int(h_str))
+    except Exception:
+        c.print(f"[bold red]Invalid resolution format '{resolution}'. Use WIDTHxHEIGHT (e.g. 512x512)[/bold red]")
+        return 1
+
+    vis_mode = VisualModality.ANIMATED_VIDEO if modality.upper() in {"ANIMATED_VIDEO", "VIDEO"} else VisualModality.IMAGE_SLIDE
+    sched_strat = (
+        DeviceSchedulingStrategy.SEQUENTIAL_EXCLUSIVE
+        if strategy.upper() in {"SEQUENTIAL", "SEQUENTIAL_EXCLUSIVE"}
+        else DeviceSchedulingStrategy.HETEROGENEOUS_PARALLEL
+    )
+
+    req = StudioProjectRequest(
+        prompt=prompt,
+        target_duration_sec=duration,
+        voice_slug=voice,
+        visual_modality=vis_mode,
+        resolution=res_tuple,
+        fps=fps,
+        strategy=sched_strat,
+        output_filename=output,
+    )
+
+    if not json_output:
+        c.print(Panel(f"[bold cyan]Arc MultiModal Studio[/bold cyan]\n[dim]Prompt: {prompt}\nTarget Duration: {duration}s | Silicon Strategy: {sched_strat.value}[/dim]", border_style="cyan"))
+
+    pipeline = StudioPipeline()
+
+    def on_progress(stage: PipelineStage, pct: float, msg: str) -> None:
+        if not json_output:
+            c.print(f"[{pct:5.1f}%] [yellow]{stage.value}[/yellow] - {msg}")
+
+    try:
+        payload = pipeline.execute(req, progress_callback=on_progress)
+        if json_output:
+            print(json.dumps(payload.model_dump(), indent=2))
+        else:
+            c.print(
+                Panel(
+                    f"[bold green]Video Production Complete![/bold green]\n"
+                    f"File: [cyan]{payload.video_output_path}[/cyan]\n"
+                    f"Duration: [bold]{payload.total_duration_sec:.2f}s[/bold] | Scenes: [bold]{len(payload.script_scenes)}[/bold]\n"
+                    f"Total E2E Latency: [bold yellow]{payload.telemetry.total_latency_ms / 1000.0:.2f}s[/bold yellow]\n"
+                    f"USM Zero-Copy Transfer: [bold cyan]{payload.telemetry.usm_zero_copy_latency_us:.2f} µs[/bold cyan]\n"
+                    f"Cloud Cost Saved: [bold green]${payload.cloud_cost_saved_usd:.3f}[/bold green] (vs OpenAI + ElevenLabs + Runway)",
+                    title="Production Artifact",
+                    border_style="green",
+                )
+            )
+        return 0
+    except Exception as exc:
+        c.print(f"[bold red]Studio production failed:[/bold red] {exc}")
+        return 1
+
+
+def handle_bench_multimodal(
+    prompt: str = "Explain Quantum Entanglement in Physics",
+    iterations: int = 3,
+    warmup: int = 1,
+    strategy: str = "HETEROGENEOUS_PARALLEL",
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Execute automated multi-modal co-benchmarking and output Cloud ROI scorecard.
+
+    Args:
+        prompt: Benchmark creative prompt.
+        iterations: Number of measured runs.
+        warmup: Number of warmup passes.
+        strategy: Hardware scheduling strategy.
+        json_output: Output machine-readable JSON.
+        console: Optional Rich console.
+
+    Returns:
+        Exit code 0 on success, non-zero on error.
+    """
+    c = console or Console()
+    sched_strat = (
+        DeviceSchedulingStrategy.SEQUENTIAL_EXCLUSIVE
+        if strategy.upper() in {"SEQUENTIAL", "SEQUENTIAL_EXCLUSIVE"}
+        else DeviceSchedulingStrategy.HETEROGENEOUS_PARALLEL
+    )
+
+    benchmarker = MultiModelCoBenchmarker(console=c)
+    try:
+        report = benchmarker.run_co_benchmark(
+            prompt=prompt,
+            iterations=iterations,
+            warmup_runs=warmup,
+            strategy=sched_strat,
+        )
+        if json_output:
+            print(json.dumps(report.model_dump(), indent=2))
+        return 0
+    except Exception as exc:
+        c.print(f"[bold red]Multi-modal co-benchmark failed:[/bold red] {exc}")
+        return 1
+
+
 def handle_test_hardware(
     device: str = "ALL",
     iterations: int = 10,
@@ -1450,7 +1589,34 @@ def main(argv: Optional[List[str]] = None) -> int:
     video_parser.add_argument("--container", default="mp4", choices=["mp4", "avi", "gif"], help="Video container format (default: mp4)")
     video_parser.add_argument("--json", action="store_true", help="Output telemetry in JSON format")
 
+    studio_parser = subparsers.add_parser(
+        "studio",
+        aliases=["orchestrate"],
+        help="Execute multi-modal autonomous video studio pipeline from creative prompt",
+    )
+    studio_parser.add_argument("prompt", help="Natural language creative brief for video production")
+    studio_parser.add_argument("--duration", "-d", type=float, default=30.0, help="Target video duration in seconds (default: 30.0)")
+    studio_parser.add_argument("--voice", default="af_heart", help="Kokoro TTS voice style slug (default: af_heart)")
+    studio_parser.add_argument("--modality", default="IMAGE_SLIDE", choices=["IMAGE_SLIDE", "ANIMATED_VIDEO"], help="Visual modality")
+    studio_parser.add_argument("--strategy", default="HETEROGENEOUS_PARALLEL", choices=["HETEROGENEOUS_PARALLEL", "SEQUENTIAL_EXCLUSIVE"], help="Silicon scheduling")
+    studio_parser.add_argument("--resolution", default="512x512", help="Video resolution WIDTHxHEIGHT (default: 512x512)")
+    studio_parser.add_argument("--fps", type=int, default=16, help="Video framerate (default: 16)")
+    studio_parser.add_argument("--output", "-o", default=None, help="Destination filename for exported MP4")
+    studio_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    bench_mm_parser = subparsers.add_parser(
+        "bench-multimodal",
+        aliases=["bench-studio"],
+        help="Run adaptive multi-model hardware co-benchmarks and display Cloud ROI scorecard",
+    )
+    bench_mm_parser.add_argument("--prompt", default="Explain Quantum Entanglement in Physics", help="Benchmark creative prompt")
+    bench_mm_parser.add_argument("--iterations", "-n", type=int, default=3, help="Number of benchmark iterations (default: 3)")
+    bench_mm_parser.add_argument("--warmup", "-w", type=int, default=1, help="Discarded warmup runs (default: 1)")
+    bench_mm_parser.add_argument("--strategy", default="HETEROGENEOUS_PARALLEL", choices=["HETEROGENEOUS_PARALLEL", "SEQUENTIAL_EXCLUSIVE"], help="Silicon strategy")
+    bench_mm_parser.add_argument("--json", action="store_true", help="Output JSON benchmark report")
+
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+    console = Console()
 
     if args.command == "test-hardware":
         return handle_test_hardware(
@@ -1576,6 +1742,30 @@ def main(argv: Optional[List[str]] = None) -> int:
             seed=args.seed,
             negative_prompt=args.negative_prompt,
             container=args.container,
+            json_output=args.json,
+            console=console,
+        )
+
+    if args.command in {"studio", "orchestrate"}:
+        return handle_studio(
+            prompt=args.prompt,
+            duration=args.duration,
+            voice=args.voice,
+            modality=args.modality,
+            strategy=args.strategy,
+            resolution=args.resolution,
+            fps=args.fps,
+            output=args.output,
+            json_output=args.json,
+            console=console,
+        )
+
+    if args.command in {"bench-multimodal", "bench-studio"}:
+        return handle_bench_multimodal(
+            prompt=args.prompt,
+            iterations=args.iterations,
+            warmup=args.warmup,
+            strategy=args.strategy,
             json_output=args.json,
             console=console,
         )

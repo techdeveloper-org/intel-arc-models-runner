@@ -8,7 +8,8 @@ Strictly adheres to Level 2.2 Docstrings-Only standards and Pydantic v2 conventi
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -46,7 +47,7 @@ class ScenePlan(BaseModel):
     visual_prompt: str = Field(description="Detailed visual conditioning prompt for diffusion/DiT.")
     duration_seconds: float = Field(default=5.0, ge=0.5, le=300.0, description="Target duration in seconds.")
     modality: VisualModality = Field(default=VisualModality.IMAGE_SLIDE, description="Target visual rendering mode.")
-    voice_slug: Optional[str] = Field(default=None, description="Optional override speaker voice slug.")
+    voice_slug: str | None = Field(default=None, description="Optional override speaker voice slug.")
     camera_motion: str = Field(default="slow pan", description="Camera motion styling cue for visual rendering.")
 
     @field_validator("narration_text")
@@ -92,7 +93,7 @@ class StudioProjectRequest(BaseModel):
         default=VisualModality.IMAGE_SLIDE,
         description="Default visual generation modality across scenes.",
     )
-    resolution: Tuple[int, int] = Field(
+    resolution: tuple[int, int] = Field(
         default=(512, 512),
         description="Target video raster frame resolution as (width, height).",
     )
@@ -102,7 +103,7 @@ class StudioProjectRequest(BaseModel):
         description="Silicon scheduling policy across Intel NPU, GPU, and CPU.",
     )
     export_format: str = Field(default="mp4", description="Output video container format ('mp4', 'mkv').")
-    output_filename: Optional[str] = Field(default=None, description="Optional custom destination filename.")
+    output_filename: str | None = Field(default=None, description="Optional custom destination filename.")
 
     @field_validator("prompt")
     @classmethod
@@ -125,7 +126,7 @@ class StudioProjectRequest(BaseModel):
 
     @field_validator("resolution")
     @classmethod
-    def validate_resolution(cls, value: Tuple[int, int]) -> Tuple[int, int]:
+    def validate_resolution(cls, value: tuple[int, int]) -> tuple[int, int]:
         """Validate that resolution dimensions are positive multiples of 8.
 
         Args:
@@ -149,12 +150,12 @@ class SceneArtifact(BaseModel):
     """Intermediate generated binary payload and metadata for an individual scene."""
 
     scene_id: int = Field(description="Scene identifier matching ScenePlan.")
-    audio_path: Optional[str] = Field(default=None, description="Filesystem path to synthesized scene audio WAV.")
-    audio_samples: Optional[Any] = Field(default=None, description="Synthesized PCM audio samples as 1D numpy array.")
+    audio_path: str | None = Field(default=None, description="Filesystem path to synthesized scene audio WAV.")
+    audio_samples: Any | None = Field(default=None, description="Synthesized PCM audio samples as 1D numpy array.")
     audio_sample_rate: int = Field(default=24000, description="Sampling rate of audio samples in Hz.")
     audio_duration_sec: float = Field(default=0.0, ge=0.0, description="Measured audio duration in seconds.")
-    video_path: Optional[str] = Field(default=None, description="Filesystem path to rendered scene video clip.")
-    frames: Optional[List[Any]] = Field(default=None, description="Rendered visual frames as list of uint8 arrays.")
+    video_path: str | None = Field(default=None, description="Filesystem path to rendered scene video clip.")
+    frames: list[Any] | None = Field(default=None, description="Rendered visual frames as list of uint8 arrays.")
     video_duration_sec: float = Field(default=0.0, ge=0.0, description="Calculated video duration in seconds.")
     fps: int = Field(default=16, description="Framerate at which video frames were rendered.")
     temporal_drift_sec: float = Field(default=0.0, description="Duration discrepancy |audio - video| before sync.")
@@ -177,7 +178,7 @@ class OrchestrationTelemetry(BaseModel):
 
     project_id: str = Field(description="Unique production project run identifier.")
     total_latency_ms: float = Field(default=0.0, description="Total wall-clock execution time in milliseconds.")
-    stage_breakdowns: List[StageTelemetry] = Field(
+    stage_breakdowns: list[StageTelemetry] = Field(
         default_factory=list,
         description="Per-stage performance breakdown entries.",
     )
@@ -190,7 +191,7 @@ class OrchestrationTelemetry(BaseModel):
         description="Final post-convergence audio-video desync drift in milliseconds.",
     )
     pacing_convergence_iterations: int = 0
-    devices_utilized: List[str] = Field(default_factory=list, description="Silicon accelerators engaged.")
+    devices_utilized: list[str] = Field(default_factory=list, description="Silicon accelerators engaged.")
     peak_vram_mb: float = Field(default=0.0, description="Highest observed VRAM allocation during pipeline.")
 
 
@@ -199,9 +200,9 @@ class StudioArtifactPayload(BaseModel):
 
     project_id: str = Field(description="Unique project run identifier.")
     video_output_path: str = Field(description="Absolute filesystem path to final synchronized MP4 video.")
-    script_scenes: List[ScenePlan] = Field(description="List of structured scene plans generated by Director.")
+    script_scenes: list[ScenePlan] = Field(description="List of structured scene plans generated by Director.")
     total_duration_sec: float = Field(description="Final video playback duration in seconds.")
-    resolution: Tuple[int, int] = Field(description="Video raster resolution as (width, height).")
+    resolution: tuple[int, int] = Field(description="Video raster resolution as (width, height).")
     telemetry: OrchestrationTelemetry = Field(description="End-to-end hardware and stage performance telemetry.")
     cloud_cost_saved_usd: float = Field(description="Estimated cloud API replacement cost saved in USD.")
     created_at: str = Field(description="ISO-8601 production timestamp.")
@@ -221,7 +222,7 @@ class MultiModelBenchmarkReport(BaseModel):
     llm_tok_per_sec: float = Field(description="Director LLM planning throughput in tokens per second.")
     cloud_comparison_usd_per_run: float = Field(description="Commercial cloud API cost equivalent in USD ($0.35/run).")
     hardware_payback_runs: int = Field(description="Number of generation runs required to amortize Intel Arc GPU cost.")
-    stage_latencies_ms: Dict[str, float] = Field(
+    stage_latencies_ms: dict[str, float] = Field(
         default_factory=dict,
         description="Average execution latency mapped by pipeline stage name.",
     )

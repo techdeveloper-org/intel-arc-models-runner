@@ -31,6 +31,7 @@ from arc_runner.server.routes_embeddings import embeddings_router
 from arc_runner.server.routes_lora import router as lora_router
 from arc_runner.server.routes_ollama import router as ollama_router
 from arc_runner.server.routes_openai import router as openai_router
+from arc_runner.server.routes_studio import router as studio_router
 from arc_runner.server.routes_ui import router as ui_router
 
 logger = get_logger("server.app")
@@ -157,5 +158,6 @@ def create_app(
     app.include_router(batch_router)
     app.include_router(ollama_router)
     app.include_router(openai_router)
+    app.include_router(studio_router)
 
     return app

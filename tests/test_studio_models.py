@@ -13,11 +13,8 @@ from arc_runner.orchestrator.models import (
     DeviceSchedulingStrategy,
     MultiModelBenchmarkReport,
     OrchestrationTelemetry,
-    PipelineStage,
-    SceneArtifact,
     ScenePlan,
     StageTelemetry,
-    StudioArtifactPayload,
     StudioProjectRequest,
     VisualModality,
 )
