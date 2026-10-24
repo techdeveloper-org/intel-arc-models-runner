@@ -398,7 +398,7 @@ Please review our [Contributing Guidelines](CONTRIBUTING.md) and submit Pull Req
 
 ---
 
-## 📊 Complete Test Coverage (216 Tests / 16 Test Modules)
+## 📊 Complete Test Coverage (223 Tests / 16 Test Modules)
 
 Every component ships with a full **Triad Test Suite** (Positive + Negative + Edge-Case) and mathematically proven invariants:
 
@@ -416,11 +416,11 @@ Every component ships with a full **Triad Test Suite** (Positive + Negative + Ed
 | `test_server.py` | 24 | FastAPI Ollama + OpenAI parity endpoints |
 | `test_embeddings.py` | 13 | NPU embeddings, L2 norm (M1), mean pooling (M2), cosine (M14) |
 | `test_vision.py` | 9 | VLMPipeline vision engine, visual token calc (M5) |
-| `test_transpiler.py` | 11 | GGUF→OpenVINO transpiler, INT4 dequant (M7), SQNR (M8), XMX pack (M9) |
+| `test_transpiler.py` | 18 | GGUF→OpenVINO transpiler, INT4 dequant (M7), SQNR (M8), XMX pack (M9), CLI convert (M21) |
 | `test_transpiler_stream.py` | 14 | SSE streaming engine, Proofs M15–M20, O(1) RAM (P2), SIMD (P3) |
 | `test_continuous_batcher.py` | 9 | PagedBlockTable (M11, M17), RadixCache (M12), Little's Law (M13) |
 | `test_ui_endpoints.py` | 24 | Web UI SPA, SSE stream endpoints, embeddings test, GGUF convert |
-| **Total** | **216** | **0 failures · 0 errors** |
+| **Total** | **223** | **0 failures · 0 errors** |
 
 ```bash
 # Run full test suite

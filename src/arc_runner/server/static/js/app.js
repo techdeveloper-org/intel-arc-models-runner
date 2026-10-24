@@ -240,6 +240,49 @@ function initOllamaStudio() {
     const modalTitle = document.getElementById('modal-model-title');
     const modalBody = document.getElementById('modal-model-body');
     const btnConvertGguf = document.getElementById('btn-convert-gguf');
+    const precisionSelect = document.getElementById('convert-precision-select');
+    const deviceSelect = document.getElementById('convert-device-select');
+
+    const STORAGE_KEY_PRECISION = 'arc_runner_transpile_precision';
+    const STORAGE_KEY_DEVICE = 'arc_runner_transpile_device';
+
+    const memoryStore = {};
+    const safeStorage = {
+        getItem(key) {
+            try {
+                return window.localStorage.getItem(key);
+            } catch (_) {
+                return memoryStore[key] || null;
+            }
+        },
+        setItem(key, value) {
+            try {
+                window.localStorage.setItem(key, value);
+            } catch (_) {
+                memoryStore[key] = String(value);
+            }
+        }
+    };
+
+    if (precisionSelect) {
+        const savedPrecision = safeStorage.getItem(STORAGE_KEY_PRECISION);
+        if (savedPrecision) {
+            precisionSelect.value = savedPrecision;
+        }
+        precisionSelect.addEventListener('change', () => {
+            safeStorage.setItem(STORAGE_KEY_PRECISION, precisionSelect.value);
+        });
+    }
+
+    if (deviceSelect) {
+        const savedDevice = safeStorage.getItem(STORAGE_KEY_DEVICE);
+        if (savedDevice) {
+            deviceSelect.value = savedDevice;
+        }
+        deviceSelect.addEventListener('change', () => {
+            safeStorage.setItem(STORAGE_KEY_DEVICE, deviceSelect.value);
+        });
+    }
 
     let currentGgufFilePath = null;
     let currentModelName = null;
@@ -259,12 +302,12 @@ function initOllamaStudio() {
                 return;
             }
 
-            const precisionSelect = document.getElementById('convert-precision-select');
-            const deviceSelect = document.getElementById('convert-device-select');
-            const outputDirInput = document.getElementById('convert-output-dir-input');
-
             const precision = precisionSelect ? precisionSelect.value : 'int4';
             const device = deviceSelect ? deviceSelect.value : 'GPU';
+            if (precisionSelect) safeStorage.setItem(STORAGE_KEY_PRECISION, precision);
+            if (deviceSelect) safeStorage.setItem(STORAGE_KEY_DEVICE, device);
+
+            const outputDirInput = document.getElementById('convert-output-dir-input');
             const cleanName = (currentModelName || 'custom-model').replace(/[^a-zA-Z0-9_-]/g, '_');
             const outputDir = (outputDirInput && outputDirInput.value.trim()) ? outputDirInput.value.trim() : `./models/${cleanName}-openvino`;
 
@@ -473,6 +516,15 @@ function initOllamaStudio() {
             const outputDirInput = document.getElementById('convert-output-dir-input');
             if (outputDirInput) {
                 outputDirInput.value = `./models/${cleanName}-openvino`;
+            }
+
+            if (precisionSelect) {
+                const savedPrecision = safeStorage.getItem(STORAGE_KEY_PRECISION);
+                if (savedPrecision) precisionSelect.value = savedPrecision;
+            }
+            if (deviceSelect) {
+                const savedDevice = safeStorage.getItem(STORAGE_KEY_DEVICE);
+                if (savedDevice) deviceSelect.value = savedDevice;
             }
 
             const progressCard = document.getElementById('gguf-convert-progress-card');
