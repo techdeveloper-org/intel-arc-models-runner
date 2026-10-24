@@ -18,6 +18,7 @@ from arc_runner.core.exceptions import (
 from arc_runner.core.logging import get_logger
 from arc_runner.engine.base import BaseEngine
 from arc_runner.engine.embedding_engine import EmbeddingEngine
+from arc_runner.engine.lora_manager import LoRAManager
 from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
 from arc_runner.engine.speculative_engine import HybridSpeculativeEngine, SpeculativeConfig
 from arc_runner.engine.vision_engine import VisionEngine
@@ -45,6 +46,7 @@ class ModelManager:
         self._cache: OrderedDict[str, BaseEngine] = OrderedDict()
         self._embedding_cache: OrderedDict[str, EmbeddingEngine] = OrderedDict()
         self._vision_cache: OrderedDict[str, VisionEngine] = OrderedDict()
+        self.lora_manager: LoRAManager = LoRAManager()
         self._total_requests_served: int = 0
         self._total_tokens_generated: int = 0
 
@@ -155,7 +157,7 @@ class ModelManager:
                 return spec_engine
             else:
                 logger.info(f"Compiling OpenVINOGenAIEngine (Target: {target_path} on {device})")
-                engine = OpenVINOGenAIEngine()
+                engine = OpenVINOGenAIEngine(lora_manager=self.lora_manager)
                 engine.load_model(target_path, device=device)
                 self._cache[cache_key] = engine
                 return engine

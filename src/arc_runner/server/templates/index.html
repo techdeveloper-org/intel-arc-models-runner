@@ -222,6 +222,30 @@
                         </div>
                     </div>
 
+                    <!-- Multi-LoRA Adapter Drawer (Option B) -->
+                    <div id="lora-drawer" class="lora-drawer">
+                        <div class="lora-drawer-header">
+                            <div class="lora-label-group">
+                                <span class="badge badge-cyan">LoRA Adapter Hot-Swap</span>
+                                <span class="lora-subtitle">Zero-Recompile Dynamic Weight Blending</span>
+                            </div>
+                            <div class="lora-controls">
+                                <select id="lora-select" class="form-select lora-select">
+                                    <option value="">-- Select LoRA Adapter --</option>
+                                </select>
+                                <div class="lora-scale-container">
+                                    <label for="lora-scale-slider" class="lora-scale-label">Scale &lambda;:</label>
+                                    <input type="range" id="lora-scale-slider" min="0.0" max="2.0" step="0.05" value="1.0" class="lora-slider">
+                                    <span id="lora-scale-val" class="lora-scale-val">1.00</span>
+                                </div>
+                                <button type="button" id="btn-add-lora" class="btn btn-sm btn-outline-cyan">+ Blend</button>
+                            </div>
+                        </div>
+                        <div id="active-lora-chips" class="active-lora-chips">
+                            <span class="lora-empty-hint">No LoRA adapters currently blended. Base model weights active.</span>
+                        </div>
+                    </div>
+
                     <!-- Messages Stream -->
                     <div id="chat-messages" class="chat-messages">
                         <div class="message assistant">
@@ -237,6 +261,7 @@
                         <div class="ribbon-item">TPOT: <span id="metric-tpot" class="text-cyan">-- ms</span></div>
                         <div class="ribbon-item">Rate: <span id="metric-rate" class="text-emerald">-- tok/s</span></div>
                         <div class="ribbon-item">Engine: <span id="metric-engine" class="text-purple">OpenVINO GenAI</span></div>
+                        <div class="ribbon-item">LoRA: <span id="metric-lora" class="text-cyan">None (Base)</span></div>
                     </div>
 
                     <!-- Image Attachment Preview -->

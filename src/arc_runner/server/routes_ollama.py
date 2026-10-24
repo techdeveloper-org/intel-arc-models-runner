@@ -17,7 +17,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
 
 from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError
 from arc_runner.core.logging import get_logger, set_request_context
-from arc_runner.engine.models import GenerationConfig, TokenChunk
+from arc_runner.engine.models import GenerationConfig, LoRAAdapterSpec, TokenChunk
 from arc_runner.hub.downloader import DownloadProgress
 from arc_runner.hub.manager import HubManager
 from arc_runner.server.model_manager import ModelManager
@@ -139,12 +139,19 @@ async def show_model(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-def _build_generation_config(options: Optional[Dict[str, Any]], stream: bool = True) -> GenerationConfig:
-    """Build strongly typed GenerationConfig from untyped options dictionary.
+def _build_generation_config(
+    options: Optional[Dict[str, Any]],
+    stream: bool = True,
+    adapters: Optional[List[Dict[str, Any]]] = None,
+    adapter: Optional[str] = None,
+) -> GenerationConfig:
+    """Build strongly typed GenerationConfig from untyped options dictionary and LoRA adapter specs.
 
     Args:
         options: Dictionary of client-supplied sampling parameters.
         stream: Streaming mode flag.
+        adapters: Optional list of adapter specification dictionaries.
+        adapter: Optional single adapter shortcut name or path.
 
     Returns:
         Validated GenerationConfig object.
@@ -166,6 +173,23 @@ def _build_generation_config(options: Optional[Dict[str, Any]], stream: bool = T
         if "stop" in options:
             stops = options["stop"]
             cfg_args["stop_strings"] = [stops] if isinstance(stops, str) else list(stops)
+
+    lora_specs: List[LoRAAdapterSpec] = []
+    if adapter:
+        lora_specs.append(LoRAAdapterSpec(name=adapter, scale=1.0))
+    if adapters:
+        for a in adapters:
+            if isinstance(a, dict) and "name" in a:
+                lora_specs.append(
+                    LoRAAdapterSpec(
+                        name=str(a["name"]),
+                        scale=float(a.get("scale", 1.0)),
+                        path=str(a["path"]) if "path" in a and a["path"] else None,
+                    )
+                )
+    if lora_specs:
+        cfg_args["adapters"] = lora_specs
+
     return GenerationConfig(**cfg_args)
 
 
@@ -244,7 +268,12 @@ async def generate(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to load engine: {exc}") from exc
 
-    gen_config = _build_generation_config(request.options, stream=request.stream)
+    gen_config = _build_generation_config(
+        request.options,
+        stream=request.stream,
+        adapters=request.adapters,
+        adapter=request.adapter,
+    )
     start_ns = time.time_ns()
 
     if request.stream:
@@ -338,7 +367,12 @@ async def chat(
     formatted_lines.append("<|im_start|>assistant\n")
     chat_prompt = "\n".join(formatted_lines)
 
-    gen_config = _build_generation_config(request.options, stream=request.stream)
+    gen_config = _build_generation_config(
+        request.options,
+        stream=request.stream,
+        adapters=request.adapters,
+        adapter=request.adapter,
+    )
     start_ns = time.time_ns()
 
     if request.stream:

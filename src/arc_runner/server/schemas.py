@@ -5,7 +5,7 @@ model tags catalog, and OpenAI v1 compatibility endpoints.
 """
 
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class OllamaChatMessage(BaseModel):
@@ -28,6 +28,8 @@ class OllamaGenerateRequest(BaseModel):
     raw: bool = Field(default=False, description="Bypass template formatting")
     images: Optional[List[str]] = Field(default=None, description="Optional base64 encoded images")
     options: Optional[Dict[str, Any]] = Field(default=None, description="Runtime generation parameters")
+    adapters: Optional[List[Dict[str, Any]]] = Field(default=None, description="Active LoRA adapters to compose")
+    adapter: Optional[str] = Field(default=None, description="Single LoRA adapter name or path shortcut")
 
 
 class OllamaGenerateResponse(BaseModel):
@@ -53,6 +55,8 @@ class OllamaChatRequest(BaseModel):
     messages: List[OllamaChatMessage] = Field(description="Conversation history message array")
     stream: bool = Field(default=True, description="Enable streaming NDJSON responses")
     options: Optional[Dict[str, Any]] = Field(default=None, description="Runtime generation parameters")
+    adapters: Optional[List[Dict[str, Any]]] = Field(default=None, description="Active LoRA adapters to compose")
+    adapter: Optional[str] = Field(default=None, description="Single LoRA adapter name or path shortcut")
 
 
 class OllamaChatResponse(BaseModel):
@@ -308,5 +312,82 @@ class OpenAIEmbeddingResponse(BaseModel):
     data: List[OpenAIEmbeddingData] = Field(description="Embedding data list")
     model: str = Field(description="Target model identifier evaluated")
     usage: OpenAIEmbeddingUsage = Field(default_factory=OpenAIEmbeddingUsage, description="Usage statistics")
+
+
+class LoRASpecSchema(BaseModel):
+    """Specification of an adapter binding with scale factor."""
+
+    name: str = Field(..., description="Name or identifier of LoRA adapter")
+    scale: float = Field(default=1.0, ge=0.0, le=2.0, description="Linear scaling weight lambda")
+    path: Optional[str] = Field(default=None, description="Optional explicit directory path")
+
+
+class LoRAAdapterResponse(BaseModel):
+    """Metadata response for a discovered or loaded LoRA adapter."""
+
+    adapter_id: str = Field(description="Unique identifier of adapter")
+    adapter_path: str = Field(description="Filesystem path of adapter directory or container")
+    base_model_name: str = Field(description="Base model architecture or identifier")
+    rank: int = Field(description="Low-rank dimension r")
+    alpha: float = Field(description="LoRA scaling parameter alpha")
+    target_modules: List[str] = Field(description="Target projection module names")
+    file_size_bytes: int = Field(description="Weight container file size in bytes")
+    is_cached: bool = Field(description="True if currently cached in USM/host memory")
+    name: Optional[str] = Field(default=None, description="Convenience alias for adapter_id")
+
+    @model_validator(mode="after")
+    def populate_name(self) -> "LoRAAdapterResponse":
+        """Populate name from adapter_id."""
+        if not self.name:
+            self.name = self.adapter_id
+        return self
+
+
+class LoRALoadRequest(BaseModel):
+    """Request payload to load an adapter into memory."""
+
+    adapter: Optional[str] = Field(default=None, description="Name or filesystem path of adapter to load")
+    name: Optional[str] = Field(default=None, description="Alias for adapter field")
+
+    @model_validator(mode="after")
+    def resolve_adapter_name(self) -> "LoRALoadRequest":
+        """Resolve adapter from name or adapter field."""
+        if not self.adapter and self.name:
+            self.adapter = self.name
+        if not self.adapter:
+            raise ValueError("Either 'adapter' or 'name' must be provided.")
+        return self
+
+
+class LoRAUnloadRequest(BaseModel):
+    """Request payload to evict an adapter from memory."""
+
+    adapter: Optional[str] = Field(default=None, description="Name of adapter to unload")
+    name: Optional[str] = Field(default=None, description="Alias for adapter field")
+
+    @model_validator(mode="after")
+    def resolve_adapter_name(self) -> "LoRAUnloadRequest":
+        """Resolve adapter from name or adapter field."""
+        if not self.adapter and self.name:
+            self.adapter = self.name
+        if not self.adapter:
+            raise ValueError("Either 'adapter' or 'name' must be provided.")
+        return self
+
+
+class LoRAInspectRequest(BaseModel):
+    """Request payload to inspect an adapter container without loading into memory."""
+
+    path: Optional[str] = Field(default=None, description="Filesystem directory or safetensors path to inspect")
+    name: Optional[str] = Field(default=None, description="Alias for path/name")
+
+    @model_validator(mode="after")
+    def resolve_path(self) -> "LoRAInspectRequest":
+        """Resolve path from name or path field."""
+        if not self.path and self.name:
+            self.path = self.name
+        if not self.path:
+            raise ValueError("Either 'path' or 'name' must be provided.")
+        return self
 
 

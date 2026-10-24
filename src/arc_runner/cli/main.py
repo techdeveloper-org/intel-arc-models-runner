@@ -22,6 +22,7 @@ from arc_runner.devices.detector import DeviceDetector
 from arc_runner.devices.models import DeviceType, SystemTopology
 from arc_runner.engine.aot_cache import AOTCompilationManager
 from arc_runner.engine.embedding_engine import EmbeddingEngine
+from arc_runner.engine.lora_manager import LoRAManager
 from arc_runner.hub.manager import HubManager
 from arc_runner.hub.ollama_importer import OllamaImporter
 from arc_runner.hub.registry import ModelRegistry
@@ -587,6 +588,122 @@ def handle_convert(
         return 1
 
 
+def handle_adapter_list(
+    adapters_dir: Optional[str] = None,
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Discover and list all local LoRA adapters.
+
+    Args:
+        adapters_dir: Optional custom directory to search for adapters.
+        json_output: If True, formats output as JSON.
+        console: Optional Rich console.
+
+    Returns:
+        int: Process exit code.
+    """
+    c = console or Console()
+    mgr = LoRAManager(adapters_dir=adapters_dir)
+    discovered = mgr.discover_adapters()
+
+    if json_output:
+        data = [
+            {
+                "adapter_id": a.adapter_id,
+                "path": str(a.adapter_path),
+                "base_model": a.base_model_name,
+                "rank": a.rank,
+                "alpha": a.alpha,
+                "target_modules": a.target_modules,
+                "size_bytes": a.file_size_bytes,
+            }
+            for a in discovered
+        ]
+        print(json.dumps(data, indent=2))
+        return 0
+
+    if not discovered:
+        c.print(f"[yellow]No LoRA adapters found in:[/yellow] {mgr.adapters_dir}")
+        c.print(f"[dim]Place adapters with 'adapter_config.json' and 'adapter_model.safetensors' in {mgr.adapters_dir}[/dim]")
+        return 0
+
+    table = Table(title="Discovered Local LoRA Adapters", show_header=True, header_style="bold magenta")
+    table.add_column("Adapter ID", style="bold white")
+    table.add_column("Base Model", style="cyan")
+    table.add_column("Rank (r)", style="green", justify="right")
+    table.add_column("Alpha", style="dim", justify="right")
+    table.add_column("Target Modules", style="dim")
+    table.add_column("Size (MB)", style="magenta", justify="right")
+
+    for a in discovered:
+        size_mb = f"{a.file_size_bytes / (1024 * 1024):.1f}"
+        modules_str = ", ".join(a.target_modules[:3])
+        if len(a.target_modules) > 3:
+            modules_str += f" (+{len(a.target_modules) - 3})"
+        table.add_row(
+            a.adapter_id,
+            a.base_model_name,
+            str(a.rank),
+            f"{a.alpha:.1f}",
+            modules_str,
+            size_mb,
+        )
+
+    c.print(table)
+    return 0
+
+
+def handle_adapter_inspect(
+    path: str,
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Inspect metadata, rank, and target modules of a specific LoRA adapter.
+
+    Args:
+        path: Filesystem path to adapter directory or safetensors container.
+        json_output: If True, formats output as JSON.
+        console: Optional Rich console.
+
+    Returns:
+        int: Process exit code.
+    """
+    c = console or Console()
+    try:
+        mgr = LoRAManager()
+        meta = mgr.parse_adapter_metadata(Path(path))
+
+        if json_output:
+            data = {
+                "adapter_id": meta.adapter_id,
+                "path": str(meta.adapter_path),
+                "base_model": meta.base_model_name,
+                "rank": meta.rank,
+                "alpha": meta.alpha,
+                "target_modules": meta.target_modules,
+                "size_bytes": meta.file_size_bytes,
+            }
+            print(json.dumps(data, indent=2))
+            return 0
+
+        table = Table(title=f"LoRA Adapter Metadata: {meta.adapter_id}", show_header=True, header_style="bold magenta")
+        table.add_column("Property", style="bold white")
+        table.add_column("Value", style="cyan")
+        table.add_row("Adapter ID", meta.adapter_id)
+        table.add_row("Filesystem Path", str(meta.adapter_path))
+        table.add_row("Base Model Target", meta.base_model_name)
+        table.add_row("Decomposition Rank (r)", str(meta.rank))
+        table.add_row("Scaling Factor (alpha)", f"{meta.alpha:.1f}")
+        table.add_row("Target Modules", ", ".join(meta.target_modules))
+        table.add_row("Container Size", f"{meta.file_size_bytes / (1024 * 1024):.2f} MB")
+        c.print(table)
+        return 0
+    except Exception as exc:
+        c.print(f"[bold red]Adapter inspection failed:[/bold red] {exc}")
+        return 1
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Execute the CLI application with parsed command line arguments.
 
@@ -669,6 +786,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     convert_parser.add_argument("--device", default="GPU", help="Target accelerator silicon")
     convert_parser.add_argument("--json", action="store_true", help="Output result summary in JSON format")
 
+    adapter_parser = subparsers.add_parser("adapter", help="Manage and inspect local LoRA adapters")
+    adapter_sub = adapter_parser.add_subparsers(dest="adapter_action", help="Adapter action")
+
+    adapter_list = adapter_sub.add_parser("list", help="List discovered LoRA adapters")
+    adapter_list.add_argument("--dir", help="Directory path to search for adapters")
+    adapter_list.add_argument("--json", action="store_true", help="Output in JSON format")
+
+    adapter_inspect = adapter_sub.add_parser("inspect", help="Inspect metadata of specific adapter")
+    adapter_inspect.add_argument("path", help="Path to adapter directory or safetensors file")
+    adapter_inspect.add_argument("--json", action="store_true", help="Output in JSON format")
+
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     if args.command == "embed":
@@ -687,6 +815,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             device=args.device,
             json_output=args.json,
         )
+
+    if args.command == "adapter":
+        if getattr(args, "adapter_action", None) == "inspect":
+            return handle_adapter_inspect(path=args.path, json_output=args.json)
+        return handle_adapter_list(adapters_dir=getattr(args, "dir", None), json_output=args.json)
 
     if args.command == "inspect-gguf":
         return handle_inspect_gguf(file_path=args.path, json_output=args.json)

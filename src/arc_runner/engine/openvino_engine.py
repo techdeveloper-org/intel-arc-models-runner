@@ -29,6 +29,7 @@ from arc_runner.core.exceptions import (
 )
 from arc_runner.engine.base import BaseEngine
 from arc_runner.engine.kv_cache import KVCacheManager
+from arc_runner.engine.lora_manager import LoRAManager
 from arc_runner.engine.models import EngineTelemetry, GenerationConfig, TokenChunk
 from arc_runner.utils.dll_loader import initialize_windows_dll_environment
 
@@ -38,14 +39,20 @@ class OpenVINOGenAIEngine(BaseEngine):
 
     VALID_DEVICE_PREFIXES = ("GPU", "NPU", "CPU")
 
-    def __init__(self, kv_manager: Optional[KVCacheManager] = None) -> None:
+    def __init__(
+        self,
+        kv_manager: Optional[KVCacheManager] = None,
+        lora_manager: Optional[LoRAManager] = None,
+    ) -> None:
         """Initialize the OpenVINO GenAI engine instance.
 
         Args:
             kv_manager: Optional KV-cache manager for context budgeting and headroom tracking.
+            lora_manager: Optional LoRA adapter manager for dynamic hot-swapping.
         """
         initialize_windows_dll_environment()
         self.kv_manager = kv_manager or KVCacheManager()
+        self.lora_manager = lora_manager or LoRAManager()
         self._pipeline: Any = None
         self._is_loaded: bool = False
         self._model_path: str = ""
@@ -141,6 +148,10 @@ class OpenVINOGenAIEngine(BaseEngine):
                 ov_config.stop_strings = set(config.stop_strings)
             if config.stop_token_ids:
                 ov_config.stop_token_ids = set(config.stop_token_ids)
+            if config.adapters:
+                ov_adapter_cfg = self.lora_manager.build_adapter_config(config.adapters)
+                if ov_adapter_cfg is not None:
+                    ov_config.adapters = ov_adapter_cfg
             return ov_config
         except Exception:
             return None
