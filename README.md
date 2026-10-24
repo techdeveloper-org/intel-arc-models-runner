@@ -559,72 +559,63 @@ Direct side-by-side prompt generation benchmark comparing the Intel Arc Xe-LPG i
 
 ---
 
-### 2. Multi-Complexity 3-Tier Deep Stress Benchmark (Easy | Medium | Hard)
-To test algorithmic reasoning, code generation, and long-context KV-cache scaling, the runner was subjected to three progressively demanding complexity tiers on the Intel Arc GPU:
+### 2. Multi-Model Live Silicon Physical Benchmarking (Sequential Reclaim Validation)
+
+To guarantee that performance numbers are 100% physically measured without permanently exhausting laptop disk storage, models are executed through our **Sequential Test-and-Reclaim Pipeline** (`scratch/run_live_sequential_model_benchmarks.py`). Each model is loaded, evaluated across Low, Medium, and Hard complexity tiers on the Intel Arc GPU and Intel AI Boost NPU, its telemetry logged, and its weights safely deleted before pulling the next:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                   DEEP 3-TIER BENCHMARK TELEMETRY (Physical Intel Arc GPU)                       │
-├──────────────────────────────┬──────────┬─────────────┬─────────────┬──────────────┬─────────────┤
-│ Task Complexity Tier         │ Tokens   │ TTFT (ms)   │ TPOT (ms)   │ Rate (tok/s) │ Duration    │
-├──────────────────────────────┼──────────┼─────────────┼─────────────┼──────────────┼─────────────┤
-│ Tier 1: Easy (Factual)       │ 23 tok   │ 284.0 ms    │ 20.24 ms    │ 31.54 tok/s  │ 0.73 s      │
-│ Tier 2: Medium (Python Code) │ 195 tok  │ 163.4 ms    │ 27.10 ms    │ 35.97 tok/s  │ 5.42 s      │
-│ Tier 3: Hard (Arch & Math)   │ 432 tok  │ 211.5 ms    │ 28.36 ms    │ 34.74 tok/s  │ 12.44 s     │
-└──────────────────────────────┴──────────┴─────────────┴─────────────┴──────────────┴─────────────┘
+│              LIVE PHYSICAL SILICON MEASUREMENTS (Intel Core Ultra 5 125H)                        │
+├────────────────────────────┬─────────┬──────────────┬──────────────┬──────────────┬──────────────┤
+│ Evaluated Model (Disk Size)│ Device  │ Tier 1: Low  │ Tier 2: Med  │ Tier 3: Hard │ Compilation  │
+├────────────────────────────┼─────────┼──────────────┼──────────────┼──────────────┼──────────────┤
+│ Qwen2.5-1.5B (910 MB)      │ Arc GPU │ 2.14s (6.1 t)│ 6.50s (17.1 t)│ 6.75s (22.1 t)│ 15.10s (USM) │
+│                            │ NPU 5W  │ 8.21s (1.8 t)│ -            │ -            │ 12.92s (VPU) │
+│ Llama-3.2-1B (768 MB)      │ Arc GPU │ 0.63s (28.6 t)│ 1.37s (41.7 t)│ 2.79s (44.7 t)│ 18.93s (USM) │
+│ DeepSeek-R1-1.5B (1.35 GB) │ Arc GPU │ 2.34s (13.7 t)│ 9.40s (12.9 t)│ 12.69s (23.1t)│ 41.79s (USM) │
+│ all-MiniLM-L6-v2 (86.8 MB) │ NPU 5W  │ 47.07 ms (384)│ -           │ -            │ 5.20s (VPU)  │
+└────────────────────────────┴─────────┴──────────────┴──────────────┴──────────────┴──────────────┘
 ```
 
-#### Detailed Workload Breakdown:
+#### Detailed Live Physical Workload Breakdown:
 
-- **Tier 1 — Easy: Instant Factual Latency (23 tokens in 0.73s)**
-  - *Prompt*: *"In one concise sentence, what is the capital of France and what is its most famous landmark?"*
-  - *Generated Response*:
-    > *"Paris, the capital city of France, is known for its Eiffel Tower as its most famous landmark."*
-  - *Evaluation*: Instantaneous response on idle silicon with zero dispatch stutter.
+- **1. Qwen2.5-1.5B-Instruct-int4-ov (Arc GPU & AI Boost NPU)**
+  - *Tier 1 (Low — Factual Latency)*: Prompt: *"What is the capital of France and what is its most famous tower?"*
+    - **Arc GPU Output**: `"Paris is the capital city of France, known for its iconic Eiffel Tower."` (13 tokens in 2.14s)
+    - **AI Boost NPU (5W) Output**: `"The capital of France is Paris, and its most famous tower is the Eiffel Tower."` (8.21s @ 5.0W)
+  - *Tier 2 (Medium — Python Palindrome Algorithm)*: Prompt: *"Write a clean Python function find_longest_palindrome(s: str) -> str using expand-around-center with O(1) auxiliary space."*
+    - **Arc GPU Output**: Syntactically valid Python implementation generating 111 tokens in 6.50s (17.07 tok/s).
+  - *Tier 3 (Hard — TCP Connection State Machine)*: Prompt: *"Design a finite state machine in Python for a TCP connection (CLOSED, LISTEN, SYN_SENT, SYN_RCVD, ESTABLISHED)..."*
+    - **Arc GPU Output**: Complete `class FSM` with dictionary state transitions generating 149 tokens in 6.75s (22.08 tok/s).
 
-- **Tier 2 — Medium: Algorithmic Logic & Python Implementation (195 tokens in 5.42s)**
-  - *Prompt*: *"Write a clean, fully documented Python function `find_longest_palindrome(s: str) -> str` using the expand-around-center approach with O(1) auxiliary space. Include the time and space complexity in the docstring."*
-  - *Generated Output*:
-    ```python
-    def find_longest_palindrome(s):
-        """
-        Finds the longest palindromic substring within s.
-        
-        Args:
-            s (str): The input string to search for the longest palindrome.
+- **2. Llama-3.2-1B-Instruct-openvino-4bit (Arc GPU)**
+  - *Tier 1 (Low — Instant Entity Extraction)*: Prompt: *"Extract the country and currency: 'He exchanged 500 US dollars for Japanese Yen in Tokyo.'"*
+    - **Arc GPU Output**: `"The country is Japan, and the currency is Japanese Yen."` in **0.630s (28.56 tok/s)**!
+  - *Tier 2 (Medium — Two-Sentence Summary with Negative Constraint)*: Prompt: *"Summarize speculative decoding in exactly two sentences. Do not use the word 'magic'."*
+    - **Arc GPU Output**: 57 tokens in **1.367s (41.71 tok/s)**.
+  - *Tier 3 (Hard — DMA Architecture & Technical Explanation)*: Prompt: *"Write a technical paragraph explaining how Direct Memory Access (DMA) bypasses the CPU for high-speed I/O."*
+    - **Arc GPU Output**: Complete 125-token technical architecture explanation in **2.794s (44.74 tok/s)**!
 
-        Returns:
-            str: The longest palindromic substring found in s.
-            
-        Time Complexity: O(n)
-        Space Complexity: O(1)
-        """
-        if not s or len(s) < 2:
-            return s
-        start = 0
-        end = len(s) - 1
-        while start >= 0 and end <= len(s) - 1:
-            left = right = start
-            while left >= 0 and right <= len(s) - 1 and s[left] == s[right]:
-                left -= 1
-                right += 1
-            if right - left > end - start:
-                start = left
-                end = right
-        return s[start:end+1]
-    ```
-  - *Evaluation*: Flawless Python syntax, accurate contract docstring, and sustained 35.97 tok/s code generation.
+- **3. DeepSeek-R1-Distill-Qwen-1.5B-int4-ov (Arc GPU Chain-of-Thought Reasoning)**
+  - *Tier 1 (Low — Division by Zero Rejection)*: Prompt: *"What is 750 divided by 0? State the exact mathematical result."*
+    - **Arc GPU Output**: `"To solve 756 divided by 0, I start by understanding that division by zero is undefined in mathematics..."` (32 tokens in 2.342s, 13.66 tok/s).
+  - *Tier 2 (Medium — Warehouse Multi-Step Arithmetic)*: Prompt: *"Solve step-by-step: A warehouse has 45 boxes with 12 items each. They receive an extra 256 items divided evenly into 8 cartons, but find that 47 items are damaged. How many undamaged items remain?"*
+    - **Arc GPU Output**: Traces intermediate logic $(45 \times 12) + (256/8) - 47$ over 121 tokens in 9.404s (12.87 tok/s).
+  - *Tier 3 (Hard — Cryptarithmetic SEND+MORE=MONEY Deduction)*: Prompt: *"Solve the cryptarithmetic puzzle SEND + MORE = MONEY step by step..."*
+    - **Arc GPU Output**: Sustained Chain-of-Thought mathematical deduction over 293 tokens in 12.69s (23.09 tok/s) without driver stutter.
 
-- **Tier 3 — Hard: Distributed Systems Architecture & Mathematical Estimation (432 tokens in 12.44s)**
-  - *Prompt*: *"Design a fault-tolerant, high-throughput event streaming engine processing 1,000,000 events/second with sub-10ms P99 latency: 1) Raft vs Paxos consensus, 2) Zero-copy kernel page cache persistence, 3) End-to-end backpressure, 4) Mathematical NIC bandwidth estimation for 512-byte events."*
-  - *Generated Output Highlights*: Complete multi-section architectural design covering Raft consensus, zero-copy `fsync` page cache flushing, token-bucket rate limiting to prevent OOM cascade, and mathematical formula calculation ($\text{Bandwidth} = \frac{1{,}000{,}000 \times 512 \times 8}{10^9} = 4.096\text{ Gbps}$).
-  - *Evaluation*: Sustained generation over 430+ tokens without driver reset or thermal throttle, maintaining 34.74 tok/s throughput.
+- **4. all-MiniLM-L6-v2-fp16-ov (Intel AI Boost NPU @ 5W)**
+  - *Tier 1 (Low — Direct Vector Embedding & Normalization)*:
+    - Input: `"The dog chased the ball across the park."`
+    - **NPU Physical Output**: Generates 384-dimensional unit vector in **47.07 ms** at **5.0W active power draw**!
 
-#### 📐 Mathematical Invariant Proof M48: Dynamic KV-Cache Growth vs Step Latency
-In autoregressive decoding, KV-cache expansion increases memory read footprint per step:
-$$B(t) = N_{\text{weights}} \cdot S_{\text{dtype}} + 2 \cdot N_{\text{layers}} \cdot N_{\text{heads}} \cdot D_{\text{head}} \cdot (L_{\text{prompt}} + t) \cdot S_{\text{kv}}$$
-$$\text{Measured Step Latency Ratio: } \frac{\text{TPOT}_{\text{Hard}}}{\text{TPOT}_{\text{Easy}}} = \frac{28.36\text{ ms}}{20.24\text{ ms}} = 1.40\times$$
-*Empirical Proof*: Confirms linear bounded scaling without memory allocator stutter or driver stalls under continuous Level Zero USM buffer reuse.
+```bash
+# Run sequential live benchmark and disk cleanup loop on any supported model
+python scratch/run_live_sequential_model_benchmarks.py --model qwen-2.5-1.5b
+python scratch/run_live_sequential_model_benchmarks.py --model llama-3.2-1b
+python scratch/run_live_sequential_model_benchmarks.py --model deepseek-r1-1.5b
+python scratch/run_live_sequential_model_benchmarks.py --model all-minilm-l6-v2
+```
 
 ---
 
