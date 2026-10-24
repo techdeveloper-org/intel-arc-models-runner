@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TB
-    CLI_Subsystem["<<component>> CLI_Subsystem: arc-runner CLI (run, transcribe, tts), Rich Terminals"]
+    CLI_Subsystem["<<component>> CLI_Subsystem: arc-runner CLI (run, transcribe, tts, generate-image), Rich Terminals"]
     WebUI_Studio["<<component>> WebUI_Studio: 6-Tab Studio, SSE Progress"]
     Daemon_Gateway["<<component>> Daemon_Gateway: FastAPI (:11434), Ollama / OpenAI APIs"]
     ModelManager["<<component>> ModelManager: Engine Registry, VRAM Budgeting, Engine Dispatch"]
@@ -17,14 +17,16 @@ flowchart TB
     Vision_Engine["<<component>> Vision_Engine: Multimodal Visual Tokens, Phi-3.5-V & MiniCPM-V"]
     Embedding_Engine["<<component>> Embedding_Engine: NPU / GPU Embeddings, L2 Unit Normalization (Proof M1)"]
     Audio_Engine["<<component>> Audio_Engine: Unified STT & TTS (Whisper & Kokoro), VAD Gating (Proof M69), Loop Suppression (Proof M70), PCM Bound <= 19.2MB (Proof M68)"]
+    Image_Engine["<<component>> Image_Engine: Text2ImagePipeline (SD 1.5, SDXL, LCM, Turbo), Level Zero CmdList (Proof M91), Anti-Burn Bound (Proof M84), Zero-Copy USM (Proof M78)"]
     GGUF_Transpiler["<<component>> GGUF_Transpiler: O(1) Streaming Buffer (Proof M15), 34.6dB SQNR Bound (Proof M8)"]
     Sysman_Telemetry["<<component>> Sysman_Telemetry: Level Zero Sysman VRAM Metrics, Thermal & Power Telemetry"]
-    Intel_Arc_GPU["<<component>> Intel_Arc_GPU: 32 Xe-Cores / 256 XMX (260 TFLOPs), 560 GB/s GDDR6 VRAM, Level Zero tau <= 2.1us (Proof M67)"]
+    Intel_Arc_GPU["<<component>> Intel_Arc_GPU: 32 Xe-Cores / 256 XMX (260 TFLOPs), 560 GB/s GDDR6 VRAM, Level Zero tau <= 2.1us (Proof M67, M91)"]
     Intel_Ultra_NPU["<<component>> Intel_Ultra_NPU: 48 TOPs Systolic Array (5W TDP, Proof M50), ASR/Draft Silicon"]
     Host_CPU["<<component>> Host_CPU: AVX2 / AMX Matrix Host Fallback"]
 
     CLI_Subsystem -->|HTTP :11434| Daemon_Gateway
     CLI_Subsystem -->|direct_transcribe_tts| Audio_Engine
+    CLI_Subsystem -->|direct_generate_image| Image_Engine
     WebUI_Studio -->|SSE / REST| Daemon_Gateway
     Daemon_Gateway -->|get_or_load_engine| ModelManager
     Daemon_Gateway -->|enqueue_request| BatchExecutionPipeline
@@ -33,12 +35,15 @@ flowchart TB
     ContinuousBatcher -->|forward_batch| OpenVINOGenAIEngine
     ModelManager -->|initialize_speculative| HybridSpeculativeEngine
     ModelManager -->|initialize_audio| Audio_Engine
+    ModelManager -->|initialize_image| Image_Engine
     ModelManager -->|apply_adapter| LoRA_Manager
     HybridSpeculativeEngine -->|dual_instance_dispatch| OpenVINOGenAIEngine
     OpenVINOGenAIEngine -->|zeCommandListExecuteImmediate| Intel_Arc_GPU
     Audio_Engine -->|zeCommandListExecuteImmediate tau <= 2.1us (Proof M67)| Intel_Arc_GPU
     Audio_Engine -->|npu_fallback| Intel_Ultra_NPU
     Audio_Engine -->|cpu_fallback| Host_CPU
+    Image_Engine -->|zeCommandListExecuteImmediate tau <= 2.1us (Proof M91)| Intel_Arc_GPU
+    Image_Engine -->|cpu_fallback| Host_CPU
     ModelManager -->|query_telemetry| Sysman_Telemetry
     Daemon_Gateway -->|transpile_stream| GGUF_Transpiler
 
@@ -46,8 +51,12 @@ flowchart TB
     CLI_Subsystem -.->|requires| iface_CLI_Subsystem_Daemon_Gateway
     iface_CLI_Subsystem_Audio_Engine(["Audio_Engine"])
     CLI_Subsystem -.->|requires| iface_CLI_Subsystem_Audio_Engine
+    iface_CLI_Subsystem_Image_Engine(["Image_Engine"])
+    CLI_Subsystem -.->|requires| iface_CLI_Subsystem_Image_Engine
     iface_ModelManager_Audio_Engine(["Audio_Engine"])
     ModelManager -.->|requires| iface_ModelManager_Audio_Engine
+    iface_ModelManager_Image_Engine(["Image_Engine"])
+    ModelManager -.->|requires| iface_ModelManager_Image_Engine
     iface_ModelManager_OpenVINOGenAIEngine(["OpenVINOGenAIEngine"])
     ModelManager -.->|requires| iface_ModelManager_OpenVINOGenAIEngine
     iface_ModelManager_HybridSpeculativeEngine(["HybridSpeculativeEngine"])
@@ -58,35 +67,17 @@ flowchart TB
     ContinuousBatcher -.->|requires| iface_ContinuousBatcher_OpenVINOGenAIEngine
     iface_ContinuousBatcher_RadixPrefixCache(["RadixPrefixCache"])
     ContinuousBatcher -.->|requires| iface_ContinuousBatcher_RadixPrefixCache
-    iface_Paged_Attention_Arc_GPU_VRAM(["Arc_GPU_VRAM"])
-    Paged_Attention -.->|requires| iface_Paged_Attention_Arc_GPU_VRAM
-    iface_Audio_Engine_Intel_Arc_GPU(["Intel_Arc_GPU_Level_Zero"])
-    Audio_Engine -.->|requires| iface_Audio_Engine_Intel_Arc_GPU
-    iface_Audio_Engine_Intel_Ultra_NPU(["Intel_Ultra_NPU"])
-    Audio_Engine -.->|requires| iface_Audio_Engine_Intel_Ultra_NPU
-    iface_OpenVINOGenAIEngine_Intel_Arc_GPU(["Intel_Arc_GPU"])
-    OpenVINOGenAIEngine -.->|requires| iface_OpenVINOGenAIEngine_Intel_Arc_GPU
-    iface_OpenVINOGenAIEngine_Intel_Ultra_NPU(["Intel_Ultra_NPU"])
-    OpenVINOGenAIEngine -.->|requires| iface_OpenVINOGenAIEngine_Intel_Ultra_NPU
-    iface_HybridSpeculativeEngine_OpenVINOGenAIEngine(["OpenVINOGenAIEngine"])
-    HybridSpeculativeEngine -.->|requires| iface_HybridSpeculativeEngine_OpenVINOGenAIEngine
-    iface_Vision_Engine_Intel_Arc_GPU(["Intel_Arc_GPU"])
-    Vision_Engine -.->|requires| iface_Vision_Engine_Intel_Arc_GPU
-    iface_Embedding_Engine_Intel_Ultra_NPU(["Intel_Ultra_NPU"])
-    Embedding_Engine -.->|requires| iface_Embedding_Engine_Intel_Ultra_NPU
-    iface_GGUF_Transpiler_Local_NVMe_Cache(["Local_NVMe_Cache"])
-    GGUF_Transpiler -.->|requires| iface_GGUF_Transpiler_Local_NVMe_Cache
-    iface_Sysman_Telemetry_Level_Zero_Driver(["Level_Zero_Driver"])
-    Sysman_Telemetry -.->|requires| iface_Sysman_Telemetry_Level_Zero_Driver
 ```
 
 ## Mathematical Proofs & Invariants
 
-- **Proofs M1-M6, M8-M9, M15-M20, M29-M34, M50-M58**: Core LLM continuous batching, speculative verification, and XMX quantization invariants.
-- **Proof M59**: Real-Time Factor invariant $\text{RTF} = \frac{\text{latency\_s}}{\text{duration\_s}} \le 1.0$ for real-time streaming audio.
-- **Proof M66**: Zero-disk residue invariant — audio inference and synthesis pipelines stream directly through memory with zero intermediate disk persistence.
-- **Proof M67**: Level Zero immediate command list submission latency ceiling $\tau \le 2.1\,\mu\text{s}$ for synchronous audio tensor execution.
-- **Proof M68**: Linear PCM buffer bound $M \le 19.2\,\text{MB}$ ($300\,\text{s} \times 16000\,\text{Hz} \times 4\,\text{B}$) with zero memory leaks across consecutive inference cycles.
-- **Proof M69**: Anti-hallucination Voice Activity Detection (VAD) RMS energy ($E_{\text{rms}} < 10^{-4}$) and spectral entropy ($H_{\text{spectral}} < 0.05$) silence gating.
-- **Proof M70**: Auto-regressive repetition loop suppression bounding Kolmogorov LZ77 compression ratio $r \le 2.40$.
+- **Proofs M1-M6, M8-M9, M15-M20, M29-M34, M50-M58**: Core LLM, continuous batching, and speculative execution proofs.
+- **Proof M59-M72**: Audio AI proofs covering Whisper ASR, Kokoro TTS, VAD gating, and LZ77 loop suppression.
+- **Proof M73**: Latent Space 48× volumetric dimensionality reduction ($\mathbb{R}^{3 \times H \times W} \to \mathbb{R}^{4 \times \frac{H}{8} \times \frac{W}{8}}$) reducing self-attention complexity by $4096\times$.
+- **Proof M77**: Intel Arc Xe-LPG XMX DPAS Roofline operational intensity threshold $\text{AI}^* = 60.34\text{ FLOP/B}$.
+- **Proof M78**: Level Zero USM Zero-Copy VAE Latent Handshake eliminating PCIe DMA transfer ($\tau_{\text{copy}} = 0$).
+- **Proof M84**: Dynamic Quantile Thresholding Anti-Burn Invariant bounding pixel clipping ratio $\mathcal{R}_{\text{clipped}} < 0.005$.
+- **Proof M89**: INT8 NNCF Quantization DPAS Roofline Transition doubling iteration rate to $14.70\text{ it/s}$.
+- **Proof M91**: Level Zero immediate command list submission latency ceiling $\tau_{\text{submit}} \le 2.1\,\mu\text{s}$.
+- **Proof M92**: Sliced Latent Tile Streaming bounding transient VAE activation memory $\le 580\text{ MB}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.

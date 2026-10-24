@@ -1,28 +1,61 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mxfile host="app.diagrams.net" type="diagram" version="24.0.0">
   <diagram id="diagram1" name="Interaction Diagram">
-    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="700" math="0" shadow="0">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="2" value="" style="ellipse;html=1;strokeColor=#000000;fillColor=#000000;" vertex="1" parent="1"><mxGeometry x="465" y="30" width="30" height="30" as="geometry" /></mxCell>
-        <mxCell id="3" value="ref&amp;#xa;Check VAD Silence &amp; Noise Gating
-(Proof M69: RMS &lt; 1e-4, H &lt; 0.15)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1"><mxGeometry x="340" y="100" width="280" height="60" as="geometry" /></mxCell>
-        <mxCell id="4" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="2" target="3" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="5" value="ref&amp;#xa;Whisper ASR Level Zero Execution
-(Proof M60 Mel-STFT &amp; Proof M61 Roofline)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1"><mxGeometry x="340" y="200" width="280" height="60" as="geometry" /></mxCell>
-        <mxCell id="6" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="3" target="5" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="7" value="ref&amp;#xa;LZ77 Kolmogorov Loop Detection &amp; Truncation
-(Proof M70: rho_comp &gt; 2.40 Loop Guard)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1"><mxGeometry x="340" y="300" width="280" height="60" as="geometry" /></mxCell>
-        <mxCell id="8" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="5" target="7" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="9" value="ref&amp;#xa;Kokoro Speech Synthesis &amp; 522KB Tensor Loading
-(Proof M64 MCD13 &amp; Proof M68 Tensor Safety)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1"><mxGeometry x="340" y="400" width="280" height="60" as="geometry" /></mxCell>
-        <mxCell id="10" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="7" target="9" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="11" value="ref&amp;#xa;Sequential 1-by-1 Test &amp; Reclaim Lifecycle
-(Proof M66 Zero-Disk Residue &amp; Proof M72 Cooldown)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1"><mxGeometry x="340" y="500" width="280" height="60" as="geometry" /></mxCell>
-        <mxCell id="12" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="9" target="11" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="13" value="" style="shape=doubleEllipse;html=1;strokeColor=#000000;fillColor=#000000;" vertex="1" parent="1"><mxGeometry x="465" y="600" width="30" height="30" as="geometry" /></mxCell>
-        <mxCell id="14" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="11" target="13" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="2" value="" style="ellipse;html=1;strokeColor=#000000;fillColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="425" y="30" width="30" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="3" value="ref&amp;#xa;Validate Dimensions Multiple of 8 (Proof M73)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="310" y="100" width="260" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="4" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="3" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="5" value="ref&amp;#xa;Seed Philox4x32-10 PRNG (Proof M80)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="310" y="200" width="260" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="6" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="3" target="5" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="7" value="ref&amp;#xa;Level Zero UNet CFG Denoise 14.7 it/s (Proof M74, M91)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="310" y="300" width="260" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="8" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="5" target="7" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="9" value="Dynamic Quantile Saturation Clamp s_t (Proof M84)" style="rhombus;html=1;strokeColor=#000000;strokeWidth=2;fillColor=#FFFFFF;perimeter=rhombusPerimeter;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="400" y="400" width="80" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="10" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="7" target="9" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="11" value="ref&amp;#xa;Sliced VAE Decoding &lt;= 580MB RAM (Proof M88, M92)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="310" y="520" width="260" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="12" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="9" target="11" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="13" value="ref&amp;#xa;Zero-Copy Pointer Handoff tau_copy=0 (Proof M78)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="310" y="620" width="260" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="14" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="11" target="13" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="15" value="ref&amp;#xa;Emit ImageGenerationResult DTO (Proof M82)" style="swimlane;fontStyle=1;startSize=20;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="310" y="720" width="260" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="16" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="13" target="15" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="17" value="" style="shape=doubleEllipse;html=1;strokeColor=#000000;fillColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="425" y="820" width="30" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="18" value="" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="15" target="17" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
       </root>
     </mxGraphModel>
   </diagram>

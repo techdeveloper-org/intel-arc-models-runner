@@ -5,184 +5,145 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-    <mxCell id="2" value="BaseEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="40" width="220" height="182" as="geometry" />
+    <mxCell id="2" value="ImageEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="220" height="222" as="geometry" />
     </mxCell>
-    <mxCell id="3" value="+ is_loaded: bool&#xa;+ model_path: Path&#xa;+ device: DeviceType" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="2">
-      <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
+    <mxCell id="3" value="-_pipeline: Text2ImagePipeline&amp;#xa;-_device: str&amp;#xa;-_config: ImageEngineConfig&amp;#xa;-_current_model_path: Optional[Path]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="2">
+      <mxGeometry x="0" y="26" width="220" height="84" as="geometry" />
     </mxCell>
     <mxCell id="4" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="2">
-      <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
+      <mxGeometry x="0" y="110" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="5" value="+* load_model(model_path: Path, device: DeviceType): None&#xa;+* generate_stream(prompt: str, config: GenerationConfig): Iterator[TokenChunk]&#xa;+* get_telemetry(): EngineTelemetry&#xa;+* unload(): None" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="2">
-      <mxGeometry x="0" y="98" width="220" height="84" as="geometry" />
+    <mxCell id="5" value="+load_model(model_path, device, compile_cache)&amp;#xa;+generate(request: ImageGenerationRequest)&amp;#xa;-_execute_generation(request)&amp;#xa;-_extract_pil_image(ov_tensor)&amp;#xa;+unload()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="2">
+      <mxGeometry x="0" y="118" width="220" height="104" as="geometry" />
     </mxCell>
-    <mxCell id="6" value="OpenVINOGenAIEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="330" y="40" width="220" height="142" as="geometry" />
+    <mxCell id="6" value="ImageEngineConfig" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="330" y="40" width="220" height="186" as="geometry" />
     </mxCell>
-    <mxCell id="7" value="- _pipeline: ov_genai.LLMPipeline&#xa;- _device: str" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="6">
-      <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
+    <mxCell id="7" value="+device: str&amp;#xa;+default_steps: int&amp;#xa;+default_guidance_scale: float&amp;#xa;+default_width: int&amp;#xa;+default_height: int&amp;#xa;+enable_compile_cache: bool" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="6">
+      <mxGeometry x="0" y="26" width="220" height="124" as="geometry" />
     </mxCell>
     <mxCell id="8" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="6">
-      <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
+      <mxGeometry x="0" y="150" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="9" value="+ load_model(model_path: Path, device: DeviceType): None&#xa;+ generate_stream(prompt: str, config: GenerationConfig): Iterator[TokenChunk]&#xa;- _build_ov_generation_config(config: GenerationConfig): ov_genai.GenerationConfig" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="6">
-      <mxGeometry x="0" y="78" width="220" height="64" as="geometry" />
+    <mxCell id="9" value=" " style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="6">
+      <mxGeometry x="0" y="158" width="220" height="28" as="geometry" />
     </mxCell>
-    <mxCell id="10" value="HybridSpeculativeEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="620" y="40" width="220" height="162" as="geometry" />
+    <mxCell id="10" value="ImageGenerationRequest" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="620" y="40" width="220" height="206" as="geometry" />
     </mxCell>
-    <mxCell id="11" value="- target_engine: OpenVINOGenAIEngine&#xa;- draft_engine: OpenVINOGenAIEngine&#xa;+ current_gamma: int" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="10">
-      <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
+    <mxCell id="11" value="+prompt: str&amp;#xa;+negative_prompt: str&amp;#xa;+width: int&amp;#xa;+height: int&amp;#xa;+steps: int&amp;#xa;+guidance_scale: float&amp;#xa;+seed: Optional[int]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="10">
+      <mxGeometry x="0" y="26" width="220" height="144" as="geometry" />
     </mxCell>
     <mxCell id="12" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="10">
-      <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
+      <mxGeometry x="0" y="170" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="13" value="+ load_model(model_path: Path, draft_model_path: Path): None&#xa;+ generate_stream(prompt: str, config: GenerationConfig): Iterator[TokenChunk]&#xa;- _validate_path(path: Path): Path" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="10">
-      <mxGeometry x="0" y="98" width="220" height="64" as="geometry" />
+    <mxCell id="13" value=" " style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="10">
+      <mxGeometry x="0" y="178" width="220" height="28" as="geometry" />
     </mxCell>
-    <mxCell id="14" value="ContinuousBatcher" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="910" y="40" width="220" height="142" as="geometry" />
+    <mxCell id="14" value="ImageGenerationBreakdown" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="910" y="40" width="220" height="126" as="geometry" />
     </mxCell>
-    <mxCell id="15" value="+ active_sequences_count: int&#xa;+ waiting_sequences_count: int" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="14">
-      <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
-    </mxCell>
-    <mxCell id="16" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="14">
-      <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
-    </mxCell>
-    <mxCell id="17" value="+ add_request(seq: BatchSequence): None&#xa;+ step(): List[TokenChunk]&#xa;+ preempt_sequence(seq_id: str): bool" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="14">
-      <mxGeometry x="0" y="78" width="220" height="64" as="geometry" />
-    </mxCell>
-    <mxCell id="18" value="PagedBlockTable" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="262" width="220" height="142" as="geometry" />
-    </mxCell>
-    <mxCell id="19" value="+ block_size: int&#xa;+ total_blocks: int&#xa;+ utilization_ratio: float" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="18">
+    <mxCell id="15" value="+text_encoder_ms: float&amp;#xa;+denoise_unet_ms: float&amp;#xa;+vae_decoder_ms: float" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="14">
       <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
     </mxCell>
-    <mxCell id="20" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="18">
+    <mxCell id="16" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="14">
       <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="21" value="+ get_sequence_blocks(seq_id: str): List[int]&#xa;+ get_block_map(): Dict[str, List[int]]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="18">
-      <mxGeometry x="0" y="98" width="220" height="44" as="geometry" />
+    <mxCell id="17" value=" " style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="14">
+      <mxGeometry x="0" y="98" width="220" height="28" as="geometry" />
     </mxCell>
-    <mxCell id="22" value="RadixPrefixCache" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="330" y="242" width="220" height="122" as="geometry" />
+    <mxCell id="18" value="ImageGenerationResult" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="326" width="220" height="206" as="geometry" />
     </mxCell>
-    <mxCell id="23" value="+ hit_rate: float&#xa;+ total_lookups: int" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="22">
-      <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
+    <mxCell id="19" value="+image: PIL.Image&amp;#xa;+latency_s: float&amp;#xa;+step_latency_ms: float&amp;#xa;+iteration_rate_it_s: float&amp;#xa;+megapixels_per_sec: float&amp;#xa;+device_used: str&amp;#xa;+seed_used: int" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="18">
+      <mxGeometry x="0" y="26" width="220" height="144" as="geometry" />
+    </mxCell>
+    <mxCell id="20" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="18">
+      <mxGeometry x="0" y="170" width="220" height="8" as="geometry" />
+    </mxCell>
+    <mxCell id="21" value=" " style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="18">
+      <mxGeometry x="0" y="178" width="220" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="22" value="BaseEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="330" y="302" width="220" height="182" as="geometry" />
+    </mxCell>
+    <mxCell id="23" value="+is_loaded&amp;#xa;+model_path&amp;#xa;+device" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="22">
+      <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
     </mxCell>
     <mxCell id="24" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="22">
-      <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
+      <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="25" value="+ match_prefix(tokens: List[int]): Tuple[int, List[int]]&#xa;+ insert_prefix(tokens: List[int], blocks: List[int]): None" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="22">
-      <mxGeometry x="0" y="78" width="220" height="44" as="geometry" />
+    <mxCell id="25" value="+*load_model()&amp;#xa;+*generate_stream()&amp;#xa;+*get_telemetry()&amp;#xa;+*unload()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="22">
+      <mxGeometry x="0" y="98" width="220" height="84" as="geometry" />
     </mxCell>
-    <mxCell id="26" value="LoRAManager" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="620" y="242" width="220" height="122" as="geometry" />
+    <mxCell id="26" value="OpenVINOGenAIEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="620" y="262" width="220" height="142" as="geometry" />
     </mxCell>
-    <mxCell id="27" value="+ adapters_dir: Path&#xa;+ max_cached: int" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="26">
+    <mxCell id="27" value="-_pipeline&amp;#xa;-_device" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="26">
       <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
     </mxCell>
     <mxCell id="28" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="26">
       <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="29" value="+ inspect_safetensors_header(path: Path): Dict[str, Any]&#xa;+ parse_adapter_metadata(path: Path): LoRAAdapterMetadata" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="26">
-      <mxGeometry x="0" y="78" width="220" height="44" as="geometry" />
-    </mxCell>
-    <mxCell id="30" value="VisionEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="910" y="242" width="220" height="142" as="geometry" />
-    </mxCell>
-    <mxCell id="31" value="+ patch_size: int&#xa;+ device: str" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="30">
-      <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
-    </mxCell>
-    <mxCell id="32" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="30">
-      <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
-    </mxCell>
-    <mxCell id="33" value="+ calculate_visual_tokens(width: int, height: int): int&#xa;+ decode_image_tensor(image_bytes: bytes): np.ndarray&#xa;+ generate(prompt: str, image_bytes: bytes): str" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="30">
+    <mxCell id="29" value="+load_model()&amp;#xa;+generate_stream()&amp;#xa;-_build_ov_generation_config()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="26">
       <mxGeometry x="0" y="78" width="220" height="64" as="geometry" />
     </mxCell>
-    <mxCell id="60" value="AudioEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#D5E8D4;strokeColor=#82B366;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="440" width="260" height="240" as="geometry" />
+    <mxCell id="30" value="HybridSpeculativeEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="910" y="282" width="220" height="162" as="geometry" />
     </mxCell>
-    <mxCell id="61" value="- _config: AudioEngineConfig&#xa;- _whisper_pipe: Any&#xa;- _tts_pipe: Any&#xa;- _speaker_cache: Dict[str, Any]&#xa;+ is_loaded: bool&#xa;+ device: str" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="60">
-      <mxGeometry x="0" y="26" width="260" height="88" as="geometry" />
+    <mxCell id="31" value="-target_engine&amp;#xa;-draft_engine&amp;#xa;+current_gamma" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="30">
+      <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
     </mxCell>
-    <mxCell id="62" value="" style="line;html=1;strokeColor=#82B366;strokeWidth=1;fillColor=none;" vertex="1" parent="60">
-      <mxGeometry x="0" y="114" width="260" height="8" as="geometry" />
+    <mxCell id="32" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="30">
+      <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="63" value="+ load_model(path, device, task_type)&#xa;+ transcribe(audio, lang): TranscriptionResult&#xa;+ synthesize(text, voice, speed): SynthesisResult&#xa;+ save_audio_wav(samples, path, rate)$ : Path&#xa;+ unload(): void" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="60">
-      <mxGeometry x="0" y="122" width="260" height="110" as="geometry" />
+    <mxCell id="33" value="+load_model()&amp;#xa;+generate_stream()&amp;#xa;-_validate_path()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="30">
+      <mxGeometry x="0" y="98" width="220" height="64" as="geometry" />
     </mxCell>
-    <mxCell id="64" value="AudioEngineConfig" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#D5E8D4;strokeColor=#82B366;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="340" y="440" width="230" height="150" as="geometry" />
+    <mxCell id="34" value="AudioEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="564" width="220" height="182" as="geometry" />
     </mxCell>
-    <mxCell id="65" value="+ device: str = 'GPU'&#xa;+ sample_rate: int = 16000&#xa;+ tts_sample_rate: int = 24000&#xa;+ default_tts_voice: str = 'af_heart'&#xa;+ vad_energy_threshold: float = 1e-4&#xa;+ vad_entropy_threshold: float = 0.05&#xa;+ max_compression_ratio: float = 2.40" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="64">
-      <mxGeometry x="0" y="26" width="230" height="114" as="geometry" />
+    <mxCell id="35" value="-_pipeline&amp;#xa;-_device&amp;#xa;-_config: AudioEngineConfig" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="34">
+      <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
     </mxCell>
-    <mxCell id="66" value="TranscriptionResult" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#D5E8D4;strokeColor=#82B366;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="610" y="440" width="230" height="150" as="geometry" />
+    <mxCell id="36" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="34">
+      <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="67" value="+ text: str&#xa;+ segments: List[TranscriptionSegment]&#xa;+ latency_s: float&#xa;+ audio_duration_s: float&#xa;+ rtf: float (Proof M59)&#xa;+ compression_ratio: float (Proof M70)&#xa;+ device_used: str" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="66">
-      <mxGeometry x="0" y="26" width="230" height="114" as="geometry" />
+    <mxCell id="37" value="+load_model()&amp;#xa;+transcribe()&amp;#xa;+synthesize()&amp;#xa;+unload()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="34">
+      <mxGeometry x="0" y="98" width="220" height="84" as="geometry" />
     </mxCell>
-    <mxCell id="68" value="SynthesisResult" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#D5E8D4;strokeColor=#82B366;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="880" y="440" width="230" height="150" as="geometry" />
+    <mxCell id="38" value="ContinuousBatcher" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="330" y="484" width="220" height="142" as="geometry" />
     </mxCell>
-    <mxCell id="69" value="+ audio_samples: List[float]&#xa;+ sample_rate: int = 24000&#xa;+ duration_s: float&#xa;+ latency_s: float&#xa;+ rtf: float (Proof M59)&#xa;+ voice_used: str&#xa;+ device_used: str" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="68">
-      <mxGeometry x="0" y="26" width="230" height="114" as="geometry" />
+    <mxCell id="39" value="+active_sequences_count&amp;#xa;+waiting_sequences_count" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="38">
+      <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
     </mxCell>
-    <mxCell id="70" value="AudioEngineError" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#F8CECC;strokeColor=#B85450;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="720" width="240" height="130" as="geometry" />
+    <mxCell id="40" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="38">
+      <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="71" value="AudioTranscriptionError&#xa;AudioSynthesisError&#xa;InvalidAudioFormatError&#xa;VoiceNotFoundError" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="70">
-      <mxGeometry x="0" y="26" width="240" height="96" as="geometry" />
+    <mxCell id="41" value="+add_request()&amp;#xa;+step()&amp;#xa;+preempt_sequence()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="38">
+      <mxGeometry x="0" y="78" width="220" height="64" as="geometry" />
     </mxCell>
-    <mxCell id="42" value="ModelManager" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="320" y="720" width="220" height="126" as="geometry" />
-    </mxCell>
-    <mxCell id="43" value="+ model_dirs: List[Path]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="42">
-      <mxGeometry x="0" y="26" width="220" height="28" as="geometry" />
-    </mxCell>
-    <mxCell id="44" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="42">
-      <mxGeometry x="0" y="54" width="220" height="8" as="geometry" />
-    </mxCell>
-    <mxCell id="45" value="+ get_or_load_engine(model_id, dev)&#xa;+ get_or_load_embedding_engine(id)&#xa;+ get_or_load_vision_engine(id)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="42">
-      <mxGeometry x="0" y="62" width="220" height="64" as="geometry" />
-    </mxCell>
-    <mxCell id="50" value="DeviceDetector" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="580" y="720" width="220" height="106" as="geometry" />
-    </mxCell>
-    <mxCell id="53" value="+ detect_topology(): SystemTopology&#xa;- _classify_gpu_architecture(name)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="50">
-      <mxGeometry x="0" y="26" width="220" height="70" as="geometry" />
-    </mxCell>
-    <mxCell id="54" value="LevelZeroSysman" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="840" y="720" width="220" height="106" as="geometry" />
-    </mxCell>
-    <mxCell id="57" value="+ is_available(): bool&#xa;+ query_gpu_memory(): Tuple[int, int]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="54">
-      <mxGeometry x="0" y="26" width="220" height="70" as="geometry" />
-    </mxCell>
-    <mxCell id="58" value="" style="endArrow=block;endFill=0;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="6" target="2" parent="1">
+    <mxCell id="42" value="" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="22" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="59" value="" style="endArrow=block;endFill=0;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="10" target="2" parent="1">
+    <mxCell id="43" value="" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="34" target="22" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="72" value="" style="endArrow=diamond;endFill=1;html=1;strokeColor=#82B366;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="64" target="60" parent="1">
+    <mxCell id="44" value="" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="26" target="22" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="73" value="creates" style="endArrow=open;dashed=1;html=1;strokeColor=#82B366;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="60" target="66" parent="1">
+    <mxCell id="45" value="" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="30" target="22" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="74" value="creates" style="endArrow=open;dashed=1;html=1;strokeColor=#82B366;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="60" target="68" parent="1">
+    <mxCell id="46" value="" style="endArrow=diamond;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="6" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="75" value="raises" style="endArrow=open;dashed=1;html=1;strokeColor=#B85450;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="60" target="70" parent="1">
+    <mxCell id="47" value="" style="endArrow=open;endSize=8;dashed=1;html=1;strokeColor=#000000;strokeWidth=1;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="10" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="76" value="probes" style="endArrow=open;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="60" target="50" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="77" value="loads" style="endArrow=open;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="42" target="60" parent="1">
+    <mxCell id="48" value="" style="endArrow=open;endSize=8;dashed=1;html=1;strokeColor=#000000;strokeWidth=1;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="18" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
       </root>

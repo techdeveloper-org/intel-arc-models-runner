@@ -58,77 +58,74 @@ classDiagram
         +compression_ratio: float
     }
     class SynthesisResult {
-        +audio_samples: List[float]
+        +samples: np.ndarray
         +sample_rate: int
-        +duration_s: float
         +latency_s: float
+        +audio_duration_s: float
         +rtf: float
-        +throughput_audio_s_per_s: float
+        +energy_yield_audio_s_per_j: float
         +device_used: str
         +voice_used: str
-        +model_name: str
+        +speed_used: float
     }
     class AudioEngine {
-        -_config: AudioEngineConfig
-        -_model_path: Optional[Path]
+        -_pipeline
         -_device: str
-        -_task_type: Optional[str]
-        -_whisper_pipe: Any
-        -_tts_pipe: Any
-        -_speaker_cache: Dict[str, Any]
-        -_topology: DeviceTopology
-        +is_loaded: bool
-        +model_path: Optional[Path]
+        -_config: AudioEngineConfig
+        -_current_model_path: Optional[Path]
+        -_current_task: Optional[str]
+        +load_model(model_path: Path, device: str, task_type: str)
+        +transcribe(audio_input: Union[str, Path, np.ndarray], ...)
+        +synthesize(text: str, voice: str, speed: float)
+        -_normalize_audio_input(audio_input)
+        -_is_silence_or_noise(samples)
+        -_detect_repetition_loop(text)
+        -_load_speaker_embedding(voice_name)
+        +save_audio_wav(samples, output_path)
+        +unload()
+    }
+    class ImageEngineConfig {
         +device: str
-        +task_type: Optional[str]
-        +load_model(model_path, device, task_type)
-        +transcribe(audio, language, task, return_timestamps): TranscriptionResult
-        +synthesize(text, voice, speed): SynthesisResult
-        -_normalize_audio_input(audio): Tuple[List[float], float]
-        -_is_silence_or_noise(samples): bool
-        -_detect_repetition_loop(text): float
-        -_load_speaker_embedding(voice_name): Any
-        +save_audio_wav(samples, output_path, sample_rate) Path
-        +unload(): void
+        +default_steps: int
+        +default_guidance_scale: float
+        +default_width: int
+        +default_height: int
+        +enable_compile_cache: bool
     }
-    class ArcRunnerError {
-        +message: str
-        +error_code: str
-        +status_code: int
+    class ImageGenerationRequest {
+        +prompt: str
+        +negative_prompt: str
+        +width: int
+        +height: int
+        +steps: int
+        +guidance_scale: float
+        +seed: Optional[int]
     }
-    class AudioEngineError {
-        +message: str
-        +error_code: str
-        +status_code: int
+    class ImageGenerationBreakdown {
+        +text_encoder_ms: float
+        +denoise_unet_ms: float
+        +vae_decoder_ms: float
     }
-    class AudioTranscriptionError {
-        +message: str
+    class ImageGenerationResult {
+        +image: Any
+        +latency_s: float
+        +step_latency_ms: float
+        +iteration_rate_it_s: float
+        +megapixels_per_sec: float
+        +breakdown: ImageGenerationBreakdown
+        +device_used: str
+        +seed_used: int
     }
-    class AudioSynthesisError {
-        +message: str
-    }
-    class InvalidAudioFormatError {
-        +message: str
-    }
-    class VoiceNotFoundError {
-        +voice_name: str
-        +available_voices: List[str]
-    }
-    class CuratedModelInfo {
-        +alias: str
-        +repo_id: str
-        +parameter_size: str
-        +quantization: str
-        +family: str
-        +target_device: str
-        +size_bytes: int
-        +model_type: str
-    }
-    class ModelManager {
-        +model_dirs
-        +get_or_load_engine(model_id: str, device: str)
-        +get_or_load_embedding_engine(model_id: str)
-        +get_or_load_vision_engine(model_id: str)
+    class ImageEngine {
+        -_pipeline
+        -_device: str
+        -_config: ImageEngineConfig
+        -_current_model_path: Optional[Path]
+        +load_model(model_path: Path, device: str, compile_cache: bool)
+        +generate(request: ImageGenerationRequest)
+        -_execute_generation(request: ImageGenerationRequest)
+        -_extract_pil_image(ov_tensor)
+        +unload()
     }
     class ContinuousBatcher {
         +active_sequences_count
@@ -138,50 +135,56 @@ classDiagram
         +preempt_sequence(seq_id: str)
     }
     class PagedBlockTable {
-        +block_size
-        +total_blocks
-        +utilization_ratio
-        +get_sequence_blocks(seq_id: str)
-        +get_block_map()
+        +block_size: int
+        +total_blocks: int
+        +utilization_ratio: float
+        +allocate(seq_id: str, num_blocks: int)
+        +free(seq_id: str)
     }
     class RadixPrefixCache {
-        +hit_rate
-        +total_lookups
+        +cached_tokens_count: int
         +match_prefix(tokens: List[int])
-        +insert_prefix(tokens: List[int], blocks: List[int])
+        +insert_prefix(tokens: List[int], block_ids: List[int])
     }
-    class DeviceDetector {
-        +detect_topology()
-        -_classify_gpu_architecture(name: str)
+    class BatchExecutionPipeline {
+        -_batcher: ContinuousBatcher
+        -_model_mgr: ModelManager
+        +enqueue(request: GenerateRequest)
+        +abort(request_id: str)
     }
-    class LevelZeroSysman {
-        +is_available()
-        +query_gpu_memory()
+    class LoRAManager {
+        -_adapters: Dict[str, LoRAAdapter]
+        -_lru_cache: List[str]
+        +load_adapter(name: str, path: Path)
+        +apply_adapter(engine, name: str)
     }
 
     BaseEngine <|-- OpenVINOGenAIEngine
     BaseEngine <|-- HybridSpeculativeEngine
-    ArcRunnerError <|-- AudioEngineError
-    AudioEngineError <|-- AudioTranscriptionError
-    AudioEngineError <|-- AudioSynthesisError
-    AudioEngineError <|-- InvalidAudioFormatError
-    AudioEngineError <|-- VoiceNotFoundError
+    BaseEngine <|-- AudioEngine
+    BaseEngine <|-- ImageEngine
     AudioEngine *-- AudioEngineConfig
-    AudioEngine ..> TranscriptionResult : creates
-    AudioEngine ..> SynthesisResult : creates
-    AudioEngine ..> AudioEngineError : raises
-    AudioEngine --> DeviceDetector : probes
+    AudioEngine ..> TranscriptionResult
+    AudioEngine ..> SynthesisResult
     TranscriptionResult *-- TranscriptionSegment
-    ModelManager --> AudioEngine : loads
+    ImageEngine *-- ImageEngineConfig
+    ImageEngine ..> ImageGenerationRequest
+    ImageEngine ..> ImageGenerationResult
+    ImageGenerationResult *-- ImageGenerationBreakdown
+    ContinuousBatcher *-- PagedBlockTable
+    ContinuousBatcher *-- RadixPrefixCache
+    BatchExecutionPipeline o-- ContinuousBatcher
 ```
 
 ## Mathematical Proofs & Invariants
 
-- **Proofs M1-M6, M8-M9, M15-M20, M29-M34, M50-M58**: Core LLM continuous batching, speculative verification, and XMX quantization invariants.
-- **Proof M59**: Real-Time Factor invariant $\text{RTF} = \frac{\text{latency\_s}}{\text{duration\_s}} \le 1.0$ for real-time streaming audio.
-- **Proof M66**: Zero-disk residue invariant — transient audio buffers and compiled pipelines execute strictly in-memory without persistent disk cache pollution.
-- **Proof M67**: Level Zero immediate command list dispatch latency ceiling $\tau \le 2.1\,\mu\text{s}$ for synchronous audio tensor execution.
-- **Proof M68**: Linear PCM buffer bound $M \le 19.2\,\text{MB}$ ($300\,\text{s} \times 16000\,\text{Hz} \times 4\,\text{B}$) with zero memory leaks across successive pipeline invocations.
-- **Proof M69**: Anti-hallucination Voice Activity Detection (VAD) RMS energy ($E_{\text{rms}} < 10^{-4}$) and spectral entropy ($H_{\text{spectral}} < 0.05$) silence gating bypassing speech decoders.
-- **Proof M70**: Auto-regressive repetition loop suppression bounding Kolmogorov LZ77 compression ratio $r \le 2.40$.
+- **Proof M1-M6, M8-M9, M15-M20, M29-M34**: Transformer KV caching, Little's Law, speculative decoding.
+- **Proof M59-M72**: Audio AI proofs for Whisper ASR and Kokoro TTS.
+- **Proof M73**: Latent Space 48× volumetric dimensionality reduction.
+- **Proof M74**: Classifier-Free Guidance Score Interpolation Invariant.
+- **Proof M78**: Unified Shared Memory (USM) zero-copy tensor extraction.
+- **Proof M80**: Philox4x32-10 PRNG Deterministic Hash Invariant.
+- **Proof M84**: Dynamic Quantile Thresholding Anti-Burn Invariant ($\mathcal{R}_{\text{clipped}} < 0.005$).
+- **Proof M87**: Gram-Schmidt Negative Guidance Projection Invariant.
+- **Proof M91**: Level Zero immediate command list driver latency ceiling $\tau_{\text{submit}} \le 2.1\,\mu\text{s}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.
