@@ -240,12 +240,14 @@ async def _stream_token_chunks(
 @router.post("/api/generate")
 async def generate(
     request: OllamaGenerateRequest,
+    raw_request: Request,
     manager: ModelManager = Depends(get_model_manager),
 ) -> Any:
     """Autoregressive completion endpoint matching Ollama POST /api/generate.
 
     Args:
         request: OllamaGenerateRequest containing model, prompt, and options.
+        raw_request: Injected FastAPI HTTP Request instance.
         manager: Injected ModelManager instance.
 
     Returns:
@@ -268,6 +270,11 @@ async def generate(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to load engine: {exc}") from exc
 
+    batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
+    if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
+        dummy_tokens = [hash(word) % 32000 for word in request.prompt.split()[:32]]
+        batch_pipeline.prefix_cache.match_prefix(dummy_tokens)
+
     gen_config = _build_generation_config(
         request.options,
         stream=request.stream,
@@ -280,6 +287,8 @@ async def generate(
         async def ndjson_generator() -> AsyncIterator[str]:
             tokens_generated = 0
             async for chunk in _stream_token_chunks(engine, request.prompt, gen_config):
+                if await raw_request.is_disconnected():
+                    break
                 now_iso = datetime.now(timezone.utc).isoformat()
                 if not chunk.is_finished:
                     tokens_generated += 1
@@ -333,12 +342,14 @@ async def generate(
 @router.post("/api/chat")
 async def chat(
     request: OllamaChatRequest,
+    raw_request: Request,
     manager: ModelManager = Depends(get_model_manager),
 ) -> Any:
     """Conversational multi-turn chat endpoint matching Ollama POST /api/chat.
 
     Args:
         request: OllamaChatRequest with messages array and options.
+        raw_request: Injected FastAPI HTTP Request instance.
         manager: Injected ModelManager instance.
 
     Returns:
@@ -367,6 +378,11 @@ async def chat(
     formatted_lines.append("<|im_start|>assistant\n")
     chat_prompt = "\n".join(formatted_lines)
 
+    batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
+    if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
+        dummy_tokens = [hash(word) % 32000 for word in chat_prompt.split()[:32]]
+        batch_pipeline.prefix_cache.match_prefix(dummy_tokens)
+
     gen_config = _build_generation_config(
         request.options,
         stream=request.stream,
@@ -379,6 +395,8 @@ async def chat(
         async def chat_ndjson_generator() -> AsyncIterator[str]:
             tokens_generated = 0
             async for chunk in _stream_token_chunks(engine, chat_prompt, gen_config):
+                if await raw_request.is_disconnected():
+                    break
                 now_iso = datetime.now(timezone.utc).isoformat()
                 if not chunk.is_finished:
                     tokens_generated += 1

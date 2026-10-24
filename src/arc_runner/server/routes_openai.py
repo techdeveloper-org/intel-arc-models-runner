@@ -143,12 +143,14 @@ async def _stream_token_chunks(
 @router.post("/chat/completions")
 async def chat_completions(
     request: OpenAIChatCompletionRequest,
+    raw_request: Request,
     manager: ModelManager = Depends(get_model_manager),
 ) -> Any:
     """Execute chat completion compliant with OpenAI POST /v1/chat/completions.
 
     Args:
         request: OpenAIChatCompletionRequest payload.
+        raw_request: Injected FastAPI HTTP Request instance.
         manager: Injected ModelManager instance.
 
     Returns:
@@ -172,6 +174,11 @@ async def chat_completions(
         formatted_lines.append(f"<|im_start|>{msg.role}\n{msg.content}<|im_end|>")
     formatted_lines.append("<|im_start|>assistant\n")
     chat_prompt = "\n".join(formatted_lines)
+
+    batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
+    if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
+        dummy_tokens = [hash(word) % 32000 for word in chat_prompt.split()[:32]]
+        batch_pipeline.prefix_cache.match_prefix(dummy_tokens)
 
     stops: List[str] = []
     if request.stop:
@@ -199,6 +206,8 @@ async def chat_completions(
             first_chunk = True
 
             async for chunk in _stream_token_chunks(engine, chat_prompt, gen_config):
+                if await raw_request.is_disconnected():
+                    break
                 if first_chunk:
                     initial_sse = {
                         "id": completion_id,

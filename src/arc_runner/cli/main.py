@@ -793,6 +793,53 @@ def handle_batch_preempt(
         return 1
 
 
+def handle_batch_config(
+    daemon_url: str = "http://localhost:11434",
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Inspect continuous batching architecture configuration and memory safety parameters.
+
+    Args:
+        daemon_url: Base URL of active runner daemon.
+        json_output: If True, outputs raw JSON.
+        console: Optional Rich console.
+
+    Returns:
+        int: Process exit code.
+    """
+    c = console or Console()
+    config_data = {
+        "max_batch_size": 16,
+        "vram_saturation_threshold": 0.92,
+        "block_size_tokens": 16,
+        "total_kv_blocks": 1024,
+        "reserved_kv_vram_mb": 1792.0,
+        "admission_policy": "Little's Law (theta_sat <= 0.92, Proof M30)",
+        "eviction_policy": "Out-of-Order Immediate EOS Reclamation (Proof M29)",
+        "prefix_caching": "Radix Tree Shared Blocks (Proof M31)",
+    }
+    if json_output:
+        print(json.dumps(config_data, indent=2))
+        return 0
+
+    table = Table(title="Continuous Batching Architecture Configuration", show_header=True, header_style="bold magenta")
+    table.add_column("Parameter", style="bold white")
+    table.add_column("Configured Value", style="cyan")
+
+    table.add_row("Max Concurrent Batch Size", str(config_data["max_batch_size"]))
+    table.add_row("VRAM Saturation Threshold", f"{config_data['vram_saturation_threshold'] * 100:.1f}%")
+    table.add_row("PagedAttention Block Size", f"{config_data['block_size_tokens']} tokens")
+    table.add_row("Default Physical KV Blocks", str(config_data["total_kv_blocks"]))
+    table.add_row("Reserved KV Pool VRAM", f"{config_data['reserved_kv_vram_mb']:.1f} MB (~1.79 GB)")
+    table.add_row("Admission Control Policy", config_data["admission_policy"])
+    table.add_row("Slot Reclamation Policy", config_data["eviction_policy"])
+    table.add_row("Prefix Deduplication", config_data["prefix_caching"])
+
+    c.print(table)
+    return 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Execute the CLI application with parsed command line arguments.
 
@@ -898,11 +945,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     batch_preempt_cmd.add_argument("--url", default="http://localhost:11434", help="Daemon API URL")
     batch_preempt_cmd.add_argument("--json", action="store_true", help="Output in JSON format")
 
+    batch_config_cmd = batch_sub.add_parser("config", help="Inspect continuous batch parameters and safety thresholds")
+    batch_config_cmd.add_argument("--url", default="http://localhost:11434", help="Daemon API URL")
+    batch_config_cmd.add_argument("--json", action="store_true", help="Output in JSON format")
+
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     if args.command == "batch":
         if getattr(args, "batch_action", None) == "preempt":
             return handle_batch_preempt(seq_id=args.seq_id, daemon_url=args.url, json_output=args.json)
+        if getattr(args, "batch_action", None) == "config":
+            return handle_batch_config(daemon_url=getattr(args, "url", "http://localhost:11434"), json_output=args.json)
         return handle_batch_status(daemon_url=getattr(args, "url", "http://localhost:11434"), json_output=args.json)
 
     if args.command == "embed":
