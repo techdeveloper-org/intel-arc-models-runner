@@ -1178,7 +1178,7 @@ def handle_studio(
     voice: str = "af_heart",
     modality: str = "IMAGE_SLIDE",
     strategy: str = "HETEROGENEOUS_PARALLEL",
-    resolution: str = "512x512",
+    resolution: str = "1280x720",
     fps: int = 16,
     output: Optional[str] = None,
     json_output: bool = False,
@@ -1599,7 +1599,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     studio_parser.add_argument("--voice", default="af_heart", help="Kokoro TTS voice style slug (default: af_heart)")
     studio_parser.add_argument("--modality", default="IMAGE_SLIDE", choices=["IMAGE_SLIDE", "ANIMATED_VIDEO"], help="Visual modality")
     studio_parser.add_argument("--strategy", default="HETEROGENEOUS_PARALLEL", choices=["HETEROGENEOUS_PARALLEL", "SEQUENTIAL_EXCLUSIVE"], help="Silicon scheduling")
-    studio_parser.add_argument("--resolution", default="512x512", help="Video resolution WIDTHxHEIGHT (default: 512x512)")
+    studio_parser.add_argument("--resolution", default="1280x720", help="Video resolution WIDTHxHEIGHT (default: 1280x720)")
     studio_parser.add_argument("--fps", type=int, default=16, help="Video framerate (default: 16)")
     studio_parser.add_argument("--output", "-o", default=None, help="Destination filename for exported MP4")
     studio_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
