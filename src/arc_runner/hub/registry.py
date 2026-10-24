@@ -4,7 +4,7 @@ Provides alias resolution, architectural metadata, parameter counts, and quantiz
 specifications for verified models on Intel Arc GPUs and Intel AI Boost NPUs.
 """
 
-from typing import Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -20,7 +20,8 @@ class CuratedModelInfo(BaseModel):
     target_device: str = Field(description="Recommended silicon target (GPU, NPU, HYBRID)")
     size_bytes: int = Field(description="Estimated on-disk weight footprint in bytes")
     context_window: int = Field(description="Maximum native context window tokens")
-    sha256_checksum: Optional[str] = Field(default=None, description="Published reference checksum")
+    model_type: str = Field(default="llm", description="Model modality: 'llm', 'embedding', 'vision', 'stt', 'tts'")
+    sha256_checksum: str | None = Field(default=None, description="Published reference checksum")
 
     @property
     def model_id(self) -> str:
@@ -31,7 +32,7 @@ class CuratedModelInfo(BaseModel):
 class ModelRegistry:
     """Registry maintaining curated Intel-optimized models and alias resolution logic."""
 
-    _MODELS: Dict[str, CuratedModelInfo] = {
+    _MODELS: dict[str, CuratedModelInfo] = {
         "llama-3.2-3b": CuratedModelInfo(
             alias="llama-3.2-3b",
             repo_id="OpenVINO/Llama-3.2-3B-Instruct-int4-ov",
@@ -163,6 +164,91 @@ class ModelRegistry:
             target_device="GPU",
             size_bytes=4500000000,
             context_window=32768,
+            model_type="vision",
+        ),
+        "whisper-tiny": CuratedModelInfo(
+            alias="whisper-tiny",
+            repo_id="OpenVINO/whisper-tiny-fp16-ov",
+            parameter_size="39M",
+            quantization="FP16 (OpenVINO IR)",
+            family="whisper",
+            description="Ultra-lightweight 39M Whisper speech recognition model for low-latency ASR",
+            target_device="GPU",
+            size_bytes=75000000,
+            context_window=448,
+            model_type="stt",
+        ),
+        "whisper-base": CuratedModelInfo(
+            alias="whisper-base",
+            repo_id="OpenVINO/whisper-base-fp16-ov",
+            parameter_size="74M",
+            quantization="FP16 (OpenVINO IR)",
+            family="whisper",
+            description="Standard baseline 74M parameter Whisper ASR model for general speech transcription",
+            target_device="GPU",
+            size_bytes=145000000,
+            context_window=448,
+            model_type="stt",
+        ),
+        "whisper-small": CuratedModelInfo(
+            alias="whisper-small",
+            repo_id="OpenVINO/whisper-small-fp16-ov",
+            parameter_size="244M",
+            quantization="FP16 (OpenVINO IR)",
+            family="whisper",
+            description="High-accuracy 244M parameter Whisper model for multi-speaker transcription",
+            target_device="GPU",
+            size_bytes=480000000,
+            context_window=448,
+            model_type="stt",
+        ),
+        "whisper-large-v3-turbo": CuratedModelInfo(
+            alias="whisper-large-v3-turbo",
+            repo_id="OpenVINO/whisper-large-v3-turbo-int4-ov",
+            parameter_size="809M",
+            quantization="INT4 (Symmetric, Group 128)",
+            family="whisper",
+            description="Optimized 809M Whisper Large v3 Turbo in INT4 for enterprise ASR with low latency",
+            target_device="GPU",
+            size_bytes=500000000,
+            context_window=448,
+            model_type="stt",
+        ),
+        "distil-whisper-large-v3": CuratedModelInfo(
+            alias="distil-whisper-large-v3",
+            repo_id="OpenVINO/distil-whisper-large-v3-int4-ov",
+            parameter_size="756M",
+            quantization="INT4 (Symmetric, Group 128)",
+            family="whisper",
+            description="Distilled 756M Whisper model achieving 6x faster inference with minimal WER drift",
+            target_device="GPU",
+            size_bytes=450000000,
+            context_window=448,
+            model_type="stt",
+        ),
+        "kokoro-82m": CuratedModelInfo(
+            alias="kokoro-82m",
+            repo_id="OpenVINO/Kokoro-82M-fp16-ov",
+            parameter_size="82M",
+            quantization="FP16 (OpenVINO IR)",
+            family="kokoro",
+            description="State-of-the-art 82M StyleTTS2 Kokoro TTS model with natural prosody and multi-voice support",
+            target_device="GPU",
+            size_bytes=160000000,
+            context_window=510,
+            model_type="tts",
+        ),
+        "kokoro-82m-int8": CuratedModelInfo(
+            alias="kokoro-82m-int8",
+            repo_id="OpenVINO/Kokoro-82M-int8-ov",
+            parameter_size="82M",
+            quantization="INT8 (Symmetric, Group 128)",
+            family="kokoro",
+            description="Quantized 82M Kokoro TTS in INT8 for extreme throughput and sub-100MB footprint",
+            target_device="GPU",
+            size_bytes=85000000,
+            context_window=510,
+            model_type="tts",
         ),
     }
 
@@ -185,12 +271,19 @@ class ModelRegistry:
             return cls._MODELS[tag_clean]
 
         family = "custom"
+        m_type = "llm"
         if "llama" in clean_key:
             family = "llama"
         elif "qwen" in clean_key:
             family = "qwen"
         elif "phi" in clean_key:
             family = "phi"
+        elif "whisper" in clean_key:
+            family = "whisper"
+            m_type = "stt"
+        elif "kokoro" in clean_key or "speech" in clean_key or "tts" in clean_key:
+            family = "kokoro"
+            m_type = "tts"
 
         return CuratedModelInfo(
             alias=alias_or_repo,
@@ -202,10 +295,11 @@ class ModelRegistry:
             target_device="GPU",
             size_bytes=2000000000,
             context_window=4096,
+            model_type=m_type,
         )
 
     @classmethod
-    def get_all(cls) -> Dict[str, CuratedModelInfo]:
+    def get_all(cls) -> dict[str, CuratedModelInfo]:
         """Retrieve copy of all registered models mapped by slug alias.
 
         Returns:
@@ -214,7 +308,7 @@ class ModelRegistry:
         return cls._MODELS.copy()
 
     @classmethod
-    def list_curated(cls) -> List[CuratedModelInfo]:
+    def list_curated(cls) -> list[CuratedModelInfo]:
         """Retrieve ordered list of all registered curated models.
 
         Returns:

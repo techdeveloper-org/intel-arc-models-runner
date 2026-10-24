@@ -1,0 +1,389 @@
+{
+  "testbed": "Intel64 Family 6 Model 170 Stepping 4, GenuineIntel",
+  "models": {
+    "whisper-tiny": {
+      "model": "whisper-tiny",
+      "type": "stt",
+      "repo_id": "OpenVINO/whisper-tiny-fp16-ov",
+      "download_time_s": 0.0,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Short Command & Control ASR",
+          "target_text": "Computer, activate Level Zero hardware accelerator.",
+          "audio_duration_s": 3.0,
+          "latency_s": 4.3577,
+          "rtf": 1.4526,
+          "throughput_ratio": 0.69,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 0.033,
+          "compression_ratio": 1.0
+        },
+        "medium": {
+          "name": "Technical Spec Utterance with Digits & Acronyms",
+          "target_text": "Intel Arc Xe-LPG contains 8 Xe cores with 1024 FLOPs per cycle per XMX DPAS tile.",
+          "audio_duration_s": 8.5,
+          "latency_s": 0.1554,
+          "rtf": 0.0183,
+          "throughput_ratio": 54.69,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 2.602,
+          "compression_ratio": 1.0
+        },
+        "hard": {
+          "name": "Fast Conversational Discourse with Ambient Noise",
+          "target_text": "In continuous batching with paged block tables, Little's Law guarantees token slot admission while preventing GPU VRAM exhaustion during concurrent streaming requests.",
+          "audio_duration_s": 18.0,
+          "latency_s": 0.2249,
+          "rtf": 0.0125,
+          "throughput_ratio": 80.02,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 3.81,
+          "compression_ratio": 1.0
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 0.6559,
+          "rtf": 0.2186,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 0.8856,
+          "rtf": 0.1042,
+          "power_watts": 45.0
+        }
+      },
+      "gpu_compile_time_s": 2.17
+    },
+    "whisper-base": {
+      "model": "whisper-base",
+      "type": "stt",
+      "repo_id": "OpenVINO/whisper-base-fp16-ov",
+      "download_time_s": 27.22281419998035,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Factual Interrogative Utterance",
+          "target_text": "What is the clock frequency of the Intel Core Ultra processor?",
+          "audio_duration_s": 4.0,
+          "latency_s": 0.2941,
+          "rtf": 0.0735,
+          "throughput_ratio": 13.6,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 0.648,
+          "compression_ratio": 1.0
+        },
+        "medium": {
+          "name": "Multi-Clause Compound Sentence with Temporal Segments",
+          "target_text": "Although traditional OpenCL driver queues introduce kernel transition overhead, Level Zero immediate command lists submit tasks in less than 2.1 microseconds.",
+          "audio_duration_s": 10.0,
+          "latency_s": 0.3544,
+          "rtf": 0.0354,
+          "throughput_ratio": 28.22,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 1.345,
+          "compression_ratio": 1.0
+        },
+        "hard": {
+          "name": "Dense Hardware Microarchitecture Protocol Passage",
+          "target_text": "Direct Memory Access bypasses the central processing unit, allowing peripheral devices like network interface controllers to transfer packets straight into physical DDR5 RAM without bus starvation.",
+          "audio_duration_s": 22.0,
+          "latency_s": 0.5989,
+          "rtf": 0.0272,
+          "throughput_ratio": 36.73,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 1.751,
+          "compression_ratio": 1.0
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 1.9438,
+          "rtf": 0.486,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 1.5257,
+          "rtf": 0.1526,
+          "power_watts": 45.0
+        }
+      },
+      "gpu_compile_time_s": 37.5
+    },
+    "whisper-small": {
+      "model": "whisper-small",
+      "type": "stt",
+      "repo_id": "OpenVINO/whisper-small-fp16-ov",
+      "download_time_s": 72.8708970999578,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Proper Named Entity & Geographic Landmark ASR",
+          "target_text": "Dr. Thomas Vance visited CERN in Geneva to inspect the Large Hadron Collider.",
+          "audio_duration_s": 5.0,
+          "latency_s": 0.6691,
+          "rtf": 0.1338,
+          "throughput_ratio": 7.47,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 0.356,
+          "compression_ratio": 1.0
+        },
+        "medium": {
+          "name": "Mathematical Derivation & DSP Acoustical Passage",
+          "target_text": "The Fourier transform of a rectangular window yields a sinc function with sidelobe attenuation of negative thirteen decibels.",
+          "audio_duration_s": 12.0,
+          "latency_s": 6.7994,
+          "rtf": 0.5666,
+          "throughput_ratio": 1.76,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 0.084,
+          "compression_ratio": 1.0
+        },
+        "hard": {
+          "name": "30-Second Complete System Architecture Lecture",
+          "target_text": "Heterogeneous compute architectures integrate discrete matrix accelerators and systolic neural processing units across shared virtual memory buses, enabling client-side speculative decoding where draft models execute at 5 watts while verification passes saturate GPU GDDR6 bandwidth.",
+          "audio_duration_s": 30.0,
+          "latency_s": 0.7158,
+          "rtf": 0.0239,
+          "throughput_ratio": 41.91,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 1.992,
+          "compression_ratio": 1.0
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 7.1175,
+          "rtf": 1.4235,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 5.7494,
+          "rtf": 0.4791,
+          "power_watts": 45.0
+        }
+      },
+      "gpu_compile_time_s": 43.5
+    },
+    "whisper-large-v3-turbo": {
+      "model": "whisper-large-v3-turbo",
+      "type": "stt",
+      "repo_id": "OpenVINO/whisper-large-v3-turbo-int4-ov",
+      "download_time_s": 92.15223470004275,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Low-Amplitude Whispered Acoustic Utterance",
+          "target_text": "The secret passcode for root authentication is Alpha-7-Zero-Niner.",
+          "audio_duration_s": 4.5,
+          "latency_s": 6.3862,
+          "rtf": 1.4192,
+          "throughput_ratio": 0.7,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 0.034,
+          "compression_ratio": 31.71
+        },
+        "medium": {
+          "name": "Accented & Dialectal Complex Technical Passage",
+          "target_text": "Operating system kernels employ lock-free single-producer single-consumer ring buffers with atomic acquire-release semantics to communicate between audio callbacks and user interface threads.",
+          "audio_duration_s": 14.0,
+          "latency_s": 1.2879,
+          "rtf": 0.092,
+          "throughput_ratio": 10.87,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 0.518,
+          "compression_ratio": 1.0
+        },
+        "hard": {
+          "name": "Multilingual Code-Switching Speech",
+          "target_text": "Artificial intelligence (\u0915\u0943\u0924\u094d\u0930\u093f\u092e \u092c\u0941\u0926\u094d\u0927\u093f\u092e\u0924\u094d\u0924\u093e) is revolutionizing enterprise software architectures across global distributed clusters.",
+          "audio_duration_s": 25.0,
+          "latency_s": 1.3273,
+          "rtf": 0.0531,
+          "throughput_ratio": 18.83,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 0.897,
+          "compression_ratio": 1.0
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 26.9277,
+          "rtf": 5.9839,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 11.5558,
+          "rtf": 0.8254,
+          "power_watts": 45.0
+        }
+      },
+      "gpu_compile_time_s": 67.94
+    },
+    "distil-whisper-large-v3": {
+      "model": "distil-whisper-large-v3",
+      "type": "stt",
+      "repo_id": "OpenVINO/distil-whisper-large-v3-int4-ov",
+      "download_time_s": 51.934939899947494,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "High-Cadence Conversational Burst",
+          "target_text": "Yes, acknowledged. The deployment finished with zero errors.",
+          "audio_duration_s": 3.5,
+          "latency_s": 1.2536,
+          "rtf": 0.3582,
+          "throughput_ratio": 2.79,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 0.133,
+          "compression_ratio": 1.0
+        },
+        "medium": {
+          "name": "Formal Legal & Regulatory Software License Clause",
+          "target_text": "The licensee shall not decompile, reverse-engineer, or disassemble any binary components without explicit written authorization.",
+          "audio_duration_s": 11.0,
+          "latency_s": 1.1929,
+          "rtf": 0.1084,
+          "throughput_ratio": 9.22,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 0.439,
+          "compression_ratio": 1.0
+        },
+        "hard": {
+          "name": "Dense 30-Second Distributed Database Architecture Exposition",
+          "target_text": "Telemetry collectors stream time-series metrics over gRPC protocol buffers, persisting events into distributed LSM-tree columnar storage engines with guaranteed write-ahead logging durability.",
+          "audio_duration_s": 30.0,
+          "latency_s": 1.2486,
+          "rtf": 0.0416,
+          "throughput_ratio": 24.03,
+          "power_watts": 21.0,
+          "energy_yield_audio_s_per_j": 1.145,
+          "compression_ratio": 1.0
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 14.8229,
+          "rtf": 4.2351,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 12.046,
+          "rtf": 1.0951,
+          "power_watts": 45.0
+        }
+      },
+      "gpu_compile_time_s": 11.83
+    },
+    "kokoro-82m": {
+      "model": "kokoro-82m",
+      "type": "tts",
+      "repo_id": "OpenVINO/Kokoro-82M-fp16-ov",
+      "download_time_s": 27.422136200009845,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Instant System Status Speech Synthesis",
+          "prompt": "System online. All heterogeneous silicon devices are operational.",
+          "voice": "af_heart",
+          "speed": 1.0,
+          "generated_duration_s": 5.1,
+          "latency_s": 40.9003,
+          "rtf": 8.0197,
+          "throughput_ratio": 0.12,
+          "power_watts": 20.0,
+          "energy_yield_audio_s_per_j": 0.006
+        },
+        "medium": {
+          "name": "Hardware Technical Narration with Numbers",
+          "prompt": "The Intel Arc matrix architecture utilizes 8 XMX systolic engines per Xe core, executing 1024 floating point operations every single clock cycle.",
+          "voice": "am_adam",
+          "speed": 1.0,
+          "generated_duration_s": 11.05,
+          "latency_s": 45.0959,
+          "rtf": 4.0811,
+          "throughput_ratio": 0.25,
+          "power_watts": 20.0,
+          "energy_yield_audio_s_per_j": 0.012
+        },
+        "hard": {
+          "name": "Long-Form Expressive Discourse with British Styling",
+          "prompt": "Welcome to the Intel Arc Models Runner studio. By combining client-side speculative decoding with Level Zero immediate command lists, local artificial intelligence achieves cloud-grade responsiveness while cutting power consumption by up to sixty two percent.",
+          "voice": "bf_alice",
+          "speed": 1.0,
+          "generated_duration_s": 16.85,
+          "latency_s": 51.5145,
+          "rtf": 3.0572,
+          "throughput_ratio": 0.33,
+          "power_watts": 20.0,
+          "energy_yield_audio_s_per_j": 0.016
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 11.0016,
+          "rtf": 2.1572,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 14.9908,
+          "rtf": 1.3566,
+          "power_watts": 45.0
+        }
+      },
+      "gpu_compile_time_s": 89.45
+    },
+    "kokoro-82m-int8": {
+      "model": "kokoro-82m-int8",
+      "type": "tts",
+      "repo_id": "OpenVINO/Kokoro-82M-int8-ov",
+      "download_time_s": 33.68886490003206,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Ultra-Low-Latency Haptic Voice Confirmation",
+          "prompt": "Task complete. Model deleted from disk.",
+          "voice": "af_bella",
+          "speed": 1.0,
+          "generated_duration_s": 3.45,
+          "latency_s": 49.3735,
+          "rtf": 14.3111,
+          "throughput_ratio": 0.07,
+          "power_watts": 20.0,
+          "energy_yield_audio_s_per_j": 0.003
+        },
+        "medium": {
+          "name": "Accelerated Playback Speed Scaling (1.25x)",
+          "prompt": "Real-time factor measures the ratio of inference wall-clock time to the generated audio duration.",
+          "voice": "bm_george",
+          "speed": 1.25,
+          "generated_duration_s": 7.725,
+          "latency_s": 81.8948,
+          "rtf": 10.6013,
+          "throughput_ratio": 0.09,
+          "power_watts": 20.0,
+          "energy_yield_audio_s_per_j": 0.005
+        },
+        "hard": {
+          "name": "Extended Multi-Sentence Discourse Stress Test",
+          "prompt": "Heterogeneous client silicon represents a paradigm shift in local machine learning. By orchestrating lightweight neural processing units alongside high-throughput discrete graphics processing units, local applications can run both generative language models and speech synthesis simultaneously. This architectural blueprint demonstrates that mathematical rigor and hardware-level optimization yield zero bloat and maximum efficiency.",
+          "voice": "af_heart",
+          "speed": 1.0,
+          "generated_duration_s": 27.65,
+          "latency_s": 55.4227,
+          "rtf": 2.0044,
+          "throughput_ratio": 0.5,
+          "power_watts": 20.0,
+          "energy_yield_audio_s_per_j": 0.025
+        }
+      },
+      "cpu_benchmarks": {
+        "low": {
+          "latency_s": 7.1661,
+          "rtf": 2.0622,
+          "power_watts": 45.0
+        },
+        "medium": {
+          "latency_s": 10.457,
+          "rtf": 1.3537,
+          "power_watts": 45.0
+        }
+      },
+      "gpu_compile_time_s": 73.87
+    }
+  }
+}

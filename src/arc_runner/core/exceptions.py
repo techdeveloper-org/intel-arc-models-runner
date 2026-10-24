@@ -4,7 +4,6 @@ Provides typed exceptions for model loading, device targeting, memory exhaustion
 and inference timeout conditions in accordance with Rule 19 exception standards.
 """
 
-from typing import List, Optional
 
 
 class ArcRunnerError(Exception):
@@ -58,7 +57,7 @@ class ModelNotFoundError(ArcRunnerError):
 class DeviceNotFoundError(ArcRunnerError):
     """Raised when a requested accelerator device is not detected."""
 
-    def __init__(self, device: str, available_devices: Optional[List[str]] = None) -> None:
+    def __init__(self, device: str, available_devices: list[str] | None = None) -> None:
         """Initialize the device not found exception.
 
         Args:
@@ -142,3 +141,69 @@ class AOTCompilationError(ArcRunnerError):
         super().__init__(f"AOT compilation failed for '{model_id}' on {device}: {message}", "AOT_COMPILATION_FAILED", 500)
         self.model_id = model_id
         self.device = device
+
+
+class AudioEngineError(ArcRunnerError):
+    """Base exception for all audio engine operations and runtime failures."""
+
+    def __init__(self, message: str, error_code: str = "AUDIO_ENGINE_ERROR", status_code: int = 500) -> None:
+        """Initialize the audio engine exception.
+
+        Args:
+            message: Human-readable error description.
+            error_code: Unique machine-readable error token.
+            status_code: Corresponding HTTP status code.
+        """
+        super().__init__(message, error_code, status_code)
+
+
+class AudioTranscriptionError(AudioEngineError):
+    """Raised when speech recognition transcription pipeline encounters a failure."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize the transcription failure exception.
+
+        Args:
+            message: Failure reason details.
+        """
+        super().__init__(f"Audio transcription failed: {message}", "TRANSCRIPTION_FAILED", 500)
+
+
+class AudioSynthesisError(AudioEngineError):
+    """Raised when text-to-speech synthesis pipeline encounters a failure."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize the synthesis failure exception.
+
+        Args:
+            message: Failure reason details.
+        """
+        super().__init__(f"Audio synthesis failed: {message}", "SYNTHESIS_FAILED", 500)
+
+
+class InvalidAudioFormatError(AudioEngineError):
+    """Raised when audio input fails format, channel, or sample rate validation."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize the invalid audio format exception.
+
+        Args:
+            message: Validation failure details.
+        """
+        super().__init__(f"Invalid audio format: {message}", "INVALID_AUDIO_FORMAT", 400)
+
+
+class VoiceNotFoundError(AudioEngineError):
+    """Raised when a requested speaker voice embedding cannot be resolved."""
+
+    def __init__(self, voice_name: str, available_voices: list[str] | None = None) -> None:
+        """Initialize the voice not found exception.
+
+        Args:
+            voice_name: Requested voice identifier.
+            available_voices: Optional list of known valid voice slugs.
+        """
+        avail_str = f" Available: {', '.join(available_voices)}" if available_voices else ""
+        super().__init__(f"Voice embedding '{voice_name}' not found.{avail_str}", "VOICE_NOT_FOUND", 404)
+        self.voice_name = voice_name
+        self.available_voices = available_voices or []

@@ -2,6 +2,13 @@
 
 from typing import List
 from arc_runner.engine.aot_cache import AOTCompilationManager
+from arc_runner.engine.audio_engine import (
+    AudioEngine,
+    AudioEngineConfig,
+    SynthesisResult,
+    TranscriptionResult,
+    TranscriptionSegment,
+)
 from arc_runner.engine.base import BaseEngine
 from arc_runner.engine.continuous_batcher import (
     AdmissionDeniedError,
@@ -43,6 +50,8 @@ from arc_runner.engine.vision_engine import (
 __all__: List[str] = [
     "AdmissionDeniedError",
     "AOTCompilationManager",
+    "AudioEngine",
+    "AudioEngineConfig",
     "BaseEngine",
     "BatchSequence",
     "BlockTableLookupError",
@@ -62,7 +71,10 @@ __all__: List[str] = [
     "RadixPrefixCache",
     "SequenceState",
     "SpeculativeConfig",
+    "SynthesisResult",
     "TokenChunk",
+    "TranscriptionResult",
+    "TranscriptionSegment",
     "EngineTelemetry",
     "KVAllocation",
     "ModelPrecision",

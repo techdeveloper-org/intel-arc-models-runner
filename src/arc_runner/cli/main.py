@@ -840,6 +840,125 @@ def handle_batch_config(
     return 0
 
 
+def handle_transcribe(
+    audio_file: str,
+    model_id: str = "whisper-base",
+    device: str = "GPU",
+    language: Optional[str] = None,
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Transcribe an audio file using Whisper on Intel Arc GPU or host CPU.
+
+    Args:
+        audio_file: Path to input WAV/FLAC audio file.
+        model_id: Model slug or directory path (default: 'whisper-base').
+        device: Target execution device ('GPU', 'NPU', or 'CPU').
+        language: Optional language code (e.g. 'en').
+        json_output: Emit machine-readable JSON output.
+        console: Optional Rich Console.
+
+    Returns:
+        int: Process return code (0 for success, 1 on failure).
+    """
+    c = console or Console()
+    try:
+        from arc_runner.engine.audio_engine import AudioEngine, AudioEngineConfig
+
+        audio_path = Path(audio_file).resolve()
+        if not audio_path.is_file():
+            c.print(f"[bold red]Audio file not found:[/bold red] {audio_file}")
+            return 1
+
+        model_mgr = ModelManager()
+        try:
+            resolved_model = model_mgr.resolve_model_path(model_id)
+        except Exception:  # noqa: BLE001
+            resolved_model = Path(model_id).resolve()
+
+        cfg = AudioEngineConfig(device=device, language=language)
+        engine = AudioEngine(cfg)
+        engine.load_model(resolved_model, device=device)
+        res = engine.transcribe(audio_path, language=language)
+
+        if json_output:
+            print(res.model_dump_json(indent=2))
+        else:
+            c.print(
+                Panel(
+                    f"[bold green]Transcription Result[/bold green] [dim]({res.audio_duration_s:.2f}s audio | RTF: {res.rtf:.4f} | Latency: {res.latency_s:.3f}s)[/dim]\n\n{res.text}",
+                    title=f"Audio Engine: {model_id} ({device})",
+                    border_style="cyan",
+                )
+            )
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        c.print(f"[bold red]Transcription failed:[/bold red] {exc}")
+        return 1
+
+
+def handle_tts(
+    prompt: str,
+    output_path: str = "output.wav",
+    model_id: str = "kokoro-82m",
+    voice: str = "af_heart",
+    speed: float = 1.0,
+    device: str = "GPU",
+    json_output: bool = False,
+    console: Optional[Console] = None,
+) -> int:
+    """Synthesize speech waveform from text prompt using Kokoro on Intel silicon.
+
+    Args:
+        prompt: Text string to synthesize into speech.
+        output_path: Destination WAV audio file path.
+        model_id: Model slug or directory path (default: 'kokoro-82m').
+        voice: Target voice identifier (e.g. 'af_heart', 'am_adam', 'bf_alice').
+        speed: Speech playback rate multiplier (default: 1.0).
+        device: Target execution device ('GPU' or 'CPU').
+        json_output: Emit machine-readable JSON output.
+        console: Optional Rich Console.
+
+    Returns:
+        int: Process return code (0 for success, 1 on failure).
+    """
+    c = console or Console()
+    try:
+        from arc_runner.engine.audio_engine import AudioEngine, AudioEngineConfig
+
+        model_mgr = ModelManager()
+        try:
+            resolved_model = model_mgr.resolve_model_path(model_id)
+        except Exception:  # noqa: BLE001
+            resolved_model = Path(model_id).resolve()
+
+        cfg = AudioEngineConfig(device=device, default_voice=voice)
+        engine = AudioEngine(cfg)
+        engine.load_model(resolved_model, device=device)
+        res = engine.synthesize(prompt, voice=voice, speed=speed)
+
+        out_path = Path(output_path).resolve()
+        engine.save_audio_wav(res.audio_samples, out_path, sample_rate=res.sample_rate)
+
+        if json_output:
+            print(res.model_dump_json(indent=2))
+        else:
+            c.print(
+                Panel(
+                    f"[bold green]Speech Synthesized Successfully[/bold green]\n"
+                    f"Destination: [cyan]{out_path}[/cyan]\n"
+                    f"Duration: [bold]{res.duration_s:.2f}s[/bold] | Sample Rate: [dim]{res.sample_rate} Hz[/dim]\n"
+                    f"Latency: [bold]{res.latency_s:.3f}s[/bold] | RTF: [bold]{res.rtf:.4f}[/bold] ({res.duration_s / max(0.001, res.latency_s):.2f}x real-time)",
+                    title=f"TTS Engine: {model_id} ({device})",
+                    border_style="magenta",
+                )
+            )
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        c.print(f"[bold red]Speech synthesis failed:[/bold red] {exc}")
+        return 1
+
+
 def handle_test_hardware(
     device: str = "ALL",
     iterations: int = 10,
@@ -1077,6 +1196,22 @@ def main(argv: Optional[List[str]] = None) -> int:
     test_hw_parser.add_argument("--iterations", type=int, default=10, help="Number of benchmark iterations (default: 10)")
     test_hw_parser.add_argument("--json", action="store_true", help="Output in JSON format")
 
+    transcribe_parser = subparsers.add_parser("transcribe", help="Transcribe speech audio file using Whisper on Intel Arc GPU/CPU")
+    transcribe_parser.add_argument("audio", help="Path to input audio file (WAV, FLAC, MP3)")
+    transcribe_parser.add_argument("--model", default="whisper-base", help="Model slug or path (default: whisper-base)")
+    transcribe_parser.add_argument("--device", default="GPU", choices=["GPU", "NPU", "CPU"], help="Execution device (default: GPU)")
+    transcribe_parser.add_argument("--language", default=None, help="Spoken language code (e.g. en)")
+    transcribe_parser.add_argument("--json", action="store_true", help="Output in JSON format")
+
+    tts_parser = subparsers.add_parser("tts", help="Synthesize natural speech from text prompt using Kokoro on Intel Arc GPU/CPU")
+    tts_parser.add_argument("prompt", help="Text prompt to synthesize")
+    tts_parser.add_argument("--output", "-o", default="output.wav", help="Output WAV path (default: output.wav)")
+    tts_parser.add_argument("--model", default="kokoro-82m", help="Model slug or path (default: kokoro-82m)")
+    tts_parser.add_argument("--voice", default="af_heart", help="Voice style (e.g. af_heart, am_adam, bf_alice)")
+    tts_parser.add_argument("--speed", type=float, default=1.0, help="Playback speed multiplier (default: 1.0)")
+    tts_parser.add_argument("--device", default="GPU", choices=["GPU", "CPU"], help="Execution device (default: GPU)")
+    tts_parser.add_argument("--json", action="store_true", help="Output in JSON format")
+
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     if args.command == "test-hardware":
@@ -1152,6 +1287,26 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.command == "rm":
         return handle_rm(model_id=args.model, base_dir=args.dir)
+
+    if args.command == "transcribe":
+        return handle_transcribe(
+            audio_file=args.audio,
+            model_id=args.model,
+            device=args.device,
+            language=args.language,
+            json_output=args.json,
+        )
+
+    if args.command == "tts":
+        return handle_tts(
+            prompt=args.prompt,
+            output_path=args.output,
+            model_id=args.model,
+            voice=args.voice,
+            speed=args.speed,
+            device=args.device,
+            json_output=args.json,
+        )
 
     if args.command == "benchmark":
         return handle_benchmark(
