@@ -5,121 +5,178 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-    <mxCell id="2" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;CLI_Subsystem&amp;#xa;arc-runner devices&amp;#xa;arc-runner run&amp;#xa;arc-runner serve" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="2" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;CLI_Subsystem&amp;#xa;arc-runner CLI&amp;#xa;Rich Terminals" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="40" y="40" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="3" value="arc-runner devices" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="3" value="arc-runner CLI" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="245" y="60" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="4" value="arc-runner run" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="4" value="Rich Terminals" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="245" y="100" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="5" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Daemon_Gateway&amp;#xa;/api/generate&amp;#xa;/api/chat&amp;#xa;/api/tags" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="5" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;WebUI_Studio&amp;#xa;6-Tab Studio&amp;#xa;SSE Progress" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="320" y="40" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="6" value="/api/generate" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="6" value="6-Tab Studio" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="525" y="60" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="7" value="/api/chat" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="7" value="SSE Progress" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="525" y="100" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="8" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Inference_Service&amp;#xa;generate_stream&amp;#xa;generate_batch&amp;#xa;tokenize_prompt" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="8" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Daemon_Gateway&amp;#xa;FastAPI (:11434)&amp;#xa;Ollama / OpenAI APIs" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="600" y="40" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="9" value="generate_stream" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="9" value="FastAPI (:11434)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="805" y="60" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="10" value="generate_batch" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="10" value="Ollama / OpenAI APIs" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="805" y="100" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="11" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Device_Service&amp;#xa;probe_all_devices&amp;#xa;get_vram_telemetry&amp;#xa;monitor_thermals" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="11" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;ModelManager&amp;#xa;Engine Registry&amp;#xa;VRAM Budgeting" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="40" y="240" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="12" value="probe_all_devices" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="12" value="Engine Registry" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="245" y="260" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="13" value="get_vram_telemetry" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="13" value="VRAM Budgeting" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="245" y="300" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="14" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Model_Registry&amp;#xa;pull_model&amp;#xa;list_local_models&amp;#xa;validate_ir_weights" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="14" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;BatchExecutionPipeline&amp;#xa;Async Worker Loop&amp;#xa;Client Disconnects" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="320" y="240" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="15" value="pull_model" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="15" value="Async Worker Loop" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="525" y="260" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="16" value="list_local_models" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="16" value="Client Disconnects" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="525" y="300" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="17" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Heterogeneous_Orchestrator&amp;#xa;route_request&amp;#xa;execute_fallback" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="17" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;ContinuousBatcher&amp;#xa;Iteration Batching (Proof M29)&amp;#xa;Little's Law Gate (Proof M30)" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="600" y="240" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="18" value="route_request" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="18" value="Iteration Batching (Proof M29)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="805" y="260" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="19" value="execute_fallback" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="19" value="Little's Law Gate (Proof M30)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="805" y="300" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="20" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;OpenVINO_GenAI_Engine&amp;#xa;execute_gpu&amp;#xa;execute_npu&amp;#xa;execute_cpu" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="20" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Paged_Attention&amp;#xa;Virtual Paged Blocks&amp;#xa;Radix Prefix Dedup (Proof M31)" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="40" y="440" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="21" value="execute_gpu" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="21" value="Virtual Paged Blocks" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="245" y="460" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="22" value="execute_npu" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="22" value="Radix Prefix Dedup (Proof M31)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="245" y="500" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="23" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;SYCL_Direct_Engine&amp;#xa;execute_gguf_xmx" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="23" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;LoRA_Manager&amp;#xa;Dynamic Multi-Adapter Swapping&amp;#xa;Safetensors Fusion" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="320" y="440" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="24" value="execute_gguf_xmx" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="24" value="Dynamic Multi-Adapter Swapping" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="525" y="460" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="25" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Hybrid_Speculative_Engine&amp;#xa;execute_speculative_stream" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="25" value="Safetensors Fusion" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="525" y="500" width="20" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="26" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;OpenVINOGenAIEngine&amp;#xa;Level Zero Immediate Cmds (Proof M4)&amp;#xa;Unified Silicon GenAI" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="600" y="440" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="26" value="execute_speculative_stream" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="27" value="Level Zero Immediate Cmds (Proof M4)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="805" y="460" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="27" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Intel_Arc_Discrete_GPU&amp;#xa;XMX Matrix Engines (260 TFLOPs)&amp;#xa;GDDR6 VRAM (560 GB/s)" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="28" value="Unified Silicon GenAI" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="805" y="500" width="20" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="29" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;HybridSpeculativeEngine&amp;#xa;NPU Draft + Arc GPU Verify (Proof M6)&amp;#xa;43.4% Power Reduction" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="40" y="640" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="28" value="XMX Matrix Engines (260 TFLOPs)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="30" value="NPU Draft + Arc GPU Verify (Proof M6)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="245" y="660" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="29" value="GDDR6 VRAM (560 GB/s)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="31" value="43.4% Power Reduction" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="245" y="700" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="30" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Intel_Core_Ultra_NPU&amp;#xa;Systolic MAC Arrays (48 TOPS)&amp;#xa;On-Die SRAM (16 MB)" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="32" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Vision_Engine&amp;#xa;Multimodal Visual Tokens&amp;#xa;Phi-3.5-V &amp; MiniCPM-V" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="320" y="640" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="31" value="Systolic MAC Arrays (48 TOPS)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="33" value="Multimodal Visual Tokens" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="525" y="660" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="32" value="On-Die SRAM (16 MB)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+    <mxCell id="34" value="Phi-3.5-V &amp; MiniCPM-V" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
       <mxGeometry x="525" y="700" width="20" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="33" value="Loopback HTTP (:11434)" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="5" parent="1">
+    <mxCell id="35" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Embedding_Engine&amp;#xa;NPU / GPU Embeddings&amp;#xa;L2 Unit Normalization (Proof M1)" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="600" y="640" width="200" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="36" value="NPU / GPU Embeddings" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="805" y="660" width="20" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="37" value="L2 Unit Normalization (Proof M1)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="805" y="700" width="20" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="38" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;GGUF_Transpiler&amp;#xa;O(1) Streaming Buffer (Proof M15)&amp;#xa;34.6dB SQNR Bound (Proof M8)" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="840" width="200" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="39" value="O(1) Streaming Buffer (Proof M15)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="245" y="860" width="20" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="40" value="34.6dB SQNR Bound (Proof M8)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="245" y="900" width="20" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="41" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Sysman_Telemetry&amp;#xa;Level Zero Sysman VRAM Metrics&amp;#xa;Thermal &amp; Power Telemetry" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="840" width="200" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="42" value="Level Zero Sysman VRAM Metrics" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="525" y="860" width="20" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="43" value="Thermal &amp; Power Telemetry" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="525" y="900" width="20" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="44" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&amp;#xa;Intel_Arc_GPU&amp;#xa;32 Xe-Cores / 256 XMX (260 TFLOPs)&amp;#xa;560 GB/s GDDR6 VRAM" style="shape=mxgraph.uml.component;html=1;whiteSpace=wrap;strokeColor=#666666;fillColor=#F5F5F5;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="600" y="840" width="200" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="45" value="32 Xe-Cores / 256 XMX (260 TFLOPs)" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="805" y="860" width="20" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="46" value="560 GB/s GDDR6 VRAM" style="ellipse;html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="805" y="900" width="20" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="47" value="HTTP :11434" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="8" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="34" value="Async Dispatch" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="5" target="8" parent="1">
+    <mxCell id="48" value="SSE / REST" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="5" target="8" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="35" value="Telemetry Query" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="5" target="11" parent="1">
+    <mxCell id="49" value="get_or_load_engine" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="8" target="11" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="36" value="Route Request" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="8" target="17" parent="1">
+    <mxCell id="50" value="enqueue_request" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="8" target="14" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="37" value="Speculative Mode" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="17" target="25" parent="1">
+    <mxCell id="51" value="iteration_step" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="14" target="17" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="38" value="Dual Instance Dispatch" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="25" target="20" parent="1">
+    <mxCell id="52" value="allocate_blocks" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="17" target="20" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="39" value="Level Zero Immediate Cmds" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="20" target="27" parent="1">
+    <mxCell id="53" value="forward_batch" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="17" target="26" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="40" value="MCDM Driver Stateful Pipeline" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="20" target="30" parent="1">
+    <mxCell id="54" value="initialize_pipeline" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="11" target="29" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="55" value="apply_adapter" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="11" target="23" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="56" value="dual_instance_dispatch" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="29" target="26" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="57" value="zeCommandListExecuteImmediate" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="26" target="44" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="58" value="query_telemetry" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="11" target="41" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="59" value="transpile_stream" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="8" target="38" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
       </root>

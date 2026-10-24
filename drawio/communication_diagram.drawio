@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" type="diagram" version="24.0.0">
+  <diagram id="diagram1" name="Communication Diagram">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+    <mxCell id="2" value="Client" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="350" y="-60" width="140" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="3" value="Gateway" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="651" y="84" width="140" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="4" value="BatchPipeline" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="725" y="410" width="140" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="5" value="ModelManager" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="517" y="671" width="140" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="6" value="ContinuousBatcher" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="182" y="671" width="140" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="7" value="OpenVINOGenAIEngine" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="-25" y="410" width="140" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="8" value="LevelZeroSysman" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="48" y="84" width="140" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="9" value="1: 1. POST /api/chat" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="2" target="3" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="10" value="2: 2. enqueue_request()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="3" target="4" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="11" value="3: 3. step()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="4" target="6" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="12" value="4: 4. get_engine()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="6" target="5" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="13" value="5: 5. generate()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="5" target="7" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="14" value="6: 6. query_telemetry()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="7" target="8" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="15" value="7: 7. yield_token()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="7" target="4" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="16" value="8: 8. format_sse()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="4" target="3" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="17" value="9: 9. 200 OK Chunk" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="3" target="2" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -5,46 +5,82 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-    <mxCell id="2" value="arc_runner.cli" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="2" value="arc_runner.core&amp;#xa;constants&amp;#xa;exceptions&amp;#xa;logging" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="40" y="40" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="3" value="arc_runner.server" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="3" value="arc_runner.devices&amp;#xa;detector&amp;#xa;models&amp;#xa;sysman" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="320" y="40" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="4" value="arc_runner.core" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="4" value="arc_runner.engine&amp;#xa;openvino_engine&amp;#xa;speculative_engine&amp;#xa;continuous_batcher&amp;#xa;paged_attention" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="600" y="40" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="5" value="arc_runner.devices" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="5" value="arc_runner.quant&amp;#xa;gguf_parser&amp;#xa;transpiler&amp;#xa;models" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="40" y="240" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="6" value="arc_runner.engine" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="6" value="arc_runner.hub&amp;#xa;downloader&amp;#xa;manager&amp;#xa;ollama_importer&amp;#xa;registry" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="320" y="240" width="200" height="120" as="geometry" />
     </mxCell>
-    <mxCell id="7" value="imports" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="4" parent="1">
+    <mxCell id="7" value="arc_runner.server&amp;#xa;app&amp;#xa;batch_pipeline&amp;#xa;model_manager&amp;#xa;routes_*" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="600" y="240" width="200" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="8" value="arc_runner.cli&amp;#xa;main" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="440" width="200" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="9" value="arc_runner.benchmark&amp;#xa;runner" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="320" y="440" width="200" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="10" value="arc_runner.testing&amp;#xa;hardware_harness" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="600" y="440" width="200" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="11" value="arc_runner.utils&amp;#xa;dll_loader" style="shape=folder;html=1;whiteSpace=wrap;fontStyle=1;tabWidth=42;tabHeight=14;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="640" width="200" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="12" value="launches" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="8" target="7" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="8" value="launches" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="3" parent="1">
+    <mxCell id="13" value="invokes" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="8" target="4" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="9" value="queries" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="5" parent="1">
+    <mxCell id="14" value="probes" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="8" target="3" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="10" value="imports" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="3" target="4" parent="1">
+    <mxCell id="15" value="pulls" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="8" target="6" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="11" value="dispatches" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="3" target="6" parent="1">
+    <mxCell id="16" value="converts" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="8" target="5" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="12" value="monitors" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="3" target="5" parent="1">
+    <mxCell id="17" value="evaluates" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="8" target="9" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="13" value="imports" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="6" target="4" parent="1">
+    <mxCell id="18" value="validates" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="8" target="10" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="14" value="uses" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="6" target="5" parent="1">
+    <mxCell id="19" value="dispatches" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="7" target="4" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="15" value="imports" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="5" target="4" parent="1">
+    <mxCell id="20" value="telemetry" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="7" target="3" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="21" value="loads_models" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="7" target="6" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="22" value="transpiles" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="7" target="5" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="23" value="hardware_ops" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="4" target="3" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="24" value="constants_logs" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="4" target="2" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="25" value="loads_dlls" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="3" target="11" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="26" value="measures" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="9" target="4" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="27" value="tests_silicon" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="10" target="3" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
       </root>

@@ -5,77 +5,179 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-    <mxCell id="3" value="BaseEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="40" width="220" height="222" as="geometry" />
+    <mxCell id="2" value="BaseEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="220" height="182" as="geometry" />
     </mxCell>
-    <mxCell id="4" value="+model_id: str&amp;#xa;+device: DeviceType&amp;#xa;+precision: ModelPrecision&amp;#xa;+is_loaded: bool&amp;#xa;#kv_cache: KVCacheManager" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="3">
-      <mxGeometry x="0" y="26" width="220" height="104" as="geometry" />
-    </mxCell>
-    <mxCell id="5" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="3">
-      <mxGeometry x="0" y="130" width="220" height="8" as="geometry" />
-    </mxCell>
-    <mxCell id="6" value="+load_model(model_path: Path, device: DeviceType) None*&amp;#xa;+generate_stream(prompt: str, config: GenerationConfig) Iterator[TokenChunk]*&amp;#xa;+get_telemetry() DeviceTelemetry*&amp;#xa;+unload() None*" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="3">
-      <mxGeometry x="0" y="138" width="220" height="84" as="geometry" />
-    </mxCell>
-    <mxCell id="7" value="OpenVINOGenAIEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="330" y="40" width="220" height="162" as="geometry" />
-    </mxCell>
-    <mxCell id="8" value="-pipeline: ov_genai.LLMPipeline&amp;#xa;-target_device_str: str&amp;#xa;-is_stateful: bool" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="7">
+    <mxCell id="3" value="+ is_loaded: bool&amp;#xa;+ model_path: Path&amp;#xa;+ device: DeviceType" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="2">
       <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
     </mxCell>
-    <mxCell id="9" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="7">
+    <mxCell id="4" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="2">
       <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="10" value="+load_model(model_path: Path, device: DeviceType) None&amp;#xa;+generate_stream(prompt: str, config: GenerationConfig) Iterator[TokenChunk]&amp;#xa;+configure_kv_cache(max_tokens: int) None" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="7">
-      <mxGeometry x="0" y="98" width="220" height="64" as="geometry" />
+    <mxCell id="5" value="+* load_model(model_path: Path, device: DeviceType): None&amp;#xa;+* generate_stream(prompt: str, config: GenerationConfig): Iterator[TokenChunk]&amp;#xa;+* get_telemetry(): EngineTelemetry&amp;#xa;+* unload(): None" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="2">
+      <mxGeometry x="0" y="98" width="220" height="84" as="geometry" />
     </mxCell>
-    <mxCell id="11" value="SYCLDirectEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="6" value="OpenVINOGenAIEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="330" y="40" width="220" height="142" as="geometry" />
+    </mxCell>
+    <mxCell id="7" value="- _pipeline: ov_genai.LLMPipeline&amp;#xa;- _device: str" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="6">
+      <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="8" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="6">
+      <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
+    </mxCell>
+    <mxCell id="9" value="+ load_model(model_path: Path, device: DeviceType): None&amp;#xa;+ generate_stream(prompt: str, config: GenerationConfig): Iterator[TokenChunk]&amp;#xa;- _build_ov_generation_config(config: GenerationConfig): ov_genai.GenerationConfig" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="6">
+      <mxGeometry x="0" y="78" width="220" height="64" as="geometry" />
+    </mxCell>
+    <mxCell id="10" value="HybridSpeculativeEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="620" y="40" width="220" height="162" as="geometry" />
     </mxCell>
-    <mxCell id="12" value="-lib_handle: ctypes.CDLL&amp;#xa;-ze_context: int&amp;#xa;-ze_device: int" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="11">
+    <mxCell id="11" value="- target_engine: OpenVINOGenAIEngine&amp;#xa;- draft_engine: OpenVINOGenAIEngine&amp;#xa;+ current_gamma: int" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="10">
       <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
     </mxCell>
-    <mxCell id="13" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="11">
+    <mxCell id="12" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="10">
       <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="14" value="+load_model(model_path: Path, device: DeviceType) None&amp;#xa;+generate_stream(prompt: str, config: GenerationConfig) Iterator[TokenChunk]&amp;#xa;-submit_immediate_command_list() None" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="11">
+    <mxCell id="13" value="+ load_model(model_path: Path, draft_model_path: Path): None&amp;#xa;+ generate_stream(prompt: str, config: GenerationConfig): Iterator[TokenChunk]&amp;#xa;- _validate_path(path: Path): Path" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="10">
       <mxGeometry x="0" y="98" width="220" height="64" as="geometry" />
     </mxCell>
-    <mxCell id="15" value="HybridSpeculativeEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="910" y="40" width="220" height="182" as="geometry" />
+    <mxCell id="14" value="ContinuousBatcher" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="910" y="40" width="220" height="142" as="geometry" />
     </mxCell>
-    <mxCell id="16" value="-target_engine: OpenVINOGenAIEngine&amp;#xa;-draft_engine: OpenVINOGenAIEngine&amp;#xa;+gamma: int&amp;#xa;-acceptance_history: List[float]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="15">
-      <mxGeometry x="0" y="26" width="220" height="84" as="geometry" />
-    </mxCell>
-    <mxCell id="17" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="15">
-      <mxGeometry x="0" y="110" width="220" height="8" as="geometry" />
-    </mxCell>
-    <mxCell id="18" value="+load_model(model_path: Path, device: DeviceType) None&amp;#xa;+generate_stream(prompt: str, config: GenerationConfig) Iterator[TokenChunk]&amp;#xa;-verify_tokens(draft_tokens: List[int]) VerificationResult" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="15">
-      <mxGeometry x="0" y="118" width="220" height="64" as="geometry" />
-    </mxCell>
-    <mxCell id="19" value="DeviceDetector" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="282" width="220" height="162" as="geometry" />
-    </mxCell>
-    <mxCell id="20" value="-ze_loader: ctypes.CDLL&amp;#xa;-ov_core: ov.Core" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="19">
+    <mxCell id="15" value="+ active_sequences_count: int&amp;#xa;+ waiting_sequences_count: int" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="14">
       <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
     </mxCell>
-    <mxCell id="21" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="19">
+    <mxCell id="16" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="14">
       <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="22" value="+initialize_windows_environment() None&amp;#xa;+probe_arc_gpus() List[GPUInfo]&amp;#xa;+probe_intel_npus() List[NPUInfo]&amp;#xa;+probe_cpus() CPUInfo" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="19">
-      <mxGeometry x="0" y="78" width="220" height="84" as="geometry" />
+    <mxCell id="17" value="+ add_request(seq: BatchSequence): None&amp;#xa;+ step(): List[TokenChunk]&amp;#xa;+ preempt_sequence(seq_id: str): bool" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="14">
+      <mxGeometry x="0" y="78" width="220" height="64" as="geometry" />
     </mxCell>
-    <mxCell id="23" value="InferenceService" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+    <mxCell id="18" value="PagedBlockTable" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="262" width="220" height="142" as="geometry" />
+    </mxCell>
+    <mxCell id="19" value="+ block_size: int&amp;#xa;+ total_blocks: int&amp;#xa;+ utilization_ratio: float" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="18">
+      <mxGeometry x="0" y="26" width="220" height="64" as="geometry" />
+    </mxCell>
+    <mxCell id="20" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="18">
+      <mxGeometry x="0" y="90" width="220" height="8" as="geometry" />
+    </mxCell>
+    <mxCell id="21" value="+ get_sequence_blocks(seq_id: str): List[int]&amp;#xa;+ get_block_map(): Dict[str, List[int]]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="18">
+      <mxGeometry x="0" y="98" width="220" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="22" value="RadixPrefixCache" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
       <mxGeometry x="330" y="242" width="220" height="122" as="geometry" />
     </mxCell>
-    <mxCell id="24" value="-orchestrator: HeterogeneousOrchestrator&amp;#xa;-device_service: DeviceService" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="23">
+    <mxCell id="23" value="+ hit_rate: float&amp;#xa;+ total_lookups: int" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="22">
       <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
     </mxCell>
-    <mxCell id="25" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="23">
+    <mxCell id="24" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="22">
       <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
     </mxCell>
-    <mxCell id="26" value="+generate_stream(request: GenerateRequest) AsyncIterator[TokenChunk]&amp;#xa;+chat_stream(request: ChatCompletionRequest) AsyncIterator[ChatChunk]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="23">
+    <mxCell id="25" value="+ match_prefix(tokens: List[int]): Tuple[int, List[int]]&amp;#xa;+ insert_prefix(tokens: List[int], blocks: List[int]): None" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="22">
       <mxGeometry x="0" y="78" width="220" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="26" value="LoRAManager" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="620" y="242" width="220" height="122" as="geometry" />
+    </mxCell>
+    <mxCell id="27" value="+ adapters_dir: Path&amp;#xa;+ max_cached: int" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="26">
+      <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="28" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="26">
+      <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
+    </mxCell>
+    <mxCell id="29" value="+ inspect_safetensors_header(path: Path): Dict[str, Any]&amp;#xa;+ parse_adapter_metadata(path: Path): LoRAAdapterMetadata" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="26">
+      <mxGeometry x="0" y="78" width="220" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="30" value="VisionEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="910" y="262" width="220" height="142" as="geometry" />
+    </mxCell>
+    <mxCell id="31" value="+ patch_size: int&amp;#xa;+ device: str" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="30">
+      <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="32" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="30">
+      <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
+    </mxCell>
+    <mxCell id="33" value="+ calculate_visual_tokens(width: int, height: int): int&amp;#xa;+ decode_image_tensor(image_bytes: bytes): np.ndarray&amp;#xa;+ generate(prompt: str, image_bytes: bytes): str" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="30">
+      <mxGeometry x="0" y="78" width="220" height="64" as="geometry" />
+    </mxCell>
+    <mxCell id="34" value="EmbeddingEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="484" width="220" height="142" as="geometry" />
+    </mxCell>
+    <mxCell id="35" value="+ dimension: int&amp;#xa;+ device: str" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="34">
+      <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="36" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="34">
+      <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
+    </mxCell>
+    <mxCell id="37" value="+ embed_query(query: str): List[float]&amp;#xa;+ embed_documents(docs: List[str]): List[List[float]]&amp;#xa;+ l2_normalize(vec: np.ndarray): np.ndarray" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="34">
+      <mxGeometry x="0" y="78" width="220" height="64" as="geometry" />
+    </mxCell>
+    <mxCell id="38" value="GGUFTranspiler" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="330" y="524" width="220" height="162" as="geometry" />
+    </mxCell>
+    <mxCell id="39" value="+ input_path: Path&amp;#xa;+ output_dir: Path" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="38">
+      <mxGeometry x="0" y="26" width="220" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="40" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="38">
+      <mxGeometry x="0" y="70" width="220" height="8" as="geometry" />
+    </mxCell>
+    <mxCell id="41" value="+ dequantize_q4_0_block(block_bytes: bytes): np.ndarray&amp;#xa;+ pack_xmx_nibbles(weights: np.ndarray): bytes&amp;#xa;+ compute_sqnr(fp_orig: np.ndarray, dequant: np.ndarray): float&amp;#xa;+ transpile_stream(target_precision: str): Iterator[TranspilationProgress]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="38">
+      <mxGeometry x="0" y="78" width="220" height="84" as="geometry" />
+    </mxCell>
+    <mxCell id="42" value="ModelManager" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="620" y="452" width="220" height="126" as="geometry" />
+    </mxCell>
+    <mxCell id="43" value="+ model_dirs: List[Path]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="42">
+      <mxGeometry x="0" y="26" width="220" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="44" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="42">
+      <mxGeometry x="0" y="54" width="220" height="8" as="geometry" />
+    </mxCell>
+    <mxCell id="45" value="+ get_or_load_engine(model_id: str, device: str): BaseEngine&amp;#xa;+ get_or_load_embedding_engine(model_id: str): EmbeddingEngine&amp;#xa;+ get_or_load_vision_engine(model_id: str): VisionEngine" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="42">
+      <mxGeometry x="0" y="62" width="220" height="64" as="geometry" />
+    </mxCell>
+    <mxCell id="46" value="BatchExecutionPipeline" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="910" y="452" width="220" height="126" as="geometry" />
+    </mxCell>
+    <mxCell id="47" value="+ is_running: bool" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="46">
+      <mxGeometry x="0" y="26" width="220" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="48" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="46">
+      <mxGeometry x="0" y="54" width="220" height="8" as="geometry" />
+    </mxCell>
+    <mxCell id="49" value="+ start(): None&amp;#xa;+ stop(): None&amp;#xa;+ tick_step(): None" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="46">
+      <mxGeometry x="0" y="62" width="220" height="64" as="geometry" />
+    </mxCell>
+    <mxCell id="50" value="DeviceDetector" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="598" width="220" height="106" as="geometry" />
+    </mxCell>
+    <mxCell id="51" value=" " style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="50">
+      <mxGeometry x="0" y="26" width="220" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="52" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="50">
+      <mxGeometry x="0" y="54" width="220" height="8" as="geometry" />
+    </mxCell>
+    <mxCell id="53" value="+ detect_topology(): SystemTopology&amp;#xa;- _classify_gpu_architecture(name: str): DeviceArchitecture" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="50">
+      <mxGeometry x="0" y="62" width="220" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="54" value="LevelZeroSysman" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="330" y="598" width="220" height="106" as="geometry" />
+    </mxCell>
+    <mxCell id="55" value=" " style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="54">
+      <mxGeometry x="0" y="26" width="220" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="56" value="" style="line;html=1;strokeColor=#9673A6;strokeWidth=1;fillColor=none;" vertex="1" parent="54">
+      <mxGeometry x="0" y="54" width="220" height="8" as="geometry" />
+    </mxCell>
+    <mxCell id="57" value="+ is_available(): bool&amp;#xa;+ query_gpu_memory(): Tuple[int, int]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;" vertex="1" parent="54">
+      <mxGeometry x="0" y="62" width="220" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="58" value="" style="endArrow=block;endFill=0;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="6" target="2" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="59" value="" style="endArrow=block;endFill=0;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="10" target="2" parent="1">
+      <mxGeometry relative="1" as="geometry" />
     </mxCell>
       </root>
     </mxGraphModel>
