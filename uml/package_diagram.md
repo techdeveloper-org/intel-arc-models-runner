@@ -6,14 +6,15 @@
 flowchart LR
     arc_runner_core["arc_runner.core: constants, exceptions, logging"]
     arc_runner_devices["arc_runner.devices: detector, models, sysman"]
-    arc_runner_engine["arc_runner.engine: openvino_engine, speculative_engine, continuous_batcher, paged_attention"]
+    arc_runner_engine["arc_runner.engine: openvino_engine, speculative_engine, audio_engine, continuous_batcher, paged_attention"]
     arc_runner_quant["arc_runner.quant: gguf_parser, transpiler, models"]
     arc_runner_hub["arc_runner.hub: downloader, manager, ollama_importer, registry"]
     arc_runner_server["arc_runner.server: app, batch_pipeline, model_manager, routes_*"]
-    arc_runner_cli["arc_runner.cli: main"]
+    arc_runner_cli["arc_runner.cli: main (run, transcribe, tts)"]
     arc_runner_benchmark["arc_runner.benchmark: runner"]
     arc_runner_testing["arc_runner.testing: hardware_harness"]
     arc_runner_utils["arc_runner.utils: dll_loader"]
+
     arc_runner_cli -->|launches| arc_runner_server
     arc_runner_cli -->|invokes| arc_runner_engine
     arc_runner_cli -->|probes| arc_runner_devices
@@ -26,7 +27,8 @@ flowchart LR
     arc_runner_server -->|loads_models| arc_runner_hub
     arc_runner_server -->|transpiles| arc_runner_quant
     arc_runner_engine -->|hardware_ops| arc_runner_devices
-    arc_runner_engine -->|constants_logs| arc_runner_core
+    arc_runner_engine -->|constants_exceptions_logs| arc_runner_core
+    arc_runner_engine -->|resolves_models| arc_runner_hub
     arc_runner_devices -->|loads_dlls| arc_runner_utils
     arc_runner_benchmark -->|measures| arc_runner_engine
     arc_runner_testing -->|tests_silicon| arc_runner_devices
@@ -34,5 +36,11 @@ flowchart LR
 
 ## Mathematical Proofs & Invariants
 
-- Grounded in proofs M1-M6, M8-M9, M15-M20, M29-M34, M50-M58.
+- **Proofs M1-M6, M8-M9, M15-M20, M29-M34, M50-M58**: Base LLM, speculative decoding, continuous batching, and quantization proofs.
+- **Proof M59**: Real-Time Factor invariant $\text{RTF} = \frac{\text{latency\_s}}{\text{duration\_s}} \le 1.0$ for real-time streaming audio.
+- **Proof M66**: Zero-disk residue invariant — transient audio buffers and compiled pipelines execute strictly in-memory without persistent disk cache pollution.
+- **Proof M67**: Level Zero immediate command list dispatch latency ceiling $\tau \le 2.1\,\mu\text{s}$ for audio pipeline submissions.
+- **Proof M68**: Linear PCM buffer bound $M \le 19.2\,\text{MB}$ ($300\,\text{s} \times 16000\,\text{Hz} \times 4\,\text{B}$) with zero memory leaks across successive pipeline invocations.
+- **Proof M69**: Anti-hallucination Voice Activity Detection (VAD) RMS energy ($E_{\text{rms}} < 10^{-4}$) and spectral entropy ($H_{\text{spectral}} < 0.05$) silence gating bypassing speech decoders.
+- **Proof M70**: Auto-regressive repetition loop suppression bounding Kolmogorov LZ77 compression ratio $r \le 2.40$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.

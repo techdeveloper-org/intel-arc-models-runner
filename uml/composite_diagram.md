@@ -45,15 +45,55 @@ flowchart TB
         ContScheduler --> Port_SSEFormat
     end
 
+    subgraph AudioEngineComposite ["<<composite>> AudioEngine (Unified STT & TTS)"]
+        subgraph Ports_AudioEngine ["Audio Engine Boundary Ports"]
+            InPort_Audio["Port: audio_waveform_in (M <= 19.2MB, Proof M68)"]
+            InPort_Text["Port: text_prompt_in (TTS phonemes & voice)"]
+            OutPort_Transcript["Port: transcript_out (RTF <= 1.0, Proof M59)"]
+            OutPort_Waveform["Port: waveform_out (24kHz float32 PCM)"]
+            Port_LevelZero["Port: ze_immediate_cmd (tau <= 2.1us, Proof M67)"]
+        end
+
+        subgraph Internal_AudioEngine ["Internal Acoustic Pipeline"]
+            AcousticNormalizer["AcousticNormalizer: 16kHz float32 linear buffer (Proof M68)"]
+            VADGate["VADSilenceGate: RMS & Entropy silence bypass (Proof M69)"]
+            WhisperPipelineCore["WhisperPipelineCore: OpenVINO IR Level Zero ASR (Proof M67)"]
+            LoopDetector["RepetitionLoopDetector: LZ77 ratio r <= 2.40 (Proof M70)"]
+            SpeakerTensorCache["SpeakerTensorCache: 510x256 style vectors (Proof M66)"]
+            KokoroTTSPipelineCore["KokoroTTSPipelineCore: StyleTTS2 synthesizer (Proof M66)"]
+            PCMClampingStage["PCMClampingStage: Float32 to 16-bit WAV serializer"]
+        end
+
+        InPort_Audio --> AcousticNormalizer
+        AcousticNormalizer --> VADGate
+        VADGate -->|active_speech| WhisperPipelineCore
+        VADGate -->|silence_detected| OutPort_Transcript
+        WhisperPipelineCore --> LoopDetector
+        LoopDetector --> OutPort_Transcript
+        InPort_Text --> KokoroTTSPipelineCore
+        SpeakerTensorCache -->|style_tensor| KokoroTTSPipelineCore
+        KokoroTTSPipelineCore --> PCMClampingStage
+        PCMClampingStage --> OutPort_Waveform
+        WhisperPipelineCore <--> Port_LevelZero
+        KokoroTTSPipelineCore <--> Port_LevelZero
+    end
+
     OutPort_Tokens --> ContScheduler
     BonusCalculator --> Port_Telemetry
 ```
 
 ## Mathematical Proofs & Invariants
 
-- **Proof M6**: Speculative verification throughput scaling: $\mathbb{E}[K]=3.36$ tokens/cycle.
+- **Proof M6**: Speculative verification throughput scaling: $\mathbb{E}[K]=3.36$ tokens/cycle at $\gamma=4, \alpha=0.80$.
 - **Proof M29**: Dynamic iteration continuous scheduling eliminating static padding overhead.
 - **Proof M30**: Little's Law admission saturation threshold: $\theta_{\text{sat}} \le 0.92$.
 - **Proof M31**: Radix prefix cache virtual page sharing with zero physical duplication.
 - **Proof M32**: Instant client disconnect abort: memory block freed within $0.02\text{s}$.
 - **Proof M50**: Dual silicon TDP isolation: NPU draft $5\text{W}$, discrete Arc GPU $150\text{W}$.
+- **Proof M59**: Real-Time Factor invariant $\text{RTF} = \frac{\text{latency\_s}}{\text{duration\_s}} \le 1.0$ for real-time speech processing.
+- **Proof M66**: Zero-disk residue invariant — transient audio buffers and compiled pipelines execute strictly in-memory without persistent disk cache pollution.
+- **Proof M67**: Level Zero immediate command list dispatch latency ceiling $\tau \le 2.1\,\mu\text{s}$ for synchronous audio tensor execution.
+- **Proof M68**: Linear PCM buffer bound $M \le 19.2\,\text{MB}$ ($300\,\text{s} \times 16000\,\text{Hz} \times 4\,\text{B}$) with zero memory leaks across successive pipeline invocations.
+- **Proof M69**: Anti-hallucination Voice Activity Detection (VAD) RMS energy ($E_{\text{rms}} < 10^{-4}$) and spectral entropy ($H_{\text{spectral}} < 0.05$) silence gating.
+- **Proof M70**: Auto-regressive repetition loop suppression bounding Kolmogorov LZ77 compression ratio $r \le 2.40$.
+- Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.

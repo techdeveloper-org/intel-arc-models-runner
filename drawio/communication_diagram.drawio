@@ -1,58 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mxfile host="app.diagrams.net" type="diagram" version="24.0.0">
   <diagram id="diagram1" name="Communication Diagram">
-    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1150" pageHeight="500" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-    <mxCell id="2" value="Client" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="350" y="-60" width="140" height="50" as="geometry" />
-    </mxCell>
-    <mxCell id="3" value="Gateway" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="651" y="84" width="140" height="50" as="geometry" />
-    </mxCell>
-    <mxCell id="4" value="BatchPipeline" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="725" y="410" width="140" height="50" as="geometry" />
-    </mxCell>
-    <mxCell id="5" value="ModelManager" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="517" y="671" width="140" height="50" as="geometry" />
-    </mxCell>
-    <mxCell id="6" value="ContinuousBatcher" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="182" y="671" width="140" height="50" as="geometry" />
-    </mxCell>
-    <mxCell id="7" value="OpenVINOGenAIEngine" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="-25" y="410" width="140" height="50" as="geometry" />
-    </mxCell>
-    <mxCell id="8" value="LevelZeroSysman" style="swimlane;fontStyle=1;align=center;startSize=24;container=0;collapsible=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="48" y="84" width="140" height="50" as="geometry" />
-    </mxCell>
-    <mxCell id="9" value="1: 1. POST /api/chat" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="2" target="3" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="10" value="2: 2. enqueue_request()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="3" target="4" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="11" value="3: 3. step()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="4" target="6" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="12" value="4: 4. get_engine()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="6" target="5" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="13" value="5: 5. generate()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="5" target="7" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="14" value="6: 6. query_telemetry()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="7" target="8" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="15" value="7: 7. yield_token()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="7" target="4" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="16" value="8: 8. format_sse()" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="4" target="3" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="17" value="9: 9. 200 OK Chunk" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;" edge="1" source="3" target="2" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
+        <mxCell id="2" value="1: Client (CLI / WebUI)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="50" y="200" width="180" height="50" as="geometry" /></mxCell>
+        <mxCell id="3" value="2: AudioEngine" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="300" y="200" width="180" height="50" as="geometry" /></mxCell>
+        <mxCell id="4" value="3: DeviceDetector" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="300" y="60" width="180" height="50" as="geometry" /></mxCell>
+        <mxCell id="5" value="4: VADGater (Proof M69)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="560" y="60" width="200" height="50" as="geometry" /></mxCell>
+        <mxCell id="6" value="5: SpeakerCache (522KB)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="560" y="160" width="200" height="50" as="geometry" /></mxCell>
+        <mxCell id="7" value="6: LevelZeroDriver (M67)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="560" y="260" width="200" height="50" as="geometry" /></mxCell>
+        <mxCell id="8" value="7: Intel Arc Xe-LPG GPU" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="840" y="260" width="200" height="50" as="geometry" /></mxCell>
+        <mxCell id="9" value="8: Host CPU Fallback" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="840" y="360" width="200" height="50" as="geometry" /></mxCell>
+        <mxCell id="10" value="9: LZ77Guard (Proof M70)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="560" y="360" width="200" height="50" as="geometry" /></mxCell>
+        <mxCell id="11" value="10: DiskReclaimer (M66)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="300" y="360" width="180" height="50" as="geometry" /></mxCell>
+        <mxCell id="12" value="1. transcribe() / synthesize()
+14. emit results" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;" edge="1" source="2" target="3" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="13" value="2. detect_topology()" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;" edge="1" source="3" target="4" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="14" value="4. _is_silence_or_noise()" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;" edge="1" source="3" target="5" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="15" value="6. _load_speaker_embedding()" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;" edge="1" source="3" target="6" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="16" value="8. dispatch_pipeline()" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;" edge="1" source="3" target="7" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="17" value="9. zeCommandListExecuteImmediate()
+10. USM zero-copy (M71)" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;" edge="1" source="7" target="8" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="18" value="11. CPU fallback pass" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;" edge="1" source="7" target="9" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="19" value="13. _detect_repetition_loop()" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;" edge="1" source="3" target="10" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="20" value="15. cleanup_model_dir() (M66)" style="endArrow=classic;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;" edge="1" source="3" target="11" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
       </root>
     </mxGraphModel>
   </diagram>
