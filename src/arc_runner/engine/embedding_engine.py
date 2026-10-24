@@ -119,10 +119,7 @@ class EmbeddingEngine:
 
         except Exception as exc:
             logger.error(
-                "Failed to construct OpenVINO embedding pipeline",
-                model_path=str(self._model_path),
-                device=self._device,
-                error=str(exc),
+                f"Failed to construct OpenVINO embedding pipeline at {self._model_path} on {self._device}: {exc}"
             )
             raise ModelLoadError(
                 f"Failed to load embedding model at '{self._model_path}' on device '{self._device}': {exc}"

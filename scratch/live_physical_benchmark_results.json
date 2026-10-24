@@ -1,0 +1,130 @@
+{
+  "testbed": "Intel64 Family 6 Model 170 Stepping 4, GenuineIntel",
+  "models": {
+    "qwen-2.5-1.5b": {
+      "model": "qwen-2.5-1.5b",
+      "type": "llm",
+      "repo_id": "OpenVINO/Qwen2.5-1.5B-Instruct-int4-ov",
+      "download_time_s": 0.0,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Factual Entity Extraction",
+          "prompt": "What is the capital of France and what is its most famous tower? Reply in one short sentence.",
+          "output_preview": "Paris is the capital city of France, known for its iconic Eiffel Tower.",
+          "latency_s": 2.141,
+          "tokens": 13,
+          "tok_per_sec": 6.07
+        },
+        "medium": {
+          "name": "Python Palindrome Algorithm",
+          "prompt": "Write a clean Python function find_longest_palindrome(s: str) -> str using expand-around-center with O(1) auxiliary space. Include type hints and docstring.",
+          "output_preview": "```python\nfrom typing import Optional\n\ndef find_longest_palindrome(s: str) -> Optional[str]:\n    \"\"\"\n    Finds the longe",
+          "latency_s": 6.502,
+          "tokens": 111,
+          "tok_per_sec": 17.07
+        },
+        "hard": {
+          "name": "TCP Connection State Machine",
+          "prompt": "Design a finite state machine in Python for a TCP connection (CLOSED, LISTEN, SYN_SENT, SYN_RCVD, ESTABLISHED). Include handle_event(event) transitions and raise ValueError on invalid transitions.",
+          "output_preview": "```python\nclass FSM:\n    def __init__(self):\n        self.state = 'CLOSED'\n\n    def handle_event(self, event):\n        i",
+          "latency_s": 6.747,
+          "tokens": 149,
+          "tok_per_sec": 22.08
+        }
+      },
+      "npu_benchmarks": {
+        "low": {
+          "name": "Factual Entity Extraction",
+          "latency_s": 8.21,
+          "tok_per_sec": 1.83,
+          "power_watts": 5.0
+        }
+      },
+      "gpu_compile_time_s": 15.1,
+      "npu_compile_time_s": 12.92
+    },
+    "all-minilm-l6-v2": {
+      "model": "all-minilm-l6-v2",
+      "type": "embedding",
+      "repo_id": "AIFunOver/all-MiniLM-L6-v2-openvino-fp16",
+      "download_time_s": 0.0,
+      "npu_benchmarks": {
+        "low": {
+          "name": "Direct Cosine Similarity & Unit Normalization",
+          "single_latency_ms": 47.07,
+          "dimensions": 384,
+          "device": "NPU"
+        }
+      },
+      "gpu_benchmarks": {}
+    },
+    "llama-3.2-1b": {
+      "model": "llama-3.2-1b",
+      "type": "llm",
+      "repo_id": "AIFunOver/Llama-3.2-1B-Instruct-openvino-4bit",
+      "download_time_s": 89.88793000008445,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Instant Entity Extraction",
+          "prompt": "Extract the country and currency: 'He exchanged 500 US dollars for Japanese Yen in Tokyo.'",
+          "output_preview": "The country is Japan, and the currency is Japanese Yen. \n\nHere's a breakdown:\n\n- Country: Japan\n- Currency",
+          "latency_s": 0.63,
+          "tokens": 18,
+          "tok_per_sec": 28.56
+        },
+        "medium": {
+          "name": "Two-Sentence Summary with Constraint",
+          "prompt": "Summarize the principle of speculative decoding in exactly two sentences. Do not use the word 'magic'.",
+          "output_preview": "Speculative decoding is a method that involves using probability and statistical analysis to identify patterns or codes ",
+          "latency_s": 1.367,
+          "tokens": 57,
+          "tok_per_sec": 41.71
+        },
+        "hard": {
+          "name": "DMA Architecture & Technical Paragraph",
+          "prompt": "Write a technical paragraph explaining how Direct Memory Access (DMA) bypasses the CPU for high-speed I/O.",
+          "output_preview": "Here's a technical paragraph explaining how Direct Memory Access (DMA) bypasses the CPU for high-speed I/O:\n\n\"Direct Mem",
+          "latency_s": 2.794,
+          "tokens": 125,
+          "tok_per_sec": 44.74
+        }
+      },
+      "npu_benchmarks": {},
+      "gpu_compile_time_s": 18.93
+    },
+    "deepseek-r1-1.5b": {
+      "model": "deepseek-r1-1.5b",
+      "type": "llm",
+      "repo_id": "OpenVINO/DeepSeek-R1-Distill-Qwen-1.5B-int4-ov",
+      "download_time_s": 198.27876819996163,
+      "gpu_benchmarks": {
+        "low": {
+          "name": "Division by Zero Rejection",
+          "prompt": "What is 750 divided by 0? State the exact mathematical result.",
+          "output_preview": "To solve 756 divided by 0, I start by understanding that division by zero is undefined in mathematics.\n\nSince dividing a",
+          "latency_s": 2.342,
+          "tokens": 32,
+          "tok_per_sec": 13.66
+        },
+        "medium": {
+          "name": "Warehouse Multi-Step Deductive Arithmetic",
+          "prompt": "Solve step-by-step: A warehouse has 45 boxes with 12 items each. They receive an extra 256 items divided evenly into 8 cartons, but find that 47 items are damaged. How many undamaged items remain?",
+          "output_preview": "First, I need to determine the total number of items in the warehouse initially.\n\nThere are 44 boxes, each containing 10",
+          "latency_s": 9.404,
+          "tokens": 121,
+          "tok_per_sec": 12.87
+        },
+        "hard": {
+          "name": "Cryptarithmetic SEND+MORE=MONEY Deduction",
+          "prompt": "Solve the cryptarithmetic puzzle SEND + MORE = MONEY step by step. What digit does each letter represent? Show the logical deduction for M, S, and O.",
+          "output_preview": "Alright, so I have this cryptarithmetic puzzle: SEND + MORE = MONEY. Each letter represents a unique digit from 0 to 9, ",
+          "latency_s": 12.69,
+          "tokens": 293,
+          "tok_per_sec": 23.09
+        }
+      },
+      "npu_benchmarks": {},
+      "gpu_compile_time_s": 41.79
+    }
+  }
+}

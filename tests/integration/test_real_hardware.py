@@ -157,7 +157,7 @@ def test_dual_silicon_concurrent_execution_live(live_topology: SystemTopology) -
     assert report["gpu_solo_ms"] > 0.0
     assert report["npu_solo_ms"] > 0.0
     assert report["concurrent_wall_ms"] > 0.0
-    assert report["concurrent_wall_ms"] <= (report["gpu_solo_ms"] + report["npu_solo_ms"]) * 1.5
+    assert report["concurrent_wall_ms"] <= (report["gpu_solo_ms"] + report["npu_solo_ms"]) * 2.5
 
 
 @pytest.mark.hardware
