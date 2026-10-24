@@ -1,0 +1,342 @@
+{
+  "testbed": {
+    "cpu": "Intel64 Family 6 Model 170 Stepping 4, GenuineIntel",
+    "has_arc": true,
+    "has_npu": true
+  },
+  "cases_evaluated": 30,
+  "passed_count": 30,
+  "failed_count": 0,
+  "results": [
+    {
+      "case_id": "P1",
+      "category": "Positive",
+      "tier": "Low",
+      "model_slug": "llama-3.2-1b",
+      "workload_name": "Chemical Formula Extraction",
+      "ollama_cpu_time_s": 1.85,
+      "arc_gpu_time_s": 0.18,
+      "speedup_ratio": 10.28,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "P2",
+      "category": "Positive",
+      "tier": "Low",
+      "model_slug": "qwen-2.5-1.5b",
+      "workload_name": "Fast JSON Entity Extraction",
+      "ollama_cpu_time_s": 2.1,
+      "arc_gpu_time_s": 0.24,
+      "speedup_ratio": 8.75,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "P3",
+      "category": "Positive",
+      "tier": "Low",
+      "model_slug": "all-minilm-l6-v2",
+      "workload_name": "NPU 5W Cosine Similarity",
+      "ollama_cpu_time_s": 0.085,
+      "arc_gpu_time_s": 0.014,
+      "speedup_ratio": 6.07,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "P4",
+      "category": "Positive",
+      "tier": "Low",
+      "model_slug": "phi-3.5-mini",
+      "workload_name": "Single Token Arithmetic",
+      "ollama_cpu_time_s": 1.45,
+      "arc_gpu_time_s": 0.16,
+      "speedup_ratio": 9.06,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "P5",
+      "category": "Positive",
+      "tier": "Medium",
+      "model_slug": "qwen-2.5-1.5b",
+      "workload_name": "Python Palindrome Algorithm",
+      "ollama_cpu_time_s": 12.17,
+      "arc_gpu_time_s": 3.57,
+      "speedup_ratio": 3.41,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "P6",
+      "category": "Positive",
+      "tier": "Medium",
+      "model_slug": "deepseek-r1-1.5b",
+      "workload_name": "Multi-Step Warehouse Arithmetic",
+      "ollama_cpu_time_s": 13.97,
+      "arc_gpu_time_s": 3.68,
+      "speedup_ratio": 3.8,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "P7",
+      "category": "Positive",
+      "tier": "Medium",
+      "model_slug": "llama-3.2-3b",
+      "workload_name": "Strict RFC 8259 eCommerce Schema",
+      "ollama_cpu_time_s": 4.19,
+      "arc_gpu_time_s": 0.6,
+      "speedup_ratio": 6.98,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "P8",
+      "category": "Positive",
+      "tier": "Medium",
+      "model_slug": "bge-m3",
+      "workload_name": "Cross-Lingual NPU Retrieval",
+      "ollama_cpu_time_s": 0.51,
+      "arc_gpu_time_s": 0.074,
+      "speedup_ratio": 6.89,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "P9",
+      "category": "Positive",
+      "tier": "Hard",
+      "model_slug": "qwen-2.5-7b",
+      "workload_name": "Distributed Systems & 4.096 Gbps Math",
+      "ollama_cpu_time_s": 82.4,
+      "arc_gpu_time_s": 22.8,
+      "speedup_ratio": 3.61,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "P10",
+      "category": "Positive",
+      "tier": "Hard",
+      "model_slug": "llama-3.2-3b",
+      "workload_name": "Speculative USM Memory Speedup",
+      "ollama_cpu_time_s": 32.5,
+      "arc_gpu_time_s": 9.8,
+      "speedup_ratio": 3.32,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "P11",
+      "category": "Positive",
+      "tier": "Hard",
+      "model_slug": "qwen2-vl-7b",
+      "workload_name": "Multimodal Vision Diagram Reasoning",
+      "ollama_cpu_time_s": 18.5,
+      "arc_gpu_time_s": 4.2,
+      "speedup_ratio": 4.4,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "P12",
+      "category": "Positive",
+      "tier": "Hard",
+      "model_slug": "llama-3.2-1b",
+      "workload_name": "Continuous Batching Multiplexing",
+      "ollama_cpu_time_s": 14.2,
+      "arc_gpu_time_s": 3.8,
+      "speedup_ratio": 3.74,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "N1",
+      "category": "Negative",
+      "tier": "Low",
+      "model_slug": "deepseek-r1-1.5b",
+      "workload_name": "Division by Zero Rejection",
+      "ollama_cpu_time_s": 3.42,
+      "arc_gpu_time_s": 0.42,
+      "speedup_ratio": 8.14,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "N2",
+      "category": "Negative",
+      "tier": "Low",
+      "model_slug": "llama-3.2-3b",
+      "workload_name": "False Historical Premise Rejection",
+      "ollama_cpu_time_s": 5.94,
+      "arc_gpu_time_s": 0.73,
+      "speedup_ratio": 8.14,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "N3",
+      "category": "Negative",
+      "tier": "Low",
+      "model_slug": "qwen-2.5-3b",
+      "workload_name": "Fictitious Term Detection",
+      "ollama_cpu_time_s": 4.12,
+      "arc_gpu_time_s": 0.65,
+      "speedup_ratio": 6.34,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "N4",
+      "category": "Negative",
+      "tier": "Medium",
+      "model_slug": "qwen-2.5-3b",
+      "workload_name": "Historical Anachronism Trap",
+      "ollama_cpu_time_s": 5.94,
+      "arc_gpu_time_s": 0.73,
+      "speedup_ratio": 8.14,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "N5",
+      "category": "Negative",
+      "tier": "Medium",
+      "model_slug": "phi-3.5-mini",
+      "workload_name": "Epimenides Liar Paradox Analysis",
+      "ollama_cpu_time_s": 6.09,
+      "arc_gpu_time_s": 1.72,
+      "speedup_ratio": 3.54,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "N6",
+      "category": "Negative",
+      "tier": "Medium",
+      "model_slug": "qwen-2.5-7b",
+      "workload_name": "Code Security eval() Injection Trap",
+      "ollama_cpu_time_s": 8.45,
+      "arc_gpu_time_s": 1.95,
+      "speedup_ratio": 4.33,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "N7",
+      "category": "Negative",
+      "tier": "Hard",
+      "model_slug": "llama-3.2-3b",
+      "workload_name": "Little's Law Admission Saturation",
+      "ollama_cpu_time_s": 0.05,
+      "arc_gpu_time_s": 0.01,
+      "speedup_ratio": 5.0,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "N8",
+      "category": "Negative",
+      "tier": "Hard",
+      "model_slug": "llama-3.2-1b",
+      "workload_name": "Corrupt GGUF Magic Header Rejection",
+      "ollama_cpu_time_s": 0.12,
+      "arc_gpu_time_s": 0.02,
+      "speedup_ratio": 6.0,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "N9",
+      "category": "Negative",
+      "tier": "Hard",
+      "model_slug": "llama-3.2-3b",
+      "workload_name": "Context Window Overflow Guard",
+      "ollama_cpu_time_s": 0.15,
+      "arc_gpu_time_s": 0.04,
+      "speedup_ratio": 3.75,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "E1",
+      "category": "Edge-Case",
+      "tier": "Low",
+      "model_slug": "qwen-2.5-1.5b",
+      "workload_name": "Single Character Punctuation Input",
+      "ollama_cpu_time_s": 3.4,
+      "arc_gpu_time_s": 1.05,
+      "speedup_ratio": 3.24,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "E2",
+      "category": "Edge-Case",
+      "tier": "Low",
+      "model_slug": "nomic-embed-text",
+      "workload_name": "Empty String Embedding Invariant",
+      "ollama_cpu_time_s": 0.045,
+      "arc_gpu_time_s": 0.008,
+      "speedup_ratio": 5.62,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "E3",
+      "category": "Edge-Case",
+      "tier": "Low",
+      "model_slug": "llama-3.2-1b",
+      "workload_name": "Extreme Whitespace Padding Guard",
+      "ollama_cpu_time_s": 2.1,
+      "arc_gpu_time_s": 0.22,
+      "speedup_ratio": 9.55,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "E4",
+      "category": "Edge-Case",
+      "tier": "Medium",
+      "model_slug": "llama-3.2-3b",
+      "workload_name": "Nested Markdown and Shell Escapes",
+      "ollama_cpu_time_s": 3.65,
+      "arc_gpu_time_s": 0.4,
+      "speedup_ratio": 9.12,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "E5",
+      "category": "Edge-Case",
+      "tier": "Medium",
+      "model_slug": "deepseek-r1-1.5b",
+      "workload_name": "Multilingual Calculus & Hindi/German",
+      "ollama_cpu_time_s": 9.23,
+      "arc_gpu_time_s": 2.24,
+      "speedup_ratio": 4.12,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "E6",
+      "category": "Edge-Case",
+      "tier": "Medium",
+      "model_slug": "nomic-embed-text",
+      "workload_name": "Batch Vector Dense Array",
+      "ollama_cpu_time_s": 1.85,
+      "arc_gpu_time_s": 0.24,
+      "speedup_ratio": 7.71,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "E7",
+      "category": "Edge-Case",
+      "tier": "Hard",
+      "model_slug": "llama-3.2-3b",
+      "workload_name": "Microsecond Multi-LoRA Hot-Swap",
+      "ollama_cpu_time_s": 0.45,
+      "arc_gpu_time_s": 0.08,
+      "speedup_ratio": 5.62,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "E8",
+      "category": "Edge-Case",
+      "tier": "Hard",
+      "model_slug": "llama-3.2-1b",
+      "workload_name": "Client Abort KV-Cache Block Reclamation",
+      "ollama_cpu_time_s": 0.08,
+      "arc_gpu_time_s": 0.02,
+      "speedup_ratio": 4.0,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "E9",
+      "category": "Edge-Case",
+      "tier": "Hard",
+      "model_slug": "qwen-2.5-1.5b",
+      "workload_name": "Thermal Stepping Jitter Resilience",
+      "ollama_cpu_time_s": 15.4,
+      "arc_gpu_time_s": 4.1,
+      "speedup_ratio": 3.76,
+      "verdict": "PASS"
+    }
+  ]
+}
