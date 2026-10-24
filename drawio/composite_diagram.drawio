@@ -5,95 +5,101 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-    <mxCell id="2" value="HybridSpeculativeEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="40" width="300" height="200" as="geometry" />
+    <mxCell id="2" value="ImageEngine (Text-to-Image Synthesis)" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="280" height="180" as="geometry" />
     </mxCell>
-    <mxCell id="3" value="DraftController (NPU 5W, Proof M50)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="2">
-      <mxGeometry x="15" y="36" width="270" height="36" as="geometry" />
+    <mxCell id="3" value="CLIPTextEncoder (77-Token Context, Proof M73)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="2">
+      <mxGeometry x="10" y="36" width="125" height="36" as="geometry" />
     </mxCell>
-    <mxCell id="4" value="TargetVerifier (Arc GPU, Proof M6)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="2">
-      <mxGeometry x="15" y="86" width="270" height="36" as="geometry" />
+    <mxCell id="4" value="PhiloxPRNGInitializer (Deterministic Noise, Proof M80)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="2">
+      <mxGeometry x="145" y="36" width="125" height="36" as="geometry" />
     </mxCell>
-    <mxCell id="5" value="BonusTokenEvaluator (E[K]=3.36)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="2">
-      <mxGeometry x="15" y="136" width="270" height="36" as="geometry" />
+    <mxCell id="5" value="CFGInterpolationEngine (eps_uncond + s*(eps_cond - eps_uncond), Proof M74)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="2">
+      <mxGeometry x="10" y="82" width="125" height="36" as="geometry" />
+    </mxCell>
+    <mxCell id="6" value="UNetDenoiserDPAS (8 Xe-Core XMX Matrix Kernel, Proof M75, M77, M89)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="2">
+      <mxGeometry x="145" y="82" width="125" height="36" as="geometry" />
     </mxCell>
     <mxCell id="7" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="2">
-      <mxGeometry x="-6" y="46" width="12" height="12" as="geometry" />
+      <mxGeometry x="-6" y="30" width="12" height="12" as="geometry" />
     </mxCell>
-    <mxCell id="8" value="PromptInPort" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
-      <mxGeometry x="-45" y="86" width="75" height="20" as="geometry" />
+    <mxCell id="8" value="InPort_Prompt" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="-40" y="70" width="75" height="20" as="geometry" />
     </mxCell>
     <mxCell id="9" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="2">
-      <mxGeometry x="294" y="146" width="12" height="12" as="geometry" />
+      <mxGeometry x="-6" y="70" width="12" height="12" as="geometry" />
     </mxCell>
-    <mxCell id="10" value="TokensOutPort" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
-      <mxGeometry x="345" y="186" width="85" height="20" as="geometry" />
+    <mxCell id="10" value="InPort_Config" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="-40" y="110" width="75" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="13" value="BatchExecutionPipeline" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="450" y="40" width="300" height="200" as="geometry" />
+    <mxCell id="11" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="2">
+      <mxGeometry x="-6" y="110" width="12" height="12" as="geometry" />
     </mxCell>
-    <mxCell id="14" value="AdmissionGate (theta_sat &amp;lt;= 0.92, M30)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="13">
-      <mxGeometry x="15" y="36" width="270" height="36" as="geometry" />
+    <mxCell id="12" value="OutPort_Image" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="-40" y="150" width="75" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="15" value="ContinuousScheduler (Iteration, M29)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="13">
-      <mxGeometry x="15" y="86" width="270" height="36" as="geometry" />
+    <mxCell id="13" value="HybridSpeculativeEngine" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="420" y="40" width="280" height="180" as="geometry" />
     </mxCell>
-    <mxCell id="16" value="PagedAttentionSubsystem (Proof M31)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="13">
-      <mxGeometry x="15" y="136" width="270" height="36" as="geometry" />
+    <mxCell id="14" value="DraftController (NPU Coordinator, gamma=4, Proof M50)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="13">
+      <mxGeometry x="10" y="36" width="125" height="36" as="geometry" />
+    </mxCell>
+    <mxCell id="15" value="TargetVerifier (Arc GPU Batch Verifier, Proof M6)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="13">
+      <mxGeometry x="145" y="36" width="125" height="36" as="geometry" />
+    </mxCell>
+    <mxCell id="16" value="BonusTokenEvaluator (E[K]=3.36)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="13">
+      <mxGeometry x="10" y="82" width="125" height="36" as="geometry" />
     </mxCell>
     <mxCell id="17" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="13">
-      <mxGeometry x="-6" y="46" width="12" height="12" as="geometry" />
+      <mxGeometry x="-6" y="30" width="12" height="12" as="geometry" />
     </mxCell>
-    <mxCell id="18" value="HTTPQueuePort" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
-      <mxGeometry x="365" y="86" width="85" height="20" as="geometry" />
+    <mxCell id="18" value="prompt_in" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="340" y="70" width="75" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="30" value="AudioEngine (Unified STT &amp;amp; TTS)" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#D5E8D4;strokeColor=#82B366;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="300" width="710" height="260" as="geometry" />
+    <mxCell id="19" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="13">
+      <mxGeometry x="-6" y="70" width="12" height="12" as="geometry" />
     </mxCell>
-    <mxCell id="31" value="AcousticNormalizer (16kHz float32, M &amp;lt;= 19.2MB, Proof M68)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;" vertex="1" parent="30">
-      <mxGeometry x="20" y="40" width="320" height="36" as="geometry" />
+    <mxCell id="20" value="token_out" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="340" y="110" width="75" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="32" value="VADSilenceGate (RMS &amp;amp; Spectral Entropy, Proof M69)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;" vertex="1" parent="30">
-      <mxGeometry x="20" y="90" width="320" height="36" as="geometry" />
+    <mxCell id="21" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="13">
+      <mxGeometry x="-6" y="110" width="12" height="12" as="geometry" />
     </mxCell>
-    <mxCell id="33" value="WhisperPipelineCore (Level Zero tau &amp;lt;= 2.1us, Proof M67)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;" vertex="1" parent="30">
-      <mxGeometry x="20" y="140" width="320" height="36" as="geometry" />
+    <mxCell id="22" value="telemetry" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="340" y="150" width="75" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="34" value="RepetitionLoopDetector (LZ77 ratio r &amp;lt;= 2.40, Proof M70)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;" vertex="1" parent="30">
-      <mxGeometry x="20" y="190" width="320" height="36" as="geometry" />
+    <mxCell id="23" value="AudioEngine (Unified STT &amp; TTS)" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;expand=0;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="300" width="280" height="180" as="geometry" />
     </mxCell>
-    <mxCell id="35" value="KokoroTTSPipelineCore (Zero-Disk Residue, Proof M66)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;" vertex="1" parent="30">
-      <mxGeometry x="370" y="40" width="320" height="36" as="geometry" />
+    <mxCell id="24" value="AcousticNormalizer" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="23">
+      <mxGeometry x="10" y="36" width="125" height="36" as="geometry" />
     </mxCell>
-    <mxCell id="36" value="SpeakerTensorCache (510x256 Style Vectors)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;" vertex="1" parent="30">
-      <mxGeometry x="370" y="90" width="320" height="36" as="geometry" />
+    <mxCell id="25" value="VADSilenceGater (Proof M69)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="23">
+      <mxGeometry x="145" y="36" width="125" height="36" as="geometry" />
     </mxCell>
-    <mxCell id="37" value="PCMClampingStage (Float32 to 16-bit Mono WAV)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;" vertex="1" parent="30">
-      <mxGeometry x="370" y="140" width="320" height="36" as="geometry" />
+    <mxCell id="26" value="WhisperASRCore (Proof M60, M61)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="23">
+      <mxGeometry x="10" y="82" width="125" height="36" as="geometry" />
     </mxCell>
-    <mxCell id="38" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="30">
-      <mxGeometry x="-6" y="50" width="12" height="12" as="geometry" />
+    <mxCell id="27" value="KokoroTTSCore (Proof M64)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#666666;" vertex="1" parent="23">
+      <mxGeometry x="145" y="82" width="125" height="36" as="geometry" />
     </mxCell>
-    <mxCell id="39" value="InPort_Audio" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
-      <mxGeometry x="-45" y="350" width="75" height="20" as="geometry" />
+    <mxCell id="28" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="23">
+      <mxGeometry x="-6" y="30" width="12" height="12" as="geometry" />
     </mxCell>
-    <mxCell id="40" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="30">
-      <mxGeometry x="-6" y="200" width="12" height="12" as="geometry" />
+    <mxCell id="29" value="audio_in" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="-40" y="330" width="75" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="41" value="OutPort_Transcript" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
-      <mxGeometry x="-65" y="500" width="95" height="20" as="geometry" />
+    <mxCell id="30" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="23">
+      <mxGeometry x="-6" y="70" width="12" height="12" as="geometry" />
     </mxCell>
-    <mxCell id="42" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="30">
-      <mxGeometry x="704" y="50" width="12" height="12" as="geometry" />
+    <mxCell id="31" value="text_in" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="-40" y="370" width="75" height="20" as="geometry" />
     </mxCell>
-    <mxCell id="43" value="InPort_Prompt" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
-      <mxGeometry x="755" y="350" width="85" height="20" as="geometry" />
+    <mxCell id="32" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="23">
+      <mxGeometry x="-6" y="110" width="12" height="12" as="geometry" />
     </mxCell>
-    <mxCell id="44" value="" style="html=1;strokeColor=#000000;fillColor=#FFFFFF;strokeWidth=1;" vertex="1" parent="30">
-      <mxGeometry x="704" y="150" width="12" height="12" as="geometry" />
-    </mxCell>
-    <mxCell id="45" value="OutPort_Waveform" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
-      <mxGeometry x="755" y="450" width="95" height="20" as="geometry" />
+    <mxCell id="33" value="transcript_out" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="-40" y="410" width="75" height="20" as="geometry" />
     </mxCell>
       </root>
     </mxGraphModel>

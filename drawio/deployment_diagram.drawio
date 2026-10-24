@@ -5,79 +5,73 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-    <mxCell id="2" value="&amp;lt;&amp;lt;server&amp;gt;&amp;gt;&#xa;Host_System" style="shape=cube;html=1;whiteSpace=wrap;fontStyle=1;perimeter=cubePerimeter;fillColor=#FFE6CC;strokeColor=#D79B00;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="40" width="280" height="260" as="geometry" />
+    <mxCell id="2" value="&amp;lt;&amp;lt;server&amp;gt;&amp;gt;&amp;#xa;Host Workstation (Python 3.10-3.13)" style="shape=cube;html=1;whiteSpace=wrap;fontStyle=1;perimeter=cubePerimeter;fillColor=#FFE6CC;strokeColor=#D79B00;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="240" height="308" as="geometry" />
     </mxCell>
-    <mxCell id="3" value="arc-runner-daemon (:11434)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="2">
-      <mxGeometry x="10" y="50" width="260" height="32" as="geometry" />
+    <mxCell id="3" value="arc-runner Daemon (:11434)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="2">
+      <mxGeometry x="10" y="60" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="4" value="6-Tab Web UI Studio (:11434/ui)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="2">
-      <mxGeometry x="10" y="88" width="260" height="32" as="geometry" />
+    <mxCell id="4" value="Studio WebUI (:11434/ui)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="2">
+      <mxGeometry x="10" y="98" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="5" value="AudioEngine (Whisper ASR &amp;amp; Kokoro TTS)&#xa;Level Zero Immediate Cmds (Proof M67)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;" vertex="1" parent="2">
-      <mxGeometry x="10" y="126" width="260" height="42" as="geometry" />
+    <mxCell id="5" value="ImageEngine Runtime (SD 1.5, SDXL, LCM, Turbo)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="2">
+      <mxGeometry x="10" y="136" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="25" value="CLI Transcribe &amp;amp; TTS Handlers&#xa;Zero-Disk Residue (Proof M66)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;" vertex="1" parent="2">
-      <mxGeometry x="10" y="174" width="260" height="36" as="geometry" />
+    <mxCell id="6" value="AudioEngine Runtime (Whisper &amp; Kokoro)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="2">
+      <mxGeometry x="10" y="174" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="26" value="python311.dll / openvino_genai.dll" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="2">
-      <mxGeometry x="10" y="216" width="260" height="32" as="geometry" />
+    <mxCell id="7" value="CLI Handlers (txt2img, transcribe, tts)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="2">
+      <mxGeometry x="10" y="212" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="6" value="&amp;lt;&amp;lt;database&amp;gt;&amp;gt;&#xa;Disk_Storage_Subsystem" style="shape=cube;html=1;whiteSpace=wrap;perimeter=cubePerimeter;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="380" y="40" width="280" height="260" as="geometry" />
+    <mxCell id="8" value="openvino_genai.dll (Level Zero Loader)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="2">
+      <mxGeometry x="10" y="250" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="7" value="OpenVINO IR Cache (~/.arc-runner/models/)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="6">
-      <mxGeometry x="10" y="50" width="260" height="32" as="geometry" />
+    <mxCell id="9" value="&amp;lt;&amp;lt;server&amp;gt;&amp;gt;&amp;#xa;Intel Arc Discrete GPU (ACM-G10 / BMG-G21)" style="shape=cube;html=1;whiteSpace=wrap;fontStyle=1;perimeter=cubePerimeter;fillColor=#FFE6CC;strokeColor=#D79B00;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="360" y="40" width="240" height="232" as="geometry" />
     </mxCell>
-    <mxCell id="27" value="Audio Models &amp;amp; Voices (~/.arc-runner/cache/)&#xa;Whisper FP16/INT4, Kokoro-82M, Style *.bin" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;" vertex="1" parent="6">
-      <mxGeometry x="10" y="88" width="260" height="42" as="geometry" />
+    <mxCell id="10" value="32 Xe-Cores / 256 XMX (260 TFLOPs)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="9">
+      <mxGeometry x="10" y="60" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="8" value="NPU AOT Blob Cache (~/.arc-runner/aot_cache/)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="6">
-      <mxGeometry x="10" y="136" width="260" height="32" as="geometry" />
+    <mxCell id="11" value="16 GB Dedicated GDDR6 (560 GB/s)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="9">
+      <mxGeometry x="10" y="98" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="9" value="Local Ollama Manifests (~/.ollama/models/)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="6">
-      <mxGeometry x="10" y="174" width="260" height="32" as="geometry" />
+    <mxCell id="12" value="Level Zero Immediate Cmds (tau &lt;= 2.1us, Proof M91)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="9">
+      <mxGeometry x="10" y="136" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="10" value="Adapter Store (~/.arc-runner/adapters/)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="6">
-      <mxGeometry x="10" y="212" width="260" height="32" as="geometry" />
+    <mxCell id="13" value="USM Zero-Copy VAE Latent Handshake (Proof M78)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="9">
+      <mxGeometry x="10" y="174" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="11" value="&amp;lt;&amp;lt;server&amp;gt;&amp;gt;&#xa;Intel_Arc_Discrete_GPU" style="shape=cube;html=1;whiteSpace=wrap;fontStyle=1;perimeter=cubePerimeter;fillColor=#FFE6CC;strokeColor=#D79B00;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="720" y="40" width="280" height="260" as="geometry" />
+    <mxCell id="14" value="&amp;lt;&amp;lt;server&amp;gt;&amp;gt;&amp;#xa;Intel Core Ultra SoC (Meteor Lake / Lunar Lake)" style="shape=cube;html=1;whiteSpace=wrap;fontStyle=1;perimeter=cubePerimeter;fillColor=#FFE6CC;strokeColor=#D79B00;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="680" y="40" width="240" height="194" as="geometry" />
     </mxCell>
-    <mxCell id="12" value="ACM-G10 / BMG-G21 Silicon (260 TFLOPs)&#xa;Level Zero Immediate Cmds (Proof M4, M67)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="11">
-      <mxGeometry x="10" y="50" width="260" height="42" as="geometry" />
+    <mxCell id="15" value="Host CPU (AVX2/AMX Matrix Fallback)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="14">
+      <mxGeometry x="10" y="60" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="13" value="WDDM Graphics Driver (igc64.dll)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="11">
-      <mxGeometry x="10" y="98" width="260" height="32" as="geometry" />
+    <mxCell id="16" value="Intel NPU 3720/4000 (48 TOPs, 5W TDP, Proof M50)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="14">
+      <mxGeometry x="10" y="98" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="14" value="Level Zero Runtime (ze_loader.dll)&#xa;Submission Latency tau &amp;lt;= 2.1us (Proof M67)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="11">
-      <mxGeometry x="10" y="136" width="260" height="42" as="geometry" />
+    <mxCell id="17" value="16-64 GB LPDDR5X (136 GB/s) Unified Host Memory" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="14">
+      <mxGeometry x="10" y="136" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="15" value="16 GB GDDR6 (560 GB/s)&#xa;Linear PCM Waveform Buffer M &amp;lt;= 19.2MB (M68)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="11">
-      <mxGeometry x="10" y="184" width="260" height="42" as="geometry" />
+    <mxCell id="18" value="&amp;lt;&amp;lt;server&amp;gt;&amp;gt;&amp;#xa;NVMe SSD Storage (7000 MB/s)" style="shape=cube;html=1;whiteSpace=wrap;fontStyle=1;perimeter=cubePerimeter;fillColor=#FFE6CC;strokeColor=#D79B00;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="314" width="240" height="194" as="geometry" />
     </mxCell>
-    <mxCell id="16" value="&amp;lt;&amp;lt;server&amp;gt;&amp;gt;&#xa;Intel_Core_Ultra_SoC" style="shape=cube;html=1;whiteSpace=wrap;fontStyle=1;perimeter=cubePerimeter;fillColor=#FFE6CC;strokeColor=#D79B00;strokeWidth=2;" vertex="1" parent="1">
-      <mxGeometry x="40" y="360" width="280" height="220" as="geometry" />
+    <mxCell id="19" value="~/.arc-runner/models/ (OpenVINO IR Cache)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="18">
+      <mxGeometry x="10" y="60" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="17" value="Host CPU (AVX2 / AVX-512 / AMX Matrix)&#xa;Low-Power ASR / TTS Fallback" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="16">
-      <mxGeometry x="10" y="50" width="260" height="42" as="geometry" />
+    <mxCell id="20" value="~/.arc-runner/cache/image/ (Zero-Disk Residue, Proof M79)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="18">
+      <mxGeometry x="10" y="98" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="18" value="Intel NPU 3720/4000 (ze_intel_npu.dll)&#xa;48 TOPs Systolic Array (5W TDP, Proof M50)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="16">
-      <mxGeometry x="10" y="98" width="260" height="42" as="geometry" />
+    <mxCell id="21" value="~/.arc-runner/aot_cache/ (AOT Compiled Blobs, Proof M93)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="18">
+      <mxGeometry x="10" y="136" width="220" height="32" as="geometry" />
     </mxCell>
-    <mxCell id="19" value="16 MB NPU SRAM + LPDDR5X (136 GB/s)&#xa;Unified Host Memory" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="16">
-      <mxGeometry x="10" y="146" width="260" height="42" as="geometry" />
-    </mxCell>
-    <mxCell id="20" value="NVMe PCIe Bus (7000 MB/s)" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="6" parent="1">
+    <mxCell id="22" value="PCIe Gen4 x16 DMA 32 GB/s" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="9" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="21" value="PCIe Gen4 x16 (32 GB/s DMA)&#xa;Level Zero tau &amp;lt;= 2.1us (Proof M67)" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="11" parent="1">
+    <mxCell id="23" value="Direct Ring Interconnect" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="14" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
-    <mxCell id="22" value="Direct Ring Interconnect" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="16" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="23" value="Heterogeneous Speculative Bus (Proof M6)" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="11" target="16" parent="1">
+    <mxCell id="24" value="PCIe Gen4 x4 DMA 7000 MB/s" style="endArrow=open;endSize=8;html=1;strokeColor=#000000;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="18" parent="1">
       <mxGeometry relative="1" as="geometry" />
     </mxCell>
       </root>

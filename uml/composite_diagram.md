@@ -48,52 +48,75 @@ flowchart TB
     subgraph AudioEngineComposite ["<<composite>> AudioEngine (Unified STT & TTS)"]
         subgraph Ports_AudioEngine ["Audio Engine Boundary Ports"]
             InPort_Audio["Port: audio_waveform_in (M <= 19.2MB, Proof M68)"]
-            InPort_Text["Port: text_prompt_in (TTS phonemes & voice)"]
-            OutPort_Transcript["Port: transcript_out (RTF <= 1.0, Proof M59)"]
-            OutPort_Waveform["Port: waveform_out (24kHz float32 PCM)"]
-            Port_LevelZero["Port: ze_immediate_cmd (tau <= 2.1us, Proof M67)"]
+            InPort_Text["Port: synthesis_text_in"]
+            OutPort_Transcript["Port: text_transcript_out"]
+            OutPort_Waveform["Port: synthesized_pcm_out"]
         end
 
-        subgraph Internal_AudioEngine ["Internal Acoustic Pipeline"]
-            AcousticNormalizer["AcousticNormalizer: 16kHz float32 linear buffer (Proof M68)"]
-            VADGate["VADSilenceGate: RMS & Entropy silence bypass (Proof M69)"]
-            WhisperPipelineCore["WhisperPipelineCore: OpenVINO IR Level Zero ASR (Proof M67)"]
-            LoopDetector["RepetitionLoopDetector: LZ77 ratio r <= 2.40 (Proof M70)"]
-            SpeakerTensorCache["SpeakerTensorCache: 510x256 style vectors (Proof M66)"]
-            KokoroTTSPipelineCore["KokoroTTSPipelineCore: StyleTTS2 synthesizer (Proof M66)"]
-            PCMClampingStage["PCMClampingStage: Float32 to 16-bit WAV serializer"]
+        subgraph Internal_AudioEngine ["Internal Audio Processing Assembly"]
+            AcousticNormalizer["AcousticNormalizer: 16kHz float32 Resampler"]
+            VADSilencer["VADSilenceGater: RMS < 1e-4, H_spectral < 0.15 (Proof M69)"]
+            WhisperASRCore["WhisperASRCore: Mel-STFT + XMX DPAS (Proof M60, M61)"]
+            KokoroTTSCore["KokoroTTSCore: StyleTTS2 + 24kHz Vocoder (Proof M64)"]
+            LZ77LoopSuppression["LZ77RepetitionGuard: rho_comp <= 2.40 (Proof M70)"]
+            SpeakerTensorStore["SpeakerTensorStore: 522KB Embedding (Proof M68)"]
         end
 
         InPort_Audio --> AcousticNormalizer
-        AcousticNormalizer --> VADGate
-        VADGate -->|active_speech| WhisperPipelineCore
-        VADGate -->|silence_detected| OutPort_Transcript
-        WhisperPipelineCore --> LoopDetector
-        LoopDetector --> OutPort_Transcript
-        InPort_Text --> KokoroTTSPipelineCore
-        SpeakerTensorCache -->|style_tensor| KokoroTTSPipelineCore
-        KokoroTTSPipelineCore --> PCMClampingStage
-        PCMClampingStage --> OutPort_Waveform
-        WhisperPipelineCore <--> Port_LevelZero
-        KokoroTTSPipelineCore <--> Port_LevelZero
+        AcousticNormalizer --> VADSilencer
+        VADSilencer -->|active_speech| WhisperASRCore
+        VADSilencer -->|silence| OutPort_Transcript
+        WhisperASRCore --> LZ77LoopSuppression
+        LZ77LoopSuppression --> OutPort_Transcript
+
+        InPort_Text --> KokoroTTSCore
+        SpeakerTensorStore --> KokoroTTSCore
+        KokoroTTSCore --> OutPort_Waveform
     end
 
-    OutPort_Tokens --> ContScheduler
-    BonusCalculator --> Port_Telemetry
+    subgraph ImageEngineComposite ["<<composite>> ImageEngine (Text-to-Image Synthesis)"]
+        subgraph Ports_ImageEngine ["Image Engine Boundary Ports"]
+            InPort_ImagePrompt["Port: prompt_in (Text + Negative Prompt)"]
+            InPort_ImageConfig["Port: config_in (Steps, CFG, WxH, Seed)"]
+            OutPort_Image["Port: image_out (PIL.Image / RGB Array)"]
+            OutPort_ImageMetrics["Port: telemetry_out (it/s, MP/s, Yield)"]
+        end
+
+        subgraph Internal_ImageEngine ["Internal Diffusion Synthesis Assembly"]
+            CLIPTextEncoder["CLIPTextEncoder: 77-Token Context Projection (Proof M73)"]
+            PhiloxPRNGInit["PhiloxPRNGInitializer: Deterministic Latent Noise (Proof M80)"]
+            CFGInterpolationEngine["CFGInterpolationEngine: eps_uncond + s*(eps_cond - eps_uncond) (Proof M74)"]
+            UNetDenoiserDPAS["UNetDenoiserDPAS: 8 Xe-Core XMX Matrix Kernel (Proof M75, M77, M89)"]
+            DynamicQuantileClamper["DynamicQuantileClamper: Anti-Burn Guard (Proof M84)"]
+            VAETileDecoder["VAETileDecoder: Sliced Latent Decoder <= 580MB (Proof M88, M92)"]
+            USMZeroCopyExtractor["USMZeroCopyExtractor: Shared Virtual Memory Array Extractor (Proof M78)"]
+        end
+
+        InPort_ImagePrompt --> CLIPTextEncoder
+        InPort_ImageConfig --> PhiloxPRNGInit
+        CLIPTextEncoder --> CFGInterpolationEngine
+        PhiloxPRNGInit --> CFGInterpolationEngine
+        CFGInterpolationEngine --> UNetDenoiserDPAS
+        UNetDenoiserDPAS --> DynamicQuantileClamper
+        DynamicQuantileClamper --> VAETileDecoder
+        VAETileDecoder --> USMZeroCopyExtractor
+        USMZeroCopyExtractor --> OutPort_Image
+        UNetDenoiserDPAS --> OutPort_ImageMetrics
+    end
 ```
 
 ## Mathematical Proofs & Invariants
 
-- **Proof M6**: Speculative verification throughput scaling: $\mathbb{E}[K]=3.36$ tokens/cycle at $\gamma=4, \alpha=0.80$.
-- **Proof M29**: Dynamic iteration continuous scheduling eliminating static padding overhead.
-- **Proof M30**: Little's Law admission saturation threshold: $\theta_{\text{sat}} \le 0.92$.
-- **Proof M31**: Radix prefix cache virtual page sharing with zero physical duplication.
-- **Proof M32**: Instant client disconnect abort: memory block freed within $0.02\text{s}$.
-- **Proof M50**: Dual silicon TDP isolation: NPU draft $5\text{W}$, discrete Arc GPU $150\text{W}$.
-- **Proof M59**: Real-Time Factor invariant $\text{RTF} = \frac{\text{latency\_s}}{\text{duration\_s}} \le 1.0$ for real-time speech processing.
-- **Proof M66**: Zero-disk residue invariant — transient audio buffers and compiled pipelines execute strictly in-memory without persistent disk cache pollution.
-- **Proof M67**: Level Zero immediate command list dispatch latency ceiling $\tau \le 2.1\,\mu\text{s}$ for synchronous audio tensor execution.
-- **Proof M68**: Linear PCM buffer bound $M \le 19.2\,\text{MB}$ ($300\,\text{s} \times 16000\,\text{Hz} \times 4\,\text{B}$) with zero memory leaks across successive pipeline invocations.
-- **Proof M69**: Anti-hallucination Voice Activity Detection (VAD) RMS energy ($E_{\text{rms}} < 10^{-4}$) and spectral entropy ($H_{\text{spectral}} < 0.05$) silence gating.
-- **Proof M70**: Auto-regressive repetition loop suppression bounding Kolmogorov LZ77 compression ratio $r \le 2.40$.
+- **Proof M6, M30, M31, M50**: Speculative decoding and memory management proofs.
+- **Proof M60, M61, M68, M69, M70**: Audio AI processing and silence gating proofs.
+- **Proof M73**: Latent Space 48× volumetric dimensionality reduction.
+- **Proof M74**: Classifier-Free Guidance Score Interpolation Invariant.
+- **Proof M75**: UNet Layer-by-Layer FLOPs Decomposition ($1.62\text{ TFLOPs/step}$).
+- **Proof M77**: Intel Arc Xe-LPG XMX DPAS Roofline operational intensity threshold $\text{AI}^* = 60.34\text{ FLOP/B}$.
+- **Proof M78**: Unified Shared Memory (USM) zero-copy tensor extraction ($\tau_{\text{copy}} = 0$).
+- **Proof M80**: Philox4x32-10 PRNG Deterministic Hash Invariant.
+- **Proof M84**: Dynamic Quantile Thresholding Anti-Burn Invariant ($\mathcal{R}_{\text{clipped}} < 0.005$).
+- **Proof M88**: Gaussian-Weighted Hann Partition of Unity for Tiled VAE Decoding ($\mathcal{C}^1$ continuity).
+- **Proof M89**: INT8 NNCF Quantization DPAS Roofline Transition doubling iteration rate to $14.70\text{ it/s}$.
+- **Proof M92**: Sliced Latent Tile Streaming memory footprint ceiling $\le 580\text{ MB}$.
 - Level 2.3 Compliant with Rule 45-uml-diagram-lifecycle.md.

@@ -2,8 +2,10 @@
 
 This directory houses the comprehensive visual architecture suite for `intel-arc-models-runner`, modeled with connected MCP tools (`uml-diagram` and `drawio-diagram`) using authoritative Universal Diagram Model (UDM) payloads in strict accordance with **Rule `45-uml-diagram-lifecycle.md` (Level 2.3)**.
 
-Every diagram is mathematically grounded in empirical physical silicon proofs (**Proofs M1–M6, M8–M9, M15–M20, M29–M34, M50–M58, M59–M72**) and available in two synchronized formats:
+Every diagram is mathematically grounded in empirical physical silicon proofs (**Proofs M1–M6, M8–M9, M15–M20, M29–M34, M50–M58, M59–M72, and M73–M93**) and available in two synchronized formats:
+
 1. **Mermaid Markdown (`uml/*.md`)**: Directly renderable in GitHub, IDE previews, and markdown viewers.
+
 2. **Editable Draw.io XML (`drawio/*.drawio`)**: Full visual XML diagrams with rich complexity-based styling, editable in [diagrams.net](https://app.diagrams.net) with zero-auth `#R` instant rendering.
 
 ---
@@ -30,17 +32,17 @@ Every diagram is mathematically grounded in empirical physical silicon proofs (*
 
 ## 🔍 Embedded Visual Previews (All 13 Diagrams)
 
-### 1. Package Diagram (10 Clean Core Packages & Import Architecture)
+### 1. Package Diagram (10 Clean Core Packages, ImageEngine & Level Zero Bindings)
 
 ```mermaid
 flowchart LR
     arc_runner_core["arc_runner.core: constants, exceptions, logging"]
     arc_runner_devices["arc_runner.devices: detector, models, sysman"]
-    arc_runner_engine["arc_runner.engine: openvino_engine, speculative_engine, audio_engine, continuous_batcher, paged_attention"]
+    arc_runner_engine["arc_runner.engine: openvino_engine, speculative_engine, audio_engine, image_engine, continuous_batcher, paged_attention"]
     arc_runner_quant["arc_runner.quant: gguf_parser, transpiler, models"]
     arc_runner_hub["arc_runner.hub: downloader, manager, ollama_importer, registry"]
     arc_runner_server["arc_runner.server: app, batch_pipeline, model_manager, routes_*"]
-    arc_runner_cli["arc_runner.cli: main (run, transcribe, tts)"]
+    arc_runner_cli["arc_runner.cli: main (run, transcribe, tts, generate-image)"]
     arc_runner_benchmark["arc_runner.benchmark: runner"]
     arc_runner_testing["arc_runner.testing: hardware_harness"]
     arc_runner_utils["arc_runner.utils: dll_loader"]
@@ -68,11 +70,11 @@ flowchart LR
 
 ---
 
-### 2. Component Diagram (Hardware Execution Engine, Gateway & Silicon Subsystems)
+### 2. Component Diagram (Hardware Execution Engine, ImageEngine & Level Zero Silicon)
 
 ```mermaid
 flowchart TB
-    CLI_Subsystem["<<component>> CLI_Subsystem: arc-runner CLI (run, transcribe, tts), Rich Terminals"]
+    CLI_Subsystem["<<component>> CLI_Subsystem: arc-runner CLI (run, transcribe, tts, generate-image), Rich Terminals"]
     WebUI_Studio["<<component>> WebUI_Studio: 6-Tab Studio, SSE Progress"]
     Daemon_Gateway["<<component>> Daemon_Gateway: FastAPI (:11434), Ollama / OpenAI APIs"]
     ModelManager["<<component>> ModelManager: Engine Registry, VRAM Budgeting, Engine Dispatch"]
@@ -85,14 +87,16 @@ flowchart TB
     Vision_Engine["<<component>> Vision_Engine: Multimodal Visual Tokens, Phi-3.5-V & MiniCPM-V"]
     Embedding_Engine["<<component>> Embedding_Engine: NPU / GPU Embeddings, L2 Unit Normalization (Proof M1)"]
     Audio_Engine["<<component>> Audio_Engine: Unified STT & TTS (Whisper & Kokoro), VAD Gating (Proof M69), Loop Suppression (Proof M70), PCM Bound <= 19.2MB (Proof M68)"]
+    Image_Engine["<<component>> Image_Engine: Text2ImagePipeline (SD 1.5, SDXL, LCM, Turbo), Level Zero CmdList (Proof M91), Anti-Burn Bound (Proof M84), Zero-Copy USM (Proof M78)"]
     GGUF_Transpiler["<<component>> GGUF_Transpiler: O(1) Streaming Buffer (Proof M15), 34.6dB SQNR Bound (Proof M8)"]
     Sysman_Telemetry["<<component>> Sysman_Telemetry: Level Zero Sysman VRAM Metrics, Thermal & Power Telemetry"]
-    Intel_Arc_GPU["<<component>> Intel_Arc_GPU: 32 Xe-Cores / 256 XMX (260 TFLOPs), 560 GB/s GDDR6 VRAM, Level Zero tau <= 2.1us (Proof M67)"]
+    Intel_Arc_GPU["<<component>> Intel_Arc_GPU: 32 Xe-Cores / 256 XMX (260 TFLOPs), 560 GB/s GDDR6 VRAM, Level Zero tau <= 2.1us (Proof M67, M91)"]
     Intel_Ultra_NPU["<<component>> Intel_Ultra_NPU: 48 TOPs Systolic Array (5W TDP, Proof M50), ASR/Draft Silicon"]
     Host_CPU["<<component>> Host_CPU: AVX2 / AMX Matrix Host Fallback"]
 
     CLI_Subsystem -->|HTTP :11434| Daemon_Gateway
     CLI_Subsystem -->|direct_transcribe_tts| Audio_Engine
+    CLI_Subsystem -->|direct_generate_image| Image_Engine
     WebUI_Studio -->|SSE / REST| Daemon_Gateway
     Daemon_Gateway -->|get_or_load_engine| ModelManager
     Daemon_Gateway -->|enqueue_request| BatchExecutionPipeline
@@ -101,12 +105,15 @@ flowchart TB
     ContinuousBatcher -->|forward_batch| OpenVINOGenAIEngine
     ModelManager -->|initialize_speculative| HybridSpeculativeEngine
     ModelManager -->|initialize_audio| Audio_Engine
+    ModelManager -->|initialize_image| Image_Engine
     ModelManager -->|apply_adapter| LoRA_Manager
     HybridSpeculativeEngine -->|dual_instance_dispatch| OpenVINOGenAIEngine
     OpenVINOGenAIEngine -->|zeCommandListExecuteImmediate| Intel_Arc_GPU
     Audio_Engine -->|zeCommandListExecuteImmediate tau <= 2.1us (Proof M67)| Intel_Arc_GPU
     Audio_Engine -->|npu_fallback| Intel_Ultra_NPU
     Audio_Engine -->|cpu_fallback| Host_CPU
+    Image_Engine -->|zeCommandListExecuteImmediate tau <= 2.1us (Proof M91)| Intel_Arc_GPU
+    Image_Engine -->|cpu_fallback| Host_CPU
     ModelManager -->|query_telemetry| Sysman_Telemetry
     Daemon_Gateway -->|transpile_stream| GGUF_Transpiler
 
@@ -114,8 +121,12 @@ flowchart TB
     CLI_Subsystem -.->|requires| iface_CLI_Subsystem_Daemon_Gateway
     iface_CLI_Subsystem_Audio_Engine(["Audio_Engine"])
     CLI_Subsystem -.->|requires| iface_CLI_Subsystem_Audio_Engine
+    iface_CLI_Subsystem_Image_Engine(["Image_Engine"])
+    CLI_Subsystem -.->|requires| iface_CLI_Subsystem_Image_Engine
     iface_ModelManager_Audio_Engine(["Audio_Engine"])
     ModelManager -.->|requires| iface_ModelManager_Audio_Engine
+    iface_ModelManager_Image_Engine(["Image_Engine"])
+    ModelManager -.->|requires| iface_ModelManager_Image_Engine
     iface_ModelManager_OpenVINOGenAIEngine(["OpenVINOGenAIEngine"])
     ModelManager -.->|requires| iface_ModelManager_OpenVINOGenAIEngine
     iface_ModelManager_HybridSpeculativeEngine(["HybridSpeculativeEngine"])
@@ -126,33 +137,13 @@ flowchart TB
     ContinuousBatcher -.->|requires| iface_ContinuousBatcher_OpenVINOGenAIEngine
     iface_ContinuousBatcher_RadixPrefixCache(["RadixPrefixCache"])
     ContinuousBatcher -.->|requires| iface_ContinuousBatcher_RadixPrefixCache
-    iface_Paged_Attention_Arc_GPU_VRAM(["Arc_GPU_VRAM"])
-    Paged_Attention -.->|requires| iface_Paged_Attention_Arc_GPU_VRAM
-    iface_Audio_Engine_Intel_Arc_GPU(["Intel_Arc_GPU_Level_Zero"])
-    Audio_Engine -.->|requires| iface_Audio_Engine_Intel_Arc_GPU
-    iface_Audio_Engine_Intel_Ultra_NPU(["Intel_Ultra_NPU"])
-    Audio_Engine -.->|requires| iface_Audio_Engine_Intel_Ultra_NPU
-    iface_OpenVINOGenAIEngine_Intel_Arc_GPU(["Intel_Arc_GPU"])
-    OpenVINOGenAIEngine -.->|requires| iface_OpenVINOGenAIEngine_Intel_Arc_GPU
-    iface_OpenVINOGenAIEngine_Intel_Ultra_NPU(["Intel_Ultra_NPU"])
-    OpenVINOGenAIEngine -.->|requires| iface_OpenVINOGenAIEngine_Intel_Ultra_NPU
-    iface_HybridSpeculativeEngine_OpenVINOGenAIEngine(["OpenVINOGenAIEngine"])
-    HybridSpeculativeEngine -.->|requires| iface_HybridSpeculativeEngine_OpenVINOGenAIEngine
-    iface_Vision_Engine_Intel_Arc_GPU(["Intel_Arc_GPU"])
-    Vision_Engine -.->|requires| iface_Vision_Engine_Intel_Arc_GPU
-    iface_Embedding_Engine_Intel_Ultra_NPU(["Intel_Ultra_NPU"])
-    Embedding_Engine -.->|requires| iface_Embedding_Engine_Intel_Ultra_NPU
-    iface_GGUF_Transpiler_Local_NVMe_Cache(["Local_NVMe_Cache"])
-    GGUF_Transpiler -.->|requires| iface_GGUF_Transpiler_Local_NVMe_Cache
-    iface_Sysman_Telemetry_Level_Zero_Driver(["Level_Zero_Driver"])
-    Sysman_Telemetry -.->|requires| iface_Sysman_Telemetry_Level_Zero_Driver
 ```
 
 [Mermaid Source](file:///uml/component_diagram.md) | [Editable Draw.io Source](file:///drawio/component_diagram.drawio)
 
 ---
 
-### 3. Class Diagram (22 Core Engine Classes, Inheritance & Signatures)
+### 3. Class Diagram (BaseEngine Hierarchy, ImageEngine, AudioEngine & Batch Scheduling)
 
 ```mermaid
 classDiagram
@@ -210,77 +201,74 @@ classDiagram
         +compression_ratio: float
     }
     class SynthesisResult {
-        +audio_samples: List[float]
+        +samples: np.ndarray
         +sample_rate: int
-        +duration_s: float
         +latency_s: float
+        +audio_duration_s: float
         +rtf: float
-        +throughput_audio_s_per_s: float
+        +energy_yield_audio_s_per_j: float
         +device_used: str
         +voice_used: str
-        +model_name: str
+        +speed_used: float
     }
     class AudioEngine {
-        -_config: AudioEngineConfig
-        -_model_path: Optional[Path]
+        -_pipeline
         -_device: str
-        -_task_type: Optional[str]
-        -_whisper_pipe: Any
-        -_tts_pipe: Any
-        -_speaker_cache: Dict[str, Any]
-        -_topology: DeviceTopology
-        +is_loaded: bool
-        +model_path: Optional[Path]
+        -_config: AudioEngineConfig
+        -_current_model_path: Optional[Path]
+        -_current_task: Optional[str]
+        +load_model(model_path: Path, device: str, task_type: str)
+        +transcribe(audio_input: Union[str, Path, np.ndarray], ...)
+        +synthesize(text: str, voice: str, speed: float)
+        -_normalize_audio_input(audio_input)
+        -_is_silence_or_noise(samples)
+        -_detect_repetition_loop(text)
+        -_load_speaker_embedding(voice_name)
+        +save_audio_wav(samples, output_path)
+        +unload()
+    }
+    class ImageEngineConfig {
         +device: str
-        +task_type: Optional[str]
-        +load_model(model_path, device, task_type)
-        +transcribe(audio, language, task, return_timestamps): TranscriptionResult
-        +synthesize(text, voice, speed): SynthesisResult
-        -_normalize_audio_input(audio): Tuple[List[float], float]
-        -_is_silence_or_noise(samples): bool
-        -_detect_repetition_loop(text): float
-        -_load_speaker_embedding(voice_name): Any
-        +save_audio_wav(samples, output_path, sample_rate) Path
-        +unload(): void
+        +default_steps: int
+        +default_guidance_scale: float
+        +default_width: int
+        +default_height: int
+        +enable_compile_cache: bool
     }
-    class ArcRunnerError {
-        +message: str
-        +error_code: str
-        +status_code: int
+    class ImageGenerationRequest {
+        +prompt: str
+        +negative_prompt: str
+        +width: int
+        +height: int
+        +steps: int
+        +guidance_scale: float
+        +seed: Optional[int]
     }
-    class AudioEngineError {
-        +message: str
-        +error_code: str
-        +status_code: int
+    class ImageGenerationBreakdown {
+        +text_encoder_ms: float
+        +denoise_unet_ms: float
+        +vae_decoder_ms: float
     }
-    class AudioTranscriptionError {
-        +message: str
+    class ImageGenerationResult {
+        +image: Any
+        +latency_s: float
+        +step_latency_ms: float
+        +iteration_rate_it_s: float
+        +megapixels_per_sec: float
+        +breakdown: ImageGenerationBreakdown
+        +device_used: str
+        +seed_used: int
     }
-    class AudioSynthesisError {
-        +message: str
-    }
-    class InvalidAudioFormatError {
-        +message: str
-    }
-    class VoiceNotFoundError {
-        +voice_name: str
-        +available_voices: List[str]
-    }
-    class CuratedModelInfo {
-        +alias: str
-        +repo_id: str
-        +parameter_size: str
-        +quantization: str
-        +family: str
-        +target_device: str
-        +size_bytes: int
-        +model_type: str
-    }
-    class ModelManager {
-        +model_dirs
-        +get_or_load_engine(model_id: str, device: str)
-        +get_or_load_embedding_engine(model_id: str)
-        +get_or_load_vision_engine(model_id: str)
+    class ImageEngine {
+        -_pipeline
+        -_device: str
+        -_config: ImageEngineConfig
+        -_current_model_path: Optional[Path]
+        +load_model(model_path: Path, device: str, compile_cache: bool)
+        +generate(request: ImageGenerationRequest)
+        -_execute_generation(request: ImageGenerationRequest)
+        -_extract_pil_image(ov_tensor)
+        +unload()
     }
     class ContinuousBatcher {
         +active_sequences_count
@@ -290,127 +278,109 @@ classDiagram
         +preempt_sequence(seq_id: str)
     }
     class PagedBlockTable {
-        +block_size
-        +total_blocks
-        +utilization_ratio
-        +get_sequence_blocks(seq_id: str)
-        +get_block_map()
+        +block_size: int
+        +total_blocks: int
+        +utilization_ratio: float
+        +allocate(seq_id: str, num_blocks: int)
+        +free(seq_id: str)
     }
     class RadixPrefixCache {
-        +hit_rate
-        +total_lookups
+        +cached_tokens_count: int
         +match_prefix(tokens: List[int])
-        +insert_prefix(tokens: List[int], blocks: List[int])
+        +insert_prefix(tokens: List[int], block_ids: List[int])
     }
-    class DeviceDetector {
-        +detect_topology()
-        -_classify_gpu_architecture(name: str)
+    class BatchExecutionPipeline {
+        -_batcher: ContinuousBatcher
+        -_model_mgr: ModelManager
+        +enqueue(request: GenerateRequest)
+        +abort(request_id: str)
     }
-    class LevelZeroSysman {
-        +is_available()
-        +query_gpu_memory()
+    class LoRAManager {
+        -_adapters: Dict[str, LoRAAdapter]
+        -_lru_cache: List[str]
+        +load_adapter(name: str, path: Path)
+        +apply_adapter(engine, name: str)
     }
 
     BaseEngine <|-- OpenVINOGenAIEngine
     BaseEngine <|-- HybridSpeculativeEngine
-    ArcRunnerError <|-- AudioEngineError
-    AudioEngineError <|-- AudioTranscriptionError
-    AudioEngineError <|-- AudioSynthesisError
-    AudioEngineError <|-- InvalidAudioFormatError
-    AudioEngineError <|-- VoiceNotFoundError
+    BaseEngine <|-- AudioEngine
+    BaseEngine <|-- ImageEngine
     AudioEngine *-- AudioEngineConfig
-    AudioEngine ..> TranscriptionResult : creates
-    AudioEngine ..> SynthesisResult : creates
-    AudioEngine ..> AudioEngineError : raises
-    AudioEngine --> DeviceDetector : probes
+    AudioEngine ..> TranscriptionResult
+    AudioEngine ..> SynthesisResult
     TranscriptionResult *-- TranscriptionSegment
-    ModelManager --> AudioEngine : loads
+    ImageEngine *-- ImageEngineConfig
+    ImageEngine ..> ImageGenerationRequest
+    ImageEngine ..> ImageGenerationResult
+    ImageGenerationResult *-- ImageGenerationBreakdown
+    ContinuousBatcher *-- PagedBlockTable
+    ContinuousBatcher *-- RadixPrefixCache
+    BatchExecutionPipeline o-- ContinuousBatcher
 ```
 
 [Mermaid Source](file:///uml/class_diagram.md) | [Editable Draw.io Source](file:///drawio/class_diagram.drawio)
 
 ---
 
-### 4. Sequence Diagram (Heterogeneous Speculative Decoding & Continuous Batching Flow)
+### 4. Sequence Diagram (Hardware Compilation, Text-to-Image CFG Denoising & Whisper STT)
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Client as Client / CLI User
-    participant AudioEngine as AudioEngine (OpenVINO GenAI)
+    participant Engine as ImageEngine / AudioEngine
     participant DeviceDetector as DeviceDetector (Topology Discovery)
+    participant PhiloxPRNG as PhiloxPRNG (Proof M80 Seed Invariant)
     participant VADGate as VADGate (Proof M69 Silence Guard)
-    participant SpeakerCache as SpeakerCache (Kokoro 522KB Tensor)
-    participant LevelZero_GPU as Intel Arc Xe-LPG GPU (Proof M67)
+    participant LevelZero_GPU as Intel Arc Xe-LPG GPU (Proof M67, M91)
+    participant AntiBurnGuard as AntiBurnGuard (Proof M84 Dynamic Clamp)
     participant CPU_Fallback as Intel Core Ultra CPU (Host Fallback)
-    participant LZ77LoopGuard as LZ77LoopGuard (Proof M70 Repetition Guard)
-    participant DiskReclaimer as DiskReclaimer (Proof M66 Zero-Disk Residue)
+    participant DiskReclaimer as DiskReclaimer (Proof M66, M79 Zero-Disk)
 
-    Note over Client,LevelZero_GPU: Phase 1: Silicon Pipeline Compilation & Hardware Dispatch
-    Client->>AudioEngine: load_model("whisper-tiny", device="GPU")
-    AudioEngine->>DeviceDetector: detect_topology()
-    DeviceDetector-->>AudioEngine: Topology(has_intel_arc=True, has_intel_npu=True)
+    Note over Client,LevelZero_GPU: Phase 1: Hardware Pipeline Compilation & Level Zero Binding
+    Client->>Engine: load_model("stable-diffusion-v1-5-int8", device="GPU")
+    Engine->>DeviceDetector: detect_topology()
+    DeviceDetector-->>Engine: Topology(has_intel_arc=True, has_intel_npu=True)
     alt Intel Arc Xe-LPG Available
-        AudioEngine->>LevelZero_GPU: WhisperPipeline(model_dir, "GPU") [Immediate CmdList, Proof M67]
-        LevelZero_GPU-->>AudioEngine: GPU Level Zero Pipeline Compiled (latency <= 2.1us)
+        Engine->>LevelZero_GPU: Text2ImagePipeline(model_dir, "GPU") [Immediate CmdList, Proof M91]
+        LevelZero_GPU-->>Engine: Level Zero Compiled Graph (driver latency <= 2.1us)
     else Arc GPU Unavailable
-        AudioEngine->>CPU_Fallback: WhisperPipeline(model_dir, "CPU") [Host OpenVINO Vector Units]
-        CPU_Fallback-->>AudioEngine: CPU Host Pipeline Initialized
+        Engine->>CPU_Fallback: Text2ImagePipeline(model_dir, "CPU") [Host OpenVINO Vector Units]
+        CPU_Fallback-->>Engine: CPU Host Pipeline Initialized
     end
-    AudioEngine-->>Client: Pipeline Loaded & Ready
+    Engine-->>Client: Pipeline Loaded & Ready
 
-    Note over Client,LZ77LoopGuard: Phase 2: Whisper ASR Flow with VAD Gating & LZ77 Repetition Loop Guard
-    Client->>AudioEngine: transcribe(audio_input, return_timestamps=True)
-    AudioEngine->>AudioEngine: _normalize_audio_input() [16kHz float32 PCM, Proof M68]
-    AudioEngine->>VADGate: _is_silence_or_noise(samples) [Proof M69]
-    alt RMS < 1e-4 or (H_spectral < 0.15 and RMS < 0.005)
-        VADGate-->>AudioEngine: Silence Detected (Proof M69)
-        AudioEngine-->>Client: TranscriptionResult(text="", RTF=0.000, 100% Compute Saved)
-    else Active Speech Signal
-        VADGate-->>AudioEngine: Speech Verified
-        AudioEngine->>LevelZero_GPU: generate(samples, WhisperGenConfig) [USM Zero-Copy, Proof M71]
-        LevelZero_GPU->>LevelZero_GPU: Mel-STFT DPAS (Proof M60) + Roofline Token Decode (Proof M61)
-        LevelZero_GPU-->>AudioEngine: raw_transcript + timestamp_segments
-        AudioEngine->>LZ77LoopGuard: _detect_repetition_loop(raw_text) [Proof M70]
-        alt rho_comp > 2.40 (Degenerate Repetition Loop Detected)
-            LZ77LoopGuard-->>AudioEngine: Repetition Anomaly Detected -> Truncate Token Loop
-        else rho_comp <= 2.40 (Entropy Bound Normal)
-            LZ77LoopGuard-->>AudioEngine: Output Clean
-        end
-        AudioEngine-->>Client: TranscriptionResult(text, RTF=0.0125 [80x real-time], WER=0.018, Proof M59, M63)
+    Note over Client,AntiBurnGuard: Phase 2: Text-to-Image Synthesis with CFG & Anti-Burn Dynamic Clamping
+    Client->>Engine: generate(prompt, width=512, height=512, steps=25, cfg=7.5, seed=42)
+    Engine->>Engine: _validate_dimensions(512, 512) [Multiples of 8, Proof M73]
+    Engine->>PhiloxPRNG: generate_initial_latents(seed=42) [Proof M80]
+    PhiloxPRNG-->>Engine: z_T ~ N(0, I)
+    Engine->>LevelZero_GPU: Text2ImagePipeline.generate(...) [USM Zero-Copy, Proof M78, M91]
+    loop 25 Denoising Steps (DPAS INT8 Roofline 14.7 it/s, Proof M75, M77, M89)
+        LevelZero_GPU->>LevelZero_GPU: Evaluate UNet unconditional & conditional drift
+        LevelZero_GPU->>LevelZero_GPU: CFG score interpolation: v_cfg = eps_uncond + s*(eps_cond - eps_uncond) [Proof M74]
+        LevelZero_GPU->>AntiBurnGuard: Apply dynamic quantile thresholding (Proof M84)
+        AntiBurnGuard-->>LevelZero_GPU: Clamped latent x_0|t (clipping ratio < 0.005)
     end
+    LevelZero_GPU->>LevelZero_GPU: Sliced VAE Decoding <= 580MB transient RAM (Proof M88, M92)
+    LevelZero_GPU-->>Engine: ov.Tensor zero-copy pointer handoff (Proof M78)
+    Engine->>Engine: _extract_pil_image() [Convert RGB array to PIL Image]
+    Engine-->>Client: ImageGenerationResult(PIL.Image, it_s=14.7, MP_s=0.154, Yield=100781 img/kWh, Proof M82)
 
-    Note over Client,SpeakerCache: Phase 3: Kokoro TTS Flow with Flat Float32 Speaker Embedding Loading
-    Client->>AudioEngine: synthesize("Natural speech prompt", voice="af_heart", speed=1.0)
-    AudioEngine->>SpeakerCache: _load_speaker_embedding("af_heart")
-    SpeakerCache->>SpeakerCache: Read 522,240-byte flat float32 tensor (510x1x256, Proof M68)
-    SpeakerCache-->>AudioEngine: ov.Tensor(speaker_embedding)
-    AudioEngine->>LevelZero_GPU: generate([text], speaker_embedding, SpeechGenConfig)
-    LevelZero_GPU->>LevelZero_GPU: StyleTTS2 Prosody + 24kHz Vocoder Synthesis (Proof M64)
-    LevelZero_GPU-->>AudioEngine: raw_speech_samples (24000 Hz)
-    AudioEngine->>AudioEngine: save_audio_wav(samples, "output.wav")
-    AudioEngine-->>Client: SynthesisResult(samples, RTF=0.078 [12.8x real-time], yield=0.64 aud-s/J, Proof M62)
-
-    Note over Client,DiskReclaimer: Phase 4: Sequential 1-by-1 Download, Test, and Reclaim Lifecycle
-    Client->>AudioEngine: benchmark_model(alias="whisper-large-v3-turbo")
-    AudioEngine->>AudioEngine: download_model(repo_id, dest_dir)
-    AudioEngine->>LevelZero_GPU: warmup_pass() [Proof M65: Discard JIT t0]
-    AudioEngine->>LevelZero_GPU: execute_workloads([low, medium, hard])
-    LevelZero_GPU-->>AudioEngine: GPU Telemetry (RTF=0.0531, 18.83x real-time)
-    AudioEngine->>AudioEngine: thermal_cooldown_pause(1.5s, Proof M72: Tj < 90C)
-    AudioEngine->>CPU_Fallback: execute_workloads([low, medium])
-    CPU_Fallback-->>AudioEngine: CPU Baseline Telemetry (RTF=0.2115)
-    AudioEngine->>AudioEngine: unload() & gc.collect()
-    AudioEngine->>DiskReclaimer: cleanup_model_dir(dest_dir) [Proof M66]
-    DiskReclaimer-->>AudioEngine: Delta S_disk = 0 (Zero-Disk Residue Guaranteed)
-    AudioEngine-->>Client: BenchmarkReport(GPU_vs_CPU, yield_ratio=17.89x)
+    opt Sequential Benchmark Lifecycle (Proof M79)
+        Note over Client,DiskReclaimer: Phase 3: Sequential Model-by-Model Test-and-Reclaim
+        Client->>Engine: benchmark_model(alias="stable-diffusion-v1-5-int8")
+        Engine->>DiskReclaimer: cleanup_model_dir(model_dir) [Proof M79]
+        DiskReclaimer-->>Client: Delta S_disk = 0 bytes verified
+    end
 ```
 
 [Mermaid Source](file:///uml/sequence_diagram.md) | [Editable Draw.io Source](file:///drawio/sequence_diagram.drawio)
 
 ---
 
-### 5. State Diagram (Engine Lifecycle, Admission Control & Thermal/Memory Degradation)
+### 5. State Diagram (Probing, LoadingImagePipeline, CFG Denoising Loop & VAD Gating)
 
 ```mermaid
 stateDiagram-v2
@@ -418,24 +388,46 @@ stateDiagram-v2
     Uninitialized --> ProbingHardware : app_startup / configure_dll_search_path
     ProbingHardware --> IdleReady : devices_detected (Arc Xe-LPG GPU + Core Ultra NPU)
 
-    IdleReady --> LoadingAudioPipeline : load_model_request(alias, task_type)
+    IdleReady --> LoadingAudioPipeline : load_audio_model(alias, task_type)
+    IdleReady --> LoadingImagePipeline : load_image_model(alias, device)
 
-    state LoadingAudioPipeline {
+    state LoadingImagePipeline {
         [*] --> DetectSiliconTarget
-        DetectSiliconTarget --> LevelZeroBinding : has_intel_arc == True (Proof M67)
+        DetectSiliconTarget --> LevelZeroBinding : has_intel_arc == True (Proof M91)
         DetectSiliconTarget --> CPUFallbackBinding : has_intel_arc == False
-        LevelZeroBinding --> LoadWeightsAndCache : pipeline_compiled (tau <= 2.1us)
-        CPUFallbackBinding --> LoadWeightsAndCache : host_openvino_compiled
-
-        state LoadWeightsAndCache {
-            [*] --> CheckTask
-            CheckTask --> ASRModelReady : task == "stt" (Whisper IR graph)
-            CheckTask --> LoadingSpeakerTensor : task == "tts" (Kokoro IR graph)
-            LoadingSpeakerTensor --> TTSModelReady : read_522KB_tensor (510x1x256 float32, Proof M68)
-        }
+        LevelZeroBinding --> CheckAOTBlobCache : query_cache_dir (Proof M93)
+        CheckAOTBlobCache --> JITCompilation : cache_miss (compile graph)
+        CheckAOTBlobCache --> WarmFastLoad : cache_hit (0.54s load, Proof M93)
+        JITCompilation --> ImagePipelineReady : Level Zero pipeline compiled
+        WarmFastLoad --> ImagePipelineReady : execution graph restored
+        CPUFallbackBinding --> ImagePipelineReady : host OpenVINO compiled
     }
 
-    LoadingAudioPipeline --> IdleReady : audio_pipeline_active
+    LoadingImagePipeline --> IdleReady : image_pipeline_active
+
+    IdleReady --> ImageGenerationExecution : generate_image_request(prompt, steps, cfg)
+
+    state ImageGenerationExecution {
+        [*] --> ValidateDimensionsAndSteps : verify W%8==0, H%8==0 (Proof M73)
+        ValidateDimensionsAndSteps --> PhiloxPRNGLatentInit : seed Philox4x32-10 (Proof M80)
+        PhiloxPRNGLatentInit --> CFGDenoisingLoop : submit to Level Zero GPU (Proof M91)
+
+        state CFGDenoisingLoop {
+            [*] --> DenoiseStepEvaluation : evaluate UNet conditional & uncond drift
+            DenoiseStepEvaluation --> CFGScoreInterpolation : v_cfg = eps_uncond + s*(eps_cond - eps_uncond) (Proof M74)
+            CFGScoreInterpolation --> AntiBurnThresholding : check |x_0|t| saturation
+            AntiBurnThresholding --> ClampedLatentUpdate : quantile clamp s_t (Proof M84)
+            ClampedLatentUpdate --> StepCountCheck : step++
+            StepCountCheck --> DenoiseStepEvaluation : step < N_steps
+            StepCountCheck --> DenoiseComplete : step == N_steps (Proof M75, M77)
+        }
+
+        CFGDenoisingLoop --> SlicedVAEDecoding : latents complete
+        SlicedVAEDecoding --> USMZeroCopyExtraction : stream 32x32 tiles <= 580MB (Proof M92)
+        USMZeroCopyExtraction --> RGBImageVerified : tau_copy = 0 pointer handoff (Proof M78)
+    }
+
+    ImageGenerationExecution --> IdleReady : emit_image_result (PIL.Image, it/s, MP/s, Proof M82)
 
     IdleReady --> AcousticVADGating : transcribe_request(waveform)
 
@@ -459,58 +451,43 @@ stateDiagram-v2
         XMX_RooflineDecoding --> RawTokensDecoded : memory_bandwidth_bound (Proof M61)
     }
 
-    LevelZeroAcousticExecution --> LZ77RepetitionLoopCheck : decode_complete
+    LevelZeroAcousticExecution --> RepetitionLoopGuard : raw_transcript_emitted
 
-    state LZ77RepetitionLoopCheck {
+    state RepetitionLoopGuard {
         [*] --> CalculateCompressionRatio : rho_comp = |w| / |zlib(w)|
-        CalculateCompressionRatio --> LoopDetected : rho_comp > 2.40 (Proof M70)
-        CalculateCompressionRatio --> LoopFree : rho_comp <= 2.40
+        CalculateCompressionRatio --> DegenerateLoopDetected : rho_comp > 2.40 (Proof M70)
+        CalculateCompressionRatio --> NormalEntropyVerified : rho_comp <= 2.40
+        DegenerateLoopDetected --> TruncateRepetition : truncate loop tokens
+        NormalEntropyVerified --> OutputCleanTranscript : retain full text
     }
 
-    LZ77RepetitionLoopCheck --> TruncateDegenerateTokens : loop_anomaly_confirmed (Proof M70)
-    TruncateDegenerateTokens --> IdleReady : emit_deduped_transcript (WER bound, Proof M63)
-    LZ77RepetitionLoopCheck --> IdleReady : emit_verified_transcript (RTF <= 0.050, Proof M59)
-
-    IdleReady --> KokoroSpeechSynthesis : synthesize_request(text, voice, speed)
-
-    state KokoroSpeechSynthesis {
-        [*] --> ResolveSpeakerTensor : target_voice in cache?
-        ResolveSpeakerTensor --> StyleTTS2_ProsodyForward : 522,240-byte voice style vector applied
-        StyleTTS2_ProsodyForward --> VocoderSampleGeneration : 24kHz float32 waveform (MCD13 <= 5.2dB, Proof M64)
-        VocoderSampleGeneration --> SaveWAVFile : pcm16 quantization (Proof M68)
-    }
-
-    KokoroSpeechSynthesis --> IdleReady : synthesis_result_ready (RTF <= 0.080, Proof M62)
-
-    IdleReady --> SequentialLifecycle_Active : run_live_benchmarks_request(catalog)
-
-    state SequentialLifecycle_Active {
-        [*] --> DownloadModelStage : pull 1-by-1 from HuggingFace
-        DownloadModelStage --> WarmupPassStage : execute warmup (Proof M65: discard JIT t0)
-        WarmupPassStage --> PhysicalSiliconExecution : Low, Med, Hard workloads on Arc GPU & CPU
-        PhysicalSiliconExecution --> ThermalHysteresisCooldown : sleep 1.5s (Tj < 90C, Proof M72)
-        ThermalHysteresisCooldown --> ZeroDiskPurge : rmtree model_dir (Proof M66)
-        ZeroDiskPurge --> CheckNextModel : Delta S_disk = 0 bytes
-    }
-
-    SequentialLifecycle_Active --> IdleReady : all_catalog_models_benchmarked (zero residual residue)
-
-    IdleReady --> ContinuousBatchingActive : chat_request_enqueued (theta_sat <= 0.92, Proof M30)
-    ContinuousBatchingActive --> IdleReady : all_sequences_completed
+    RepetitionLoopGuard --> IdleReady : emit_transcription_result (RTF=0.0125, Proof M59)
 ```
 
 [Mermaid Source](file:///uml/state_diagram.md) | [Editable Draw.io Source](file:///drawio/state_diagram.drawio)
 
 ---
 
-### 6. Activity Diagram (End-to-End Request Pipeline & Little's Law Scheduling)
+### 6. Activity Diagram (Text-to-Image Synthesis Flow, Whisper ASR & Kokoro TTS)
 
 ```mermaid
 flowchart TD
     __start__((( ))) --> Start["Start: Ingest User / API Invocation"]
     Start --> Route_Request_Type{"Route Request Type"}
 
-    %% Branch A: Whisper ASR Flow
+    %% Branch A: Text-to-Image Synthesis Flow
+    Route_Request_Type -->|generate_image| Ingest_Image_Prompt["Ingest Text Prompt & Parameters (Steps, CFG, Width, Height, Seed)"]
+    Ingest_Image_Prompt --> Validate_Image_Dimensions{"Width & Height\nmultiples of 8 and > 0?"}
+    Validate_Image_Dimensions -->|no| Raise_Dimension_Error["Raise InvalidDimensionError (Proof M73)"]
+    Validate_Image_Dimensions -->|yes| Seed_Philox_PRNG["Seed Philox4x32-10 PRNG for Deterministic Latents (Proof M80)"]
+    Seed_Philox_PRNG --> Submit_LevelZero_UNet["Submit CFG Denoising Loop via Level Zero Immediate CmdList (Proof M74, M91)"]
+    Submit_LevelZero_UNet --> Execute_DPAS_Roofline["Execute XMX DPAS Matrix Iterations on Arc Xe-LPG (Proof M75, M77, M89)"]
+    Execute_DPAS_Roofline --> Apply_Dynamic_Quantile_Clamp["Apply Dynamic Quantile Clamping: s_t = max(1.0, quantile_p(|x0|)) (Proof M84)"]
+    Apply_Dynamic_Quantile_Clamp --> Execute_Sliced_VAE["Execute Sliced VAE Decoding <= 580MB Transient RAM (Proof M88, M92)"]
+    Execute_Sliced_VAE --> Extract_ZeroCopy_USM["Extract Zero-Copy NumPy RGB Array via USM Pointer Handoff (Proof M78)"]
+    Extract_ZeroCopy_USM --> Assemble_Image_DTO["Assemble ImageGenerationResult (it/s, MP/s, Yield, Proof M82)"]
+
+    %% Branch B: Whisper ASR Flow
     Route_Request_Type -->|transcribe| Ingest_Audio_Waveform["Ingest Audio Waveform (WAV / Array / Sequence)"]
     Ingest_Audio_Waveform --> Normalize_16kHz_Float32["Normalize Waveform to 16kHz float32 PCM (Proof M68)"]
     Normalize_16kHz_Float32 --> Calculate_Acoustic_Metrics["Calculate RMS Energy and Spectral Entropy (Proof M69)"]
@@ -526,7 +503,7 @@ flowchart TD
     Retain_Clean_Transcript --> Assemble_ASR_DTO
     Bypass_Decoder_Silence --> Assemble_ASR_DTO
 
-    %% Branch B: Kokoro TTS Flow
+    %% Branch C: Kokoro TTS Flow
     Route_Request_Type -->|synthesize| Validate_TTS_Prompt["Validate Prompt Text & Tempo Speed [0.1, 5.0]"]
     Validate_TTS_Prompt --> Load_Speaker_Embedding["Load 522,240-byte Speaker Embedding Tensor (Proof M68)"]
     Load_Speaker_Embedding --> Execute_Kokoro_LevelZero["Dispatch StyleTTS2 Graph to Intel Arc Xe-LPG (Proof M67)"]
@@ -534,20 +511,22 @@ flowchart TD
     Synthesize_24kHz_PCM --> Quantize_16Bit_WAV["Quantize Samples & Persist 16-bit Mono WAV (save_audio_wav)"]
     Quantize_16Bit_WAV --> Assemble_TTS_DTO["Assemble SynthesisResult (RTF=0.078, yield=0.64 aud-s/J, Proof M62)"]
 
-    %% Branch C: Sequential 1-by-1 Benchmark Lifecycle
+    %% Branch D: Sequential 1-by-1 Benchmark Lifecycle
     Route_Request_Type -->|benchmark_sequential| Download_Model_Weight["Download Model i from HuggingFace to Temp Directory"]
     Download_Model_Weight --> Execute_Warmup_Pass["Execute Warmup Pass (Proof M65: Discard JIT t0)"]
     Execute_Warmup_Pass --> Benchmark_Arc_GPU["Benchmark Low, Medium, Hard Workloads on Arc Xe-LPG GPU"]
     Benchmark_Arc_GPU --> Thermal_Cooldown_Pause["Thermal Cooldown Pause Delta t >= 1.5s (Tj < 90C, Proof M72)"]
     Thermal_Cooldown_Pause --> Benchmark_CPU_Baseline["Benchmark Workloads on Intel Core Ultra CPU Baseline"]
     Benchmark_CPU_Baseline --> Unload_And_Collect_Garbage["Unload Engine Pipelines & Run gc.collect()"]
-    Unload_And_Collect_Garbage --> Purge_Model_Directory["Purge Model Weights from Disk: Delta S_disk = 0 (Proof M66)"]
+    Unload_And_Collect_Garbage --> Purge_Model_Directory["Purge Model Weights from Disk: Delta S_disk = 0 (Proof M66, M79)"]
     Purge_Model_Directory --> Assemble_Benchmark_DTO["Assemble Multi-Workload Telemetry & Energy Yield Metrics"]
 
     %% Terminal Convergence
-    Assemble_ASR_DTO --> Emit_Response["Emit Telemetry & Output to Client / Caller"]
+    Assemble_Image_DTO --> Emit_Response["Emit Telemetry & Output to Client / Caller"]
+    Assemble_ASR_DTO --> Emit_Response
     Assemble_TTS_DTO --> Emit_Response
     Assemble_Benchmark_DTO --> Emit_Response
+    Raise_Dimension_Error --> Emit_Response
     Emit_Response --> __end__((( )))
 ```
 
@@ -555,65 +534,50 @@ flowchart TD
 
 ---
 
-### 7. Deployment Diagram (Physical Intel Arc Silicon, NPU, CPU & Host Memory Buses)
+### 7. Deployment Diagram (Intel Arc Discrete GPU, Meteor Lake SoC, ImageEngine Runtime & NVMe)
 
 ```mermaid
 flowchart TD
     subgraph HostSystem ["Host Workstation / Edge Server (Windows 11 / Linux)"]
         subgraph DaemonRuntime ["Python 3.10-3.13 Runtime"]
-            Daemon["arc-runner Daemon (:11434)
-FastAPI / Uvicorn Server"]
-            Studio["6-Tab Studio WebUI (:11434/ui)
-Real-time SSE Status"]
-            AudioEngineRuntime["AudioEngine Runtime (Whisper ASR & Kokoro TTS)
-Proof M67: Immediate Cmd tau <= 2.1us
-Proof M68: Linear PCM Bound M <= 19.2MB"]
-            CLIAudioHandlers["CLI Transcribe & TTS Handlers
-Zero-Disk Residue Streaming (Proof M66)"]
-            OVGenAIDLL["openvino_genai.dll / Level Zero Loader
-C++ Native Bindings"]
+            Daemon["arc-runner Daemon (:11434)\nFastAPI / Uvicorn Server"]
+            Studio["6-Tab Studio WebUI (:11434/ui)\nReal-time SSE Status"]
+            AudioEngineRuntime["AudioEngine Runtime (Whisper ASR & Kokoro TTS)\nProof M67: Immediate Cmd tau <= 2.1us\nProof M68: Linear PCM Bound M <= 19.2MB"]
+            ImageEngineRuntime["ImageEngine Runtime (Text2ImagePipeline: SD 1.5, SDXL, LCM, Turbo)\nProof M91: Immediate Cmd tau <= 2.1us\nProof M92: Sliced VAE RAM <= 580MB"]
+            CLIHandlers["CLI Handlers (run, transcribe, tts, generate-image)\nZero-Disk Residue Streaming (Proof M66, M79)"]
+            OVGenAIDLL["openvino_genai.dll / Level Zero Loader\nC++ Native Bindings"]
         end
     end
 
     subgraph StorageSubsystem ["NVMe SSD PCIe Gen4/5 (7000 MB/s Bandwidth)"]
-        IRCache["~/.arc-runner/models/
-OpenVINO IR Cache (FP16 / INT4 Sym / Asym)"]
-        AudioModelStore["~/.arc-runner/cache/
-Whisper FP16/INT4 & Kokoro-82M INT8/FP16
-Speaker Embeddings *.bin (Proof M66)"]
-        NPUCache["~/.arc-runner/aot_cache/
-NPU Compiled AOT Blobs (MCDM Driver)"]
-        OllamaManifests["~/.ollama/models/
-Local Ollama Manifests & Blobs (Zero-Copy)"]
-        LoRAStore["~/.arc-runner/adapters/
-Safetensors LoRA Adapters Store"]
+        IRCache["~/.arc-runner/models/\nOpenVINO IR Cache (FP16 / INT4 Sym / Asym)"]
+        AudioModelStore["~/.arc-runner/cache/audio/\nWhisper FP16/INT4 & Kokoro-82M INT8/FP16\nSpeaker Embeddings *.bin (Proof M66)"]
+        ImageModelStore["~/.arc-runner/cache/image/\nSD 1.5, LCM, SD-Turbo, SDXL Weights\nZero-Disk Residue Eviction (Proof M79)"]
+        NPUCache["~/.arc-runner/aot_cache/\nNPU Compiled AOT Blobs (MCDM Driver)"]
+        OllamaManifests["~/.ollama/models/\nLocal Ollama Manifests & Blobs (Zero-Copy)"]
+        LoRAStore["~/.arc-runner/adapters/\nSafetensors LoRA Adapters Store"]
     end
 
     subgraph ArcGPU ["Intel Arc Discrete GPU (ACM-G10 / BMG-G21)"]
-        ArcSilicon["32 Xe-Cores / 256 XMX Engines (260 TFLOPs)
-Proof M4 & M67: Level Zero Immediate Cmds (tau <= 2.1us)"]
-        ArcVRAM["16 GB Dedicated GDDR6 (560 GB/s, AI* = 464.3)
-Proof M30: Little's Law VRAM Gate (theta_sat <= 0.92)
-Proof M68: Linear PCM Buffer M <= 19.2MB"]
-        ArcDriver["Intel Graphics Driver / igc64.dll
-ze_loader.dll Level Zero Driver"]
+        ArcSilicon["32 Xe-Cores / 256 XMX Engines (260 TFLOPs)\nProof M4, M67, M91: Level Zero Immediate Cmds (tau <= 2.1us)"]
+        ArcVRAM["16 GB Dedicated GDDR6 (560 GB/s, AI* = 464.3)\nProof M30: Little's Law VRAM Gate (theta_sat <= 0.92)\nProof M78: USM Zero-Copy VAE Latent Handshake"]
+        ArcDriver["Intel Graphics Driver / igc64.dll\nze_loader.dll Level Zero Driver"]
     end
 
     subgraph UltraSoC ["Intel Core Ultra SoC (Meteor Lake / Lunar Lake)"]
-        HostCPU["Host CPU (P-Cores + E-Cores)
-AVX2 / AVX-512 / AMX Matrix Audio Fallback"]
-        IntelNPU["Intel NPU 3720 / 4000 (ze_intel_npu.dll)
-48 TOPs Systolic Array (5W TDP, Proof M50)
-Low-Power ASR / Draft Silicon"]
-        SharedRAM["16-64 GB LPDDR5X (136 GB/s) + 16MB NPU SRAM
-Unified Host Memory"]
+        HostCPU["Host CPU (P-Cores + E-Cores)\nAVX2 / AVX-512 / AMX Matrix Inference Fallback"]
+        IntelNPU["Intel NPU 3720 / 4000 (ze_intel_npu.dll)\n48 TOPs Systolic Array (5W TDP, Proof M50)\nLow-Power ASR / Draft Silicon"]
+        SharedRAM["16-64 GB LPDDR5X (136 GB/s) + 16MB NPU SRAM\nUnified Host Memory"]
     end
 
     DaemonRuntime -->|PCIe Gen4 x4 DMA 7000 MB/s| StorageSubsystem
     AudioEngineRuntime -->|resolves_models| AudioModelStore
+    ImageEngineRuntime -->|resolves_models| ImageModelStore
     DaemonRuntime -->|PCIe Gen4 x16 DMA 32 GB/s| ArcGPU
     AudioEngineRuntime -->|zeCommandListExecuteImmediate tau <= 2.1us Proof M67| ArcGPU
+    ImageEngineRuntime -->|zeCommandListExecuteImmediate tau <= 2.1us Proof M91| ArcGPU
     AudioEngineRuntime -.->|Low-Power ASR/TTS Fallback| UltraSoC
+    ImageEngineRuntime -.->|CPU Matrix Fallback| UltraSoC
     DaemonRuntime -->|Direct Ring Interconnect| UltraSoC
     ArcGPU <-->|Heterogeneous Speculative Bus Proof M6| UltraSoC
 ```
@@ -622,13 +586,14 @@ Unified Host Memory"]
 
 ---
 
-### 8. Use Case Diagram (Core Actor Roles & Functional Capabilities)
+### 8. Use Case Diagram (Creative Artist Image Generation (txt2img), Speech ASR & Benchmark)
 
 ```mermaid
 flowchart LR
     subgraph Actors ["Primary System Actors"]
         Dev["fa:fa-terminal Developer / CLI User"]
         SpeechUser["fa:fa-microphone Speech Operator / WebUI"]
+        ImageCreator["fa:fa-palette Creative Artist / Prompt Engineer"]
         AppClient["fa:fa-code Ecosystem Client (OpenAI / Ollama SDK)"]
         BenchHarness["fa:fa-chart-line Automated Benchmark Harness"]
     end
@@ -639,33 +604,53 @@ flowchart LR
         UC_LZ77(["Autoregressive Repetition Loop Suppression\n(LZ77 rho_comp > 2.40 Guard, Proof M70)"])
         UC_TTS(["Synthesize Natural Speech (TTS)\n(Kokoro 82M FP16 / INT8 at 24kHz, Proof M64)"])
         UC_SpeakerEmbed(["Manage Voice Style Embeddings\n(522,240-byte Flat Float32 Tensors, Proof M68)"])
-        UC_LevelZeroExec(["Level Zero Immediate CmdList Execution\n(Arc Xe-LPG GPU tau <= 2.1us, CPU Fallback, Proof M67)"])
-        UC_BenchSeq(["Sequential 1-by-1 Model Benchmarking\n(Low/Med/Hard Workloads, Zero-Disk Residue, Proof M66)"])
+        UC_Txt2Img(["Synthesize Images from Text Prompts (txt2img)\n(SD 1.5, SDXL, LCM, SD-Turbo, Proof M73)"])
+        UC_CFG(["Classifier-Free Guidance & Negative Steering\n(Monotonic Adhesion, Proof M74, M83, M87)"])
+        UC_AntiBurn(["Anti-Burn Quantile Clamping Guard\n(R_clipped < 0.005, Proof M84)"])
+        UC_LCM_Contraction(["Latent Consistency Trajectory Acceleration\n(N <= 4 Steps, 12.5x Speedup, Proof M76, M90)"])
+        UC_SlicedVAE(["Memory-Bounded Sliced VAE Decoding\n(Transient RAM <= 580MB, Proof M92)"])
+        UC_ZeroCopyExtract(["USM Zero-Copy Tensor Extraction\n(tau_copy = 0, Proof M78)"])
+        UC_LevelZeroExec(["Level Zero Immediate CmdList Execution\n(Arc Xe-LPG GPU tau <= 2.1us, CPU Fallback, Proof M67, M91)"])
+        UC_BenchSeq(["Sequential 1-by-1 Model Benchmarking\n(Low/Med/Hard Workloads, Zero-Disk Residue, Proof M66, M79)"])
         UC_ThermalCooldown(["Thermal Hysteresis & Frequency Guard\n(Delta t >= 1.5s Cooldown, Tj < 90C, Proof M72)"])
         UC_Speculative(["Heterogeneous Speculative LLM Inference\n(NPU Draft + Arc GPU Verify, Proof M6, M50)"])
         UC_ContinuousBatch(["Continuous Multi-User Batch Inference\n(Token Iteration, Little's Law theta_sat <= 0.92, Proof M30)"])
     end
 
-    %% Inclusions
+    %% Inclusions for ASR / TTS
     UC_ASR -.->|<<include>>| UC_VAD
     UC_ASR -.->|<<include>>| UC_LZ77
     UC_ASR -.->|<<include>>| UC_LevelZeroExec
     UC_TTS -.->|<<include>>| UC_SpeakerEmbed
     UC_TTS -.->|<<include>>| UC_LevelZeroExec
+
+    %% Inclusions for Image Generation
+    UC_Txt2Img -.->|<<include>>| UC_CFG
+    UC_Txt2Img -.->|<<include>>| UC_AntiBurn
+    UC_Txt2Img -.->|<<include>>| UC_SlicedVAE
+    UC_Txt2Img -.->|<<include>>| UC_ZeroCopyExtract
+    UC_Txt2Img -.->|<<include>>| UC_LevelZeroExec
+    UC_Txt2Img -.->|<<extend>>| UC_LCM_Contraction
+
+    %% Benchmarking Inclusions
     UC_BenchSeq -.->|<<include>>| UC_ThermalCooldown
     UC_BenchSeq -.->|<<include>>| UC_LevelZeroExec
 
     %% Actor Connections
     Dev --> UC_ASR
     Dev --> UC_TTS
+    Dev --> UC_Txt2Img
     Dev --> UC_BenchSeq
     Dev --> UC_Speculative
 
     SpeechUser --> UC_ASR
     SpeechUser --> UC_TTS
 
+    ImageCreator --> UC_Txt2Img
+
     AppClient --> UC_ASR
     AppClient --> UC_TTS
+    AppClient --> UC_Txt2Img
     AppClient --> UC_ContinuousBatch
 
     BenchHarness --> UC_BenchSeq
@@ -675,26 +660,27 @@ flowchart LR
 
 ---
 
-### 9. Object Diagram (Runtime Snapshot of Active Instances and Proof Metrics)
+### 9. Object Diagram (Runtime Instances: image_engine_sd15, sdxl, whisper, kokoro & Arc GPU)
 
 ```mermaid
 classDiagram
-    note "Runtime Snapshot: Heterogeneous Multimodal Inference (LLM, Whisper ASR, Kokoro TTS)"
+    note "Runtime Snapshot: Heterogeneous Multimodal Inference (LLM, Whisper ASR, Kokoro TTS, Stable Diffusion)"
     class app {
         title = 'arc-runner-daemon'
         port = 11434
         status = 'healthy'
     }
     class model_mgr {
-        loaded_engine_count = 3
+        loaded_engine_count = 4
         vram_budget_mb = 12288
         active_llm = 'HybridSpeculativeEngine'
         active_asr = 'whisper-large-v3-turbo'
         active_tts = 'kokoro-82m-int8'
+        active_image = 'stable-diffusion-v1-5-int8'
     }
     class batch_pipe {
         is_running = true
-        active_requests = 3
+        active_requests = 4
         queue_size = 0
     }
     class batcher {
@@ -724,87 +710,71 @@ classDiagram
         default_voice = 'af_heart'
         rtf = 0.0754 (Proof M59 13.3x real-time)
     }
-    class audio_cfg {
-        sample_rate = 16000
-        tts_sample_rate = 24000
-        vad_energy_threshold = 0.0001
-        vad_entropy_threshold = 0.05
-        max_compression_ratio = 2.40
-    }
-    class pcm_buffer {
-        size_bytes = 288000 (Proof M68 <= 19.2MB)
-        duration_s = 4.50
-        channels = 1
-        dtype = 'float32'
-    }
-    class transcription_res {
-        text = 'Welcome to Intel Arc accelerated neural inference.'
-        audio_duration_s = 4.50
-        latency_s = 0.312
-        rtf = 0.0693 (Proof M59)
-        throughput_audio_s_per_s = 14.42
-        compression_ratio = 1.18 (Proof M70 <= 2.40)
-        device_used = 'GPU'
-    }
-    class synthesis_res {
-        duration_s = 3.25
-        latency_s = 0.245
-        rtf = 0.0754 (Proof M59)
-        sample_rate = 24000
-        voice_used = 'af_heart'
-        device_used = 'GPU'
-    }
-    class gpu_pipeline {
+    class image_engine_sd15 {
+        task_type = 'image_gen'
         device = 'GPU'
-        precision = 'INT4_SYM'
-        command_list = 'immediate' (Proof M67 tau <= 2.1us)
+        model_name = 'stable-diffusion-v1-5-int8'
+        precision = 'INT8 NNCF'
+        resolution = '512x512'
+        steps = 25
+        guidance_scale = 7.5
+        iteration_rate_it_s = 14.70 (Proof M89)
+        hardware_speedup = 6.10x
+        energy_yield = 100781 img/kWh (Proof M82)
+        anti_burn_clipping_ratio = 0.0 (Proof M84 < 0.005)
+        zero_disk_residue = true (Proof M79)
     }
-    class npu_pipeline {
-        device = 'NPU'
-        precision = 'INT4'
-        power_tdp_w = 5.0 (Proof M50)
+    class image_engine_sdxl {
+        task_type = 'image_gen'
+        device = 'GPU'
+        model_name = 'sdxl-turbo'
+        precision = 'INT8 NNCF'
+        resolution = '1024x1024'
+        steps = 1
+        guidance_scale = 1.0
+        iteration_rate_it_s = 0.87
+        latency_s = 4.003
+        hardware_speedup = 6.60x vs CPU
+        sliced_vae_peak_ram_mb = 540 (Proof M92 <= 580MB)
+        zero_disk_residue = true (Proof M79)
     }
-    class paged_table {
-        total_blocks = 2048
-        free_blocks = 738
-        block_size = 16
+    class device_gpu {
+        name = 'Intel Arc Xe-LPG Graphics'
+        type = 'GPU'
+        xe_cores = 8
+        driver_version = '32.0.101.6129'
+        vram_allocated_mb = 4620
+        level_zero_immediate_cmd = true (Proof M4, M67, M91)
     }
-    class prefix_cache {
-        hit_rate = 0.68 (Proof M31 63.2% TTFT Reduction)
-        cached_prefixes = 152
-    }
-    class sysman {
-        gpu_temp_c = 68.4
-        power_w = 85.2
-        vram_allocated_mb = 8960
+    class device_npu {
+        name = 'Intel AI Boost NPU'
+        type = 'NPU'
+        tops = 48
+        power_tdp_watts = 5.0 (Proof M50)
+        mode = 'draft_accelerator'
     }
 
-    app --> model_mgr : manages
-    app --> batch_pipe : dispatches
-    app --> audio_engine_whisper : dispatches_asr
-    app --> audio_engine_kokoro : dispatches_tts
-    model_mgr --> audio_engine_whisper : registers
-    model_mgr --> audio_engine_kokoro : registers
-    batch_pipe --> batcher : steps
-    batcher --> paged_table : allocates
-    paged_table --> prefix_cache : deduplicates
-    batcher --> spec_engine : forwards
-    spec_engine --> gpu_pipeline : verify_target
-    spec_engine --> npu_pipeline : draft_tokens
-    audio_engine_whisper --> audio_cfg : configures
-    audio_engine_whisper --> pcm_buffer : consumes_pcm
-    audio_engine_whisper --> transcription_res : generates
-    audio_engine_whisper --> gpu_pipeline : submits_immediate_cmd
-    audio_engine_kokoro --> synthesis_res : generates
-    audio_engine_kokoro --> gpu_pipeline : submits_immediate_cmd
-    model_mgr --> sysman : queries_telemetry
+    app --> model_mgr
+    app --> batch_pipe
+    batch_pipe --> batcher
+    model_mgr --> spec_engine
+    model_mgr --> audio_engine_whisper
+    model_mgr --> audio_engine_kokoro
+    model_mgr --> image_engine_sd15
+    model_mgr --> image_engine_sdxl
+    spec_engine --> device_gpu
+    spec_engine --> device_npu
+    audio_engine_whisper --> device_gpu
+    audio_engine_kokoro --> device_gpu
+    image_engine_sd15 --> device_gpu
+    image_engine_sdxl --> device_gpu
 ```
 
 [Mermaid Source](file:///uml/object_diagram.md) | [Editable Draw.io Source](file:///drawio/object_diagram.drawio)
 
 ---
 
-### 10. Composite Structure Diagram (Internal Sub-Assemblies & Port Boundaries)
+### 10. Composite Structure Diagram (Internal Assemblies: ImageEngine, SpecEngine, AudioEngine)
 
 ```mermaid
 flowchart TB
@@ -852,56 +822,81 @@ flowchart TB
     subgraph AudioEngineComposite ["<<composite>> AudioEngine (Unified STT & TTS)"]
         subgraph Ports_AudioEngine ["Audio Engine Boundary Ports"]
             InPort_Audio["Port: audio_waveform_in (M <= 19.2MB, Proof M68)"]
-            InPort_Text["Port: text_prompt_in (TTS phonemes & voice)"]
-            OutPort_Transcript["Port: transcript_out (RTF <= 1.0, Proof M59)"]
-            OutPort_Waveform["Port: waveform_out (24kHz float32 PCM)"]
-            Port_LevelZero["Port: ze_immediate_cmd (tau <= 2.1us, Proof M67)"]
+            InPort_Text["Port: synthesis_text_in"]
+            OutPort_Transcript["Port: text_transcript_out"]
+            OutPort_Waveform["Port: synthesized_pcm_out"]
         end
 
-        subgraph Internal_AudioEngine ["Internal Acoustic Pipeline"]
-            AcousticNormalizer["AcousticNormalizer: 16kHz float32 linear buffer (Proof M68)"]
-            VADGate["VADSilenceGate: RMS & Entropy silence bypass (Proof M69)"]
-            WhisperPipelineCore["WhisperPipelineCore: OpenVINO IR Level Zero ASR (Proof M67)"]
-            LoopDetector["RepetitionLoopDetector: LZ77 ratio r <= 2.40 (Proof M70)"]
-            SpeakerTensorCache["SpeakerTensorCache: 510x256 style vectors (Proof M66)"]
-            KokoroTTSPipelineCore["KokoroTTSPipelineCore: StyleTTS2 synthesizer (Proof M66)"]
-            PCMClampingStage["PCMClampingStage: Float32 to 16-bit WAV serializer"]
+        subgraph Internal_AudioEngine ["Internal Audio Processing Assembly"]
+            AcousticNormalizer["AcousticNormalizer: 16kHz float32 Resampler"]
+            VADSilencer["VADSilenceGater: RMS < 1e-4, H_spectral < 0.15 (Proof M69)"]
+            WhisperASRCore["WhisperASRCore: Mel-STFT + XMX DPAS (Proof M60, M61)"]
+            KokoroTTSCore["KokoroTTSCore: StyleTTS2 + 24kHz Vocoder (Proof M64)"]
+            LZ77LoopSuppression["LZ77RepetitionGuard: rho_comp <= 2.40 (Proof M70)"]
+            SpeakerTensorStore["SpeakerTensorStore: 522KB Embedding (Proof M68)"]
         end
 
         InPort_Audio --> AcousticNormalizer
-        AcousticNormalizer --> VADGate
-        VADGate -->|active_speech| WhisperPipelineCore
-        VADGate -->|silence_detected| OutPort_Transcript
-        WhisperPipelineCore --> LoopDetector
-        LoopDetector --> OutPort_Transcript
-        InPort_Text --> KokoroTTSPipelineCore
-        SpeakerTensorCache -->|style_tensor| KokoroTTSPipelineCore
-        KokoroTTSPipelineCore --> PCMClampingStage
-        PCMClampingStage --> OutPort_Waveform
-        WhisperPipelineCore <--> Port_LevelZero
-        KokoroTTSPipelineCore <--> Port_LevelZero
+        AcousticNormalizer --> VADSilencer
+        VADSilencer -->|active_speech| WhisperASRCore
+        VADSilencer -->|silence| OutPort_Transcript
+        WhisperASRCore --> LZ77LoopSuppression
+        LZ77LoopSuppression --> OutPort_Transcript
+
+        InPort_Text --> KokoroTTSCore
+        SpeakerTensorStore --> KokoroTTSCore
+        KokoroTTSCore --> OutPort_Waveform
     end
 
-    OutPort_Tokens --> ContScheduler
-    BonusCalculator --> Port_Telemetry
+    subgraph ImageEngineComposite ["<<composite>> ImageEngine (Text-to-Image Synthesis)"]
+        subgraph Ports_ImageEngine ["Image Engine Boundary Ports"]
+            InPort_ImagePrompt["Port: prompt_in (Text + Negative Prompt)"]
+            InPort_ImageConfig["Port: config_in (Steps, CFG, WxH, Seed)"]
+            OutPort_Image["Port: image_out (PIL.Image / RGB Array)"]
+            OutPort_ImageMetrics["Port: telemetry_out (it/s, MP/s, Yield)"]
+        end
+
+        subgraph Internal_ImageEngine ["Internal Diffusion Synthesis Assembly"]
+            CLIPTextEncoder["CLIPTextEncoder: 77-Token Context Projection (Proof M73)"]
+            PhiloxPRNGInit["PhiloxPRNGInitializer: Deterministic Latent Noise (Proof M80)"]
+            CFGInterpolationEngine["CFGInterpolationEngine: eps_uncond + s*(eps_cond - eps_uncond) (Proof M74)"]
+            UNetDenoiserDPAS["UNetDenoiserDPAS: 8 Xe-Core XMX Matrix Kernel (Proof M75, M77, M89)"]
+            DynamicQuantileClamper["DynamicQuantileClamper: Anti-Burn Guard (Proof M84)"]
+            VAETileDecoder["VAETileDecoder: Sliced Latent Decoder <= 580MB (Proof M88, M92)"]
+            USMZeroCopyExtractor["USMZeroCopyExtractor: Shared Virtual Memory Array Extractor (Proof M78)"]
+        end
+
+        InPort_ImagePrompt --> CLIPTextEncoder
+        InPort_ImageConfig --> PhiloxPRNGInit
+        CLIPTextEncoder --> CFGInterpolationEngine
+        PhiloxPRNGInit --> CFGInterpolationEngine
+        CFGInterpolationEngine --> UNetDenoiserDPAS
+        UNetDenoiserDPAS --> DynamicQuantileClamper
+        DynamicQuantileClamper --> VAETileDecoder
+        VAETileDecoder --> USMZeroCopyExtractor
+        USMZeroCopyExtractor --> OutPort_Image
+        UNetDenoiserDPAS --> OutPort_ImageMetrics
+    end
 ```
 
 [Mermaid Source](file:///uml/composite_diagram.md) | [Editable Draw.io Source](file:///drawio/composite_diagram.drawio)
 
 ---
 
-### 11. Interaction Diagram (High-Level Inter-Subsystem Interaction Overview)
+### 11. Interaction Diagram (Text-to-Image Synthesis, Audio ASR & Sequential Zero-Disk Reclaim)
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant Client as CLI / Ecosystem Client
+    participant ImageEngine as Unified ImageEngine
     participant AudioEngine as Unified AudioEngine
     participant VADGate as VAD Silence Gater (Proof M69)
-    participant SpeakerCache as SpeakerCache (Proof M68)
-    participant LevelZero_GPU as Intel Arc Xe-LPG GPU (Proof M67)
-    participant LZ77Guard as LZ77 Loop Guard (Proof M70)
-    participant DiskReclaimer as Storage Reclaimer (Proof M66)
+    participant PhiloxPRNG as Philox PRNG (Proof M80)
+    participant LevelZero_GPU as Intel Arc Xe-LPG GPU (Proof M67, M91)
+    participant AntiBurnGuard as Anti-Burn Quantile Clamper (Proof M84)
+    participant SlicedVAE as Sliced VAE Decoder (Proof M92)
+    participant DiskReclaimer as Storage Reclaimer (Proof M66, M79)
 
     Note over Client,LevelZero_GPU: Section 1: Whisper Speech-to-Text with Anti-Hallucination Gating
     Client->>AudioEngine: transcribe(audio_path, language="en")
@@ -912,38 +907,30 @@ sequenceDiagram
         AudioEngine-->>Client: TranscriptionResult(text="", latency=0.001s, RTF=0.000, 100% compute saved)
     else Active Speech Signal
         VADGate-->>AudioEngine: Acoustic Signal Validated
-        AudioEngine->>LevelZero_GPU: generate(samples, WhisperGenerationConfig) [USM Zero-Copy, Proof M71]
-        LevelZero_GPU->>LevelZero_GPU: Mel-STFT DPAS (Proof M60) + Roofline Token Decode (Proof M61)
+        AudioEngine->>LevelZero_GPU: generate(samples, WhisperGenConfig) [USM Zero-Copy, Proof M71]
         LevelZero_GPU-->>AudioEngine: raw_transcript + timestamp_segments
-        AudioEngine->>LZ77Guard: _detect_repetition_loop(raw_text)
-        alt rho_comp > 2.40 (Kolmogorov Repetition Loop)
-            LZ77Guard-->>AudioEngine: Loop Anomaly Detected -> Truncate Token Loop (Proof M70)
-        else rho_comp <= 2.40 (Entropy Normal)
-            LZ77Guard-->>AudioEngine: Valid Clean Transcript
-        end
-        AudioEngine-->>Client: TranscriptionResult(text, RTF=0.0125 [80x real-time], WER=0.018, Proof M59, M63)
+        AudioEngine-->>Client: TranscriptionResult(text, RTF=0.0125, WER=0.018, Proof M59, M63)
     end
 
-    Note over Client,SpeakerCache: Section 2: Kokoro Text-to-Speech with Speaker Embedding Loading
-    Client->>AudioEngine: synthesize("Natural speech prompt", voice="af_heart", speed=1.0)
-    AudioEngine->>SpeakerCache: _load_speaker_embedding("af_heart")
-    SpeakerCache->>SpeakerCache: Load 522,240-byte flat float32 tensor (510x1x256, Proof M68)
-    SpeakerCache-->>AudioEngine: ov.Tensor(speaker_tensor)
-    AudioEngine->>LevelZero_GPU: generate([text], speaker_embedding, SpeechGenConfig)
-    LevelZero_GPU->>LevelZero_GPU: StyleTTS2 Prosody + 24kHz Vocoder Synthesis (Proof M64)
-    LevelZero_GPU-->>AudioEngine: audio_samples (24000 Hz)
-    AudioEngine->>AudioEngine: save_audio_wav(samples, "output.wav")
-    AudioEngine-->>Client: SynthesisResult(samples, RTF=0.078 [12.8x real-time], yield=0.64 aud-s/J, Proof M62)
+    Note over Client,AntiBurnGuard: Section 2: Text-to-Image Synthesis with CFG & Anti-Burn Dynamic Clamping
+    Client->>ImageEngine: generate(request: ImageGenerationRequest)
+    ImageEngine->>ImageEngine: _validate_dimensions(512, 512) [Proof M73]
+    ImageEngine->>PhiloxPRNG: generate_initial_latents(seed=42) [Proof M80]
+    PhiloxPRNG-->>ImageEngine: z_T ~ N(0, I)
+    ImageEngine->>LevelZero_GPU: Text2ImagePipeline.generate(...) [USM Zero-Copy, Proof M78, M91]
+    LevelZero_GPU->>LevelZero_GPU: CFG UNet Denoising Loop (Proof M74, M75, M77, M89)
+    LevelZero_GPU->>AntiBurnGuard: Dynamic quantile thresholding clamp s_t (Proof M84)
+    AntiBurnGuard-->>LevelZero_GPU: Clamped latent x_0|t (clipping ratio < 0.005)
+    LevelZero_GPU->>SlicedVAE: Sliced VAE decoding <= 580MB transient RAM (Proof M88, M92)
+    SlicedVAE-->>ImageEngine: ov.Tensor zero-copy pointer handoff (Proof M78)
+    ImageEngine->>ImageEngine: _extract_pil_image() [RGB array conversion]
+    ImageEngine-->>Client: ImageGenerationResult(PIL.Image, it_s=14.7, MP_s=0.154, Yield=100781 img/kWh, Proof M82)
 
-    opt Sequential Benchmark Lifecycle (Proof M66)
+    opt Sequential Benchmark Lifecycle (Proof M66, M79)
         Note over Client,DiskReclaimer: Section 3: Sequential 1-by-1 Download, Test, and Reclaim
-        Client->>AudioEngine: benchmark_model(alias="whisper-base")
-        AudioEngine->>LevelZero_GPU: warmup_pass() [Proof M65: Discard JIT t0]
-        AudioEngine->>LevelZero_GPU: execute_workloads([low, medium, hard])
-        AudioEngine->>AudioEngine: thermal_cooldown_pause(1.5s, Proof M72: Tj < 90C)
-        AudioEngine->>DiskReclaimer: cleanup_model_dir(dest_dir) [Proof M66]
-        DiskReclaimer-->>AudioEngine: Delta S_disk = 0 bytes (Zero-Disk Residue Invariant)
-        AudioEngine-->>Client: PhysicalTelemetry(RTF=0.0272, energy_yield=1.75 aud-s/J, CI95)
+        Client->>ImageEngine: benchmark_model(alias="stable-diffusion-v1-5-int8")
+        ImageEngine->>DiskReclaimer: cleanup_model_dir() [Proof M79]
+        DiskReclaimer-->>Client: Delta S_disk = 0 bytes verified
     end
 ```
 
@@ -951,30 +938,32 @@ sequenceDiagram
 
 ---
 
-### 12. Communication Diagram (Numbered Collaboration Pathways & Direct Silicon Routing)
+### 12. Communication Diagram (Numbered Collaboration Pathways, Anti-Burn Guard & Sliced VAE)
 
 ```mermaid
 flowchart LR
     Client(["1: Client\n(CLI / WebUI / Ecosystem SDK)"])
-    AudioEngine["2: AudioEngine\n(Unified OpenVINO Engine)"]
-    DeviceDetector["3: DeviceDetector\n(Topology Prober)"]
-    VADGater["4: VADGater\n(Proof M69 Silence Guard)"]
-    SpeakerCache["5: SpeakerCache\n(522KB Tensor Store, Proof M68)"]
-    LevelZeroDriver["6: LevelZeroDriver\n(OpenVINO Immediate CmdList, Proof M67)"]
-    IntelArcGPU["7: Intel Arc Xe-LPG GPU\n(XMX DPAS Hardware, Proof M60)"]
-    HostCPUFallback["8: Host CPU Fallback\n(Intel Core Ultra Baseline)"]
-    LZ77Guard["9: LZ77Guard\n(Proof M70 Repetition Loop Guard)"]
-    DiskReclaimer["10: DiskReclaimer\n(Zero-Disk Residue Manager, Proof M66)"]
+    ImageEngine["2: ImageEngine\n(Text2ImagePipeline)"]
+    AudioEngine["3: AudioEngine\n(Unified OpenVINO Engine)"]
+    PhiloxPRNG["4: PhiloxPRNG\n(Proof M80 Seed Invariant)"]
+    VADGater["5: VADGater\n(Proof M69 Silence Guard)"]
+    LevelZeroDriver["6: LevelZeroDriver\n(OpenVINO Immediate CmdList, Proof M67, M91)"]
+    IntelArcGPU["7: Intel Arc Xe-LPG GPU\n(XMX DPAS Hardware, Proof M60, M77, M89)"]
+    AntiBurnClamper["8: AntiBurnClamper\n(Proof M84 Dynamic Clamp)"]
+    SlicedVAEDecoder["9: SlicedVAEDecoder\n(Proof M88, M92 <= 580MB)"]
+    DiskReclaimer["10: DiskReclaimer\n(Zero-Disk Residue Manager, Proof M66, M79)"]
 
+    Client -->|1. generate(request)\n12. ImageGenerationResult| ImageEngine
     Client -->|1. transcribe() / synthesize()\n14. TranscriptionResult / SynthesisResult| AudioEngine
-    AudioEngine -->|2. detect_topology()\n3. Topology(has_intel_arc=True)| DeviceDetector
-    AudioEngine -->|4. _is_silence_or_noise() [Proof M69]\n5. silence_bypass / proceed| VADGater
-    AudioEngine -->|6. _load_speaker_embedding() [Proof M68]\n7. 522,240-byte flat float32 tensor| SpeakerCache
-    AudioEngine -->|8. dispatch_pipeline()| LevelZeroDriver
-    LevelZeroDriver -->|9. zeCommandListExecuteImmediate() [Proof M67]\n10. USM zero-copy buffer [Proof M71]| IntelArcGPU
-    LevelZeroDriver -.->|11. CPU fallback if Arc unavailable| HostCPUFallback
-    IntelArcGPU -->|12. raw ASR text / 24kHz PCM samples| AudioEngine
-    AudioEngine -->|13. _detect_repetition_loop() [Proof M70]| LZ77Guard
+    ImageEngine -->|2. init_latents(seed) [Proof M80]\n3. z_T noise tensor| PhiloxPRNG
+    ImageEngine -->|4. dispatch_pipeline() [Proof M91]| LevelZeroDriver
+    AudioEngine -->|4. _is_silence_or_noise() [Proof M69]| VADGater
+    AudioEngine -->|8. dispatch_pipeline() [Proof M67]| LevelZeroDriver
+    LevelZeroDriver -->|5. zeCommandListExecuteImmediate() [Proof M91]\n6. USM zero-copy buffer [Proof M78]| IntelArcGPU
+    IntelArcGPU -->|7. raw latents| AntiBurnClamper
+    AntiBurnClamper -->|8. clamped latents [Proof M84]| SlicedVAEDecoder
+    SlicedVAEDecoder -->|9. decoded RGB plane [Proof M78, M92]| ImageEngine
+    ImageEngine -->|10. cleanup_model_dir() [Proof M79]\n11. Delta S_disk = 0 bytes confirmed| DiskReclaimer
     AudioEngine -->|15. cleanup_model_dir() [Proof M66]\n16. Delta S_disk = 0 bytes confirmed| DiskReclaimer
 ```
 
@@ -982,22 +971,28 @@ flowchart LR
 
 ---
 
-### 13. Call Graph Diagram (AST Invocations from CLI/Gateway down to Level Zero Sysman)
+### 13. Call Graph Diagram (AST Invocations: CLI handle_generate_image down to Text2ImagePipeline)
 
 ```mermaid
 flowchart LR
     subgraph arc_runner_cli_main_group[arc_runner.cli.main]
+        arc_runner_cli_main__generate_image["handle_generate_image(prompt, model, steps, cfg, width, height, seed, negative_prompt)"]
         arc_runner_cli_main__transcribe["transcribe(audio, model, device, language)"]
         arc_runner_cli_main__tts["tts(text, model, voice, speed, output)"]
-        arc_runner_cli_main__benchmark_audio["benchmark_audio(catalog, keep_models)"]
     end
 
-    subgraph scratch_live_benchmarks_group[scratch.run_live_audio_benchmarks]
-        scratch__SequentialAudioBenchmark_run_single["run_single(model_alias)"]
-        scratch__SequentialAudioBenchmark_download_model["download_model(repo_id, dest_dir)"]
-        scratch__SequentialAudioBenchmark_benchmark_stt["benchmark_stt_model(alias, spec)"]
-        scratch__SequentialAudioBenchmark_benchmark_tts["benchmark_tts_model(alias, spec)"]
-        scratch__SequentialAudioBenchmark_cleanup["cleanup_model_dir(dest_dir) [Proof M66]"]
+    subgraph scratch_live_image_group[scratch.run_live_image_benchmarks]
+        scratch__SequentialImageBenchmark_main["run_live_image_benchmarks.main()"]
+        scratch__SequentialImageBenchmark_run_model["benchmark_single_model(model_name)"]
+        scratch__SequentialImageBenchmark_cleanup["cleanup_model_dir(dest_dir) [Proof M79]"]
+    end
+
+    subgraph arc_runner_engine_image_engine_group[arc_runner.engine.image_engine]
+        ImageEngine__load_model["load_model(model_path, device, compile_cache)"]
+        ImageEngine__generate["generate(request: ImageGenerationRequest)"]
+        ImageEngine___execute_generation["_execute_generation(request) [Proof M74, M91]"]
+        ImageEngine___extract_pil_image["_extract_pil_image(ov_tensor) [Proof M78]"]
+        ImageEngine__unload["unload()"]
     end
 
     subgraph arc_runner_engine_audio_engine_group[arc_runner.engine.audio_engine]
@@ -1007,62 +1002,87 @@ flowchart LR
         AudioEngine___normalize_audio_input["_normalize_audio_input(audio)"]
         AudioEngine___is_silence_or_noise["_is_silence_or_noise(samples) [Proof M69]"]
         AudioEngine___detect_repetition_loop["_detect_repetition_loop(text) [Proof M70]"]
-        AudioEngine___load_speaker_embedding["_load_speaker_embedding(voice_name) [Proof M68]"]
-        AudioEngine__save_audio_wav["save_audio_wav(samples, output_path)"]
         AudioEngine__unload["unload()"]
     end
 
     subgraph openvino_genai_group[openvino_genai & Level Zero Runtime]
+        ov_genai__Text2ImagePipeline_generate["Text2ImagePipeline.generate(prompt, width, height, steps, cfg)"]
         ov_genai__WhisperPipeline_generate["WhisperPipeline.generate(samples, config)"]
         ov_genai__Text2SpeechPipeline_generate["Text2SpeechPipeline.generate(text, speaker, config)"]
-        openvino__Tensor["openvino.Tensor(flat_float32_array)"]
-    end
-
-    subgraph arc_runner_devices_detector_group[arc_runner.devices.detector]
-        DeviceDetector__detect_topology["detect_topology()"]
     end
 
     %% CLI Invocations
+    arc_runner_cli_main__generate_image --> ImageEngine__load_model
+    arc_runner_cli_main__generate_image --> ImageEngine__generate
     arc_runner_cli_main__transcribe --> AudioEngine__load_model
     arc_runner_cli_main__transcribe --> AudioEngine__transcribe
     arc_runner_cli_main__tts --> AudioEngine__load_model
     arc_runner_cli_main__tts --> AudioEngine__synthesize
-    arc_runner_cli_main__tts --> AudioEngine__save_audio_wav
-    arc_runner_cli_main__benchmark_audio --> scratch__SequentialAudioBenchmark_run_single
 
-    %% Sequential Benchmark Harness Execution
-    scratch__SequentialAudioBenchmark_run_single --> scratch__SequentialAudioBenchmark_download_model
-    scratch__SequentialAudioBenchmark_run_single --> scratch__SequentialAudioBenchmark_benchmark_stt
-    scratch__SequentialAudioBenchmark_run_single --> scratch__SequentialAudioBenchmark_benchmark_tts
-    scratch__SequentialAudioBenchmark_benchmark_stt --> AudioEngine__load_model
-    scratch__SequentialAudioBenchmark_benchmark_stt --> AudioEngine__transcribe
-    scratch__SequentialAudioBenchmark_benchmark_stt --> AudioEngine__unload
-    scratch__SequentialAudioBenchmark_benchmark_tts --> AudioEngine__load_model
-    scratch__SequentialAudioBenchmark_benchmark_tts --> AudioEngine__synthesize
-    scratch__SequentialAudioBenchmark_benchmark_tts --> AudioEngine__unload
-    scratch__SequentialAudioBenchmark_run_single --> scratch__SequentialAudioBenchmark_cleanup
+    %% Image Engine Internal Pipeline
+    ImageEngine__generate --> ImageEngine___execute_generation
+    ImageEngine___execute_generation --> ov_genai__Text2ImagePipeline_generate
+    ImageEngine___execute_generation --> ImageEngine___extract_pil_image
 
-    %% Engine Internal Orchestration
-    AudioEngine__load_model --> DeviceDetector__detect_topology
-    AudioEngine__transcribe --> AudioEngine___normalize_audio_input
-    AudioEngine__transcribe --> AudioEngine___is_silence_or_noise
-    AudioEngine__transcribe --> ov_genai__WhisperPipeline_generate
-    AudioEngine__transcribe --> AudioEngine___detect_repetition_loop
-    AudioEngine__synthesize --> AudioEngine___load_speaker_embedding
-    AudioEngine___load_speaker_embedding --> openvino__Tensor
-    AudioEngine__synthesize --> ov_genai__Text2SpeechPipeline_generate
-
-    style arc_runner_cli_main__transcribe stroke-width:2px,fill:#e1f5fe
-    style arc_runner_cli_main__tts stroke-width:2px,fill:#e1f5fe
-    style arc_runner_cli_main__benchmark_audio stroke-width:2px,fill:#e1f5fe
+    %% Benchmark Harness Calls
+    scratch__SequentialImageBenchmark_main --> scratch__SequentialImageBenchmark_run_model
+    scratch__SequentialImageBenchmark_run_model --> ImageEngine__load_model
+    scratch__SequentialImageBenchmark_run_model --> ImageEngine__generate
+    scratch__SequentialImageBenchmark_run_model --> ImageEngine__unload
+    scratch__SequentialImageBenchmark_run_model --> scratch__SequentialImageBenchmark_cleanup
 ```
 
 [Mermaid Source](file:///uml/call_graph_diagram.md) | [Editable Draw.io Source](file:///drawio/call_graph_diagram.drawio)
 
 ---
 
+## 📐 Mathematical Proofs & Runtime Invariants Grounding (M1–M93)
+
+Every diagram in this suite mathematically enforces the foundational proofs established in `intel-arc-models-runner`:
+
+- **Core LLM & Speculative Execution (Proofs M1–M6, M50)**: Unit L2 norm embeddings, NPU systolic 5W isolation, speculative acceptance rate $\alpha = 0.82$, draft length $\gamma = 4$.
+
+- **GGUF Transpilation & Continuous Batching (Proofs M7–M20, M29–M35)**: O(1) streaming chunk buffer, SQNR $\ge 32.0\text{ dB}$, XMX 32-byte alignment, Little's Law $\theta_{\text{sat}} \le 0.92$.
+
+- **Multi-LoRA Adapter Swapping (Proofs M21–M27)**: Zero-recompile dynamic weight blending, swap latency $\tau_{\text{swap}} < 0.20\text{ ms}$, bounded LRU cache $\le 512\text{ MB}$.
+
+- **Audio AI Speech & Synthesis (Proofs M59–M72)**: Real-time factor $\text{RTF} = 0.0125$ ($80\times$ real-time), VAD silence gating, LZ77 repetition suppression, linear PCM buffer safety $\le 19.2\text{ MB}$.
+
+- **Text-to-Image Generation (Proofs M73–M93)**:
+
+  - **Proof M73**: Latent Space 48× volumetric dimensionality reduction (4096× attention FLOP reduction).
+
+  - **Proof M74**: Classifier-Free Guidance Score Interpolation Invariant guaranteeing monotonic text adhesion.
+
+  - **Proof M77**: Intel Arc Xe-LPG XMX DPAS Roofline operational intensity threshold $\text{AI}^* = 60.34\text{ FLOP/B}$.
+
+  - **Proof M78**: Level Zero USM Zero-Copy VAE Latent Handshake eliminating PCIe DMA transfer ($\tau_{\text{copy}} = 0$).
+
+  - **Proof M79**: Zero-Disk Residue Invariant for sequential execution ($\Delta S_{\text{disk}}(t_{\text{end}}) \equiv 0$).
+
+  - **Proof M80**: Philox4x32-10 PRNG Deterministic Hash Invariant: bit-exact image reproducibility.
+
+  - **Proof M82**: Diffusion Energy Efficiency Yield Metric $\eta_{\text{image}} = \frac{3.6 \times 10^6}{P_{\text{pkg}} \cdot T_{\text{gen}}}$ (up to 1,224,490 img/kWh).
+
+  - **Proof M84**: Dynamic Quantile Thresholding Anti-Burn Invariant bounding pixel clipping ratio $\mathcal{R}_{\text{clipped}} < 0.005$.
+
+  - **Proof M88**: Gaussian-Weighted Hann Partition of Unity for Tiled VAE Decoding ($\mathcal{C}^1$ continuity).
+
+  - **Proof M89**: INT8 NNCF Quantization DPAS Roofline Transition doubling iteration rate to $14.70\text{ it/s}$.
+
+  - **Proof M91**: Level Zero immediate command list submission latency ceiling $\tau_{\text{submit}} \le 2.1\,\mu\text{s}$.
+
+  - **Proof M92**: Sliced Latent Tile Streaming memory footprint ceiling $\le 580\text{ MB}$.
+
+  - **Proof M93**: Ahead-of-Time OpenVINO Blob Caching delivering $52.6\times$ faster warm load ($0.54\text{s}$).
+
+
+---
+
 ## 🛠️ Editing and Modifying Diagrams
 
-1. **In Browser**: Click any `Open in app.diagrams.net` link above to load and edit the XML diagram with rich styles.
+1. **In Browser**: Click any `Open in app.diagrams.net` link in the Master Visual Gallery above to load and edit the XML diagram with rich styles.
+
 2. **In VS Code / Cursor**: Install the *Draw.io Integration* extension by Henning Dieterichs and open any file in `drawio/` directly.
+
 3. **Programmatic Synchronization**: When modifying architecture or codebase methods, update the authoritative UDM definitions and regenerate both Mermaid and Draw.io formats simultaneously in accordance with Rule `45-uml-diagram-lifecycle.md`.
