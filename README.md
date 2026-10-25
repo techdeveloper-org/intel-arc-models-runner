@@ -4,7 +4,7 @@
 [![Intel](https://img.shields.io/badge/Hardware-Intel%20Arc%20GPU%20%7C%20Intel%20NPU-0071C5.svg)](https://www.intel.com)
 [![API](https://img.shields.io/badge/API-Ollama%20%7C%20OpenAI%20Compatible-green.svg)](https://github.com/techdeveloper-org/intel-arc-models-runner)
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org)
-[![Tests](https://img.shields.io/badge/Tests-555%20Passing%20(100%25)-brightgreen.svg)](docs/testing.md)
+[![Tests](https://img.shields.io/badge/Tests-569%20Passing%20(100%25)-brightgreen.svg)](docs/testing.md)
 [![Release](https://img.shields.io/badge/Release-v0.1.0%20(Wheel%20Available)-orange.svg)](https://github.com/techdeveloper-org/intel-arc-models-runner/releases)
 
 A purpose-built, mathematically proven, zero-bloat local LLM runner, multi-modal generative studio, and high-throughput server engineered specifically for **Intel® Arc™ GPUs (discrete & integrated)** and **Intel® NPUs (Neural Processing Units)**.
@@ -26,10 +26,10 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 | ↳ [**Empirical Silicon Proofs**](docs/benchmarks/empirical_silicon.md) | Real Silicon Hardware Telemetry | Arc GPU vs CPU (30.8× TTFT), live sequential reclaim runs, 21-test hardware suite, GPU vs NPU breakdown. |
 | ↳ [**Ollama Showdown & 30-Case Audit**](docs/benchmarks/ollama_showdown.md) | Head-to-Head Comparison vs Ollama | Ollama "Silent CPU Fallback" anatomy (Proof M56), output coherence (M57/M58), and 30-case Triad Audit matrix. |
 | [**🚀 Deployment & Packaging Guide**](docs/deployment.md) | Standalone PyPI Wheel & Docker Deployment | Production guide for `pip install arc-runner`, Ubuntu 24.04 Docker image, `/dev/dri` pass-through, and Kubernetes Helm specs. |
-| [**🧪 Complete Test Coverage**](docs/testing.md) | Full Test Suite Roadmap & Execution | 555 automated tests across 35 test modules (100% green, 0 failures), Triad testing patterns. |
+| [**🧪 Complete Test Coverage**](docs/testing.md) | Full Test Suite Roadmap & Execution | 569 automated tests across 36 test modules (100% green, 0 failures), Triad testing patterns. |
 | [**🗺️ Roadmap & Multi-Modal Evolution**](docs/roadmap.md) | Delivered Milestones & Packaging Horizon | 15 core milestones + full Packaging Horizon delivered, 7 next-gen orchestration hurdles scorecard, PyPI & Docker targets. |
 | [**📐 Visual Diagrams Guide**](docs/diagrams/README.md) | UML & Draw.io Diagram Catalog | 13 architectural UML diagrams with embedded previews and editable draw.io links. |
-| [**🔬 R&D Forensics Reports**](docs/research/) | Deep Technical R&D & Whitepapers | 6 foundational research papers on Ollama defects, Intel silicon, solution blueprints, orchestration proofs, and packaging math. |
+| [**🔬 R&D Forensics Reports**](docs/research/) | Deep Technical R&D & Whitepapers | 7 foundational research papers on Ollama defects, Intel silicon, solution blueprints, orchestration proofs, packaging math, and bare-metal flash streaming (Proofs M121–M134). |
 | [**🤝 Community Benchmarks Guide**](docs/community_benchmarks.md) | Open Source Benchmarking Call | Community guidelines for benchmarking across Intel silicon (Alchemist, Battlemage, Lunar Lake, Arrow Lake). |
 
 ---
@@ -39,6 +39,7 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 While mainstream local LLM tools like Ollama were designed with a CUDA-first and Apple Metal-first focus, `intel-arc-models-runner` treats Intel silicon as first-class citizens:
 
 - **Native Dual Silicon Acceleration**: Run models natively on **Intel Arc Discrete GPUs** (A770, A750, B580), **Core Ultra iGPUs** (Xe-LPG, Xe2), and **Intel NPUs** (AI Boost NPU 3720 / NPU 4000).
+- **Bare-Metal Flash-Stream Heavy Model Engine**: Run massive models (Qwen 2.5/3 32B & 72B) on memory-constrained devices (e.g. 1.24 GB free DRAM) with zero-RAM OOM crashes via $\mathcal{O}(1)$ layer ring buffering, asynchronous NVMe prefetch DMA, and NPU Attention / Arc GPU SwiGLU disaggregation (Proofs M121–M134)!
 - **World's First Client Speculative Engine**: Run 1B–2B draft models on the **Intel NPU** (zero GPU VRAM cost, 5W power draw) while verifying tokens in parallel on the **Intel Arc GPU** via XMX matrix engines!
 - **Autonomous Multi-Modal Media Studio**: Orchestrates LLM Director, Kokoro Voiceover, and SDXL / LTX-Video Visuals with zero-copy memory handoff and closed-loop pacing convergence.
 - **Drop-in Ollama & OpenAI Compatibility**: Compatible with `/api/generate`, `/api/chat`, `/api/tags`, and `/v1/chat/completions` for instant use with Open WebUI, Continue.dev, Cursor, and LangChain.

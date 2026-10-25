@@ -23,6 +23,12 @@ from arc_runner.engine.embedding_engine import (
     EmbeddingEngineError,
     EmptyMaskError,
 )
+from arc_runner.engine.flash_stream import (
+    FlashStreamInferenceEngine,
+    FlashStreamKVPagedBuffer,
+    FlashStreamWeightManager,
+    HeterogeneousLayerDispatcher,
+)
 from arc_runner.engine.image_engine import (
     ImageEngine,
     ImageEngineConfig,
@@ -77,6 +83,10 @@ __all__: List[str] = [
     "EmbeddingEngine",
     "EmbeddingEngineError",
     "EmptyMaskError",
+    "FlashStreamInferenceEngine",
+    "FlashStreamKVPagedBuffer",
+    "FlashStreamWeightManager",
+    "HeterogeneousLayerDispatcher",
     "ImageEngine",
     "ImageEngineConfig",
     "ImageEngineError",
