@@ -1,8 +1,10 @@
 """Timeline Compositor, Audio-Video Pacing Convergence Loop, and MP4 Container Muxer.
 
 Synchronizes multi-scene audio and visual frame streams, resolves temporal phase drift
-via closed-loop pacing convergence, and encodes standard broadcast-compatible MP4 containers.
-Strictly adheres to Level 2.2 Docstrings-Only standards and Proof M3.
+via closed-loop pacing convergence, performs smooth cinematic alpha cross-dissolve transitions,
+and encodes standard broadcast-compatible H.264 MP4 containers using Intel QuickSync Video (QSV)
+hardware acceleration with seamless software fallbacks.
+Strictly adheres to Level 2.2 Docstrings-Only standards and Proofs M3, M7, M8, and M11.
 """
 
 from __future__ import annotations
@@ -13,10 +15,12 @@ import time
 import wave
 from pathlib import Path
 
+import cv2
 import numpy as np
 
 from arc_runner.core.exceptions import ArcRunnerError
 from arc_runner.core.logging import get_logger
+from arc_runner.orchestrator.audio_ducking import AmbientAudioDuckingEngine
 from arc_runner.orchestrator.models import SceneArtifact, ScenePlan
 
 logger = get_logger("orchestrator.muxer")
@@ -33,16 +37,23 @@ class StudioTimelineCompositor:
         self,
         output_dir: Path | None = None,
         convergence_tolerance_sec: float = 0.05,
+        transition_frames: int = 8,
+        ducking_engine: AmbientAudioDuckingEngine | None = None,
     ) -> None:
-        """Initialize StudioTimelineCompositor with destination path and alignment tolerance.
+        """Initialize StudioTimelineCompositor with destination path, alignment tolerance, and transitions.
 
         Args:
             output_dir: Optional base directory path for rendered production exports.
             convergence_tolerance_sec: Maximum permissible duration delta between audio and video.
+            transition_frames: Number of boundary frames across which to blend cinematic cross-dissolves.
+            ducking_engine: Optional AmbientAudioDuckingEngine instance for background soundscape mixing.
         """
         self._output_dir = output_dir or Path(".benchmarks/studio_exports")
         self._output_dir.mkdir(parents=True, exist_ok=True)
         self._convergence_tolerance_sec = convergence_tolerance_sec
+        self._transition_frames = max(0, transition_frames)
+        self._ducking_engine = ducking_engine or AmbientAudioDuckingEngine()
+        self._cached_qsv_encoder: str | None = None
 
     def compose_and_mux(
         self,
@@ -50,6 +61,8 @@ class StudioTimelineCompositor:
         artifacts: list[SceneArtifact],
         output_path: Path,
         fps: int = 16,
+        ambient_audio_pcm: np.ndarray | None = None,
+        enable_cross_dissolve: bool = True,
     ) -> tuple[Path, float, int]:
         """Align scene timelines, concatenate streams, and encode final synchronized MP4 video.
 
@@ -58,6 +71,8 @@ class StudioTimelineCompositor:
             artifacts: List of SceneArtifact payloads containing rendered audio and visual frames.
             output_path: Target filesystem destination for exported MP4 file.
             fps: Video playback framerate.
+            ambient_audio_pcm: Optional ambient musical soundscape PCM to duck beneath dialogue.
+            enable_cross_dissolve: Whether to apply alpha cross-dissolve transitions between scenes.
 
         Returns:
             Tuple of (final_mp4_path, total_duration_seconds, total_convergence_iterations).
@@ -80,7 +95,18 @@ class StudioTimelineCompositor:
             total_iterations += iters
 
         concat_audio, sample_rate = self._concatenate_audio_tracks(aligned_artifacts)
-        concat_frames = self._concatenate_video_frames(aligned_artifacts)
+
+        if ambient_audio_pcm is not None and len(ambient_audio_pcm) > 0:
+            concat_audio = self._ducking_engine.apply_ducking(concat_audio, ambient_audio_pcm)
+
+        if enable_cross_dissolve and self._transition_frames > 0 and len(aligned_artifacts) > 1:
+            concat_frames = self._compose_dissolve_timeline(
+                aligned_artifacts,
+                fps=fps,
+                transition_frames=self._transition_frames,
+            )
+        else:
+            concat_frames = self._concatenate_video_frames(aligned_artifacts)
 
         if not concat_frames:
             raise MuxerError("No visual frames available for timeline muxing.")
@@ -174,6 +200,74 @@ class StudioTimelineCompositor:
 
         return synced_artifact, iterations
 
+    def _compose_dissolve_timeline(
+        self,
+        artifacts: list[SceneArtifact],
+        fps: int,
+        transition_frames: int = 8,
+        overlap: bool = False,
+    ) -> list[np.ndarray]:
+        """Blend consecutive scene boundaries with an alpha cross-dissolve manifold (Proof M8).
+
+        Args:
+            artifacts: Sequence of aligned SceneArtifact items.
+            fps: Playback framerate.
+            transition_frames: Maximum transition window length in frames.
+            overlap: If True, overlaps and trims timeline by transition window; if False, in-place blend.
+
+        Returns:
+            Continuous sequence of uint8 RGB frame arrays featuring smooth cross-dissolves.
+        """
+        valid_scenes = [a for a in artifacts if a.frames]
+        if not valid_scenes:
+            return []
+        if len(valid_scenes) == 1:
+            return list(valid_scenes[0].frames or [])
+
+        timeline: list[np.ndarray] = []
+
+        for idx in range(len(valid_scenes)):
+            curr_frames = [f.copy() for f in (valid_scenes[idx].frames or [])]
+            if idx == 0:
+                timeline.extend(curr_frames)
+                continue
+
+            prev_scene_len = len(timeline)
+            k = min(transition_frames, prev_scene_len // 2, len(curr_frames) // 2)
+
+            if k <= 0:
+                timeline.extend(curr_frames)
+                continue
+
+            if overlap:
+                trans_frames: list[np.ndarray] = []
+                for i in range(k):
+                    alpha = float(i + 1) / float(k + 1)
+                    frame_a = timeline[prev_scene_len - k + i]
+                    frame_b = curr_frames[i]
+                    blended = cv2.addWeighted(frame_a, 1.0 - alpha, frame_b, alpha, 0.0)
+                    trans_frames.append(blended)
+
+                timeline = timeline[: prev_scene_len - k]
+                timeline.extend(trans_frames)
+                timeline.extend(curr_frames[k:])
+            else:
+                k1 = max(1, k // 2)
+                k2 = max(1, k - k1)
+                last_a = timeline[prev_scene_len - 1].copy()
+                first_b = curr_frames[0].copy()
+                for i in range(k1):
+                    alpha = float(i + 1) / float(k + 1)
+                    timeline[prev_scene_len - k1 + i] = cv2.addWeighted(
+                        timeline[prev_scene_len - k1 + i], 1.0 - alpha, first_b, alpha, 0.0
+                    )
+                for i in range(k2):
+                    alpha = float(k1 + i + 1) / float(k + 1)
+                    curr_frames[i] = cv2.addWeighted(last_a, 1.0 - alpha, curr_frames[i], alpha, 0.0)
+                timeline.extend(curr_frames)
+
+        return timeline
+
     def _concatenate_audio_tracks(
         self,
         artifacts: list[SceneArtifact],
@@ -218,6 +312,33 @@ class StudioTimelineCompositor:
                 all_frames.extend(art.frames)
         return all_frames
 
+    def _detect_qsv_encoder(self) -> str:
+        """Inspect FFmpeg runtime environment for Intel QuickSync Video hardware encoding capability.
+
+        Returns:
+            'h264_qsv' if Intel hardware encoder is verified, otherwise 'libx264'.
+        """
+        if self._cached_qsv_encoder is not None:
+            return self._cached_qsv_encoder
+
+        try:
+            res = subprocess.run(
+                ["ffmpeg", "-hide_banner", "-encoders"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=5.0,
+            )
+            if res.returncode == 0 and "h264_qsv" in res.stdout:
+                logger.info("Intel QuickSync Video (QSV) hardware acceleration detected: using 'h264_qsv'")
+                self._cached_qsv_encoder = "h264_qsv"
+                return "h264_qsv"
+        except Exception as exc:
+            logger.debug(f"QSV inspection encountered non-critical error: {exc}")
+
+        self._cached_qsv_encoder = "libx264"
+        return "libx264"
+
     def _encode_mp4_container(
         self,
         frames: list[np.ndarray],
@@ -226,7 +347,7 @@ class StudioTimelineCompositor:
         fps: int,
         output_dest: Path,
     ) -> Path:
-        """Encode RGB frame sequence and PCM audio track into destination MP4 file.
+        """Encode RGB frame sequence and PCM audio track into destination MP4 file via FFmpeg or OpenCV.
 
         Args:
             frames: Sequence of uint8 RGB frame arrays.
@@ -242,11 +363,18 @@ class StudioTimelineCompositor:
             MuxerError: If writing the video container fails.
         """
         try:
-            temp_video = output_dest.with_suffix(".temp_video.mp4")
             temp_wav = output_dest.with_suffix(".temp_audio.wav")
-
-            self._write_raw_video(frames, fps, temp_video)
             self._write_wav_file(audio_pcm, sample_rate, temp_wav)
+
+            if shutil.which("ffmpeg") is not None:
+                encoded_success = self._stream_encode_ffmpeg(frames, temp_wav, output_dest, fps)
+                if encoded_success:
+                    if temp_wav.exists():
+                        temp_wav.unlink()
+                    return output_dest.resolve()
+
+            temp_video = output_dest.with_suffix(".temp_video.mp4")
+            self._write_raw_video(frames, fps, temp_video)
 
             if shutil.which("ffmpeg") is not None:
                 self._remux_with_ffmpeg(temp_video, temp_wav, output_dest)
@@ -262,6 +390,92 @@ class StudioTimelineCompositor:
 
         except Exception as exc:
             raise MuxerError(f"Failed to encode MP4 container to '{output_dest}': {exc}") from exc
+
+    def _stream_encode_ffmpeg(
+        self,
+        frames: list[np.ndarray],
+        wav_path: Path,
+        output_dest: Path,
+        fps: int,
+    ) -> bool:
+        """Stream raw RGB frames over standard input pipe directly to FFmpeg with QSV/libx264.
+
+        Args:
+            frames: Sequence of uint8 RGB frame arrays.
+            wav_path: Path to companion PCM audio WAV file.
+            output_dest: Target MP4 container filesystem path.
+            fps: Playback framerate.
+
+        Returns:
+            Boolean indicating whether stream encoding succeeded.
+        """
+        h, w = frames[0].shape[:2]
+        encoder = self._detect_qsv_encoder()
+
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-s",
+            f"{w}x{h}",
+            "-pix_fmt",
+            "rgb24",
+            "-r",
+            str(fps),
+            "-i",
+            "-",
+            "-i",
+            str(wav_path),
+            "-c:v",
+            encoder,
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "192k",
+            "-movflags",
+            "+faststart",
+            "-shortest",
+            str(output_dest),
+        ]
+
+        if encoder == "h264_qsv":
+            cmd.insert(cmd.index("-c:v") + 2, "-b:v")
+            cmd.insert(cmd.index("-b:v") + 1, "4M")
+        elif encoder == "libx264":
+            cmd.insert(cmd.index("-c:v") + 2, "-preset")
+            cmd.insert(cmd.index("-preset") + 1, "fast")
+            cmd.insert(cmd.index("-preset") + 2, "-crf")
+            cmd.insert(cmd.index("-crf") + 1, "22")
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            for frame in frames:
+                if frame.dtype != np.uint8:
+                    frame = frame.astype(np.uint8)
+                proc.stdin.write(frame.tobytes())
+
+            proc.stdin.close()
+            proc.wait(timeout=30.0)
+
+            if proc.returncode == 0 and output_dest.exists() and output_dest.stat().st_size > 0:
+                logger.info(f"Direct stream encode succeeded with '{encoder}' -> {output_dest}")
+                return True
+            else:
+                logger.warning(f"Direct stream encoding with '{encoder}' failed, falling back to multi-step mux")
+                return False
+        except Exception as exc:
+            logger.warning(f"Streaming FFmpeg encoder failed ({exc}), falling back to disk intermediary")
+            return False
 
     def _write_raw_video(self, frames: list[np.ndarray], fps: int, dest: Path) -> None:
         """Write frame sequence to an MP4 video file using imageio or OpenCV.
@@ -279,8 +493,6 @@ class StudioTimelineCompositor:
 
             imageio.mimsave(str(dest), frames, fps=fps)
         except Exception:  # noqa: BLE001
-            import cv2
-
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
             writer = cv2.VideoWriter(str(dest), fourcc, float(fps), (w, h))
             for frame in frames:
@@ -307,13 +519,14 @@ class StudioTimelineCompositor:
             wf.writeframes(int16_samples.tobytes())
 
     def _remux_with_ffmpeg(self, video_path: Path, audio_path: Path, final_path: Path) -> None:
-        """Mux video and audio streams together into single MP4 container using FFmpeg.
+        """Mux video and audio streams together into single MP4 container using FFmpeg with H.264 transcode.
 
         Args:
             video_path: Temporary video stream path.
             audio_path: Temporary audio track path.
             final_path: Final destination path.
         """
+        encoder = self._detect_qsv_encoder()
         cmd = [
             "ffmpeg",
             "-y",
@@ -322,13 +535,37 @@ class StudioTimelineCompositor:
             "-i",
             str(audio_path),
             "-c:v",
-            "copy",
+            encoder,
+            "-pix_fmt",
+            "yuv420p",
             "-c:a",
             "aac",
+            "-b:a",
+            "192k",
+            "-movflags",
+            "+faststart",
             "-shortest",
             str(final_path),
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if result.returncode != 0:
-            logger.warning(f"FFmpeg muxing returned code {result.returncode}, falling back to video stream copy.")
-            shutil.copyfile(str(video_path), str(final_path))
+            logger.warning(
+                f"FFmpeg muxing with {encoder} failed (code {result.returncode}), trying copy fallback."
+            )
+            fallback_cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(video_path),
+                "-i",
+                str(audio_path),
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-shortest",
+                str(final_path),
+            ]
+            fb_res = subprocess.run(fallback_cmd, capture_output=True, text=True, check=False)
+            if fb_res.returncode != 0:
+                shutil.copyfile(str(video_path), str(final_path))

@@ -57,6 +57,8 @@ class StudioVisualWorker:
         resolution: tuple[int, int] = (512, 512),
         fps: int = 16,
         usm_bridge: USMZeroCopyBridge | None = None,
+        target_frames: int | None = None,
+        base_background: np.ndarray | None = None,
     ) -> SceneArtifact:
         """Render visual frames for a single scene according to its selected modality.
 
@@ -65,6 +67,8 @@ class StudioVisualWorker:
             resolution: Raster frame resolution as (width, height) tuple.
             fps: Output target playback framerate.
             usm_bridge: Optional USMZeroCopyBridge for zero-copy memory wrapping.
+            target_frames: Optional explicit frame count derived from physical audio duration.
+            base_background: Optional pre-rendered AI diffusion base image.
 
         Returns:
             SceneArtifact containing rendered video frames, duration, and telemetry.
@@ -73,19 +77,32 @@ class StudioVisualWorker:
             VisualWorkerExecutionError: When image or video generation fails.
         """
         t_start = time.perf_counter()
-        target_frames = max(1, round(scene.duration_seconds * fps))
+        actual_target_frames = (
+            max(1, target_frames)
+            if target_frames is not None
+            else max(1, round(scene.duration_seconds * fps))
+        )
         logger.info(
-            f"Rendering Scene {scene.scene_id} visual ({scene.modality.value}, {target_frames} frames) on {self._device}"
+            f"Rendering Scene {scene.scene_id} visual ({scene.modality.value}, {actual_target_frames} frames) on {self._device}"
         )
 
         width, height = resolution
 
         if scene.modality == VisualModality.ANIMATED_VIDEO and self._video_engine is not None:
-            frames = self._render_animated_video(scene, width, height, target_frames, fps)
+            frames = self._render_animated_video(scene, width, height, actual_target_frames, fps)
         elif self._image_engine is not None:
-            frames = self._render_slide_with_camera_motion(scene, width, height, target_frames, fps)
+            frames = self._render_slide_with_camera_motion(scene, width, height, actual_target_frames, fps)
+        elif base_background is not None:
+            frames = self._compositor.render_scene_frames(
+                scene=scene,
+                width=width,
+                height=height,
+                num_frames=actual_target_frames,
+                fps=fps,
+                base_background=base_background,
+            )
         else:
-            frames = self._render_synthetic_frames(scene, width, height, target_frames, fps)
+            frames = self._render_synthetic_frames(scene, width, height, actual_target_frames, fps)
 
         if usm_bridge is not None:
             shared_frames, _ = usm_bridge.transfer_frames_to_muxer(frames)
@@ -109,6 +126,7 @@ class StudioVisualWorker:
         resolution: tuple[int, int] = (512, 512),
         fps: int = 16,
         usm_bridge: USMZeroCopyBridge | None = None,
+        target_frames_per_scene: list[int] | None = None,
     ) -> list[SceneArtifact]:
         """Render visuals sequentially for all planned production scenes.
 
@@ -117,13 +135,27 @@ class StudioVisualWorker:
             resolution: Target raster resolution (width, height).
             fps: Playback framerate.
             usm_bridge: Optional USMZeroCopyBridge.
+            target_frames_per_scene: Optional list of explicit frame counts matching scenes.
 
         Returns:
             List of SceneArtifact items containing rendered frame sequences.
         """
         artifacts: list[SceneArtifact] = []
-        for scene in scenes:
-            artifacts.append(self.render_scene(scene, resolution=resolution, fps=fps, usm_bridge=usm_bridge))
+        for idx, scene in enumerate(scenes):
+            t_frames = (
+                target_frames_per_scene[idx]
+                if target_frames_per_scene is not None and idx < len(target_frames_per_scene)
+                else None
+            )
+            artifacts.append(
+                self.render_scene(
+                    scene,
+                    resolution=resolution,
+                    fps=fps,
+                    usm_bridge=usm_bridge,
+                    target_frames=t_frames,
+                )
+            )
         return artifacts
 
     def _render_animated_video(
