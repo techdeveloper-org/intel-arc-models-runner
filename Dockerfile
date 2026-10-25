@@ -49,7 +49,7 @@ LABEL org.opencontainers.image.title="Intel Arc Models Runner" \
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
-    LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/usr/local/lib:$LD_LIBRARY_PATH" \
+    LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/usr/local/lib" \
     LIBVA_DRIVERS_PATH="/usr/lib/x86_64-linux-gnu/dri" \
     LIBVA_DRIVER_NAME="iHD" \
     ONEAPI_DEVICE_SELECTOR="level_zero:*" \
@@ -77,7 +77,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /opt/venv /opt/venv
 
-RUN groupadd --system --gid 1000 appgroup \
+RUN touch /var/mail/ubuntu || true \
+    && (id -u ubuntu >/dev/null 2>&1 && userdel -r ubuntu || true) \
+    && (getent group ubuntu >/dev/null 2>&1 && groupdel ubuntu || true) \
+    && (getent group 1000 >/dev/null 2>&1 && groupdel $(getent group 1000 | cut -d: -f1) || true) \
+    && groupadd --system --gid 1000 appgroup \
     && useradd --system --uid 1000 --gid appgroup --create-home --home-dir /home/appuser --shell /bin/bash appuser \
     && groupadd -f -g 44 video \
     && groupadd -f -g 107 render \
