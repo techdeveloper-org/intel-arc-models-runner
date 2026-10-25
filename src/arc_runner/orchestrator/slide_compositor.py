@@ -113,6 +113,8 @@ class EducationalSlideCompositor:
 
             if base_background is not None:
                 canvas = self._prepare_decorated_base(base_background, width, height)
+                self._draw_particles(canvas, particles, alpha, width, height)
+                self._draw_physics_simulation(canvas, domain_key, alpha, width, height, scene=scene)
             else:
                 canvas = self._render_cosmic_gradient(width, height)
                 self._draw_particles(canvas, particles, alpha, width, height)
@@ -123,7 +125,7 @@ class EducationalSlideCompositor:
 
             self._draw_header_hud(draw, scene, domain_key, width, height)
             self._draw_formula_card(draw, formula, width, height)
-            self._draw_subtitles_card(draw, scene.narration_text, width, height)
+            self._draw_subtitles_card(draw, scene.narration_text, width, height, frame_idx=i, num_frames=num_frames)
 
             frame_np = np.array(canvas_pil.convert("RGB"), dtype=np.uint8)
 
@@ -252,6 +254,11 @@ class EducationalSlideCompositor:
             resized = cv2.cvtColor(resized, cv2.COLOR_RGBA2RGB)
 
         graded = (resized.astype(np.float32) * 0.65).astype(np.uint8)
+        gray = cv2.cvtColor(graded, cv2.COLOR_RGB2GRAY)
+        mean_y = float(np.mean(gray)) / 255.0
+        if mean_y > 0.35:
+            scale = 0.35 / max(1e-4, mean_y)
+            graded = (graded.astype(np.float32) * scale).astype(np.uint8)
         overlay = self._render_cosmic_gradient(width, height)
         blended = cv2.addWeighted(graded, 0.70, overlay, 0.30, 0.0)
         return blended
@@ -634,14 +641,24 @@ class EducationalSlideCompositor:
         draw.text((card_x + 12, card_y + 4), "PRINCIPLE / FORMULA", font=label_font, fill=(140, 180, 230, 210))
         draw.text((card_x + 12, card_y + int(card_h * 0.40)), formula, font=font, fill=(255, 225, 120, 255))
 
-    def _draw_subtitles_card(self, draw: ImageDraw.ImageDraw, narration_text: str, width: int, height: int) -> None:
-        """Render word-wrapped synchronized dialogue subtitle card at canvas bottom.
+    def _draw_subtitles_card(
+        self,
+        draw: ImageDraw.ImageDraw,
+        narration_text: str,
+        width: int,
+        height: int,
+        frame_idx: int = 0,
+        num_frames: int = 1,
+    ) -> None:
+        """Render dynamic word-level synchronized dialogue subtitles with progressive karaoke glow (Proof M10).
 
         Args:
             draw: Active PIL ImageDraw instance.
             narration_text: Speech transcript string.
             width: Raster canvas width.
             height: Raster canvas height.
+            frame_idx: Current temporal frame index within the scene.
+            num_frames: Total number of frames across the scene.
         """
         if not narration_text or not narration_text.strip():
             return
@@ -652,7 +669,29 @@ class EducationalSlideCompositor:
         max_text_w = card_w - 32
 
         words = narration_text.strip().split()
-        lines: list[str] = []
+        if not words:
+            return
+
+        theta = float(frame_idx) / max(1.0, float(num_frames - 1))
+        punct_set = {",", ".", "!", "?", ":", ";"}
+        weights = [len(w) + (3 if any(w.endswith(p) for p in punct_set) else 0) for w in words]
+        total_weight = max(1, sum(weights))
+
+        cum_weights: list[float] = []
+        running_sum = 0
+        for w_val in weights:
+            running_sum += w_val
+            cum_weights.append(running_sum / total_weight)
+
+        active_word_idx = 0
+        for idx, threshold in enumerate(cum_weights):
+            if theta <= threshold:
+                active_word_idx = idx
+                break
+        else:
+            active_word_idx = len(words) - 1
+
+        lines: list[list[str]] = []
         current_line: list[str] = []
 
         for word in words:
@@ -662,11 +701,11 @@ class EducationalSlideCompositor:
                 current_line.append(word)
             else:
                 if current_line:
-                    lines.append(" ".join(current_line))
+                    lines.append(current_line)
                 current_line = [word]
 
         if current_line:
-            lines.append(" ".join(current_line))
+            lines.append(current_line)
 
         lines = lines[:3]
         line_h = max(14, int(height * 0.035))
@@ -681,12 +720,47 @@ class EducationalSlideCompositor:
             width=1,
         )
 
-        for idx, line in enumerate(lines):
-            line_bbox = font.getbbox(line)
-            w_line = line_bbox[2] - line_bbox[0]
-            x_line = margin_x + (card_w - w_line) // 2
-            y_line = card_y + 8 + (idx * line_h)
-            draw.text((x_line, y_line), line, font=font, fill=(240, 248, 255, 255))
+        global_word_counter = 0
+        space_bbox = font.getbbox(" ")
+        space_w = max(4, space_bbox[2] - space_bbox[0])
+
+        for line_idx, line_words in enumerate(lines):
+            full_line_str = " ".join(line_words)
+            full_line_bbox = font.getbbox(full_line_str)
+            line_w = full_line_bbox[2] - full_line_bbox[0]
+            start_x = margin_x + (card_w - line_w) // 2
+            y_pos = card_y + 8 + (line_idx * line_h)
+
+            curr_x = start_x
+            for word in line_words:
+                w_bbox = font.getbbox(word)
+                w_width = w_bbox[2] - w_bbox[0]
+                w_height = max(12, w_bbox[3] - w_bbox[1])
+
+                if global_word_counter == active_word_idx:
+                    pill_pad_x = 4
+                    pill_pad_y = 2
+                    draw.rounded_rectangle(
+                        [
+                            curr_x - pill_pad_x,
+                            y_pos - pill_pad_y,
+                            curr_x + w_width + pill_pad_x,
+                            y_pos + w_height + pill_pad_y,
+                        ],
+                        radius=4,
+                        fill=(0, 110, 190, 140),
+                        outline=(0, 240, 255, 180),
+                        width=1,
+                    )
+                    word_color = (0, 240, 255, 255)
+                elif global_word_counter < active_word_idx:
+                    word_color = (245, 250, 255, 255)
+                else:
+                    word_color = (160, 180, 205, 140)
+
+                draw.text((curr_x, y_pos), word, font=font, fill=word_color)
+                curr_x += w_width + space_w
+                global_word_counter += 1
 
     def _apply_camera_motion(self, frame: np.ndarray, alpha: float, motion: str) -> np.ndarray:
         """Apply affine transformation zoom or pan motion interpolation across frames (Proof M3).
