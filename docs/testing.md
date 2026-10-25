@@ -6,11 +6,11 @@
 
 Every component in `intel-arc-models-runner` is governed by strict **Triad Testing** (Positive, Negative, and Edge-Case scenarios) derived from Claude Global Rules (`33-test-case-roadmap.md`, `35-positive-testing-standards.md`, `36-negative-testing-standards.md`, `37-edge-case-testing-standards.md`, `38-test-mocking-strategy.md`).
 
-As of the latest release, the test suite contains **533 passing automated tests across 33 test modules with 0 failures and 0 errors**.
+As of the latest release, the test suite contains **555 passing automated tests across 35 test modules with 0 failures and 0 errors**.
 
 ---
 
-## 📊 Comprehensive Test Module Matrix (533 Tests / 33 Modules)
+## 📊 Comprehensive Test Module Matrix (555 Tests / 35 Modules)
 
 | # | Test Module | Tests | Coverage Area | Invariant / Proof Referenced |
 |:---:|:---|:---:|:---|:---|
@@ -47,7 +47,9 @@ As of the latest release, the test suite contains **533 passing automated tests 
 | 31 | `test_studio_ui_triad.py` | 33 | 3-tier Triad matrix for Tab 7 Studio Web UI | Triad (Pos, Neg, Edge) |
 | 32 | `test_slide_compositor_triad.py` | 38 | 16:9 HD Slide Compositor, Double-Slit, Bohr atom, Voronoi | Dynamic physics & typography |
 | 33 | `test_nextgen_orchestration_triad.py` | 42 | Milestones 14.1–14.7 (QSV, Alpha dissolve, Reactive DAG) | Proofs M7–M12 |
-| **Total** | **33 Modules** | **533** | **100% Green · 0 Failures · 0 Errors** | **Complete Invariant Verification** |
+| 34 | `test_pypi_packaging_triad.py` | 11 | Standalone wheel packaging, PEP 561, dual CLI entrypoints | Proof M115 (Wheel Deflate Invariant) |
+| 35 | `test_docker_container_triad.py` | 11 | Ubuntu 24.04 multi-stage Dockerfile, Rule 29, DRI `/dev/dri` | Proofs M116–M120 |
+| **Total** | **35 Modules** | **555** | **100% Green · 0 Failures · 0 Errors** | **Complete Invariant Verification** |
 
 ---
 

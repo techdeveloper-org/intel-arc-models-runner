@@ -14,7 +14,10 @@ from arc_runner.devices.models import (
     SystemTopology,
 )
 from arc_runner.devices.sysman import LevelZeroSysman
-from arc_runner.utils.dll_loader import initialize_windows_dll_environment
+from arc_runner.utils.dll_loader import (
+    initialize_driver_environment,
+    initialize_windows_dll_environment,
+)
 
 
 class DeviceDetector:
@@ -26,7 +29,7 @@ class DeviceDetector:
         Args:
             sysman_client: Optional Level Zero Sysman client instance.
         """
-        initialize_windows_dll_environment()
+        initialize_driver_environment()
         self._sysman = sysman_client or LevelZeroSysman()
 
     def _classify_gpu_architecture(self, full_name: str) -> DeviceArchitecture:

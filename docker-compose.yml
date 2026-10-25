@@ -1,0 +1,33 @@
+services:
+  arc-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: intel-arc-models-runner:latest
+    container_name: intel-arc-models-runner
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    devices:
+      - "/dev/dri:/dev/dri"
+    environment:
+      - LOG_LEVEL=INFO
+      - ONEAPI_DEVICE_SELECTOR=level_zero:*
+      - LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
+      - LIBVA_DRIVER_NAME=iHD
+    volumes:
+      - arc-models-cache:/home/appuser/.cache/arc-runner/models
+      - arc-aot-cache:/home/appuser/.cache/arc-runner/aot
+      - ./models:/models:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  arc-models-cache:
+    driver: local
+  arc-aot-cache:
+    driver: local
