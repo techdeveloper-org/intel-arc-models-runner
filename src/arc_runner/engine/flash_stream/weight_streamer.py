@@ -184,12 +184,15 @@ class FlashStreamWeightManager:
         cleaned = re.sub(r"^(?:blk|layers|model\.layers)\.\d+\.", "", full_name)
         return cleaned
 
-    def _load_layer_into_slot(self, layer_idx: int, slot_idx: int) -> None:
+    def _load_layer_into_slot(self, layer_idx: int, slot_idx: int) -> Dict[str, np.ndarray]:
         """Load weights for the given layer directly into the designated ring buffer slot.
 
         Args:
             layer_idx: Zero-based layer index to load.
             slot_idx: Ring buffer slot index to occupy.
+
+        Returns:
+            Dictionary containing loaded layer weight arrays.
         """
         tensors = self._layer_tensor_map.get(layer_idx, [])
         layer_weights: Dict[str, np.ndarray] = {}
@@ -202,6 +205,8 @@ class FlashStreamWeightManager:
             self._ring_slots[slot_idx] = layer_weights
             self._slot_layer_idx[slot_idx] = layer_idx
             self._slot_access_time[slot_idx] = time.time()
+
+        return layer_weights
 
     def acquire_layer_weights(self, layer_idx: int) -> Dict[str, np.ndarray]:
         """Obtain tensor weights for a layer, loading into the ring buffer if not resident.
@@ -236,12 +241,7 @@ class FlashStreamWeightManager:
                 self._slot_layer_idx[free_slot] = -1
                 gc.collect()
 
-        self._load_layer_into_slot(layer_idx, free_slot)
-
-        with self._lock:
-            result = self._ring_slots[free_slot]
-            assert result is not None
-            return result
+        return self._load_layer_into_slot(layer_idx, free_slot)
 
     def prefetch_layer_async(self, layer_idx: int, slot_idx: int) -> threading.Thread:
         """Initiate asynchronous background prefetch of layer weights into a target slot.
