@@ -6,11 +6,11 @@
 
 Every component in `intel-arc-models-runner` is governed by strict **Triad Testing** (Positive, Negative, and Edge-Case scenarios) derived from Claude Global Rules (`33-test-case-roadmap.md`, `35-positive-testing-standards.md`, `36-negative-testing-standards.md`, `37-edge-case-testing-standards.md`, `38-test-mocking-strategy.md`).
 
-As of the latest release, the test suite contains **555 passing automated tests across 35 test modules with 0 failures and 0 errors**.
+As of the latest release, the test suite contains **569 passing automated tests across 36 test modules with 0 failures and 0 errors**.
 
 ---
 
-## 📊 Comprehensive Test Module Matrix (555 Tests / 35 Modules)
+## 📊 Comprehensive Test Module Matrix (569 Tests / 36 Modules)
 
 | # | Test Module | Tests | Coverage Area | Invariant / Proof Referenced |
 |:---:|:---|:---:|:---|:---|
@@ -49,7 +49,8 @@ As of the latest release, the test suite contains **555 passing automated tests 
 | 33 | `test_nextgen_orchestration_triad.py` | 42 | Milestones 14.1–14.7 (QSV, Alpha dissolve, Reactive DAG) | Proofs M7–M12 |
 | 34 | `test_pypi_packaging_triad.py` | 11 | Standalone wheel packaging, PEP 561, dual CLI entrypoints | Proof M115 (Wheel Deflate Invariant) |
 | 35 | `test_docker_container_triad.py` | 11 | Ubuntu 24.04 multi-stage Dockerfile, Rule 29, DRI `/dev/dri` | Proofs M116–M120 |
-| **Total** | **35 Modules** | **555** | **100% Green · 0 Failures · 0 Errors** | **Complete Invariant Verification** |
+| 36 | `test_flash_stream_triad.py` | 14 | Flash-Stream O(1) RAM streaming, NPU/GPU disaggregation, SwiGLU | Proofs M121–M134 |
+| **Total** | **36 Modules** | **569** | **100% Green · 0 Failures · 0 Errors** | **Complete Invariant Verification** |
 
 ---
 
