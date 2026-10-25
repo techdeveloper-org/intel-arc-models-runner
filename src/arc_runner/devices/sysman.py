@@ -5,9 +5,10 @@ and thermal indicators for Intel Arc GPUs via the oneAPI Level Zero loader.
 """
 
 import ctypes
+import ctypes.util
 import logging
 import platform
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 logger = logging.getLogger("arc_runner.devices.sysman")
 
@@ -22,14 +23,25 @@ class LevelZeroSysman:
         self._load_library()
 
     def _load_library(self) -> None:
-        """Attempt to load the Level Zero loader shared library."""
-        lib_name = "ze_loader.dll" if platform.system() == "Windows" else "libze_loader.so"
-        try:
-            self._lib = ctypes.CDLL(lib_name)
-            self._initialized = True
-        except (OSError, Exception):
-            self._lib = None
-            self._initialized = False
+        """Attempt to load the Level Zero loader shared library across platforms."""
+        if platform.system() == "Windows":
+            candidate_names: List[str] = ["ze_loader.dll"]
+        else:
+            candidate_names = ["libze_loader.so.1", "libze_loader.so"]
+            found = ctypes.util.find_library("ze_loader")
+            if found and found not in candidate_names:
+                candidate_names.append(found)
+
+        for lib_name in candidate_names:
+            try:
+                self._lib = ctypes.CDLL(lib_name)
+                self._initialized = True
+                return
+            except (OSError, Exception):
+                continue
+
+        self._lib = None
+        self._initialized = False
 
     @property
     def is_available(self) -> bool:

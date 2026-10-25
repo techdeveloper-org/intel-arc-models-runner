@@ -1,18 +1,34 @@
-"""Windows dynamic link library pre-flight resolution module.
+"""Cross-platform dynamic link library and shared object pre-flight resolution module.
 
 Ensures that Intel Graphics drivers, Intel AI Boost NPU drivers, Level Zero
 loaders, and OpenVINO runtime dependencies are discoverable prior to loading
-native C++ extensions or SYCL engines on Microsoft Windows systems.
+native C++ extensions or SYCL engines across Windows and Linux systems.
 """
 
+import ctypes
 import glob
 import logging
 import os
 import platform
 import sys
-from typing import List
+from typing import List, Optional
 
 logger = logging.getLogger("arc_runner.utils.dll_loader")
+
+LINUX_CANDIDATE_PATHS: List[str] = [
+    "/usr/lib/x86_64-linux-gnu",
+    "/usr/lib64",
+    "/usr/local/lib",
+    "/opt/intel/oneapi/compiler/latest/lib",
+    "/opt/intel/oneapi/redist/lib",
+    "/opt/intel/oneapi/lib64",
+]
+
+LEVEL_ZERO_SO_NAMES: List[str] = [
+    "libze_loader.so.1",
+    "libze_loader.so",
+    "libze_intel_gpu.so.1",
+]
 
 
 def discover_intel_driver_store_paths() -> List[str]:
@@ -113,3 +129,57 @@ def initialize_windows_dll_environment() -> List[str]:
             pass
 
     return registered
+
+
+def discover_linux_level_zero_paths() -> List[str]:
+    """Scan candidate Linux directories for Intel Level Zero and oneAPI shared libraries.
+
+    Returns:
+        List[str]: Absolute file paths to discovered Level Zero shared objects.
+    """
+    discovered: List[str] = []
+    for base_dir in LINUX_CANDIDATE_PATHS:
+        if not os.path.isdir(base_dir):
+            continue
+        for so_name in LEVEL_ZERO_SO_NAMES:
+            so_path = os.path.join(base_dir, so_name).replace("\\", "/")
+            if os.path.isfile(so_path) and so_path not in discovered:
+                discovered.append(so_path)
+    return discovered
+
+
+def initialize_linux_driver_environment() -> List[str]:
+    """Pre-load Intel Level Zero runtime shared libraries on Linux platforms.
+
+    Loads discovered shared libraries into the process global symbol table using
+    RTLD_GLOBAL to ensure OpenVINO and hardware execution backends can locate
+    the Level Zero symbols without runtime link failure.
+
+    Returns:
+        List[str]: File paths of all shared libraries loaded into memory.
+    """
+    if platform.system() == "Windows":
+        return []
+
+    loaded: List[str] = []
+    candidate_sos = discover_linux_level_zero_paths()
+    for so_path in candidate_sos:
+        try:
+            ctypes.CDLL(so_path, mode=ctypes.RTLD_GLOBAL)
+            loaded.append(so_path)
+            logger.info("Successfully loaded Level Zero runtime library: %s", so_path)
+        except (OSError, Exception) as exc:
+            logger.debug("Could not load candidate library %s: %s", so_path, exc)
+
+    return loaded
+
+
+def initialize_driver_environment() -> List[str]:
+    """Initialize driver dependencies across Windows and Linux platforms.
+
+    Returns:
+        List[str]: Registered or loaded driver library paths.
+    """
+    if platform.system() == "Windows":
+        return initialize_windows_dll_environment()
+    return initialize_linux_driver_environment()

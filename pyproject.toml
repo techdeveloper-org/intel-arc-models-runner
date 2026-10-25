@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "intel-arc-models-runner"
+name = "arc-runner"
 version = "0.1.0"
 description = "High-performance local model runner optimized specifically for Intel Arc GPUs and AI Boost NPUs."
 readme = "README.md"
@@ -63,16 +63,20 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "pytest-mock>=3.12.0",
     "ruff>=0.3.0",
-    "mypy>=1.9.0"
+    "mypy>=1.9.0",
+    "build>=1.0.0",
+    "twine>=5.0.0"
 ]
 
 [project.scripts]
 arc-runner = "arc_runner.cli.main:main"
+intel-arc-models-runner = "arc_runner.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
+"arc_runner" = ["py.typed"]
 "arc_runner.server" = ["templates/*.html", "static/css/*.css", "static/js/*.js"]
 
 [tool.pytest.ini_options]

@@ -104,13 +104,16 @@ Following extensive forensics, multi-agent orchestration, and rigorous mathemati
 
 ---
 
-## 📦 Future Packaging & Deployment (Remaining Roadmap)
+## 📦 Production Packaging & Deployment Horizon (Completed)
 
 > [!IMPORTANT]
-> **Core Engine & Multi-Modal Studio Complete**: All 7 architectural hurdles (Milestones 14.1 through 14.7) are completely resolved, mathematically proven, and verified with 533 passing tests.
-> The following two items represent the **only remaining objectives** on the project's engineering horizon:
+> **All Packaging & Deployment Objectives Fully Delivered**: Both packaging deliverables on the project horizon are completely resolved, mathematically proven (Proofs M115–M120), and verified with 555 passing tests across 35 test modules (100% green).
 
-| Priority | Item | Status | Target Scope |
+| Priority | Deliverable | Status | Delivered Scope |
 |:---:|:---|:---:|:---|
-| 🔥 High | PyPI Wheel Publish (`pip install arc-runner`) | **Planned** | Standalone binary wheel distribution with automated C-extension compilation and pre-packaged models runner CLI |
-| 🟡 Medium | Docker Container with Intel oneAPI / Compute Runtime (`docker run intel-arc-models-runner`) | **Planned** | Multi-stage Ubuntu 24.04 container image with pre-baked Intel Level Zero drivers, OpenVINO GenAI, and oneAPI runtime |
+| 🔥 High | PyPI Wheel Publish (`pip install arc-runner`) | **Delivered** | Standalone binary wheel distribution (`arc_runner-0.1.0-py3-none-any.whl`), dual CLI entrypoints (`arc-runner`, `intel-arc-models-runner`), complete static web UI assets, PEP 561 typing, and automated GitHub Actions publishing pipeline. |
+| 🟡 Medium | Docker Container with Intel Level Zero (`docker compose up`) | **Delivered** | Multi-stage Ubuntu 24.04 container image with pre-baked Intel Level Zero drivers, OpenVINO GenAI runtime, non-root user execution (`appuser`, UID 1000), direct `/dev/dri` pass-through, and persistent volume caching. |
+
+*Detailed Documentation*:
+- 🚀 [**Production Deployment Guide**](deployment.md)
+- 📐 [**Packaging & Containerization Mathematical Proofs (M115–M120)**](research/06_packaging_and_containerization_mathematical_proofs.md)

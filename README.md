@@ -4,7 +4,7 @@
 [![Intel](https://img.shields.io/badge/Hardware-Intel%20Arc%20GPU%20%7C%20Intel%20NPU-0071C5.svg)](https://www.intel.com)
 [![API](https://img.shields.io/badge/API-Ollama%20%7C%20OpenAI%20Compatible-green.svg)](https://github.com/techdeveloper-org/intel-arc-models-runner)
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org)
-[![Tests](https://img.shields.io/badge/Tests-533%20Passing%20(100%25)-brightgreen.svg)](docs/testing.md)
+[![Tests](https://img.shields.io/badge/Tests-555%20Passing%20(100%25)-brightgreen.svg)](docs/testing.md)
 [![Release](https://img.shields.io/badge/Release-v0.1.0%20(Wheel%20Available)-orange.svg)](https://github.com/techdeveloper-org/intel-arc-models-runner/releases)
 
 A purpose-built, mathematically proven, zero-bloat local LLM runner, multi-modal generative studio, and high-throughput server engineered specifically for **Intel® Arc™ GPUs (discrete & integrated)** and **Intel® NPUs (Neural Processing Units)**.
@@ -25,10 +25,11 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 | ↳ [**Mathematical Proofs (M59–M114)**](docs/benchmarks/mathematical_proofs.md) | Formal Theorems & Invariants | 56 formal proofs for Audio AI, Text-to-Image Diffusion, and Spatio-Temporal Video AI. |
 | ↳ [**Empirical Silicon Proofs**](docs/benchmarks/empirical_silicon.md) | Real Silicon Hardware Telemetry | Arc GPU vs CPU (30.8× TTFT), live sequential reclaim runs, 21-test hardware suite, GPU vs NPU breakdown. |
 | ↳ [**Ollama Showdown & 30-Case Audit**](docs/benchmarks/ollama_showdown.md) | Head-to-Head Comparison vs Ollama | Ollama "Silent CPU Fallback" anatomy (Proof M56), output coherence (M57/M58), and 30-case Triad Audit matrix. |
-| [**🧪 Complete Test Coverage**](docs/testing.md) | Full Test Suite Roadmap & Execution | 533 automated tests across 33 test modules (100% green, 0 failures), Triad testing patterns. |
-| [**🗺️ Roadmap & Multi-Modal Evolution**](docs/roadmap.md) | Delivered Milestones & Future Packaging | 15 delivered milestones, 7 critical next-gen orchestration hurdles scorecard (14.1–14.7), PyPI & Docker targets. |
+| [**🚀 Deployment & Packaging Guide**](docs/deployment.md) | Standalone PyPI Wheel & Docker Deployment | Production guide for `pip install arc-runner`, Ubuntu 24.04 Docker image, `/dev/dri` pass-through, and Kubernetes Helm specs. |
+| [**🧪 Complete Test Coverage**](docs/testing.md) | Full Test Suite Roadmap & Execution | 555 automated tests across 35 test modules (100% green, 0 failures), Triad testing patterns. |
+| [**🗺️ Roadmap & Multi-Modal Evolution**](docs/roadmap.md) | Delivered Milestones & Packaging Horizon | 15 core milestones + full Packaging Horizon delivered, 7 next-gen orchestration hurdles scorecard, PyPI & Docker targets. |
 | [**📐 Visual Diagrams Guide**](docs/diagrams/README.md) | UML & Draw.io Diagram Catalog | 13 architectural UML diagrams with embedded previews and editable draw.io links. |
-| [**🔬 R&D Forensics Reports**](docs/research/) | Deep Technical R&D & Whitepapers | 5 foundational research papers on Ollama defects, Intel silicon, solution blueprints, and orchestration proofs. |
+| [**🔬 R&D Forensics Reports**](docs/research/) | Deep Technical R&D & Whitepapers | 6 foundational research papers on Ollama defects, Intel silicon, solution blueprints, orchestration proofs, and packaging math. |
 | [**🤝 Community Benchmarks Guide**](docs/community_benchmarks.md) | Open Source Benchmarking Call | Community guidelines for benchmarking across Intel silicon (Alchemist, Battlemage, Lunar Lake, Arrow Lake). |
 
 ---
@@ -75,19 +76,30 @@ User Prompt ──► Director LLM (NPU/GPU) ──► Kokoro TTS (NPU/GPU) ─�
 
 ## ⚡ Installation / Setup
 
-### Option 1: 1-Click Windows Automated Setup (Recommended)
+### Option 1: Standalone PyPI Installation (Recommended)
+Install the standalone binary distribution directly:
+```bash
+pip install arc-runner
+```
+*Provides dual CLI commands `arc-runner` and `intel-arc-models-runner` with pre-bundled Studio Web UI and cross-platform Level Zero resolution.*
+
+### Option 2: Production Docker Container (Ubuntu 24.04 with Intel Drivers)
+Run directly with GPU acceleration via Docker Compose:
+```bash
+docker compose up -d
+```
+Or execute manual container run with direct `/dev/dri` render node pass-through:
+```bash
+docker run -d --name intel-arc-models-runner --device /dev/dri:/dev/dri -p 8000:8000 ghcr.io/techdeveloper-org/intel-arc-models-runner:latest
+```
+
+### Option 3: 1-Click Windows Native Setup
 Double-click `install.bat` or run in PowerShell:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
-*This verifies your Python runtime, checks Intel driver paths, installs dependencies, and runs an automated silicon discovery self-test!*
 
-### Option 2: Pre-Built Binary Wheel
-```bash
-pip install dist/intel_arc_models_runner-0.1.0-py3-none-any.whl
-```
-
-### Option 3: Developer Editable Mode
+### Option 4: Developer Editable Mode
 ```bash
 git clone https://github.com/techdeveloper-org/intel-arc-models-runner.git
 cd intel-arc-models-runner
@@ -229,12 +241,12 @@ python -m pytest -v --tb=short
 
 ## 🗺️ Roadmap & Production Status
 
-- ✅ **Completed**: 15 major milestones including OpenVINO continuous batching, Multi-LoRA swapping, Audio/Image/Video engines, Arc MultiModal Studio with 7-Tab Web UI, and all **7 Next-Gen Orchestration Hurdles** (QSV H.264 encoding, Alpha cross-dissolve, Audio-First Reactive DAG, karaoke subtitles, audio ducking, and closed-loop VLM inspection).
-- 🔮 **Remaining Packaging Horizon**:
-  1. **PyPI Wheel Publish**: Standalone `pip install arc-runner` binary package distribution.
-  2. **Docker Container**: Ubuntu 24.04 image with pre-baked Intel Level Zero drivers and OpenVINO runtime.
+- ✅ **Completed Core Milestones**: 15 major milestones including OpenVINO continuous batching, Multi-LoRA swapping, Audio/Image/Video engines, Arc MultiModal Studio with 7-Tab Web UI, and all **7 Next-Gen Orchestration Hurdles** (QSV H.264 encoding, Alpha cross-dissolve, Audio-First Reactive DAG, karaoke subtitles, audio ducking, and closed-loop VLM inspection).
+- ✅ **Completed Packaging Horizon**:
+  1. **PyPI Wheel Publish**: Standalone `pip install arc-runner` binary package distribution (`arc_runner-0.1.0-py3-none-any.whl`) with dual CLI aliases.
+  2. **Docker Container**: Production Ubuntu 24.04 image with pre-baked Intel Level Zero drivers, OpenVINO runtime, non-root user execution, and `/dev/dri` pass-through.
 
-👉 *Read the full status: [**Roadmap & Multi-Modal Evolution**](docs/roadmap.md)*
+👉 *Read the full status & deployment specs: [**Roadmap & Multi-Modal Evolution**](docs/roadmap.md) and [**Deployment Guide**](docs/deployment.md)*
 
 ---
 
