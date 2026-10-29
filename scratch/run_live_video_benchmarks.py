@@ -23,15 +23,52 @@ from typing import Any, Callable, Dict, List, Optional
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from arc_runner.benchmark.harness_common import default_result_path, download_snapshot, optional_sysman, target_device  # noqa: E402
+import subprocess
+
+from arc_runner.benchmark.harness_common import default_result_path, optional_sysman, target_device  # noqa: E402
 from arc_runner.benchmark.nonllm import video_samples  # noqa: E402
 from arc_runner.benchmark.stats import BenchSample  # noqa: E402
 from arc_runner.benchmark.workloads import export_workload_result  # noqa: E402
 
+
+def download_and_convert(source_repo_id: str, dest_dir: Path, task: str, extra_args: list) -> None:
+    """Download and convert a Hugging Face model to OpenVINO IR using optimum-cli.
+
+    Args:
+        source_repo_id: Hugging Face model repo identifier (e.g. 'Lightricks/LTX-Video').
+        dest_dir: Local directory path to write the converted OpenVINO IR files into.
+        task: optimum-cli export task name (e.g. 'text-to-video', 'image-to-video').
+        extra_args: Additional CLI flags forwarded verbatim to optimum-cli (e.g. ['--weight-format', 'int8']).
+
+    Raises:
+        RuntimeError: If optimum-cli is not installed or the conversion process exits non-zero.
+    """
+    cmd = [
+        "optimum-cli", "export", "openvino",
+        "--model", source_repo_id,
+        "--task", task,
+        *extra_args,
+        str(dest_dir),
+    ]
+    try:
+        subprocess.run(cmd, check=True)
+    except FileNotFoundError:
+        raise RuntimeError(
+            "optimum-cli not found. Install it with: pip install optimum[openvino]"
+        ) from None
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"optimum-cli conversion failed for '{source_repo_id}' (exit {exc.returncode}). "
+            "Check the output above for details."
+        ) from exc
+
+
 VIDEO_MODEL_WORKLOAD_SPECS: dict[str, dict[str, Any]] = {
     "ltx-video": {
         "alias": "ltx-video",
-        "repo_id": "Lightricks/LTX-Video-openvino",
+        "source_repo_id": "Lightricks/LTX-Video",
+        "ov_export_task": "text-to-video",
+        "ov_extra_args": [],
         "precision": "FP16 IR",
         "parameters": "2B",
         "architecture": "DiT Spatial-Temporal 3D Transformer + Causal 3D VAE",
@@ -78,7 +115,9 @@ VIDEO_MODEL_WORKLOAD_SPECS: dict[str, dict[str, Any]] = {
     },
     "ltx-video-int8": {
         "alias": "ltx-video-int8",
-        "repo_id": "Lightricks/LTX-Video-openvino-int8",
+        "source_repo_id": "Lightricks/LTX-Video",
+        "ov_export_task": "text-to-video",
+        "ov_extra_args": ["--weight-format", "int8"],
         "precision": "INT8 NNCF",
         "parameters": "2B",
         "architecture": "DiT Spatial-Temporal 3D Transformer (INT8 DPAS)",
@@ -125,7 +164,9 @@ VIDEO_MODEL_WORKLOAD_SPECS: dict[str, dict[str, Any]] = {
     },
     "cogvideox-2b": {
         "alias": "cogvideox-2b",
-        "repo_id": "THUDM/CogVideoX-2b-openvino",
+        "source_repo_id": "THUDM/CogVideoX-2b",
+        "ov_export_task": "text-to-video",
+        "ov_extra_args": [],
         "precision": "FP16 IR",
         "parameters": "2.2B",
         "architecture": "Expert 3D DiT + Causal 3D VAE + T5 Conditioning",
@@ -172,7 +213,9 @@ VIDEO_MODEL_WORKLOAD_SPECS: dict[str, dict[str, Any]] = {
     },
     "animatediff-v1-5": {
         "alias": "animatediff-v1-5",
-        "repo_id": "OpenVINO/AnimateDiff-v1-5-ov",
+        "source_repo_id": "guoyww/animatediff-motion-adapter-v1-5-3",
+        "ov_export_task": "text-to-video",
+        "ov_extra_args": [],
         "precision": "FP16 IR",
         "parameters": "1.2B",
         "architecture": "AnimateDiff Temporal Motion Adapter + SD 1.5 UNet",
@@ -219,7 +262,9 @@ VIDEO_MODEL_WORKLOAD_SPECS: dict[str, dict[str, Any]] = {
     },
     "svd-xt": {
         "alias": "svd-xt",
-        "repo_id": "OpenVINO/stable-video-diffusion-img2vid-xt-ov",
+        "source_repo_id": "stabilityai/stable-video-diffusion-img2vid-xt",
+        "ov_export_task": "image-to-video",
+        "ov_extra_args": [],
         "precision": "FP16 IR",
         "parameters": "1.5B",
         "architecture": "SVD Temporal UNet + Spatio-Temporal Cross Attention",
@@ -365,7 +410,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     spec = VIDEO_MODEL_WORKLOAD_SPECS[args.model]
     model_dir = Path(args.models_root).resolve() / args.model
     if args.download:
-        download_snapshot(spec["repo_id"], model_dir, ("model_index.json", "openvino_model.xml"))
+        download_and_convert(spec["source_repo_id"], model_dir, spec["ov_export_task"], spec["ov_extra_args"])
     if not model_dir.exists():
         print(f"model directory {model_dir} not found; rerun with --download", file=sys.stderr)
         return 2
