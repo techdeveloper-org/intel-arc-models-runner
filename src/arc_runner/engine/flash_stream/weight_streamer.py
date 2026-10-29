@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 
-from arc_runner.core.exceptions import ModelNotFoundError
+from arc_runner.core.exceptions import ModelNotFoundError, NativeBoundsError
 from arc_runner.core.logging import get_logger
 from arc_runner.native.bridge import NativeMemoryEngine
 from arc_runner.quant.gguf_parser import GGUFParser
@@ -109,7 +109,13 @@ class FlashStreamWeightManager:
                                 "offset": start_off,
                                 "size_bytes": calc_sz,
                             })
-                        self._native_engine.register_layer(l_idx, augmented_tensors)
+                        try:
+                            self._native_engine.register_layer(l_idx, augmented_tensors)
+                        except NativeBoundsError as exc:
+                            logger.warning(
+                                "Layer rejected by native bounds checks; using the Python read path",
+                                extra={"layer": l_idx, "reason": str(exc)},
+                            )
 
             return layer_counts
 

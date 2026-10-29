@@ -23,6 +23,26 @@ class ArcRunnerError(Exception):
         self.status_code = status_code
 
 
+class NativeLayerError(ArcRunnerError):
+    """Raised when the native acceleration layer rejects a request or reports a failure."""
+
+    def __init__(self, message: str, native_status: int = 0, os_error: int = 0) -> None:
+        """Initialize the native layer failure exception.
+
+        Args:
+            message: Human-readable error description.
+            native_status: ArcStatus code reported by the native library, if any.
+            os_error: Operating-system error code recorded by the native library, if any.
+        """
+        super().__init__(message, "NATIVE_LAYER_ERROR", 500)
+        self.native_status = native_status
+        self.os_error = os_error
+
+
+class NativeBoundsError(NativeLayerError):
+    """Raised when tensor extents, counts, or integers fall outside the supported native bounds."""
+
+
 class ModelLoadError(ArcRunnerError):
     """Raised when an OpenVINO IR model fails to compile or load on target silicon."""
 

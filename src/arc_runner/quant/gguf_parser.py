@@ -5,7 +5,7 @@ directly from binary streams without loading raw weight arrays into system RAM.
 """
 
 from collections import Counter
-from io import BufferedReader
+from io import BufferedReader, SEEK_END
 from pathlib import Path
 import struct
 from typing import Any, BinaryIO, Optional, Union
@@ -16,6 +16,46 @@ from arc_runner.core.logging import get_logger
 from arc_runner.quant.models import GGUFHeader, GGUFSummary, GGUFTensorInfo, GGUFValueType, GGMLType
 
 logger = get_logger(__name__)
+
+GGUF_MAX_DIMENSIONS = 4
+
+
+def _bytes_remaining(stream: BinaryIO) -> int:
+    """Return how many bytes lie between the stream position and its end.
+
+    Args:
+        stream: Open seekable binary stream.
+
+    Returns:
+        int: Remaining byte count; the stream position is unchanged.
+    """
+    position = stream.tell()
+    end = stream.seek(0, SEEK_END)
+    stream.seek(position)
+    return end - position
+
+
+def _read_declared(stream: BinaryIO, length: int, what: str) -> bytes:
+    """Read a length declared inside the file only if that many bytes actually remain.
+
+    The declared length is untrusted input; reading it blindly can request terabytes or
+    overflow the platform index type.
+
+    Args:
+        stream: Open seekable binary stream.
+        length: Byte count declared by the file.
+        what: Description used in the error message.
+
+    Returns:
+        bytes: Exactly length bytes.
+
+    Raises:
+        GGUFParseError: If fewer than length bytes remain.
+    """
+    remaining = _bytes_remaining(stream)
+    if length > remaining:
+        raise GGUFParseError(f"{what}: declared {length} bytes but only {remaining} remain", stream.tell())
+    return stream.read(length)
 
 
 class GGUFParser:
@@ -111,9 +151,7 @@ class GGUFParser:
         if len(len_bytes) < 8:
             raise GGUFParseError("Unexpected EOF while reading string length prefix", stream.tell())
         length = struct.unpack("<Q", len_bytes)[0]
-        string_bytes = stream.read(length)
-        if len(string_bytes) < length:
-            raise GGUFParseError(f"Truncated string: expected {length} bytes, got {len(string_bytes)}", stream.tell())
+        string_bytes = _read_declared(stream, length, "Truncated string")
         return string_bytes.decode("utf-8", errors="replace")
 
     def _read_value(self, stream: BinaryIO, value_type: GGUFValueType) -> Any:
@@ -234,9 +272,9 @@ class GGUFParser:
             if len(dims_bytes) < 4:
                 raise GGUFParseError(f"EOF reading dimensions count for tensor '{name}'", stream.tell())
             n_dims = struct.unpack("<I", dims_bytes)[0]
-            dims_raw = stream.read(8 * n_dims)
-            if len(dims_raw) < 8 * n_dims:
-                raise GGUFParseError(f"EOF reading dimension array for tensor '{name}'", stream.tell())
+            if n_dims > GGUF_MAX_DIMENSIONS:
+                raise GGUFParseError(f"Tensor '{name}' declares {n_dims} dimensions, maximum is {GGUF_MAX_DIMENSIONS}", stream.tell())
+            dims_raw = _read_declared(stream, 8 * n_dims, f"EOF reading dimension array for tensor '{name}'")
             dimensions = struct.unpack(f"<{n_dims}Q", dims_raw)
 
             type_bytes = stream.read(4)
