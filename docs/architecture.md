@@ -42,9 +42,9 @@ flowchart TD
     end
 
     subgraph HardwareExecutionEngine ["Hardware Execution Subsystem"]
-        subgraph EngineAdapters ["Pluggable Backend Engines (arc_runner.engines)"]
+        subgraph EngineAdapters ["Pluggable Backend Engines (arc_runner.engine)"]
             OVEngine["OpenVINOGenAIEngine (Unified Arc GPU / NPU / CPU Pipeline)"]
-            SpeculativeEngine["HybridSpeculativeEngine (NPU Draft γ=4 + Arc Target, 43.4% Power Reduction Proof M6)"]
+            SpeculativeEngine["HybridSpeculativeEngine (NPU Draft γ=4 + Arc Target; power not measured)"]
             VisionEngine["VisionEngine (Multimodal Vision Pipeline: Phi-3.5-V, MiniCPM-V)"]
             AudioEngine["AudioEngine (ASR Whisper & Kokoro TTS via Level Zero, Proof M59)"]
             ImageEngine["ImageEngine (Text2ImagePipeline: SD 1.5, SDXL, LCM, Turbo via Level Zero, Proof M73)"]
@@ -60,7 +60,7 @@ flowchart TD
     end
 
     subgraph SiliconLayer ["Physical Intel Silicon (Level Zero & OneAPI Drivers)"]
-        ArcGPU["Intel Arc GPU (A770 / B580 / iGPU)\n[Level Zero Immediate Cmds τ ≤ 2.1μs, XMX Matrix Engines]"]
+        ArcGPU["Intel Arc GPU (A770 / B580 / iGPU)\n[Level Zero Immediate Cmds, XMX Matrix Engines]"]
         IntelNPU["Intel NPU (3720 / 4000)\n[MCDM Driver Systolic Array, 5W TDP]"]
         IntelCPU["Intel Host CPU\n[AVX-512 / AMX Matrix Fallback]"]
         Sysman["LevelZeroSysman (Telemetry, VRAM Allocation, Thermal & Power)"]
@@ -148,8 +148,8 @@ Before engineering the runtime, our multi-agent squad of 11+ specialist agents a
 Engineered for enterprise deployments requiring rapid domain switching (e.g., Code, Medical, Legal, Multilingual) without reloading base model weights or re-allocating unified GPU memory:
 
 - **Zero-Recompile Dynamic Weight Blending**: Uses OpenVINO GenAI's native `AdapterConfig` binding to inject low-rank delta matrices $W = W_0 + \sum_{k=1}^K \lambda_k \frac{\alpha_k}{r_k} B_k A_k$ dynamically at per-request granularity.
-- **Microsecond Swap Overhead ($\tau_{\text{swap}} < 0.20\text{ ms}$)**: Switch between LoRA adapters in microseconds without re-allocating GPU Unified Shared Memory (USM).
-- **Bounded LRU Memory Pool ($K_{\max} = 8 \implies \le 512\text{ MB}$)**: Enforces strict VRAM ceilings via thread-safe LRU cache to prevent Arc GPU OOM faults during multi-tenant workloads.
+- **Adapter swap without re-allocation**: LoRA adapters are switched through a cached manager without re-allocating GPU Unified Shared Memory (USM). The swap overhead has not been measured; the tests are functional.
+- **Bounded LRU adapter cache ($K_{\max} = 8$)**: at most 8 adapters are cached (`DEFAULT_MAX_CACHED` in the LoRA manager) with LRU eviction. Adapter sizes vary, so no memory bound in MB is claimed.
 - **Web UI & CLI Studio**: Blend adapters dynamically via glassmorphic sliders in the Chat Playground, or manage adapters via the CLI.
 
 ### CLI Management
@@ -186,7 +186,7 @@ curl -X POST http://localhost:11434/api/generate \
 - **Token-Level Iteration Batching (Proof M29)**: Dynamically interleaves prefill and decode iterations across concurrent client sessions. Finished sequences are retired immediately upon EOS, eliminating Head-of-Line blocking.
 - **Little's Law Admission Controller ($\theta_{\text{sat}} \le 0.92$, Proof M30)**: Protects discrete and integrated Arc VRAM against Out-Of-Memory (OOM) faults by admitting sequences only when physical memory block availability bounds are satisfied.
 - **Multi-Tenant Session Isolation (Proof M34)**: Per-request virtual-to-physical block table mappings guarantee zero cross-session data leakage.
-- **Radix Tree Prefix Deduplication (Proof M31)**: Shared system instructions and tool declarations are automatically deduplicated in physical blocks, reducing Time-To-First-Token (TTFT) by up to 63.2%.
+- **Radix Tree Prefix Deduplication (Proof M31)**: Shared system instructions and tool declarations are automatically deduplicated in physical blocks. The TTFT reduction this would give has not been measured.
 - **Instant Client Disconnect Cleanup (Proof M32)**: Aborted client connections instantly reclaim all associated physical KV blocks back to the free pool.
 
 ### Batch Telemetry & Administrative Preemption CLI

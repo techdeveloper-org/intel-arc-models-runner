@@ -27,7 +27,7 @@
 | 🟢 Done | **Generative Diffusion Background Layering with HUD Overlays (Milestone 14.5)**: SDXL Turbo generative background paired with floating alpha HUD and dynamic physics simulations (Proof M10) | **Completed ✅** |
 | 🟢 Done | **Automated Kokoro-82M NPU Loading & Ambient Audio Ducking (Milestone 14.6)**: 5W NPU discovery, 432Hz celestial pad synthesis, asymmetric RMS voice ducking mixer (Proof M11) | **Completed ✅** |
 | 🟢 Done | **Autonomous Closed-Loop VLM Inspection Gate (Milestone 14.7)**: Michelson contrast, simulation dynamism, Voronoi collision scoring ($Q \ge 8.0/10$) with auto-refinement loop (Proof M12) | **Completed ✅** |
-| 🟢 Done | **Bare-Metal Flash-Stream Heavy Model Engine (Milestone 15)**: Zero-RAM OOM streaming for heavy models (Qwen 32B/72B) via 3-slot ring buffering, asynchronous NVMe prefetch, NPU attention/RoPE & Arc GPU SwiGLU FFN offloading (Proofs M121–M134) | **Completed ✅** |
+| 🟢 Done | **Bare-Metal Flash-Stream Heavy Model Engine (Milestone 15)**: Implemented: ring-buffered weight streaming designed for heavy models (Qwen 32B/72B); only a synthetic 8-layer container has been run, no real 32B/72B run exists, and no OOM-avoidance, throughput or quality claim is made. Uses 3-slot ring buffering, asynchronous NVMe prefetch, NPU attention/RoPE & Arc GPU SwiGLU FFN offloading (Proofs M121–M134) | **Completed ✅** |
 
 ---
 
