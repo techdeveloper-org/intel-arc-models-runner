@@ -94,13 +94,23 @@ Or execute manual container run with direct `/dev/dri` render node pass-through:
 docker run -d --name intel-arc-models-runner --device /dev/dri:/dev/dri -p 8000:8000 ghcr.io/techdeveloper-org/intel-arc-models-runner:latest
 ```
 
-### Option 3: 1-Click Windows Native Setup
-Double-click `install.bat` or run either installer command in PowerShell:
+### Option 3: Windows Native Setup
+
+On Windows, use `install.bat` to install the package and configure the CLI:
+
 ```powershell
 .\install.bat
-# If this PowerShell allows local scripts:
-.\install.ps1
 ```
+
+You can also double-click `install.bat` in File Explorer. It launches the
+PowerShell installer with a process-only execution-policy bypass when needed;
+it does not change your machine's PowerShell policy. This is the recommended
+entry point when scripts are restricted.
+
+Running `.\install.ps1` directly is different: PowerShell checks its execution
+policy before loading that file. If scripts are disabled, the command fails
+before the installer can run, so the script cannot bypass that restriction
+from inside itself. Use `install.bat` in that case.
 
 ### Option 4: Developer Editable Mode
 ```bash
@@ -109,12 +119,12 @@ cd intel-arc-models-runner
 python -m pip install -e ".[dev]"
 ```
 
-On Windows, installing with `pip` alone may place CLI launchers in a `Scripts`
-directory that is not on `PATH`. To configure it automatically, run
-`install.bat` (works with restrictive PowerShell execution policies) or
-`install.ps1` (when local scripts are allowed) and restart the terminal. If you
-already installed with pip, run the installer with the same Python environment
-active. Until PATH is updated, use `python -m arc_runner.cli.main --version`.
+On Windows, `pip install` by itself does not add Python's `Scripts` directory to
+`PATH`. Run `install.bat` with the same Python environment active to configure
+that directory and verify the CLI. If you have already installed with pip, you
+can still run `install.bat`; it installs from this project checkout. Open a new
+terminal after setup so it picks up the updated `PATH`. In the current terminal,
+use `python -m arc_runner.cli.main --version` until you reopen it.
 
 ---
 
