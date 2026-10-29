@@ -137,3 +137,21 @@ def test_state_diagram_labels_never_contain_a_second_colon_or_semicolon() -> Non
     section = {"nodes": [{"id": "A", "label": "A"}, {"id": "B", "label": "B"}], "edges": [{"from": "A", "to": "B", "label": "reserve: one; two"}]}
     transition = [line for line in module.state_diagram(section).splitlines() if "-->" in line][0]
     assert transition.count(":") == 1 and ";" not in transition
+
+
+def test_unverified_inventory_finds_marked_files_and_counts_numeric_rows(tmp_path: "Path") -> None:
+    """The worklist lists only files with the banner and counts table rows that carry benchmark units."""
+    import importlib.util
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location("list_unverified_numbers", root / "scripts" / "list_unverified_numbers.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a.md").write_text("> **Provenance status: UNVERIFIED.**\n\n| m | v |\n|:--|--:|\n| x | 41.5 tok/s |\n| y | 12 ms |\n| z | text |\n", encoding="utf-8")
+    (docs / "b.md").write_text("| m | v |\n| x | 41.5 tok/s |\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("plain\n", encoding="utf-8")
+    assert module.inventory(tmp_path) == [{"file": "docs/a.md", "numeric_table_rows": 2}]

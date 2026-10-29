@@ -15,6 +15,8 @@ All notable changes to this project are documented in this file. The format foll
 - Image and video stage timings, step rate, power, energy yield and peak memory are `None` when the engine did not measure them; the studio pipeline and co-benchmark no longer attach fixed memory, RTF, tok/s or cloud-price figures (ROI is computed only from caller-supplied prices).
 - Four hand-written Mermaid diagrams (communication, component, composite, object) and the state-diagram generator were fixed so they parse.
 
+- Streamed `total_tokens` use the pipeline tokenizer; `scripts/list_unverified_numbers.py`; plan test-list audit with new boundary, 80-layer, lock-refusal and `@hardware` tests.
+
 ### Removed
 - `scratch/run_full_catalog_benchmark_audit.py` (fixed timings and a constant PASS) and the legacy result JSONs holding formula-derived numbers.
 

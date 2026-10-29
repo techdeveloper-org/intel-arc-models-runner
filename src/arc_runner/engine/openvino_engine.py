@@ -303,6 +303,7 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
         start_time = time.monotonic()
         first_token_time: Optional[float] = None
         generated_count = 0
+        emitted: List[str] = []
 
         def streamer_callback(chunk_text: str) -> bool:
             nonlocal first_token_time, generated_count
@@ -317,10 +318,12 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
                     truncated = chunk_text.split(stop_str)[0]
                     cancel_event.set()
                     if truncated:
+                        emitted.append(truncated)
                         generated_count += 1
                         chunk_queue.put(TokenChunk(text=truncated, is_finished=False, completion_tokens=generated_count))
                     return True
 
+            emitted.append(chunk_text)
             generated_count += 1
             chunk_queue.put(TokenChunk(text=chunk_text, is_finished=False, completion_tokens=generated_count))
             return False
@@ -365,8 +368,9 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
             raise worker_error[0]
 
         end_time = time.monotonic()
+        token_count = self._count_prompt_tokens("".join(emitted)) if emitted else None
         self._telemetry = telemetry_from_stream(
-            self._model_path, self._device, start_time, end_time, first_token_time, generated_count
+            self._model_path, self._device, start_time, end_time, first_token_time, generated_count, token_count=token_count
         )
         self._telemetry.prompt_tokens = prompt_tokens or 0
         self._telemetry.kv_cache_precision = self._kv_cache_precision

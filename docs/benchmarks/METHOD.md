@@ -21,6 +21,8 @@ Every number is one of: **measured** (produced by a benchmark run, present in a 
 
 Tokens are counted with the model's tokenizer, never by splitting words.
 
+`tokens_per_second` is OpenVINO's `get_throughput()`: in GenAI 2026.4.1 it is `1000 / mean TPOT`, where TPOT excludes the first (prefill) token, so it is decode-only (`src/cpp/src/perf_metrics.cpp`, tag 2026.4.1.0). `decode_tokens_per_second` is the wall-counter view `(tokens - 1) / (generate duration - TTFT)`, which also includes sampling and detokenization and is therefore slightly lower. Both exclude prefill; Ollama's `eval_count / eval_duration` is the comparable definition on the other side.
+
 ## Protocol (all systems)
 
 1. Environment is recorded in the result file: OS, Python, git SHA, hardware description, OpenVINO GenAI and Ollama versions, driver versions, AC power.
