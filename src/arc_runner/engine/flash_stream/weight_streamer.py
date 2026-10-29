@@ -73,6 +73,7 @@ class _RingSlot:
     """One direct-mapped ring buffer slot; layer L always occupies slot L % ring_buffer_slots."""
 
     layer_idx: int = -1
+    generation: int = 0
     state: SlotState = SlotState.EMPTY
     arrays: Dict[str, np.ndarray] = field(default_factory=dict)
     ready_event: threading.Event = field(default_factory=threading.Event)
@@ -182,8 +183,9 @@ class FlashStreamWeightManager:
         self._pin_enabled = pin_resident_layers
         self._stager = device_stager
         self._staging_error: Optional[str] = None
-        self._pinned: Dict[int, Tuple[int, int]] = {}
-        self._pending_unpin: List[int] = []
+        self._generation_counter = 0
+        self._pinned: Dict[int, Tuple[Tuple[int, int], int]] = {}
+        self._pending_unpin: List[Tuple[int, int]] = []
         self._native_engine = NativeMemoryEngine()
         if self._native_engine.is_available:
             self._native_engine.open_model(self.model_path)
@@ -367,11 +369,12 @@ class FlashStreamWeightManager:
         ends = [start + self._calculate_tensor_byte_size(t) for start, t in zip(starts, tensors)]
         return min(starts), max(ends) - min(starts)
 
-    def _pin_layer(self, layer_idx: int) -> None:
+    def _pin_layer(self, layer_idx: int, generation: int) -> None:
         """Best-effort pin of a resident layer; the first OS refusal disables further attempts.
 
         Args:
             layer_idx: Layer that was just published as READY.
+            generation: Slot generation of the load that published it; a newer load invalidates this pin.
         """
         native = self._native_engine
         if not self._pin_enabled or native is None or not (native.is_available and native.is_open):
@@ -379,37 +382,38 @@ class FlashStreamWeightManager:
         with self._pin_lock:
             with self._lock:
                 slot = self._slots[self._slot_index_for(layer_idx)]
-                still_resident = slot.state is SlotState.READY and slot.layer_idx == layer_idx
+                still_resident = slot.state is SlotState.READY and slot.layer_idx == layer_idx and slot.generation == generation
             span = self._layer_span(layer_idx)
             if not still_resident or span is None or layer_idx in self._pinned:
                 return
             if native.lock_range(span[0], span[1]):
-                self._pinned[layer_idx] = span
+                self._pinned[layer_idx] = (span, generation)
             else:
                 self._pin_enabled = False
                 logger.info("Layer pinning disabled after the OS refused a lock", extra={"layer": layer_idx})
 
-    def _stage_layer(self, layer_idx: int, arrays: Dict[str, np.ndarray]) -> None:
+    def _stage_layer(self, layer_idx: int, arrays: Dict[str, np.ndarray], generation: int) -> None:
         """Stage a freshly loaded layer into USM; the first failure disables staging.
 
         Args:
             layer_idx: Layer that was just published as READY.
             arrays: Its loaded tensors.
+            generation: Slot generation of the load that published it.
         """
         stager = self._stager
         if stager is None or self._staging_error is not None:
             return
         try:
-            stager.stage_layer(layer_idx, arrays)
+            stager.stage_layer(layer_idx, arrays, generation=generation)
         except NativeLayerError as exc:
             self._staging_error = str(exc)
             logger.warning("USM staging disabled", extra={"layer": layer_idx, "reason": str(exc)})
             return
         with self._lock:
             slot = self._slots[self._slot_index_for(layer_idx)]
-            still_resident = slot.state is SlotState.READY and slot.layer_idx == layer_idx
+            still_resident = slot.state is SlotState.READY and slot.layer_idx == layer_idx and slot.generation == generation
         if not still_resident:
-            stager.release_layer(layer_idx)
+            stager.release_layer(layer_idx, generation)
 
     def get_staging_error(self) -> Optional[str]:
         """Return why staging was disabled.
@@ -420,20 +424,32 @@ class FlashStreamWeightManager:
         return self._staging_error
 
     def _flush_unpins(self) -> None:
-        """Unlock and unstage every layer queued by an eviction."""
-        if self._stager is not None:
+        """Unlock and unstage every (layer, generation) queued by an eviction.
+
+        The queue is drained once under the lock and exactly the drained entries are processed, so an
+        eviction queued meanwhile stays for the next flush. An entry only releases the staged buffer or
+        pin that carries the same generation, so a stale eviction cannot free a newer load's resources.
+        If processing raises, the unprocessed entries are put back before the exception propagates.
+        """
+        with self._lock:
+            queued, self._pending_unpin = self._pending_unpin, []
+        done = 0
+        try:
+            for layer_idx, generation in queued:
+                if self._stager is not None:
+                    self._stager.release_layer(layer_idx, generation)
+                with self._pin_lock:
+                    entry = self._pinned.get(layer_idx)
+                    native = self._native_engine
+                    if entry is not None and entry[1] == generation:
+                        del self._pinned[layer_idx]
+                        if native is not None:
+                            native.unlock_range(entry[0][0], entry[0][1])
+                done += 1
+        except BaseException:
             with self._lock:
-                queued_layers = list(self._pending_unpin)
-            for layer_idx in queued_layers:
-                self._stager.release_layer(layer_idx)
-        with self._pin_lock:
-            with self._lock:
-                queued, self._pending_unpin = self._pending_unpin, []
-            native = self._native_engine
-            for layer_idx in queued:
-                span = self._pinned.pop(layer_idx, None)
-                if span is not None and native is not None:
-                    native.unlock_range(span[0], span[1])
+                self._pending_unpin = queued[done:] + self._pending_unpin
+            raise
 
     def _reserve_slot(self, layer_idx: int) -> Tuple[str, Optional[Dict[str, np.ndarray]], Optional[threading.Event]]:
         """Decide, under the lock, whether to hit, wait for, or start loading a layer.
@@ -458,30 +474,41 @@ class FlashStreamWeightManager:
             if slot.state is SlotState.PENDING:
                 return "wait", None, slot.ready_event
             if slot.state is SlotState.READY:
-                self._pending_unpin.append(slot.layer_idx)
+                self._pending_unpin.append((slot.layer_idx, slot.generation))
+            self._generation_counter += 1
+            slot.generation = self._generation_counter
             slot.layer_idx = layer_idx
             slot.state = SlotState.PENDING
             slot.arrays = {}
             slot.ready_event = threading.Event()
             return "load", None, None
 
-    def _publish_load(self, layer_idx: int, arrays: Optional[Dict[str, np.ndarray]]) -> None:
+    def _publish_load(self, layer_idx: int, arrays: Optional[Dict[str, np.ndarray]]) -> Optional[int]:
         """Publish a finished load (or reset the slot after a failed one) and wake waiters.
+
+        A load that finishes after close() has started is discarded so a closed manager never holds a
+        READY slot or arrays.
 
         Args:
             layer_idx: Layer that was loaded.
             arrays: Loaded arrays, or None if the load failed.
+
+        Returns:
+            Optional[int]: The slot generation of the published load, or None if nothing was published.
         """
         with self._lock:
             slot = self._slots[self._slot_index_for(layer_idx)]
-            if arrays is None:
+            generation: Optional[int] = None
+            if arrays is None or self._closing.is_set():
                 slot.layer_idx = -1
                 slot.state = SlotState.EMPTY
                 slot.arrays = {}
             else:
                 slot.arrays = arrays
                 slot.state = SlotState.READY
+                generation = slot.generation
             slot.ready_event.set()
+            return generation
 
     def acquire_layer_weights(self, layer_idx: int) -> Dict[str, np.ndarray]:
         """Obtain tensor weights for a layer, loading into its slot exactly once if not resident.
@@ -505,15 +532,16 @@ class FlashStreamWeightManager:
             if action == "hit" and arrays is not None:
                 return arrays
             if action == "load":
-                self._flush_unpins()
                 try:
+                    self._flush_unpins()
                     loaded = self._load_layer_arrays(layer_idx)
                 except BaseException:
                     self._publish_load(layer_idx, None)
                     raise
-                self._publish_load(layer_idx, loaded)
-                self._pin_layer(layer_idx)
-                self._stage_layer(layer_idx, loaded)
+                generation = self._publish_load(layer_idx, loaded)
+                if generation is not None:
+                    self._pin_layer(layer_idx, generation)
+                    self._stage_layer(layer_idx, loaded, generation)
                 return loaded
             if event is not None and not event.wait(self._slot_wait_timeout_s):
                 raise TimeoutError(f"Timed out waiting for layer load in slot {self._slot_index_for(layer_idx)}")
@@ -557,7 +585,7 @@ class FlashStreamWeightManager:
             if 0 <= slot_idx < self.ring_buffer_slots:
                 slot = self._slots[slot_idx]
                 if slot.state is SlotState.READY:
-                    self._pending_unpin.append(slot.layer_idx)
+                    self._pending_unpin.append((slot.layer_idx, slot.generation))
                     slot.layer_idx = -1
                     slot.state = SlotState.EMPTY
                     slot.arrays = {}
@@ -618,7 +646,7 @@ class FlashStreamWeightManager:
         with self._lock:
             for slot in self._slots:
                 if slot.state is SlotState.READY:
-                    self._pending_unpin.append(slot.layer_idx)
+                    self._pending_unpin.append((slot.layer_idx, slot.generation))
                 slot.layer_idx = -1
                 slot.state = SlotState.EMPTY
                 slot.arrays = {}

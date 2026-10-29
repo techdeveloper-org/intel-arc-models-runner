@@ -31,12 +31,14 @@ class StagedLayer:
         ptr: Address of the USM buffer.
         size_bytes: Allocated buffer size.
         extents: Tensor short name -> (offset into the buffer, byte length).
+        generation: Ring-slot generation of the load this copy belongs to, if the caller tracks one.
     """
 
     layer_idx: int
     ptr: int
     size_bytes: int
     extents: Dict[str, Tuple[int, int]] = field(default_factory=dict)
+    generation: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -89,12 +91,13 @@ class DeviceLayerStager:
         self._seconds = 0.0
         self._fallbacks = 0
 
-    def stage_layer(self, layer_idx: int, arrays: Mapping[str, np.ndarray]) -> StagedLayer:
+    def stage_layer(self, layer_idx: int, arrays: Mapping[str, np.ndarray], generation: Optional[int] = None) -> StagedLayer:
         """Copy every tensor of a layer into one USM buffer and wait (bounded) for completion.
 
         Args:
             layer_idx: Layer index; a previously staged copy of the same layer is replaced.
             arrays: Short tensor name -> array holding the layer's weights.
+            generation: Optional ring-slot generation recorded with the buffer.
 
         Returns:
             StagedLayer: The resident buffer description.
@@ -142,7 +145,7 @@ class DeviceLayerStager:
                 raise
         elapsed = time.monotonic() - started
 
-        staged = StagedLayer(layer_idx=layer_idx, ptr=ptr, size_bytes=total, extents=extents)
+        staged = StagedLayer(layer_idx=layer_idx, ptr=ptr, size_bytes=total, extents=extents, generation=generation)
         with self._lock:
             replaced = self._staged.get(layer_idx)
             self._staged[layer_idx] = staged
@@ -166,14 +169,19 @@ class DeviceLayerStager:
         with self._lock:
             return self._staged.get(layer_idx)
 
-    def release_layer(self, layer_idx: int) -> None:
+    def release_layer(self, layer_idx: int, generation: Optional[int] = None) -> None:
         """Free a layer's USM buffer; unknown layers are ignored.
 
         Args:
             layer_idx: Layer index.
+            generation: If given, only a buffer staged for that generation is freed; a buffer staged for
+                a newer load of the same layer is left alone.
         """
         with self._lock:
-            staged = self._staged.pop(layer_idx, None)
+            current = self._staged.get(layer_idx)
+            if current is None or (generation is not None and current.generation != generation):
+                return
+            staged = self._staged.pop(layer_idx)
         if staged is not None:
             self._bridge.free_usm(staged.ptr)
 
