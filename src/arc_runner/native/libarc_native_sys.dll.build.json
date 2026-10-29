@@ -1,0 +1,29 @@
+{
+  "abi_version": 3,
+  "compiler": "gcc.EXE (x86_64-posix-seh-rev0, Built by MinGW-Builds project) 15.2.0",
+  "flags": {
+    "arc_flash_stream_mmap.c": [
+      "-O2",
+      "-std=c17",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wpedantic"
+    ],
+    "arc_level_zero_bridge.c": [
+      "-O2",
+      "-std=c17",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wpedantic"
+    ]
+  },
+  "git_sha": "0fe6981be1ab15cfad90fc25742636cac3b7040d",
+  "host": "Windows-11-10.0.26220-SP0",
+  "link_flags": [
+    "-shared",
+    "-Wl,--no-undefined"
+  ],
+  "sha256": "68d64d75901ced1841f143823d4d6d5881c62189f1b8074cdbdb4d61eb38cbb4"
+}
