@@ -14,6 +14,7 @@ class OllamaChatMessage(BaseModel):
     role: str = Field(description="Participant role: system, user, or assistant")
     content: str = Field(description="Textual payload of message")
     images: Optional[List[str]] = Field(default=None, description="Optional base64 encoded images")
+    thinking: Optional[str] = Field(default=None, description="Optional model reasoning text, separate from the final answer")
 
 
 class OllamaGenerateRequest(BaseModel):

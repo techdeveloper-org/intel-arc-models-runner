@@ -33,7 +33,7 @@ from arc_runner.server.routes_lora import router as lora_router
 from arc_runner.server.routes_ollama import router as ollama_router
 from arc_runner.server.routes_openai import router as openai_router
 from arc_runner.server.routes_studio import router as studio_router
-from arc_runner.server.routes_ui import router as ui_router
+from arc_runner.server.routes_ui import get_ui_dashboard, router as ui_router
 
 logger = get_logger("server.app")
 
@@ -160,5 +160,24 @@ def create_app(
     app.include_router(ollama_router)
     app.include_router(openai_router)
     app.include_router(studio_router)
+
+    # Explicit browser routes keep the single-page UI bookmarkable and make
+    # direct navigation/reload work without catching or shadowing API paths.
+    for ui_path in (
+        "/cockpit",
+        "/chat",
+        "/models/ollama",
+        "/models/hub",
+        "/benchmarks",
+        "/embeddings",
+        "/studio",
+    ):
+        app.add_api_route(
+            ui_path,
+            get_ui_dashboard,
+            methods=["GET"],
+            include_in_schema=False,
+            name=f"ui_{ui_path.strip('/').replace('/', '_')}",
+        )
 
     return app

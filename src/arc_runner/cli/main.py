@@ -1563,9 +1563,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     rm_parser.add_argument("--dir", help="Directory path containing model to remove")
 
     bench_parser = subparsers.add_parser("benchmark", help="Benchmark model latency and throughput on Intel silicon")
-    bench_parser.add_argument("--model", default="llama-3.2-3b", help="Model name or path to benchmark")
+    bench_parser.add_argument("model_pos", nargs="?", help="Model name or path to benchmark")
+    bench_parser.add_argument("--model", dest="model_opt", help="Model name or path to benchmark (legacy option form)")
     bench_parser.add_argument("--device", default="GPU", help="Silicon device target (GPU, NPU, CPU)")
-    bench_parser.add_argument("--iterations", type=int, default=5, help="Number of measurement runs (default: 5)")
+    bench_parser.add_argument("--iterations", "--runs", dest="iterations", type=int, default=5, help="Number of measurement runs (default: 5)")
     bench_parser.add_argument("--warmup", type=int, default=2, help="Number of warmup runs to discard (default: 2)")
     bench_parser.add_argument("--tokens", type=int, default=64, help="Tokens to generate per run (default: 64)")
     bench_parser.add_argument("--json", action="store_true", help="Output benchmark metrics in JSON format")
@@ -1718,6 +1719,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     run_heavy_parser.add_argument("--json", action="store_true", help="Output execution results in JSON format")
 
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+    if args.command == "benchmark":
+        if args.model_pos and args.model_opt:
+            parser.error("provide the benchmark model either positionally or with --model, not both")
+        args.model = args.model_pos or args.model_opt or "llama-3.2-3b"
     console = Console()
 
     if args.command == "run-heavy":
