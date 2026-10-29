@@ -82,6 +82,13 @@ class EngineTelemetry(BaseModel):
     is_estimate: bool = Field(default=False, description="True if values are wall-clock approximations, not engine counters")
     is_ttft_valid: bool = Field(default=False, description="True if ttft_ms was measured and may be reported")
     is_tps_valid: bool = Field(default=False, description="True if tokens_per_second was measured and may be reported")
+    prompt_tokens: int = Field(default=0, description="Prompt tokens counted by the model tokenizer, 0 if not measured")
+    tpot_ms: float = Field(default=0.0, description="Mean time per output token reported by the engine, 0 if not measured")
+    decode_tokens_per_second: float = Field(
+        default=0.0,
+        description="(generated tokens - 1) / (generate duration - TTFT), derived only from documented engine counters; 0 if not derivable",
+    )
+    kv_cache_precision: str = Field(default="", description="KV cache precision requested for the pipeline, empty for the runtime default")
 
 
 class SpeculativeConfig(BaseModel):

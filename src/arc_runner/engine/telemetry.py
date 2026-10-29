@@ -13,6 +13,58 @@ from arc_runner.engine.models import EngineTelemetry
 logger = get_logger("engine.telemetry")
 
 
+def _optional_int(perf_metrics: Any, accessor: str) -> int:
+    """Read an optional integer counter from perf_metrics, returning 0 if absent or failing.
+
+    Args:
+        perf_metrics: OpenVINO perf_metrics object.
+        accessor: Method name such as get_num_input_tokens.
+
+    Returns:
+        int: Counter value or 0.
+    """
+    try:
+        return int(getattr(perf_metrics, accessor)())
+    except Exception:
+        return 0
+
+
+def _optional_mean(perf_metrics: Any, accessor: str) -> float:
+    """Read the mean of an optional MeanStdPair accessor, returning 0.0 if absent or failing.
+
+    Args:
+        perf_metrics: OpenVINO perf_metrics object.
+        accessor: Method name such as get_tpot.
+
+    Returns:
+        float: Mean value rounded to 2 decimals, or 0.0.
+    """
+    try:
+        return round(float(getattr(perf_metrics, accessor)().mean), 2)
+    except Exception:
+        return 0.0
+
+
+def _decode_rate(generated_tokens: int, generate_ms: float, ttft_ms: float) -> float:
+    """Derive the decode-phase token rate from documented counters.
+
+    The OpenVINO API does not state whether get_throughput covers decode only, so this rate is
+    reported separately: (tokens - 1) divided by the time after the first token.
+
+    Args:
+        generated_tokens: Number of generated tokens.
+        generate_ms: Total generate duration in milliseconds.
+        ttft_ms: Time to first token in milliseconds.
+
+    Returns:
+        float: Tokens per second, or 0.0 if fewer than two tokens or no decode time.
+    """
+    decode_ms = generate_ms - ttft_ms
+    if generated_tokens < 2 or decode_ms <= 0.0:
+        return 0.0
+    return round((generated_tokens - 1) / (decode_ms / 1000.0), 2)
+
+
 def telemetry_unavailable(model_id: str, device: str, elapsed_sec: float, **extra: Any) -> EngineTelemetry:
     """Build telemetry that reports only the measured wall-clock latency.
 
@@ -72,6 +124,9 @@ def telemetry_from_perf_metrics(
         metrics_source="ov_perf_metrics",
         is_ttft_valid=True,
         is_tps_valid=True,
+        prompt_tokens=_optional_int(perf_metrics, "get_num_input_tokens"),
+        tpot_ms=_optional_mean(perf_metrics, "get_tpot"),
+        decode_tokens_per_second=_decode_rate(gen_tokens, gen_dur_ms, ttft_ms),
         **extra,
     )
 

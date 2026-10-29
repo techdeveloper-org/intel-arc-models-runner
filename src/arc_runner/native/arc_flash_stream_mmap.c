@@ -483,5 +483,5 @@ ARC_EXPORT const char* arc_native_build_info(void) {
 #else
     #define ARC_BUILD_PLATFORM "posix"
 #endif
-    return "arc-native abi=2 platform=" ARC_BUILD_PLATFORM " compiler=" __VERSION__;
+    return "arc-native abi=3 platform=" ARC_BUILD_PLATFORM " compiler=" __VERSION__;
 }

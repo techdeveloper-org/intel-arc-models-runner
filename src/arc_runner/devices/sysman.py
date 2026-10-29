@@ -7,10 +7,45 @@ and thermal indicators for Intel Arc GPUs via the oneAPI Level Zero loader.
 import ctypes
 import ctypes.util
 import logging
+import os
 import platform
 from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger("arc_runner.devices.sysman")
+
+ZE_STYPE_DEVICE_PROPERTIES = 0x3
+ZE_STYPE_DEVICE_MEMORY_PROPERTIES = 0x7
+ZE_DEVICE_TYPE_GPU = 1
+ZE_INIT_FLAG_GPU_ONLY = 1
+LOADER_PATH_ENV = "ARC_ZE_LOADER_PATH"
+
+
+class _ZeDeviceProps(ctypes.Structure):
+    """ze_device_properties_t as declared in ze_api.h (the driver writes the whole structure)."""
+
+    _fields_ = [
+        ("stype", ctypes.c_uint32),
+        ("pNext", ctypes.c_void_p),
+        ("type", ctypes.c_uint32),
+        ("vendorId", ctypes.c_uint32),
+        ("deviceId", ctypes.c_uint32),
+        ("flags", ctypes.c_uint32),
+        ("subdeviceId", ctypes.c_uint32),
+        ("coreClockRate", ctypes.c_uint32),
+        ("maxMemAllocSize", ctypes.c_uint64),
+        ("maxHardwareContexts", ctypes.c_uint32),
+        ("maxCommandQueuePriority", ctypes.c_uint32),
+        ("numThreadsPerEU", ctypes.c_uint32),
+        ("physicalEUSimdWidth", ctypes.c_uint32),
+        ("numEUsPerSubslice", ctypes.c_uint32),
+        ("numSubslicesPerSlice", ctypes.c_uint32),
+        ("numSlices", ctypes.c_uint32),
+        ("timerResolution", ctypes.c_uint64),
+        ("timestampValidBits", ctypes.c_uint32),
+        ("kernelTimestampValidBits", ctypes.c_uint32),
+        ("uuid", ctypes.c_uint8 * 16),
+        ("name", ctypes.c_char * 256),
+    ]
 
 
 class _ZeDeviceMemProps(ctypes.Structure):
@@ -42,8 +77,11 @@ class LevelZeroSysman:
 
     def _load_library(self) -> None:
         """Attempt to load the Level Zero loader shared library across platforms."""
-        if platform.system() == "Windows":
-            candidate_names: List[str] = ["ze_loader.dll"]
+        override = os.environ.get(LOADER_PATH_ENV, "").strip()
+        if override:
+            candidate_names: List[str] = [override]
+        elif platform.system() == "Windows":
+            candidate_names = ["ze_loader.dll"]
         else:
             candidate_names = ["libze_loader.so.1", "libze_loader.so"]
             found = ctypes.util.find_library("ze_loader")
@@ -77,35 +115,60 @@ class LevelZeroSysman:
             self._lib.zeDeviceGet.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_void_p)]
             self._lib.zeDeviceGet.restype = ctypes.c_uint32
 
+            self._lib.zeDeviceGetProperties.argtypes = [ctypes.c_void_p, ctypes.POINTER(_ZeDeviceProps)]
+            self._lib.zeDeviceGetProperties.restype = ctypes.c_uint32
+
             self._lib.zeDeviceGetMemoryProperties.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32), ctypes.c_void_p]
             self._lib.zeDeviceGetMemoryProperties.restype = ctypes.c_uint32
         except AttributeError:
             pass
 
     def _init_devices(self) -> None:
-        """Enumerate and store available Level Zero device handles."""
+        """Enumerate Level Zero devices and keep only GPUs (the NPU is a separate device type)."""
         if not self._lib:
             return
 
         try:
-            if self._lib.zeInit(0) != 0:
+            if self._lib.zeInit(ZE_INIT_FLAG_GPU_ONLY) != 0:
+                self._unavailable_reasons["devices"] = "zeInit failed"
                 return
 
             driver_count = ctypes.c_uint32(0)
             if self._lib.zeDriverGet(ctypes.byref(driver_count), None) != 0 or driver_count.value == 0:
+                self._unavailable_reasons["devices"] = "no Level Zero driver"
                 return
 
             drivers = (ctypes.c_void_p * driver_count.value)()
             self._lib.zeDriverGet(ctypes.byref(driver_count), drivers)
 
-            for d in drivers:
-                dev_count = ctypes.c_uint32(0)
-                if self._lib.zeDeviceGet(d, ctypes.byref(dev_count), None) == 0 and dev_count.value > 0:
-                    devs = (ctypes.c_void_p * dev_count.value)()
-                    self._lib.zeDeviceGet(d, ctypes.byref(dev_count), devs)
-                    self._devices.extend(int(dev) for dev in devs if dev)
+            for driver in drivers:
+                self._devices.extend(self._gpu_devices_of(driver))
+            if not self._devices:
+                self._unavailable_reasons["devices"] = "no GPU device found"
         except Exception as exc:
             logger.debug("Failed Level Zero device initialization: %s", exc)
+
+    def _gpu_devices_of(self, driver: Optional[int]) -> List[int]:
+        """Return the handles of GPU-type devices belonging to one driver.
+
+        Args:
+            driver: Driver handle returned by zeDriverGet.
+
+        Returns:
+            List[int]: Device handles whose ze_device_type_t is GPU.
+        """
+        count = ctypes.c_uint32(0)
+        if self._lib.zeDeviceGet(driver, ctypes.byref(count), None) != 0 or count.value == 0:
+            return []
+        devices = (ctypes.c_void_p * count.value)()
+        self._lib.zeDeviceGet(driver, ctypes.byref(count), devices)
+        gpus: List[int] = []
+        for device in devices:
+            props = _ZeDeviceProps()
+            props.stype = ZE_STYPE_DEVICE_PROPERTIES
+            if device and self._lib.zeDeviceGetProperties(device, ctypes.byref(props)) == 0 and props.type == ZE_DEVICE_TYPE_GPU:
+                gpus.append(int(device))
+        return gpus
 
     @property
     def is_available(self) -> bool:
@@ -141,7 +204,7 @@ class LevelZeroSysman:
 
             props_array = (_ZeDeviceMemProps * mem_count.value)()
             for i in range(mem_count.value):
-                props_array[i].stype = 0x11
+                props_array[i].stype = ZE_STYPE_DEVICE_MEMORY_PROPERTIES
 
             if self._lib.zeDeviceGetMemoryProperties(dev_ptr, ctypes.byref(mem_count), props_array) != 0:
                 return None, None

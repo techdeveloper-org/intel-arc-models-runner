@@ -1,10 +1,16 @@
 /**
  * @file arc_level_zero_bridge.c
- * @brief Dynamic loader implementation for Level Zero USM and asynchronous DMA queues.
+ * @brief Dynamic loader implementation for Level Zero USM and bounded-wait DMA queues.
  */
 
-#include "arc_level_zero_bridge.h"
+#if !defined(_WIN32) && !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 200809L
+#endif
 
+#include "arc_level_zero_bridge.h"
+#include "arc_ze_types.h"
+
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,344 +18,583 @@
 #if defined(_WIN32)
   #include <windows.h>
   #define LOAD_LIB(name) (void*)LoadLibraryA(name)
-  #define GET_SYM(h, name) (void*)GetProcAddress((HMODULE)(h), name)
   #define FREE_LIB(h) FreeLibrary((HMODULE)(h))
 #else
   #include <dlfcn.h>
+  #include <time.h>
   #define LOAD_LIB(name) dlopen(name, RTLD_NOW)
-  #define GET_SYM(h, name) dlsym(h, name)
   #define FREE_LIB(h) dlclose(h)
 #endif
 
-typedef uint32_t ze_result_t;
-#define ZE_RESULT_SUCCESS 0
+#define ARC_SYNC_SLICE_MS 250u
+#define ARC_USM_ALIGNMENT 64u
 
 typedef struct {
-    uint32_t stype;
-    const void* pNext;
-    uint32_t flags;
-} ze_context_desc_t;
+    pfn_zeInit zeInit;
+    pfn_zeDriverGet zeDriverGet;
+    pfn_zeDeviceGet zeDeviceGet;
+    pfn_zeDeviceGetProperties zeDeviceGetProperties;
+    pfn_zeContextCreate zeContextCreate;
+    pfn_zeContextDestroy zeContextDestroy;
+    pfn_zeCommandQueueCreate zeCommandQueueCreate;
+    pfn_zeCommandQueueDestroy zeCommandQueueDestroy;
+    pfn_zeCommandListCreate zeCommandListCreate;
+    pfn_zeCommandListDestroy zeCommandListDestroy;
+    pfn_zeCommandListClose zeCommandListClose;
+    pfn_zeCommandListReset zeCommandListReset;
+    pfn_zeCommandQueueExecuteCommandLists zeCommandQueueExecuteCommandLists;
+    pfn_zeCommandQueueSynchronize zeCommandQueueSynchronize;
+    pfn_zeMemAllocHost zeMemAllocHost;
+    pfn_zeMemAllocDevice zeMemAllocDevice;
+    pfn_zeMemAllocShared zeMemAllocShared;
+    pfn_zeMemFree zeMemFree;
+    pfn_zeCommandListAppendMemoryCopy zeCommandListAppendMemoryCopy;
+} ArcZeApi;
 
 typedef struct {
-    uint32_t stype;
-    const void* pNext;
-    uint32_t ordinal;
-    uint32_t index;
-    uint32_t flags;
-    uint32_t mode;
-    uint32_t priority;
-} ze_command_queue_desc_t;
+    void* ptr;
+    size_t size;
+    ArcUsmType type;
+} ArcAllocRecord;
 
-typedef struct {
-    uint32_t stype;
-    const void* pNext;
-    uint32_t commandQueueGroupOrdinal;
-    uint32_t flags;
-} ze_command_list_desc_t;
-
-typedef struct {
-    uint32_t stype;
-    const void* pNext;
-    uint32_t flags;
-} ze_host_mem_alloc_desc_t;
-
-typedef struct {
-    uint32_t stype;
-    const void* pNext;
-    uint32_t flags;
-    uint32_t ordinal;
-} ze_device_mem_alloc_desc_t;
-
-typedef ze_result_t (*pfn_zeInit)(uint32_t flags);
-typedef ze_result_t (*pfn_zeDriverGet)(uint32_t* pCount, void** phDrivers);
-typedef ze_result_t (*pfn_zeDeviceGet)(void* hDriver, uint32_t* pCount, void** phDevices);
-typedef ze_result_t (*pfn_zeContextCreate)(void* hDriver, const ze_context_desc_t* desc, void** phContext);
-typedef ze_result_t (*pfn_zeContextDestroy)(void* hContext);
-typedef ze_result_t (*pfn_zeCommandQueueCreate)(void* hContext, void* hDevice, const ze_command_queue_desc_t* desc, void** phCommandQueue);
-typedef ze_result_t (*pfn_zeCommandQueueDestroy)(void* hCommandQueue);
-typedef ze_result_t (*pfn_zeCommandListCreate)(void* hContext, void* hDevice, const ze_command_list_desc_t* desc, void** phCommandList);
-typedef ze_result_t (*pfn_zeCommandListDestroy)(void* hCommandList);
-typedef ze_result_t (*pfn_zeCommandListClose)(void* hCommandList);
-typedef ze_result_t (*pfn_zeCommandListReset)(void* hCommandList);
-typedef ze_result_t (*pfn_zeCommandQueueExecuteCommandLists)(void* hCommandQueue, uint32_t numCommandLists, void** phCommandLists, void* hFence);
-typedef ze_result_t (*pfn_zeCommandQueueSynchronize)(void* hCommandQueue, uint64_t timeout);
-typedef ze_result_t (*pfn_zeMemAllocHost)(void* hContext, const ze_host_mem_alloc_desc_t* host_desc, size_t size, size_t alignment, void** pptr);
-typedef ze_result_t (*pfn_zeMemAllocDevice)(void* hContext, const ze_device_mem_alloc_desc_t* device_desc, size_t size, size_t alignment, void* hDevice, void** pptr);
-typedef ze_result_t (*pfn_zeMemAllocShared)(void* hContext, const ze_device_mem_alloc_desc_t* device_desc, const ze_host_mem_alloc_desc_t* host_desc, size_t size, size_t alignment, void* hDevice, void** pptr);
-typedef ze_result_t (*pfn_zeMemFree)(void* hContext, void* ptr);
-typedef ze_result_t (*pfn_zeCommandListAppendMemoryCopy)(void* hCommandList, void* dstptr, const void* srcptr, size_t size, void* hEvent, uint32_t numWaitEvents, void** phWaitEvents);
-
-static pfn_zeInit fn_zeInit = NULL;
-static pfn_zeDriverGet fn_zeDriverGet = NULL;
-static pfn_zeDeviceGet fn_zeDeviceGet = NULL;
-static pfn_zeContextCreate fn_zeContextCreate = NULL;
-static pfn_zeContextDestroy fn_zeContextDestroy = NULL;
-static pfn_zeCommandQueueCreate fn_zeCommandQueueCreate = NULL;
-static pfn_zeCommandQueueDestroy fn_zeCommandQueueDestroy = NULL;
-static pfn_zeCommandListCreate fn_zeCommandListCreate = NULL;
-static pfn_zeCommandListDestroy fn_zeCommandListDestroy = NULL;
-static pfn_zeCommandListClose fn_zeCommandListClose = NULL;
-static pfn_zeCommandListReset fn_zeCommandListReset = NULL;
-static pfn_zeCommandQueueExecuteCommandLists fn_zeCommandQueueExecuteCommandLists = NULL;
-static pfn_zeCommandQueueSynchronize fn_zeCommandQueueSynchronize = NULL;
-static pfn_zeMemAllocHost fn_zeMemAllocHost = NULL;
-static pfn_zeMemAllocDevice fn_zeMemAllocDevice = NULL;
-static pfn_zeMemAllocShared fn_zeMemAllocShared = NULL;
-static pfn_zeMemFree fn_zeMemFree = NULL;
-static pfn_zeCommandListAppendMemoryCopy fn_zeCommandListAppendMemoryCopy = NULL;
+struct ArcZeContext {
+    void* ze_module;
+    void* driver_handle;
+    void* device_handle;
+    void* context_handle;
+    void* queue_handle;
+    void* cmdlist_handle;
+    ArcZeApi api;
+    uint32_t device_type;
+    uint64_t sync_timeout_ms;
+    atomic_int_fast32_t last_status;
+    atomic_uint_fast32_t last_result;
+    atomic_bool is_dead;
+    atomic_flag table_lock;
+    uint32_t alloc_count;
+    ArcAllocRecord allocs[ARC_MAX_TRACKED_ALLOCS];
+};
 
 /**
- * @brief Initialize the Level Zero driver and acquire primary GPU device handles.
+ * @brief Record a status and return it so callers can write "return arc_ze_set_status(...)".
  *
- * @return ArcZeContext* Initialized context pointer, or NULL on driver unavailability.
+ * @param ctx Context to annotate; ignored when NULL.
+ * @param status ArcZeStatus value.
+ * @return The same status.
  */
-ARC_EXPORT ArcZeContext* arc_ze_init(void) {
-    ArcZeContext* ctx = (ArcZeContext*)calloc(1, sizeof(ArcZeContext));
-    if (!ctx) {
-        return NULL;
+static int arc_ze_set_status(ArcZeContext* ctx, int status) {
+    if (ctx) {
+        atomic_store_explicit(&ctx->last_status, status, memory_order_relaxed);
     }
-
-#if defined(_WIN32)
-    const char* candidate_libs[] = {"ze_loader.dll", NULL};
-#else
-    const char* candidate_libs[] = {"libze_loader.so.1", "libze_loader.so", NULL};
-#endif
-
-    void* hMod = NULL;
-    for (int i = 0; candidate_libs[i] != NULL; ++i) {
-        hMod = LOAD_LIB(candidate_libs[i]);
-        if (hMod) {
-            break;
-        }
-    }
-
-    if (!hMod) {
-        free(ctx);
-        return NULL;
-    }
-
-    ctx->ze_module = hMod;
-
-    fn_zeInit = (pfn_zeInit)GET_SYM(hMod, "zeInit");
-    fn_zeDriverGet = (pfn_zeDriverGet)GET_SYM(hMod, "zeDriverGet");
-    fn_zeDeviceGet = (pfn_zeDeviceGet)GET_SYM(hMod, "zeDeviceGet");
-    fn_zeContextCreate = (pfn_zeContextCreate)GET_SYM(hMod, "zeContextCreate");
-    fn_zeContextDestroy = (pfn_zeContextDestroy)GET_SYM(hMod, "zeContextDestroy");
-    fn_zeCommandQueueCreate = (pfn_zeCommandQueueCreate)GET_SYM(hMod, "zeCommandQueueCreate");
-    fn_zeCommandQueueDestroy = (pfn_zeCommandQueueDestroy)GET_SYM(hMod, "zeCommandQueueDestroy");
-    fn_zeCommandListCreate = (pfn_zeCommandListCreate)GET_SYM(hMod, "zeCommandListCreate");
-    fn_zeCommandListDestroy = (pfn_zeCommandListDestroy)GET_SYM(hMod, "zeCommandListDestroy");
-    fn_zeCommandListClose = (pfn_zeCommandListClose)GET_SYM(hMod, "zeCommandListClose");
-    fn_zeCommandListReset = (pfn_zeCommandListReset)GET_SYM(hMod, "zeCommandListReset");
-    fn_zeCommandQueueExecuteCommandLists = (pfn_zeCommandQueueExecuteCommandLists)GET_SYM(hMod, "zeCommandQueueExecuteCommandLists");
-    fn_zeCommandQueueSynchronize = (pfn_zeCommandQueueSynchronize)GET_SYM(hMod, "zeCommandQueueSynchronize");
-    fn_zeMemAllocHost = (pfn_zeMemAllocHost)GET_SYM(hMod, "zeMemAllocHost");
-    fn_zeMemAllocDevice = (pfn_zeMemAllocDevice)GET_SYM(hMod, "zeMemAllocDevice");
-    fn_zeMemAllocShared = (pfn_zeMemAllocShared)GET_SYM(hMod, "zeMemAllocShared");
-    fn_zeMemFree = (pfn_zeMemFree)GET_SYM(hMod, "zeMemFree");
-    fn_zeCommandListAppendMemoryCopy = (pfn_zeCommandListAppendMemoryCopy)GET_SYM(hMod, "zeCommandListAppendMemoryCopy");
-
-    if (!fn_zeInit || !fn_zeDriverGet || !fn_zeDeviceGet || !fn_zeContextCreate || !fn_zeMemAllocShared) {
-        FREE_LIB(hMod);
-        free(ctx);
-        return NULL;
-    }
-
-    if (fn_zeInit(0) != ZE_RESULT_SUCCESS) {
-        FREE_LIB(hMod);
-        free(ctx);
-        return NULL;
-    }
-
-    uint32_t driverCount = 0;
-    if (fn_zeDriverGet(&driverCount, NULL) != ZE_RESULT_SUCCESS || driverCount == 0) {
-        FREE_LIB(hMod);
-        free(ctx);
-        return NULL;
-    }
-
-    void** drivers = (void**)malloc(sizeof(void*) * driverCount);
-    fn_zeDriverGet(&driverCount, drivers);
-    ctx->driver_handle = drivers[0];
-    free(drivers);
-
-    uint32_t deviceCount = 0;
-    if (fn_zeDeviceGet(ctx->driver_handle, &deviceCount, NULL) != ZE_RESULT_SUCCESS || deviceCount == 0) {
-        FREE_LIB(hMod);
-        free(ctx);
-        return NULL;
-    }
-
-    void** devices = (void**)malloc(sizeof(void*) * deviceCount);
-    fn_zeDeviceGet(ctx->driver_handle, &deviceCount, devices);
-    ctx->device_handle = devices[0];
-    free(devices);
-
-    ze_context_desc_t contextDesc = {0};
-    contextDesc.stype = 0x1;
-    if (fn_zeContextCreate(ctx->driver_handle, &contextDesc, &ctx->context_handle) != ZE_RESULT_SUCCESS) {
-        FREE_LIB(hMod);
-        free(ctx);
-        return NULL;
-    }
-
-    ze_command_queue_desc_t queueDesc = {0};
-    queueDesc.stype = 0x2;
-    queueDesc.mode = 0;
-    queueDesc.priority = 1;
-    fn_zeCommandQueueCreate(ctx->context_handle, ctx->device_handle, &queueDesc, &ctx->queue_handle);
-
-    ze_command_list_desc_t listDesc = {0};
-    listDesc.stype = 0x3;
-    fn_zeCommandListCreate(ctx->context_handle, ctx->device_handle, &listDesc, &ctx->cmdlist_handle);
-
-    ctx->is_initialized = true;
-    return ctx;
+    return status;
 }
 
 /**
- * @brief Allocate a Unified Shared Memory (USM) buffer on the designated target.
+ * @brief Record a driver result and map it to ARC_ZE_ERR_API.
  *
- * @param ctx Level Zero context initialized by arc_ze_init.
- * @param size_bytes Allocation byte size.
- * @param usm_type Residency type (HOST, DEVICE, or SHARED).
- * @return void* Pointer to the allocated memory buffer, or NULL on failure.
+ * @param ctx Context to annotate.
+ * @param result Raw ze_result_t from the driver.
+ * @return ARC_ZE_ERR_API.
  */
+static int arc_ze_api_error(ArcZeContext* ctx, ze_result_t result) {
+    atomic_store_explicit(&ctx->last_result, result, memory_order_relaxed);
+    return arc_ze_set_status(ctx, ARC_ZE_ERR_API);
+}
+
+/**
+ * @brief Monotonic clock in milliseconds.
+ *
+ * @return Milliseconds from an arbitrary fixed origin.
+ */
+static uint64_t arc_now_ms(void) {
+#if defined(_WIN32)
+    return (uint64_t)GetTickCount64();
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000u + (uint64_t)ts.tv_nsec / 1000000u;
+#endif
+}
+
+/**
+ * @brief Resolve a symbol into a function pointer without an object-to-function cast.
+ *
+ * ISO C does not define converting void* to a function pointer; copying the pointer bytes is the
+ * portable form accepted by POSIX dlsym and Win32 GetProcAddress users.
+ *
+ * @param module Loaded module handle.
+ * @param name Symbol name.
+ * @param out Address of the function pointer to fill.
+ * @param out_size sizeof(*out).
+ * @return true if the symbol was found.
+ */
+static bool arc_bind(void* module, const char* name, void* out, size_t out_size) {
+#if defined(_WIN32)
+    FARPROC symbol = GetProcAddress((HMODULE)module, name);
+#else
+    void* symbol = dlsym(module, name);
+#endif
+    if (!symbol || out_size != sizeof symbol) {
+        return false;
+    }
+    memcpy(out, &symbol, sizeof symbol);
+    return true;
+}
+
+/**
+ * @brief Resolve every required Level Zero entry point.
+ *
+ * @param ctx Context whose api table is filled.
+ * @return true if all symbols were found.
+ */
+static bool arc_bind_all(ArcZeContext* ctx) {
+    void* m = ctx->ze_module;
+    ArcZeApi* a = &ctx->api;
+    return arc_bind(m, "zeInit", &a->zeInit, sizeof a->zeInit)
+        && arc_bind(m, "zeDriverGet", &a->zeDriverGet, sizeof a->zeDriverGet)
+        && arc_bind(m, "zeDeviceGet", &a->zeDeviceGet, sizeof a->zeDeviceGet)
+        && arc_bind(m, "zeDeviceGetProperties", &a->zeDeviceGetProperties, sizeof a->zeDeviceGetProperties)
+        && arc_bind(m, "zeContextCreate", &a->zeContextCreate, sizeof a->zeContextCreate)
+        && arc_bind(m, "zeContextDestroy", &a->zeContextDestroy, sizeof a->zeContextDestroy)
+        && arc_bind(m, "zeCommandQueueCreate", &a->zeCommandQueueCreate, sizeof a->zeCommandQueueCreate)
+        && arc_bind(m, "zeCommandQueueDestroy", &a->zeCommandQueueDestroy, sizeof a->zeCommandQueueDestroy)
+        && arc_bind(m, "zeCommandListCreate", &a->zeCommandListCreate, sizeof a->zeCommandListCreate)
+        && arc_bind(m, "zeCommandListDestroy", &a->zeCommandListDestroy, sizeof a->zeCommandListDestroy)
+        && arc_bind(m, "zeCommandListClose", &a->zeCommandListClose, sizeof a->zeCommandListClose)
+        && arc_bind(m, "zeCommandListReset", &a->zeCommandListReset, sizeof a->zeCommandListReset)
+        && arc_bind(m, "zeCommandQueueExecuteCommandLists", &a->zeCommandQueueExecuteCommandLists, sizeof a->zeCommandQueueExecuteCommandLists)
+        && arc_bind(m, "zeCommandQueueSynchronize", &a->zeCommandQueueSynchronize, sizeof a->zeCommandQueueSynchronize)
+        && arc_bind(m, "zeMemAllocHost", &a->zeMemAllocHost, sizeof a->zeMemAllocHost)
+        && arc_bind(m, "zeMemAllocDevice", &a->zeMemAllocDevice, sizeof a->zeMemAllocDevice)
+        && arc_bind(m, "zeMemAllocShared", &a->zeMemAllocShared, sizeof a->zeMemAllocShared)
+        && arc_bind(m, "zeMemFree", &a->zeMemFree, sizeof a->zeMemFree)
+        && arc_bind(m, "zeCommandListAppendMemoryCopy", &a->zeCommandListAppendMemoryCopy, sizeof a->zeCommandListAppendMemoryCopy);
+}
+
+/**
+ * @brief Load the Level Zero loader library, honouring ARC_ZE_LOADER_PATH first.
+ *
+ * @return Module handle, or NULL if no candidate could be loaded.
+ */
+static void* arc_load_loader(void) {
+    const char* override_path = getenv(ARC_ZE_LOADER_ENV);
+    if (override_path && override_path[0] != '\0') {
+        return LOAD_LIB(override_path);
+    }
+#if defined(_WIN32)
+    const char* candidates[] = {"ze_loader.dll", NULL};
+#else
+    const char* candidates[] = {"libze_loader.so.1", "libze_loader.so", NULL};
+#endif
+    for (int i = 0; candidates[i] != NULL; ++i) {
+        void* module = LOAD_LIB(candidates[i]);
+        if (module) {
+            return module;
+        }
+    }
+    return NULL;
+}
+
+/**
+ * @brief Read the synchronize timeout from the environment, clamped below the TDR limit.
+ *
+ * @return Timeout in milliseconds in [1, ARC_ZE_MAX_SYNC_TIMEOUT_MS].
+ */
+static uint64_t arc_configured_sync_timeout_ms(void) {
+    const char* text = getenv(ARC_ZE_SYNC_TIMEOUT_ENV);
+    if (!text || text[0] == '\0') {
+        return ARC_ZE_DEFAULT_SYNC_TIMEOUT_MS;
+    }
+    char* end = NULL;
+    unsigned long long value = strtoull(text, &end, 10);
+    if (end == text || *end != '\0' || value == 0) {
+        return ARC_ZE_DEFAULT_SYNC_TIMEOUT_MS;
+    }
+    return value > ARC_ZE_MAX_SYNC_TIMEOUT_MS ? ARC_ZE_MAX_SYNC_TIMEOUT_MS : (uint64_t)value;
+}
+
+/**
+ * @brief Scan all drivers and devices and select the first GPU.
+ *
+ * @param ctx Context; driver_handle, device_handle and device_type are set on success.
+ * @return ARC_ZE_OK, ARC_ZE_ERR_NO_GPU, or ARC_ZE_ERR_API.
+ */
+static int arc_select_gpu(ArcZeContext* ctx) {
+    uint32_t driver_count = 0;
+    ze_result_t res = ctx->api.zeDriverGet(&driver_count, NULL);
+    if (res != ZE_RESULT_SUCCESS) {
+        return arc_ze_api_error(ctx, res);
+    }
+    if (driver_count == 0) {
+        return ARC_ZE_ERR_NO_GPU;
+    }
+
+    void** drivers = (void**)calloc(driver_count, sizeof(void*));
+    if (!drivers) {
+        return ARC_ZE_ERR_API;
+    }
+    res = ctx->api.zeDriverGet(&driver_count, drivers);
+    int status = res == ZE_RESULT_SUCCESS ? ARC_ZE_ERR_NO_GPU : arc_ze_api_error(ctx, res);
+
+    for (uint32_t d = 0; status == ARC_ZE_ERR_NO_GPU && d < driver_count; ++d) {
+        uint32_t device_count = 0;
+        if (ctx->api.zeDeviceGet(drivers[d], &device_count, NULL) != ZE_RESULT_SUCCESS || device_count == 0) {
+            continue;
+        }
+        void** devices = (void**)calloc(device_count, sizeof(void*));
+        if (!devices) {
+            continue;
+        }
+        if (ctx->api.zeDeviceGet(drivers[d], &device_count, devices) == ZE_RESULT_SUCCESS) {
+            for (uint32_t i = 0; i < device_count; ++i) {
+                ze_device_properties_t props;
+                memset(&props, 0, sizeof props);
+                props.stype = ZE_STYPE_DEVICE_PROPERTIES;
+                if (ctx->api.zeDeviceGetProperties(devices[i], &props) == ZE_RESULT_SUCCESS && props.type == ZE_DEVICE_TYPE_GPU) {
+                    ctx->driver_handle = drivers[d];
+                    ctx->device_handle = devices[i];
+                    ctx->device_type = props.type;
+                    status = ARC_ZE_OK;
+                    break;
+                }
+            }
+        }
+        free(devices);
+    }
+    free(drivers);
+    return status;
+}
+
+/**
+ * @brief Create the context, command queue and command list on the selected GPU.
+ *
+ * @param ctx Context with driver and device handles set.
+ * @return ARC_ZE_OK or ARC_ZE_ERR_API with the failing driver result recorded.
+ */
+static int arc_create_objects(ArcZeContext* ctx) {
+    ze_context_desc_t context_desc;
+    memset(&context_desc, 0, sizeof context_desc);
+    context_desc.stype = ZE_STYPE_CONTEXT_DESC;
+    ze_result_t res = ctx->api.zeContextCreate(ctx->driver_handle, &context_desc, &ctx->context_handle);
+    if (res != ZE_RESULT_SUCCESS) {
+        return arc_ze_api_error(ctx, res);
+    }
+
+    ze_command_queue_desc_t queue_desc;
+    memset(&queue_desc, 0, sizeof queue_desc);
+    queue_desc.stype = ZE_STYPE_COMMAND_QUEUE_DESC;
+    queue_desc.mode = ZE_COMMAND_QUEUE_MODE_DEFAULT;
+    queue_desc.priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
+    res = ctx->api.zeCommandQueueCreate(ctx->context_handle, ctx->device_handle, &queue_desc, &ctx->queue_handle);
+    if (res != ZE_RESULT_SUCCESS) {
+        return arc_ze_api_error(ctx, res);
+    }
+
+    ze_command_list_desc_t list_desc;
+    memset(&list_desc, 0, sizeof list_desc);
+    list_desc.stype = ZE_STYPE_COMMAND_LIST_DESC;
+    res = ctx->api.zeCommandListCreate(ctx->context_handle, ctx->device_handle, &list_desc, &ctx->cmdlist_handle);
+    if (res != ZE_RESULT_SUCCESS) {
+        return arc_ze_api_error(ctx, res);
+    }
+    return ARC_ZE_OK;
+}
+
+/**
+ * @brief Take the allocation table spin lock.
+ *
+ * @param ctx Context owning the table.
+ */
+static void arc_table_lock(ArcZeContext* ctx) {
+    while (atomic_flag_test_and_set_explicit(&ctx->table_lock, memory_order_acquire)) {
+    }
+}
+
+/**
+ * @brief Release the allocation table spin lock.
+ *
+ * @param ctx Context owning the table.
+ */
+static void arc_table_unlock(ArcZeContext* ctx) {
+    atomic_flag_clear_explicit(&ctx->table_lock, memory_order_release);
+}
+
+/**
+ * @brief Release driver objects in reverse creation order and free the context.
+ *
+ * @param ctx Context to tear down; may be partially initialized.
+ */
+static void arc_teardown(ArcZeContext* ctx) {
+    for (uint32_t i = 0; i < ctx->alloc_count; ++i) {
+        if (ctx->allocs[i].ptr && ctx->api.zeMemFree && ctx->context_handle) {
+            ctx->api.zeMemFree(ctx->context_handle, ctx->allocs[i].ptr);
+        }
+    }
+    ctx->alloc_count = 0;
+    if (ctx->cmdlist_handle && ctx->api.zeCommandListDestroy) {
+        ctx->api.zeCommandListDestroy(ctx->cmdlist_handle);
+    }
+    if (ctx->queue_handle && ctx->api.zeCommandQueueDestroy) {
+        ctx->api.zeCommandQueueDestroy(ctx->queue_handle);
+    }
+    if (ctx->context_handle && ctx->api.zeContextDestroy) {
+        ctx->api.zeContextDestroy(ctx->context_handle);
+    }
+    if (ctx->ze_module) {
+        FREE_LIB(ctx->ze_module);
+    }
+    memset(&ctx->api, 0, sizeof ctx->api);
+    free(ctx);
+}
+
+ARC_EXPORT ArcZeContext* arc_ze_init_ex(int32_t* out_status) {
+    ArcZeContext* ctx = (ArcZeContext*)calloc(1, sizeof(ArcZeContext));
+    if (!ctx) {
+        if (out_status) {
+            *out_status = ARC_ZE_ERR_LOAD;
+        }
+        return NULL;
+    }
+    atomic_init(&ctx->last_status, ARC_ZE_OK);
+    atomic_init(&ctx->last_result, 0);
+    atomic_init(&ctx->is_dead, false);
+    atomic_flag_clear(&ctx->table_lock);
+    ctx->sync_timeout_ms = arc_configured_sync_timeout_ms();
+
+    int status = ARC_ZE_OK;
+    ctx->ze_module = arc_load_loader();
+    if (!ctx->ze_module) {
+        status = ARC_ZE_ERR_LOAD;
+    } else if (!arc_bind_all(ctx)) {
+        status = ARC_ZE_ERR_SYMBOL;
+    } else {
+        ze_result_t res = ctx->api.zeInit(ZE_INIT_FLAG_GPU_ONLY);
+        status = res == ZE_RESULT_SUCCESS ? arc_select_gpu(ctx) : arc_ze_api_error(ctx, res);
+    }
+    if (status == ARC_ZE_OK) {
+        status = arc_create_objects(ctx);
+    }
+
+    if (status != ARC_ZE_OK) {
+        if (out_status) {
+            *out_status = status;
+        }
+        arc_teardown(ctx);
+        return NULL;
+    }
+    if (out_status) {
+        *out_status = ARC_ZE_OK;
+    }
+    return ctx;
+}
+
+ARC_EXPORT ArcZeContext* arc_ze_init(void) {
+    return arc_ze_init_ex(NULL);
+}
+
+/**
+ * @brief Record a successful allocation in the table or free it if the table is full.
+ *
+ * @param ctx Context owning the table.
+ * @param ptr Allocation to track.
+ * @param size_bytes Allocation size.
+ * @param type Residency type.
+ * @return true if tracked.
+ */
+static bool arc_track_alloc(ArcZeContext* ctx, void* ptr, size_t size_bytes, ArcUsmType type) {
+    bool tracked = false;
+    arc_table_lock(ctx);
+    if (ctx->alloc_count < ARC_MAX_TRACKED_ALLOCS) {
+        ctx->allocs[ctx->alloc_count].ptr = ptr;
+        ctx->allocs[ctx->alloc_count].size = size_bytes;
+        ctx->allocs[ctx->alloc_count].type = type;
+        ctx->alloc_count++;
+        tracked = true;
+    }
+    arc_table_unlock(ctx);
+    return tracked;
+}
+
+/**
+ * @brief Look up a tracked allocation's type.
+ *
+ * @param ctx Context owning the table.
+ * @param ptr Address inside or at the start of a tracked allocation.
+ * @param out_type Receives the residency type.
+ * @return true if ptr lies inside a tracked allocation.
+ */
+static bool arc_find_alloc(ArcZeContext* ctx, const void* ptr, ArcUsmType* out_type) {
+    bool found = false;
+    arc_table_lock(ctx);
+    for (uint32_t i = 0; i < ctx->alloc_count; ++i) {
+        const unsigned char* base = (const unsigned char*)ctx->allocs[i].ptr;
+        const unsigned char* p = (const unsigned char*)ptr;
+        if (p >= base && (size_t)(p - base) < ctx->allocs[i].size) {
+            *out_type = ctx->allocs[i].type;
+            found = true;
+            break;
+        }
+    }
+    arc_table_unlock(ctx);
+    return found;
+}
+
 ARC_EXPORT void* arc_ze_alloc_usm(ArcZeContext* ctx, size_t size_bytes, ArcUsmType usm_type) {
-    if (!ctx || !ctx->is_initialized || !ctx->context_handle || size_bytes == 0) {
+    if (!ctx || !ctx->context_handle) {
+        return NULL;
+    }
+    if (atomic_load_explicit(&ctx->is_dead, memory_order_acquire)) {
+        arc_ze_set_status(ctx, ARC_ZE_ERR_DEAD);
+        return NULL;
+    }
+    if (size_bytes == 0 || (uint64_t)size_bytes > ARC_MAX_USM_BYTES || usm_type > ARC_USM_SHARED) {
+        arc_ze_set_status(ctx, size_bytes == 0 || usm_type > ARC_USM_SHARED ? ARC_ZE_ERR_INVALID_ARG : ARC_ZE_ERR_TOO_LARGE);
         return NULL;
     }
 
     void* ptr = NULL;
-    ze_result_t res = 1;
+    ze_result_t res;
+    ze_host_mem_alloc_desc_t host_desc;
+    ze_device_mem_alloc_desc_t device_desc;
+    memset(&host_desc, 0, sizeof host_desc);
+    memset(&device_desc, 0, sizeof device_desc);
+    host_desc.stype = ZE_STYPE_HOST_MEM_ALLOC_DESC;
+    device_desc.stype = ZE_STYPE_DEVICE_MEM_ALLOC_DESC;
 
-    if (usm_type == ARC_USM_HOST && fn_zeMemAllocHost) {
-        ze_host_mem_alloc_desc_t desc = {0};
-        desc.stype = 0x4;
-        res = fn_zeMemAllocHost(ctx->context_handle, &desc, size_bytes, 64, &ptr);
-    } else if (usm_type == ARC_USM_DEVICE && fn_zeMemAllocDevice) {
-        ze_device_mem_alloc_desc_t desc = {0};
-        desc.stype = 0x5;
-        res = fn_zeMemAllocDevice(ctx->context_handle, &desc, size_bytes, 64, ctx->device_handle, &ptr);
-    } else if (usm_type == ARC_USM_SHARED && fn_zeMemAllocShared) {
-        ze_device_mem_alloc_desc_t devDesc = {0};
-        devDesc.stype = 0x5;
-        ze_host_mem_alloc_desc_t hostDesc = {0};
-        hostDesc.stype = 0x4;
-        res = fn_zeMemAllocShared(ctx->context_handle, &devDesc, &hostDesc, size_bytes, 64, ctx->device_handle, &ptr);
+    if (usm_type == ARC_USM_HOST) {
+        res = ctx->api.zeMemAllocHost(ctx->context_handle, &host_desc, size_bytes, ARC_USM_ALIGNMENT, &ptr);
+    } else if (usm_type == ARC_USM_DEVICE) {
+        res = ctx->api.zeMemAllocDevice(ctx->context_handle, &device_desc, size_bytes, ARC_USM_ALIGNMENT, ctx->device_handle, &ptr);
+    } else {
+        res = ctx->api.zeMemAllocShared(ctx->context_handle, &device_desc, &host_desc, size_bytes, ARC_USM_ALIGNMENT, ctx->device_handle, &ptr);
     }
-
-    if (res != ZE_RESULT_SUCCESS) {
+    if (res != ZE_RESULT_SUCCESS || !ptr) {
+        arc_ze_api_error(ctx, res);
         return NULL;
     }
-
+    if (!arc_track_alloc(ctx, ptr, size_bytes, usm_type)) {
+        ctx->api.zeMemFree(ctx->context_handle, ptr);
+        arc_ze_set_status(ctx, ARC_ZE_ERR_TOO_MANY_ALLOCS);
+        return NULL;
+    }
+    arc_ze_set_status(ctx, ARC_ZE_OK);
     return ptr;
 }
 
-/**
- * @brief Submit an asynchronous hardware DMA memory copy operation.
- *
- * @param ctx Level Zero context.
- * @param dst Destination memory address.
- * @param src Source memory address.
- * @param size_bytes Number of bytes to transfer via DMA.
- * @return int 0 on successful submission, non-zero on error.
- */
 ARC_EXPORT int arc_ze_dma_copy_async(ArcZeContext* ctx, void* dst, const void* src, size_t size_bytes) {
     if (!ctx || !ctx->cmdlist_handle || !dst || !src || size_bytes == 0) {
-        return -1;
+        return arc_ze_set_status(ctx, ARC_ZE_ERR_INVALID_ARG);
+    }
+    if (atomic_load_explicit(&ctx->is_dead, memory_order_acquire)) {
+        return arc_ze_set_status(ctx, ARC_ZE_ERR_DEAD);
     }
 
-    if (!fn_zeCommandListAppendMemoryCopy) {
+    ze_result_t res = ctx->api.zeCommandListAppendMemoryCopy(ctx->cmdlist_handle, dst, src, size_bytes, NULL, 0, NULL);
+    if (res == ZE_RESULT_SUCCESS) {
+        return arc_ze_set_status(ctx, ARC_ZE_OK);
+    }
+
+    ArcUsmType dst_type = ARC_USM_DEVICE;
+    ArcUsmType src_type = ARC_USM_DEVICE;
+    bool dst_cpu_visible = arc_find_alloc(ctx, dst, &dst_type) && dst_type != ARC_USM_DEVICE;
+    bool src_cpu_visible = arc_find_alloc(ctx, src, &src_type) && src_type != ARC_USM_DEVICE;
+    if (dst_cpu_visible && src_cpu_visible) {
         memcpy(dst, src, size_bytes);
-        return 0;
+        atomic_store_explicit(&ctx->last_result, res, memory_order_relaxed);
+        arc_ze_set_status(ctx, ARC_ZE_OK);
+        return ARC_ZE_FALLBACK_MEMCPY;
     }
-
-    ze_result_t res = fn_zeCommandListAppendMemoryCopy(
-        ctx->cmdlist_handle,
-        dst,
-        src,
-        size_bytes,
-        NULL,
-        0,
-        NULL
-    );
-
-    return (res == ZE_RESULT_SUCCESS) ? 0 : (int)res;
+    return arc_ze_api_error(ctx, res);
 }
 
-/**
- * @brief Synchronize the command queue and block until pending DMA operations finish.
- *
- * @param ctx Level Zero context.
- * @return int 0 on success, non-zero on timeout or execution fault.
- */
 ARC_EXPORT int arc_ze_synchronize(ArcZeContext* ctx) {
-    if (!ctx || !ctx->queue_handle) {
-        return -1;
+    if (!ctx || !ctx->queue_handle || !ctx->cmdlist_handle) {
+        return arc_ze_set_status(ctx, ARC_ZE_ERR_INVALID_ARG);
+    }
+    if (atomic_load_explicit(&ctx->is_dead, memory_order_acquire)) {
+        return arc_ze_set_status(ctx, ARC_ZE_ERR_DEAD);
     }
 
-    if (ctx->cmdlist_handle && fn_zeCommandListClose && fn_zeCommandQueueExecuteCommandLists) {
-        fn_zeCommandListClose(ctx->cmdlist_handle);
-        fn_zeCommandQueueExecuteCommandLists(ctx->queue_handle, 1, &ctx->cmdlist_handle, NULL);
+    ze_result_t res = ctx->api.zeCommandListClose(ctx->cmdlist_handle);
+    if (res != ZE_RESULT_SUCCESS) {
+        return arc_ze_api_error(ctx, res);
+    }
+    res = ctx->api.zeCommandQueueExecuteCommandLists(ctx->queue_handle, 1, &ctx->cmdlist_handle, NULL);
+    if (res != ZE_RESULT_SUCCESS) {
+        atomic_store_explicit(&ctx->is_dead, res == ZE_RESULT_ERROR_DEVICE_LOST, memory_order_release);
+        return arc_ze_api_error(ctx, res);
     }
 
-    if (fn_zeCommandQueueSynchronize) {
-        ze_result_t res = fn_zeCommandQueueSynchronize(ctx->queue_handle, 10000000000ULL);
-        if (ctx->cmdlist_handle && fn_zeCommandListReset) {
-            fn_zeCommandListReset(ctx->cmdlist_handle);
+    const uint64_t deadline = arc_now_ms() + ctx->sync_timeout_ms;
+    for (;;) {
+        res = ctx->api.zeCommandQueueSynchronize(ctx->queue_handle, (uint64_t)ARC_SYNC_SLICE_MS * 1000000u);
+        if (res == ZE_RESULT_SUCCESS) {
+            break;
         }
-        return (res == ZE_RESULT_SUCCESS) ? 0 : (int)res;
+        if (res != ZE_RESULT_NOT_READY) {
+            atomic_store_explicit(&ctx->is_dead, true, memory_order_release);
+            return arc_ze_api_error(ctx, res);
+        }
+        if (arc_now_ms() >= deadline) {
+            atomic_store_explicit(&ctx->is_dead, true, memory_order_release);
+            return arc_ze_set_status(ctx, ARC_ZE_ERR_TIMEOUT);
+        }
     }
 
-    return 0;
+    res = ctx->api.zeCommandListReset(ctx->cmdlist_handle);
+    return res == ZE_RESULT_SUCCESS ? arc_ze_set_status(ctx, ARC_ZE_OK) : arc_ze_api_error(ctx, res);
 }
 
-/**
- * @brief Free a previously allocated Unified Shared Memory buffer.
- *
- * @param ctx Level Zero context.
- * @param ptr Pointer to the USM buffer to deallocate.
- */
 ARC_EXPORT void arc_ze_free_usm(ArcZeContext* ctx, void* ptr) {
     if (!ctx || !ctx->context_handle || !ptr) {
         return;
     }
 
-    if (fn_zeMemFree) {
-        fn_zeMemFree(ctx->context_handle, ptr);
+    bool owned = false;
+    arc_table_lock(ctx);
+    for (uint32_t i = 0; i < ctx->alloc_count; ++i) {
+        if (ctx->allocs[i].ptr == ptr) {
+            ctx->allocs[i] = ctx->allocs[ctx->alloc_count - 1];
+            ctx->alloc_count--;
+            owned = true;
+            break;
+        }
+    }
+    arc_table_unlock(ctx);
+
+    if (owned) {
+        ctx->api.zeMemFree(ctx->context_handle, ptr);
+    } else {
+        arc_ze_set_status(ctx, ARC_ZE_ERR_INVALID_ARG);
     }
 }
 
-/**
- * @brief Release all Level Zero driver resources, queues, and context handles.
- *
- * @param ctx Level Zero context to destroy.
- */
 ARC_EXPORT void arc_ze_destroy(ArcZeContext* ctx) {
-    if (!ctx) {
-        return;
+    if (ctx) {
+        arc_teardown(ctx);
     }
+}
 
-    if (ctx->cmdlist_handle && fn_zeCommandListDestroy) {
-        fn_zeCommandListDestroy(ctx->cmdlist_handle);
-        ctx->cmdlist_handle = NULL;
-    }
+ARC_EXPORT int arc_ze_is_dead(const ArcZeContext* ctx) {
+    return ctx && atomic_load_explicit(&ctx->is_dead, memory_order_acquire) ? 1 : 0;
+}
 
-    if (ctx->queue_handle && fn_zeCommandQueueDestroy) {
-        fn_zeCommandQueueDestroy(ctx->queue_handle);
-        ctx->queue_handle = NULL;
-    }
+ARC_EXPORT int32_t arc_ze_last_status(const ArcZeContext* ctx) {
+    return ctx ? (int32_t)atomic_load_explicit(&ctx->last_status, memory_order_relaxed) : ARC_ZE_ERR_NOT_INITIALIZED;
+}
 
-    if (ctx->context_handle && fn_zeContextDestroy) {
-        fn_zeContextDestroy(ctx->context_handle);
-        ctx->context_handle = NULL;
-    }
+ARC_EXPORT uint32_t arc_ze_last_result(const ArcZeContext* ctx) {
+    return ctx ? (uint32_t)atomic_load_explicit(&ctx->last_result, memory_order_relaxed) : 0u;
+}
 
-    if (ctx->ze_module) {
-        FREE_LIB(ctx->ze_module);
-        ctx->ze_module = NULL;
-    }
+ARC_EXPORT uint32_t arc_ze_device_type(const ArcZeContext* ctx) {
+    return ctx ? ctx->device_type : 0u;
+}
 
-    free(ctx);
+ARC_EXPORT uint32_t arc_ze_alloc_count(const ArcZeContext* ctx) {
+    return ctx ? ctx->alloc_count : 0u;
+}
+
+ARC_EXPORT uint32_t arc_ze_sync_timeout_ms(const ArcZeContext* ctx) {
+    return ctx ? (uint32_t)ctx->sync_timeout_ms : 0u;
 }

@@ -34,7 +34,7 @@ extern "C" {
 #define ARC_MAX_TENSORS_PER_LAYER 64
 #define ARC_MAX_LAYERS 256
 #define ARC_MAX_NAME_LEN 128
-#define ARC_NATIVE_ABI_VERSION 2u
+#define ARC_NATIVE_ABI_VERSION 3u
 
 /**
  * @struct ArcTensorDescriptor

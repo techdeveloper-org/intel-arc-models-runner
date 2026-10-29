@@ -16,7 +16,7 @@ import sys
 import tempfile
 from typing import Dict, List, Optional
 
-ABI_VERSION = 2
+ABI_VERSION = 3
 BUILD_INFO_SUFFIX = ".build.json"
 MMAP_SOURCE = "arc_flash_stream_mmap.c"
 LEVEL_ZERO_SOURCE = "arc_level_zero_bridge.c"
@@ -69,7 +69,7 @@ def _object_flags(is_windows: bool) -> Dict[str, List[str]]:
     position_independent = [] if is_windows else ["-fPIC"]
     return {
         MMAP_SOURCE: COMMON_FLAGS + STRICT_FLAGS + position_independent,
-        LEVEL_ZERO_SOURCE: COMMON_FLAGS + position_independent,
+        LEVEL_ZERO_SOURCE: COMMON_FLAGS + STRICT_FLAGS + position_independent,
     }
 
 

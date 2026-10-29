@@ -198,9 +198,6 @@ class BatchExecutionPipeline:
             self._batcher.add_request(target_seq_id, prompt, gen_cfg)
             self._active_requests[target_seq_id] = req
 
-            dummy_tokens = [hash(word) % 32000 for word in prompt.split()[:32]]
-            self._prefix_cache.match_prefix(dummy_tokens)
-
             if not self._is_running:
                 self.start()
 

@@ -217,6 +217,7 @@ _FABRICATION_PATTERNS = [
     r"elapsed_sec \* 400",
     r"int\((approx_tokens|generated_count|draft_tokens) \* 0\.(8|72)\)",
     r"duration_ns \* 0\.(2|8)\b",
+    r"hash\(word\) % 32000",
     r"acceptance_rate \* 0\.9",
     r"REFERENCE_SWEEP",
     r'"power_w":\s*22\.0',
