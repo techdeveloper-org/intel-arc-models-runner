@@ -2,8 +2,8 @@
 setlocal
 title Intel Arc Models Runner - Installer
 
-echo Launching PowerShell Installer with ExecutionPolicy Bypass...
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
+echo Checking PowerShell script policy and starting installer...
+powershell.exe -NoProfile -Command "$policy = Get-ExecutionPolicy; if ($policy -in @('Restricted','AllSigned','RemoteSigned')) { $env:ARC_RUNNER_INSTALLER_BYPASS='1'; & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File '%~dp0install.ps1' } else { & '%~dp0install.ps1' }; exit $LASTEXITCODE"
 
 if %ERRORLEVEL% neq 0 (
     echo.

@@ -95,17 +95,26 @@ docker run -d --name intel-arc-models-runner --device /dev/dri:/dev/dri -p 8000:
 ```
 
 ### Option 3: 1-Click Windows Native Setup
-Double-click `install.bat` or run in PowerShell:
+Double-click `install.bat` or run either installer command in PowerShell:
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\install.ps1
+.\install.bat
+# If this PowerShell allows local scripts:
+.\install.ps1
 ```
 
 ### Option 4: Developer Editable Mode
 ```bash
 git clone https://github.com/techdeveloper-org/intel-arc-models-runner.git
 cd intel-arc-models-runner
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
+
+On Windows, installing with `pip` alone may place CLI launchers in a `Scripts`
+directory that is not on `PATH`. To configure it automatically, run
+`install.bat` (works with restrictive PowerShell execution policies) or
+`install.ps1` (when local scripts are allowed) and restart the terminal. If you
+already installed with pip, run the installer with the same Python environment
+active. Until PATH is updated, use `python -m arc_runner.cli.main --version`.
 
 ---
 
