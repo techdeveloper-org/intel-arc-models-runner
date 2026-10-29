@@ -7,8 +7,8 @@
  * returns an opaque context. All waits are bounded below the Windows TDR limit (2 s); a wait that
  * times out or reports device loss marks the context dead and every later call fails fast.
  *
- * The USM and DMA functions are not yet called by the Python streaming path; they are kept and
- * tested for a later release.
+ * The USM and DMA functions are used by the optional Python DeviceLayerStager (opt-in on the
+ * flash-stream weight manager); the default streaming path does not call them.
  */
 
 #ifndef ARC_LEVEL_ZERO_BRIDGE_H
