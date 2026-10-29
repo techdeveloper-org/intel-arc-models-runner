@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+import os
 from pathlib import Path
 import shutil
 import sys
@@ -25,7 +26,14 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import subprocess
 
-from arc_runner.benchmark.harness_common import default_result_path, optional_sysman, target_device  # noqa: E402
+from arc_runner.benchmark.harness_common import (  # noqa: E402
+    collect_tiers,
+    default_result_path,
+    gpu_context_lost,
+    optional_sysman,
+    select_tiers,
+    target_device,
+)
 from arc_runner.benchmark.nonllm import video_samples  # noqa: E402
 from arc_runner.benchmark.stats import BenchSample  # noqa: E402
 from arc_runner.benchmark.workloads import export_workload_result  # noqa: E402
@@ -347,6 +355,7 @@ def collect_samples(
     warmups: int,
     runs: int,
     sysman: Any,
+    failures: Optional[List[Dict[str, str]]] = None,
 ) -> List[BenchSample]:
     """Measure every workload tier of one model on the target device and, if distinct, on CPU.
 
@@ -361,6 +370,8 @@ def collect_samples(
         warmups: Discarded warmup runs per tier.
         runs: Timed runs per tier.
         sysman: Optional Sysman for package power.
+        failures: List that receives {model_id, backend, error} for tiers that failed; after a GPU
+            CL_OUT_OF_RESOURCES the engine is not unloaded (the driver may hang) and later GPU tiers are skipped.
 
     Returns:
         List[BenchSample]: Samples for all tiers and backends.
@@ -369,18 +380,22 @@ def collect_samples(
     if cpu_baseline and device != "CPU":
         plan.append(("cpu-baseline", "CPU", False))
     samples: List[BenchSample] = []
+    failures = failures if failures is not None else []
     for backend, dev, is_fallback in plan:
         engine = engine_factory(dev)
-        try:
-            for tier, workload in spec["workloads"].items():
-                samples += video_samples(
-                    engine, request_builder(workload), f"{alias}/{tier}", backend, warmups, runs,
-                    sysman=sysman, fallback_used=is_fallback,
-                )
-        finally:
-            engine.unload()
-            del engine
-            gc.collect()
+
+        def make(workload: Dict[str, Any], model_id: str, engine: Any = engine, backend: str = backend, is_fallback: bool = is_fallback) -> List[BenchSample]:
+            return video_samples(
+                engine, request_builder(workload), model_id, backend, warmups, runs, sysman=sysman, fallback_used=is_fallback,
+            )
+
+        got, lost = collect_tiers(spec["workloads"], alias, backend, make, failures)
+        samples += got
+        if lost:
+            continue
+        engine.unload()
+        del engine
+        gc.collect()
     return samples
 
 
@@ -400,6 +415,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--runs", type=int, default=10)
     parser.add_argument("--models-root", default="models")
     parser.add_argument("--no-cpu-baseline", action="store_true")
+    parser.add_argument("--tiers", help="comma-separated tiers to run, for example low,medium (default: all)")
     parser.add_argument("--keep", action="store_true", help="keep the model files on disk")
     parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
@@ -407,7 +423,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     from arc_runner.devices.detector import DeviceDetector
     from arc_runner.engine.video_engine import VideoEngine
 
-    spec = VIDEO_MODEL_WORKLOAD_SPECS[args.model]
+    spec = select_tiers(VIDEO_MODEL_WORKLOAD_SPECS[args.model], args.tiers)
     model_dir = Path(args.models_root).resolve() / args.model
     if args.download:
         download_and_convert(spec["source_repo_id"], model_dir, spec["ov_export_task"], spec["ov_extra_args"])
@@ -421,16 +437,25 @@ def main(argv: Optional[List[str]] = None) -> int:
         engine.load_model(model_dir, device=dev)
         return engine
 
+    failures: List[Dict[str, str]] = []
     try:
-        samples = collect_samples(args.model, spec, factory, build_request, device, fallback, not args.no_cpu_baseline, args.warmups, args.runs, optional_sysman())
+        samples = collect_samples(args.model, spec, factory, build_request, device, fallback, not args.no_cpu_baseline, args.warmups, args.runs, optional_sysman(), failures=failures)
     finally:
         if not args.keep:
             shutil.rmtree(model_dir, ignore_errors=True)
     out = args.out or default_result_path(REPO_ROOT, "video", args.model)
     labels = {"arc-runner": f"OpenVINO on {device} ({spec['precision']})", "cpu-baseline": "OpenVINO on CPU"}
-    export_workload_result(out, f"video-{args.model}", samples, labels, args.warmups, args.runs, REPO_ROOT)
-    print(f"wrote {out} ({len(samples)} samples)")
-    return 0
+    export_workload_result(out, f"video-{args.model}", samples, labels, args.warmups, args.runs, REPO_ROOT, failures=failures)
+    print(f"wrote {out} ({len(samples)} samples, {len(failures)} failed tier(s))")
+    for item in failures:
+        print(f"FAILED {item['model_id']} on {item['backend']}: {item['error'][:160]}", file=sys.stderr)
+    if gpu_context_lost(failures):
+        print("GPU context lost (CL_OUT_OF_RESOURCES): exiting without cleanup because the driver may hang; "
+              "try --tiers low,medium or raise Shared GPU Memory Override in Intel Graphics Software.", file=sys.stderr)
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(3)
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

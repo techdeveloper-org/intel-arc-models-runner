@@ -81,7 +81,13 @@ def capture_environment(repo_dir: Path, ollama_version: Optional[str] = None, on
     }
 
 
-def build_result(run_id: str, samples: Iterable[BenchSample], protocol: Dict[str, Any], environment: Dict[str, Any]) -> Dict[str, Any]:
+def build_result(
+    run_id: str,
+    samples: Iterable[BenchSample],
+    protocol: Dict[str, Any],
+    environment: Dict[str, Any],
+    failures: Optional[List[Dict[str, str]]] = None,
+) -> Dict[str, Any]:
     """Assemble a schema-v1 result document.
 
     Args:
@@ -89,11 +95,12 @@ def build_result(run_id: str, samples: Iterable[BenchSample], protocol: Dict[str
         samples: Measurements with provenance.
         protocol: Protocol block (warmup_runs, timed_runs, temperature, max_new_tokens, labels).
         environment: Environment block from capture_environment.
+        failures: Optional records {model_id, backend, error} of tiers that could not be measured.
 
     Returns:
         Dict[str, Any]: Document ready for write_result.
     """
-    return {
+    document = {
         "schema_version": SCHEMA_VERSION,
         "run_id": run_id,
         "created_utc": datetime.now(timezone.utc).isoformat(),
@@ -101,6 +108,9 @@ def build_result(run_id: str, samples: Iterable[BenchSample], protocol: Dict[str
         "protocol": dict(protocol),
         "samples": [asdict(sample) for sample in samples],
     }
+    if failures:
+        document["failures"] = [dict(item) for item in failures]
+    return document
 
 
 def validate_result(document: Any) -> List[str]:
@@ -124,6 +134,12 @@ def validate_result(document: Any) -> List[str]:
         problems.append(f"schema_version must be {SCHEMA_VERSION}")
     problems += [f"environment missing {k}" for k in _ENVIRONMENT_REQUIRED if k not in document["environment"]]
     problems += [f"protocol missing {k}" for k in _PROTOCOL_REQUIRED if k not in document["protocol"]]
+    failures = document.get("failures")
+    if failures is not None:
+        if not isinstance(failures, list) or not all(
+            isinstance(item, dict) and all(isinstance(item.get(key), str) for key in ("model_id", "backend", "error")) for item in failures
+        ):
+            problems.append("failures must be a list of {model_id, backend, error} strings")
     if not isinstance(document["samples"], list):
         return problems + ["samples must be a list"]
     if any(isinstance(row, dict) and row.get("workload", "llm") == "llm" for row in document["samples"]):

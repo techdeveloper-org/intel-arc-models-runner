@@ -117,6 +117,7 @@ def export_workload_result(
     warmups: int,
     runs: int,
     repo_dir: Path,
+    failures: Optional[List[Dict[str, str]]] = None,
 ) -> None:
     """Validate and write a schema-v1 result file for non-LLM samples.
 
@@ -128,9 +129,10 @@ def export_workload_result(
         warmups: Warmup runs per series.
         runs: Timed runs per series.
         repo_dir: Repository directory, for the git SHA in the environment block.
+        failures: Optional records of tiers that failed on the device (kept in the file, never faked).
 
     Raises:
         ValueError: If the document violates the schema.
     """
     protocol = {"warmup_runs": warmups, "timed_runs": runs, "labels": labels}
-    write_result(path, build_result(run_id, samples, protocol, capture_environment(repo_dir)))
+    write_result(path, build_result(run_id, samples, protocol, capture_environment(repo_dir), failures))

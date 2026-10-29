@@ -35,6 +35,11 @@
         "labels": {"type": "object", "description": "backend -> device and quantization labels printed next to every row"}
       }
     },
+    "failures": {
+      "type": "array",
+      "description": "Optional. Tiers that could not be measured on the device, recorded instead of being dropped or faked.",
+      "items": {"type": "object", "required": ["model_id", "backend", "error"], "properties": {"model_id": {"type": "string"}, "backend": {"type": "string"}, "error": {"type": "string"}}}
+    },
     "samples": {
       "type": "array",
       "items": {
