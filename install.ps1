@@ -44,8 +44,16 @@ if (-not [string]::IsNullOrWhiteSpace($pythonScriptsDir)) {
         $env:Path = "$env:Path;$pythonScriptsDir"
     }
 }
-python -m pip install --upgrade pip --quiet
-python -m pip install -e . --quiet
+$pipBootstrap = "import runpy, sys; sys.base_prefix=sys.prefix; sys.base_exec_prefix=sys.exec_prefix; sys.argv=['pip'] + sys.argv[1:]; runpy.run_module('pip', run_name='__main__')"
+# This Python runtime can report a different base_prefix without having a
+# pyvenv.cfg. Normalize only pip's process so it installs into this interpreter
+# without emitting pip's misleading broken-virtualenv warning.
+python -c $pipBootstrap install --upgrade pip --quiet
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  ERROR: pip upgrade failed." -ForegroundColor Red
+    exit 1
+}
+python -c $pipBootstrap install -e . --quiet
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  ERROR: Package installation failed." -ForegroundColor Red
     exit 1
