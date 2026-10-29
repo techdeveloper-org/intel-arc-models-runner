@@ -119,6 +119,7 @@ def test_dma_copy_falls_back_to_memcpy_for_host_and_shared_pointers(fake_env: py
         dst = ze.allocate_usm(64, "shared")
         ctypes.memset(src, 0x7E, 64)
         assert ze.dma_copy_async(dst, src, 64) == 0
+        assert ze.synchronize() == 0
         fake_env.setenv("FAKE_ZE_COPY_FAIL", "1")
         assert ze.dma_copy_async(dst, src, 64) == 1
         assert ctypes.string_at(dst, 64) == b"\x7e" * 64

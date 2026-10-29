@@ -1,3 +1,15 @@
+---
+doc_id: DOC-R04-REVIEW
+title: R04 - Secrets scan and dependency audit
+stage: S-G
+version: 1.0.0
+status: draft
+created: 2026-10-29
+updated: 2026-10-29
+authors: [library agent via main session]
+reviewers: [user]
+---
+
 # R04 - Secrets scan and dependency audit
 
 Branch `claude/nice-volta-bs7mnf` (85 commits, 2 local branches: this and `main`). Run date 2026-10-29.
@@ -131,3 +143,8 @@ Dev-only (not in runtime closure): pytest 9.2.0, pytest-asyncio 1.4.1, pytest-mo
 ## C. Verdicts
 - Secrets-detection-specialist: **PASS / APPROVED**, 0 verified secrets, 0 findings with P>=0.85 (no Bayesian scoring performed; zero candidates remained after content triage). 2 LOW hygiene notes (local path leak, historic binaries).
 - Dependency-vulnerability-analyst: **PASS / APPROVED on CVE gate** (0 known vulnerabilities, 0 KEV). Not a clean bill for reproducibility: D-1, D-2 and the Docker/CI pinning items are MED. SBOM was produced as the table above only (no CycloneDX/SPDX files generated, since the instruction was a table and the repo must not be modified); SBOM coverage metric not computed.
+
+## Revision history
+| Version | Date | Author | What changed | Why | Commit |
+|:--|:--|:--|:--|:--|:--|
+| 1.0.0 | 2026-10-29 | library agent via main session | first version | independent review wave A | pending |

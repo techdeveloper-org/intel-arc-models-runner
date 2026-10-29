@@ -70,6 +70,7 @@ struct ArcZeContext {
     atomic_int_fast32_t last_status;
     atomic_uint_fast32_t last_result;
     atomic_bool is_dead;
+    atomic_uint_fast32_t pending_cmds;
     atomic_flag table_lock;
     uint32_t alloc_count;
     ArcAllocRecord allocs[ARC_MAX_TRACKED_ALLOCS];
@@ -358,6 +359,7 @@ ARC_EXPORT ArcZeContext* arc_ze_init_ex(int32_t* out_status) {
     atomic_init(&ctx->last_status, ARC_ZE_OK);
     atomic_init(&ctx->last_result, 0);
     atomic_init(&ctx->is_dead, false);
+    atomic_init(&ctx->pending_cmds, 0);
     atomic_flag_clear(&ctx->table_lock);
     ctx->sync_timeout_ms = arc_configured_sync_timeout_ms();
 
@@ -416,28 +418,29 @@ static bool arc_track_alloc(ArcZeContext* ctx, void* ptr, size_t size_bytes, Arc
 }
 
 /**
- * @brief Look up a tracked allocation's type.
+ * @brief Check that [ptr, ptr + len) lies entirely inside one tracked allocation (overflow-safe).
  *
- * @param ctx Context owning the table.
- * @param ptr Address inside or at the start of a tracked allocation.
- * @param out_type Receives the residency type.
- * @return true if ptr lies inside a tracked allocation.
+ * The caller must hold the table lock.
+ *
+ * @param ctx Context.
+ * @param ptr Start address.
+ * @param len Length in bytes; must be positive.
+ * @param out_type Receives the allocation's residency type when found.
+ * @return true if the whole range is inside a single tracked allocation.
  */
-static bool arc_find_alloc(ArcZeContext* ctx, const void* ptr, ArcUsmType* out_type) {
-    bool found = false;
-    arc_table_lock(ctx);
+static bool arc_range_in_alloc_locked(const ArcZeContext* ctx, const void* ptr, size_t len, ArcUsmType* out_type) {
+    const uintptr_t p = (uintptr_t)ptr;
     for (uint32_t i = 0; i < ctx->alloc_count; ++i) {
-        const unsigned char* base = (const unsigned char*)ctx->allocs[i].ptr;
-        const unsigned char* p = (const unsigned char*)ptr;
-        if (p >= base && (size_t)(p - base) < ctx->allocs[i].size) {
+        const uintptr_t base = (uintptr_t)ctx->allocs[i].ptr;
+        const size_t size = ctx->allocs[i].size;
+        if (p >= base && (size_t)(p - base) <= size && len <= size - (size_t)(p - base)) {
             *out_type = ctx->allocs[i].type;
-            found = true;
-            break;
+            return true;
         }
     }
-    arc_table_unlock(ctx);
-    return found;
+    return false;
 }
+
 
 ARC_EXPORT void* arc_ze_alloc_usm(ArcZeContext* ctx, size_t size_bytes, ArcUsmType usm_type) {
     if (!ctx || !ctx->context_handle) {
@@ -491,18 +494,30 @@ ARC_EXPORT int arc_ze_dma_copy_async(ArcZeContext* ctx, void* dst, const void* s
 
     ze_result_t res = ctx->api.zeCommandListAppendMemoryCopy(ctx->cmdlist_handle, dst, src, size_bytes, NULL, 0, NULL);
     if (res == ZE_RESULT_SUCCESS) {
+        atomic_fetch_add_explicit(&ctx->pending_cmds, 1, memory_order_acq_rel);
         return arc_ze_set_status(ctx, ARC_ZE_OK);
     }
 
-    ArcUsmType dst_type = ARC_USM_DEVICE;
-    ArcUsmType src_type = ARC_USM_DEVICE;
-    bool dst_cpu_visible = arc_find_alloc(ctx, dst, &dst_type) && dst_type != ARC_USM_DEVICE;
-    bool src_cpu_visible = arc_find_alloc(ctx, src, &src_type) && src_type != ARC_USM_DEVICE;
-    if (dst_cpu_visible && src_cpu_visible) {
-        memcpy(dst, src, size_bytes);
-        atomic_store_explicit(&ctx->last_result, res, memory_order_relaxed);
-        arc_ze_set_status(ctx, ARC_ZE_OK);
-        return ARC_ZE_FALLBACK_MEMCPY;
+    /* The CPU fallback runs now, so it is only valid when no GPU command is queued ahead of it
+     * (otherwise it would reorder against them) and when both full ranges are CPU-visible
+     * allocations; the check and the copy share one critical section so a concurrent free cannot
+     * invalidate them in between. */
+    if (atomic_load_explicit(&ctx->pending_cmds, memory_order_acquire) == 0) {
+        ArcUsmType dst_type = ARC_USM_DEVICE;
+        ArcUsmType src_type = ARC_USM_DEVICE;
+        arc_table_lock(ctx);
+        const bool covered = arc_range_in_alloc_locked(ctx, dst, size_bytes, &dst_type) &&
+                             arc_range_in_alloc_locked(ctx, src, size_bytes, &src_type) &&
+                             dst_type != ARC_USM_DEVICE && src_type != ARC_USM_DEVICE;
+        if (covered) {
+            memmove(dst, src, size_bytes);
+        }
+        arc_table_unlock(ctx);
+        if (covered) {
+            atomic_store_explicit(&ctx->last_result, res, memory_order_relaxed);
+            arc_ze_set_status(ctx, ARC_ZE_OK);
+            return ARC_ZE_FALLBACK_MEMCPY;
+        }
     }
     return arc_ze_api_error(ctx, res);
 }
@@ -527,7 +542,10 @@ ARC_EXPORT int arc_ze_synchronize(ArcZeContext* ctx) {
 
     const uint64_t deadline = arc_now_ms() + ctx->sync_timeout_ms;
     for (;;) {
-        res = ctx->api.zeCommandQueueSynchronize(ctx->queue_handle, (uint64_t)ARC_SYNC_SLICE_MS * 1000000u);
+        const uint64_t now = arc_now_ms();
+        const uint64_t remaining = deadline > now ? deadline - now : 0;
+        const uint64_t slice_ms = remaining < ARC_SYNC_SLICE_MS ? remaining : ARC_SYNC_SLICE_MS;
+        res = ctx->api.zeCommandQueueSynchronize(ctx->queue_handle, slice_ms * 1000000u);
         if (res == ZE_RESULT_SUCCESS) {
             break;
         }
@@ -541,6 +559,7 @@ ARC_EXPORT int arc_ze_synchronize(ArcZeContext* ctx) {
         }
     }
 
+    atomic_store_explicit(&ctx->pending_cmds, 0, memory_order_release);
     res = ctx->api.zeCommandListReset(ctx->cmdlist_handle);
     return res == ZE_RESULT_SUCCESS ? arc_ze_set_status(ctx, ARC_ZE_OK) : arc_ze_api_error(ctx, res);
 }

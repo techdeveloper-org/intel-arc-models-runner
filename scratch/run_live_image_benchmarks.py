@@ -29,6 +29,7 @@ from arc_runner.benchmark.harness_common import (  # noqa: E402
     default_result_path,
     download_snapshot,
     gpu_context_lost,
+    retain_lost_engine,
     optional_sysman,
     select_tiers,
     target_device,
@@ -357,6 +358,7 @@ def collect_samples(
         got, lost = collect_tiers(spec["workloads"], alias, backend, make, failures)
         samples += got
         if lost:
+            retain_lost_engine(engine)
             continue
         engine.unload()
         del engine

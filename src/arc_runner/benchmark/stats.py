@@ -337,7 +337,10 @@ def evaluate_speedup_gate(
     if metric == "decode_tps" and roofline_tps is not None and median(arc_values) > roofline_tps:
         return ClaimGateResult(False, "median exceeds the roofline ceiling (SUSPECT)", n_arc=n_arc, n_ref=n_ref, is_suspect=True)
 
-    lo, hi = bootstrap_ratio_ci(arc_values, ref_values, seed=seed) if metric == "decode_tps" else bootstrap_ratio_ci(ref_values, arc_values, seed=seed)
+    try:
+        lo, hi = bootstrap_ratio_ci(arc_values, ref_values, seed=seed) if metric == "decode_tps" else bootstrap_ratio_ci(ref_values, arc_values, seed=seed)
+    except ValueError as exc:
+        return ClaimGateResult(False, f"ratio undefined: {exc}", n_arc=n_arc, n_ref=n_ref)
     passed = lo > 1.0
     reason = "ratio lower bound above 1.0" if passed else f"ratio lower bound {lo:.3f} does not clear 1.0"
     return ClaimGateResult(passed, reason, lo, hi, n_arc, n_ref)
@@ -376,7 +379,10 @@ def evaluate_noninferiority_gate(
             return ClaimGateResult(False, reason, n_arc=n_new, n_ref=n_old)
 
     new_values, old_values = _timed_values(new, metric), _timed_values(old, metric)
-    lo, hi = bootstrap_ratio_ci(new_values, old_values, seed=seed) if metric == "decode_tps" else bootstrap_ratio_ci(old_values, new_values, seed=seed)
+    try:
+        lo, hi = bootstrap_ratio_ci(new_values, old_values, seed=seed) if metric == "decode_tps" else bootstrap_ratio_ci(old_values, new_values, seed=seed)
+    except ValueError as exc:
+        return ClaimGateResult(False, f"ratio undefined: {exc}", n_arc=n_new, n_ref=n_old)
     passed = lo > 1.0 - margin
     reason = f"lower bound {lo:.3f} above {1.0 - margin:.3f}" if passed else f"lower bound {lo:.3f} is below {1.0 - margin:.3f}"
     return ClaimGateResult(passed, reason, lo, hi, n_new, n_old)

@@ -96,7 +96,7 @@ def test_stage_layer_allocation_refused_raises_native_layer_error() -> None:
         stager.stage_layer(0, _arrays())
 
 
-@pytest.mark.parametrize("kwargs", [{"copy_status": -5}, {"sync_status": -9}])
+@pytest.mark.parametrize("kwargs", [{"copy_status": -5}, {"sync_status": -5}])
 def test_stage_layer_failed_copy_or_sync_frees_buffer_and_raises(kwargs: Dict[str, int]) -> None:
     """A failed copy or bounded sync releases the USM buffer and surfaces the native status."""
     bridge = _FakeBridge(**kwargs)

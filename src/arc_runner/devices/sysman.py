@@ -204,11 +204,17 @@ def _loader_candidates() -> List[str]:
     return names
 
 
+def _enable_sysman_env() -> None:
+    """Set ZES_ENABLE_SYSMAN=1 unless the user chose a value; the loader reads it when Sysman is first used."""
+    os.environ.setdefault("ZES_ENABLE_SYSMAN", "1")
+
+
 def zes_preinit() -> None:
     """Initialise Sysman before any other Level Zero call in this process; failures are left to the queries.
 
     Call this before anything that runs zeInit (the native bridge does).
     """
+    _enable_sysman_env()
     for name in _loader_candidates():
         try:
             lib = ctypes.CDLL(name)
@@ -237,6 +243,7 @@ class LevelZeroSysman:
 
     def _load_library(self) -> None:
         """Attempt to load the Level Zero loader shared library across platforms."""
+        _enable_sysman_env()
         for lib_name in _loader_candidates():
             try:
                 self._lib = ctypes.CDLL(lib_name)

@@ -8,7 +8,7 @@ actually issued; the module never estimates bandwidth.
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 import numpy as np
 
@@ -19,6 +19,7 @@ logger = get_logger("engine.device_stager")
 
 STAGE_ALIGNMENT_BYTES = 64
 _COPY_FELL_BACK = 1
+_GPU_MAY_STILL_USE_MEMORY = frozenset({-9, -8})
 
 
 @dataclass
@@ -80,6 +81,8 @@ class DeviceLayerStager:
         self._bridge = bridge
         self._usm_type = usm_type
         self._lock = threading.Lock()
+        self._submit_lock = threading.Lock()
+        self._retained: List[Tuple[int, Any]] = []
         self._staged: Dict[int, StagedLayer] = {}
         self._layers = 0
         self._bytes = 0
@@ -112,27 +115,31 @@ class DeviceLayerStager:
         total = max(cursor, STAGE_ALIGNMENT_BYTES)
 
         started = time.monotonic()
-        ptr = self._bridge.allocate_usm(total, self._usm_type)
-        if not ptr:
-            raise NativeLayerError(f"USM allocation of {total} bytes refused for layer {layer_idx}", -5)
+        with self._submit_lock:
+            ptr = self._bridge.allocate_usm(total, self._usm_type)
+            if not ptr:
+                raise NativeLayerError(f"USM allocation of {total} bytes refused for layer {layer_idx}", -5)
 
-        fallbacks = 0
-        try:
-            for name, array in contiguous.items():
-                offset, size = extents[name]
-                if size == 0:
-                    continue
-                status = int(self._bridge.dma_copy_async(ptr + offset, array.ctypes.data, size))
-                if status < 0:
-                    raise NativeLayerError(f"DMA copy of '{name}' failed for layer {layer_idx}", status)
-                if status == _COPY_FELL_BACK:
-                    fallbacks += 1
-            sync_status = int(self._bridge.synchronize())
-            if sync_status < 0:
-                raise NativeLayerError(f"Synchronize failed while staging layer {layer_idx}", sync_status)
-        except NativeLayerError:
-            self._bridge.free_usm(ptr)
-            raise
+            fallbacks = 0
+            try:
+                for name, array in contiguous.items():
+                    offset, size = extents[name]
+                    if size == 0:
+                        continue
+                    status = int(self._bridge.dma_copy_async(ptr + offset, array.ctypes.data, size))
+                    if status < 0:
+                        raise NativeLayerError(f"DMA copy of '{name}' failed for layer {layer_idx}", status)
+                    if status == _COPY_FELL_BACK:
+                        fallbacks += 1
+                sync_status = int(self._bridge.synchronize())
+                if sync_status < 0:
+                    raise NativeLayerError(f"Synchronize failed while staging layer {layer_idx}", sync_status)
+            except NativeLayerError as exc:
+                if exc.native_status in _GPU_MAY_STILL_USE_MEMORY:
+                    self._retained.append((ptr, contiguous))
+                else:
+                    self._bridge.free_usm(ptr)
+                raise
         elapsed = time.monotonic() - started
 
         staged = StagedLayer(layer_idx=layer_idx, ptr=ptr, size_bytes=total, extents=extents)
@@ -169,6 +176,17 @@ class DeviceLayerStager:
             staged = self._staged.pop(layer_idx, None)
         if staged is not None:
             self._bridge.free_usm(staged.ptr)
+
+    def retained_after_failure(self) -> int:
+        """Count buffers deliberately kept after a timeout or dead context.
+
+        After a synchronize timeout the GPU may still read the source arrays and write the buffer, so
+        neither is released; the memory is reclaimed when the Level Zero context is destroyed.
+
+        Returns:
+            int: Number of retained buffers.
+        """
+        return len(self._retained)
 
     def stats(self) -> StagingStats:
         """Return the counters accumulated so far.

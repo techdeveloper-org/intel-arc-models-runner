@@ -170,11 +170,14 @@ def test_n1_mmap_nonexistent_file(tmp_path: Path) -> None:
 
 
 def test_n2_get_tensor_invalid_layer(sample_gguf: Path) -> None:
-    """N2: Verify get_tensor_buffer returns None on out-of-range layer index."""
+    """N2: get_tensor_buffer rejects an out-of-range layer index instead of narrowing it (R01 D8)."""
+    from arc_runner.core.exceptions import NativeBoundsError
+
     mgr = FlashStreamWeightManager(sample_gguf)
     engine = mgr._native_engine
-    buf = engine.get_tensor_buffer(9999, "nonexistent.weight")
-    assert buf is None
+    with pytest.raises(NativeBoundsError):
+        engine.get_tensor_buffer(9999, "nonexistent.weight")
+    assert engine.get_tensor_buffer(5, "nonexistent.weight") is None
     mgr.close()
 
 

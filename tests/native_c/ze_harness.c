@@ -193,11 +193,21 @@ static void test_dma_copy_and_fallback(void) {
     CHECK(arc_ze_dma_copy_async(NULL, shared, host, 64) == ARC_ZE_ERR_INVALID_ARG);
 
     setenv("FAKE_ZE_COPY_FAIL", "1", 1);
+    /* a queued GPU copy is still pending: a CPU fallback would reorder against it, so it is refused */
+    CHECK(arc_ze_dma_copy_async(ctx, shared, host, 64) == ARC_ZE_ERR_API);
+    unsetenv("FAKE_ZE_COPY_FAIL");
+    CHECK(arc_ze_synchronize(ctx) == ARC_ZE_OK);
+    setenv("FAKE_ZE_COPY_FAIL", "1", 1);
     CHECK(arc_ze_dma_copy_async(ctx, shared, host, 64) == ARC_ZE_FALLBACK_MEMCPY);
     CHECK(memcmp(shared, host, 64) == 0);
     CHECK(arc_ze_dma_copy_async(ctx, device, host, 64) == ARC_ZE_ERR_API);
     char untracked[64];
     CHECK(arc_ze_dma_copy_async(ctx, untracked, host, 64) == ARC_ZE_ERR_API);
+    /* the whole range must lie inside both allocations (start pointer alone is not enough) */
+    CHECK(arc_ze_dma_copy_async(ctx, shared, host, 4096) == ARC_ZE_ERR_API);
+    CHECK(arc_ze_dma_copy_async(ctx, shared + 40, host, 32) == ARC_ZE_ERR_API);
+    CHECK(arc_ze_dma_copy_async(ctx, shared, host + 40, 32) == ARC_ZE_ERR_API);
+    CHECK(arc_ze_dma_copy_async(ctx, shared, host, (size_t)-1) == ARC_ZE_ERR_API);
     reset_env();
     arc_ze_destroy(ctx);
 }

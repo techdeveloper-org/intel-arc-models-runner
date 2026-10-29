@@ -74,6 +74,19 @@ def download_snapshot(repo_id: str, dest_dir: Path, marker_files: Sequence[str])
 
 
 GPU_CONTEXT_LOST_MARKER = "CL_OUT_OF_RESOURCES"
+RETAINED_ENGINES: List[Any] = []
+
+
+def retain_lost_engine(engine: Any) -> None:
+    """Keep an engine whose GPU context was lost alive for the rest of the process.
+
+    Dropping the last reference would run the OpenVINO destructors, which issue OpenCL calls that may
+    hang after CL_OUT_OF_RESOURCES; the process leaves through os._exit instead.
+
+    Args:
+        engine: Engine that hit CL_OUT_OF_RESOURCES.
+    """
+    RETAINED_ENGINES.append(engine)
 
 
 def select_tiers(spec: Dict[str, Any], tiers: Optional[str]) -> Dict[str, Any]:
@@ -90,7 +103,7 @@ def select_tiers(spec: Dict[str, Any], tiers: Optional[str]) -> Dict[str, Any]:
         ValueError: If a requested tier does not exist.
     """
     if not tiers:
-        return spec
+        return {**spec, "workloads": dict(spec["workloads"])}
     wanted = [name.strip() for name in tiers.split(",") if name.strip()]
     unknown = [name for name in wanted if name not in spec["workloads"]]
     if unknown:
@@ -141,7 +154,11 @@ def collect_tiers(
         try:
             samples += make_samples(workload, model_id)
         except Exception as exc:
-            failures.append({"model_id": model_id, "backend": backend, "error": str(exc)[:500]})
-            if GPU_CONTEXT_LOST_MARKER in str(exc):
+            lost = GPU_CONTEXT_LOST_MARKER in str(exc)
+            text = str(exc)
+            if lost and GPU_CONTEXT_LOST_MARKER not in text[:500]:
+                text = f"{GPU_CONTEXT_LOST_MARKER}: {text}"
+            failures.append({"model_id": model_id, "backend": backend, "error": text[:500]})
+            if lost:
                 return samples, True
     return samples, False
