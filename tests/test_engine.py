@@ -199,7 +199,9 @@ def test_openvino_engine_mock_synchronous_generation(tmp_path: Path) -> None:
     assert result == "Hello from Intel Arc!"
     telemetry = engine.get_telemetry()
     assert telemetry.device == "GPU"
-    assert telemetry.total_tokens > 0
+    assert telemetry.metrics_source == "unavailable"
+    assert telemetry.total_tokens == 0
+    assert telemetry.is_tps_valid is False
 
 
 def test_openvino_engine_mock_streaming_generation(tmp_path: Path) -> None:

@@ -116,7 +116,8 @@ def test_speculative_generate_synchronous_success(tmp_path: Path) -> None:
             telemetry = engine.get_telemetry()
             assert telemetry.is_speculative is True
             assert telemetry.draft_device == "NPU"
-            assert telemetry.tokens_per_second > 0.0
+            assert telemetry.metrics_source == "unavailable"
+            assert telemetry.is_tps_valid is False
 
 
 def test_speculative_generate_stream_tokens_emitted(tmp_path: Path) -> None:
@@ -149,7 +150,7 @@ def test_speculative_generate_stream_tokens_emitted(tmp_path: Path) -> None:
 
 
 def test_speculative_telemetry_metrics_computed(tmp_path: Path) -> None:
-    """Assert that EngineTelemetry computes speedup and acceptance rate metrics correctly."""
+    """Assert that speculative telemetry never reports invented acceptance or speedup values."""
     target_dir = tmp_path / "target"
     draft_dir = tmp_path / "draft"
     target_dir.mkdir()
@@ -166,10 +167,11 @@ def test_speculative_telemetry_metrics_computed(tmp_path: Path) -> None:
 
             telem = engine.get_telemetry()
             assert telem.is_speculative is True
-            assert telem.draft_tokens_total > 0
-            assert telem.accepted_tokens_total > 0
-            assert telem.acceptance_rate > 0.0
-            assert telem.speculative_speedup >= 1.0
+            assert telem.metrics_source == "unavailable"
+            assert telem.draft_tokens_total == 0
+            assert telem.accepted_tokens_total == 0
+            assert telem.acceptance_rate == 0.0
+            assert telem.speculative_speedup == 1.0
 
 
 def test_dynamic_gamma_adaptation_step(tmp_path: Path) -> None:

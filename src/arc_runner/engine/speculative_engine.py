@@ -21,6 +21,7 @@ from arc_runner.core.exceptions import (
 )
 from arc_runner.engine.base import BaseEngine
 from arc_runner.engine.kv_cache import KVCacheManager
+from arc_runner.engine.telemetry import telemetry_from_perf_metrics, telemetry_from_stream, telemetry_unavailable
 from arc_runner.engine.models import (
     EngineTelemetry,
     GenerationConfig,
@@ -333,33 +334,26 @@ class HybridSpeculativeEngine(BaseEngine):
         )
         elapsed_sec = max(time.monotonic() - start_time, 1e-6)
 
-        text_result = str(raw_result)
-        approx_tokens = max(len(text_result.split()), 1)
-
         is_spec = bool(self._spec_config and self._draft_model_path)
-        draft_tokens = int(approx_tokens * 0.8) if is_spec else 0
-        accepted_tokens = int(draft_tokens * 0.72) if is_spec else 0
-        acceptance_rate = (
-            accepted_tokens / float(draft_tokens) if draft_tokens > 0 else 0.0
-        )
-        speedup = 1.0 + (acceptance_rate * 0.9) if is_spec else 1.0
-
-        self._adapt_gamma(accepted_tokens, draft_tokens)
-
-        self._telemetry = EngineTelemetry(
-            model_id=self._model_path,
-            device=self._device,
-            ttft_ms=elapsed_sec * 400.0,
-            tokens_per_second=approx_tokens / elapsed_sec,
-            total_tokens=approx_tokens,
-            total_latency_ms=elapsed_sec * 1000.0,
-            is_speculative=is_spec,
-            draft_device=self._draft_device if is_spec else "",
-            draft_tokens_total=draft_tokens,
-            accepted_tokens_total=accepted_tokens,
-            acceptance_rate=acceptance_rate,
-            speculative_speedup=speedup,
-        )
+        if hasattr(raw_result, "texts") and hasattr(raw_result, "perf_metrics"):
+            text_result = raw_result.texts[0] if raw_result.texts else ""
+            self._telemetry = telemetry_from_perf_metrics(
+                raw_result.perf_metrics,
+                self._model_path,
+                self._device,
+                elapsed_sec,
+                is_speculative=is_spec,
+                draft_device=self._draft_device if is_spec else "",
+            )
+        else:
+            text_result = str(raw_result)
+            self._telemetry = telemetry_unavailable(
+                self._model_path,
+                self._device,
+                elapsed_sec,
+                is_speculative=is_spec,
+                draft_device=self._draft_device if is_spec else "",
+            )
 
         return text_result
 
@@ -491,40 +485,16 @@ class HybridSpeculativeEngine(BaseEngine):
             raise worker_error[0]
 
         end_time = time.monotonic()
-        total_sec = max(end_time - start_time, 1e-6)
-        ttft = (
-            (first_token_time - start_time) * 1000.0
-            if first_token_time
-            else total_sec * 400.0
-        )
-        decode_speed = generated_count / max(
-            end_time - (first_token_time or start_time),
-            1e-6,
-        )
-
         is_spec = bool(self._spec_config and self._draft_model_path)
-        draft_tokens = int(generated_count * 0.8) if is_spec else 0
-        accepted_tokens = int(draft_tokens * 0.72) if is_spec else 0
-        acceptance_rate = (
-            accepted_tokens / float(draft_tokens) if draft_tokens > 0 else 0.0
-        )
-        speedup = 1.0 + (acceptance_rate * 0.9) if is_spec else 1.0
-
-        self._adapt_gamma(accepted_tokens, draft_tokens)
-
-        self._telemetry = EngineTelemetry(
-            model_id=self._model_path,
-            device=self._device,
-            ttft_ms=ttft,
-            tokens_per_second=decode_speed,
-            total_tokens=generated_count,
-            total_latency_ms=total_sec * 1000.0,
+        self._telemetry = telemetry_from_stream(
+            self._model_path,
+            self._device,
+            start_time,
+            end_time,
+            first_token_time,
+            generated_count,
             is_speculative=is_spec,
             draft_device=self._draft_device if is_spec else "",
-            draft_tokens_total=draft_tokens,
-            accepted_tokens_total=accepted_tokens,
-            acceptance_rate=acceptance_rate,
-            speculative_speedup=speedup,
         )
 
         finish_reason = (

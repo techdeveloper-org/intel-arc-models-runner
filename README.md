@@ -328,27 +328,32 @@ python scratch/run_live_real_models_benchmark_and_compare.py
 
 Results are saved to `scratch/live_real_models_benchmark_results.json`.
 
-**Live Empirical Results (Intel Core Ultra, Xe-LPG iGPU vs Ollama CPU):**
+**Measured results in `scratch/live_real_models_benchmark_results.json` (Intel Core Ultra, Ollama on CPU):**
 
-| Model | Complexity | arc-runner (Arc Xe-LPG) | Ollama (CPU) | Advantage |
-|:---|:---|:---:|:---:|:---|
-| Llama-3.2-3B INT4 | Low | 54.2 tok/s, 165 ms TTFT | 18.0 tok/s, 1,129 ms TTFT | **3.00× Faster, 6.8× TTFT** ⚡ |
-| Llama-3.2-3B INT4 | Medium | 54.2 tok/s, 165 ms TTFT | 20.5 tok/s, 666 ms TTFT | **2.64× Faster** ⚡ |
-| Llama-3.2-3B INT4 | Hard | 54.2 tok/s, 165 ms TTFT | 17.4 tok/s, 834 ms TTFT | **3.11× Faster** 🚀 |
-| Qwen-2.5-1.5B INT4 | Low | 12.2 tok/s, 285 ms TTFT | 24.2 tok/s, 503 ms TTFT | **1.76× TTFT Advantage** |
-| Qwen-2.5-1.5B INT4 | Medium | 21.4 tok/s, 2,337 ms TTFT | 30.2 tok/s, 502 ms TTFT | **2.0× Energy Efficiency** 🌱 |
-| TinyLlama-1.1B INT4 | Low | 30.1 tok/s, 565 ms TTFT | 44.2 tok/s, 372 ms TTFT | **Energy Yield Winner** 🌱 |
-| **Qwen-2.5-32B** | All tiers | **14.4 tok/s, 843 MB RAM** | **CRASH: OOM ENOMEM** | **∞ — Only arc-runner runs!** 🚀 |
-| **Qwen-2.5-72B** | All tiers | **13.8 tok/s, 843 MB RAM** | **CRASH: OOM ENOMEM** | **∞ — 41 GB on 16 GB device!** 🚀 |
+| Model | Complexity | arc-runner (Arc Xe-LPG) | Ollama (CPU) |
+|:---|:---|:---:|:---:|
+| Llama-3.2-3B INT4 | Low | not measured in this run | 14.7 tok/s, 2,238 ms TTFT |
+| Llama-3.2-3B INT4 | Medium | not measured in this run | 17.6 tok/s, 70 ms TTFT |
+| Llama-3.2-3B INT4 | Hard | not measured in this run | 17.4 tok/s, 959 ms TTFT |
+| Qwen-2.5-1.5B INT4 | All tiers | not measured | not measured |
+| TinyLlama-1.1B INT4 | All tiers | not measured | not measured |
 
-> **Key insight**: On large models (32B/72B), Ollama crashes with `OOM ENOMEM` because it tries to
-> load the full weight matrix into host RAM. `arc-runner` FlashStream loads only 3 layers at a time
-> (ring-buffered), maintaining a **constant 843 MB RAM footprint** — running models 2.67× larger
-> than available physical RAM with zero swap usage.
+> **Provenance notice:** earlier versions of this table showed arc-runner figures (for example 54.2 tok/s and
+> 165 ms TTFT for every tier) that came from a hard-coded reference row, not from a measurement, and Ollama
+> figures that do not match the stored JSON. They were removed. arc-runner rows stay empty until the benchmark
+> is rerun on real hardware; values will then be generated from the JSON with their source label.
+>
+> **Heavy models (32B/72B):** the FlashStream results in the JSON were produced on a synthetic 8-layer,
+> hidden-size-32 container, not on real 32B/72B weights, and the Ollama out-of-memory outcome was not run. No
+> throughput or RAM figure for real 32B/72B models is claimed until it is measured.
 
 ---
 
 ## 📊 Benchmark Highlights: Intel Arc vs. Ollama CPU
+
+> **Provenance notice:** the figures in this table were not produced by the current benchmark harness. The
+> "Discrete Arc A770" column is for hardware that is not part of the testbed and is therefore a projection, not a
+> measurement. All values here are unverified until they are re-measured; see [`docs/plans/MASTER_PLAN_v4.md`](docs/plans/MASTER_PLAN_v4.md) section 18.
 
 When Ollama runs on Intel Core Ultra systems, it silently falls back to 100% CPU execution. `intel-arc-models-runner` unleashes native GPU and NPU acceleration:
 
