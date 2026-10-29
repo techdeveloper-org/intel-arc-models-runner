@@ -2,7 +2,7 @@
 doc_id: DOC-INDEX
 title: Delivery document index
 stage: all
-version: 1.3.0
+version: 1.4.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-29
@@ -26,7 +26,17 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-SE-STAGE | Slice S-E - benchmark protocol, statistics, and provenance | 1.0.0 | draft | S-E | stages/S-E-benchmarks/STAGE.md |
 | DOC-SF-STAGE | Slice S-F - documentation, version, CI, and checks | 1.0.0 | draft | S-F | stages/S-F-docs-and-release-prep/STAGE.md |
 | DOC-SG-STAGE | Slice S-G - remaining technical items | 1.1.0 | draft | S-G | stages/S-G-remaining-items/STAGE.md |
-| DOC-INDEX | Delivery document index | 1.3.0 | draft | all | INDEX.md |
+| DOC-R01-REVIEW | R01 - Independent review of the native C layer and ctypes bridge | 1.0.0 | draft | S-G | reviews/R01_c_native_review.md |
+| DOC-R02-REVIEW | R02 - STRIDE threat model with attack trees | 1.0.0 | draft | S-G | reviews/R02_threat_model.md |
+| DOC-R03-REVIEW | R03 SAST review: src/arc_runner (Python) and src/arc_runner/native (C) | 1.0.0 | draft | S-G | reviews/R03_sast.md |
+| DOC-R04-REVIEW | R04 - Secrets scan and dependency audit | 1.0.0 | draft | S-G | reviews/R04_secrets_and_dependencies.md |
+| DOC-R05-REVIEW | R05 - TLA+ review of RingSlots against the ring-buffer weight streamer | 1.0.0 | draft | S-G | reviews/R05_tla_review.md |
+| DOC-R06-REVIEW | R06 Independent test authorship (integration-testing-engineer + testing-mathematics-expert) | 1.0.0 | draft | S-G | reviews/R06_independent_tests.md |
+| DOC-R08-REVIEW | R08 Benchmark methodology review | 1.0.0 | draft | S-G | reviews/R08_benchmark_methodology.md |
+| DOC-R09-REVIEW | R09 - Level Zero / Sysman / OpenVINO device handling: second opinion | 1.0.0 | draft | S-G | reviews/R09_gpu_driver_second_opinion.md |
+| DOC-R10-REVIEW | R10 Release-readiness review for v0.2.0 (nothing tagged, published or pushed) | 1.0.0 | draft | S-G | reviews/R10_release_readiness.md |
+| DOC-R07-REVIEW | R07 Faithfulness audit of repository claims | 1.0.0 | draft | S-G | reviews/R07_faithfulness_audit.md |
+| DOC-INDEX | Delivery document index | 1.4.0 | draft | all | INDEX.md |
 
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
@@ -35,3 +45,4 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | 1.1.0 | 2026-10-29 | main session | added S-G stage | remaining technical items | pending |
 | 1.2.0 | 2026-10-29 | main session | traceability to 1.1.0 | plan test-list audit | pending |
 | 1.3.0 | 2026-10-29 | main session | S-G stage to 1.1.0 | E5, E6, audit | pending |
+| 1.4.0 | 2026-10-29 | main session | listed review reports R01-R10 | independent review wave A | pending |

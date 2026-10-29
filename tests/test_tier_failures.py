@@ -7,6 +7,7 @@ from typing import Any, List
 
 import pytest
 
+from arc_runner.benchmark import harness_common
 from arc_runner.benchmark.harness_common import GPU_CONTEXT_LOST_MARKER, collect_tiers, select_tiers
 from arc_runner.benchmark.results import validate_result
 from arc_runner.benchmark.workloads import export_workload_result
@@ -94,6 +95,7 @@ def test_scripts_keep_earlier_tiers_and_skip_unload_when_gpu_context_is_lost(scr
     assert {s.model_id for s in gpu} == {f"{alias}/{tiers[0]}"}
     assert len(cpu) == len(tiers)
     assert unloads == ["CPU"]
+    assert any(isinstance(e, _Engine) and e.device == "GPU" for e in harness_common.RETAINED_ENGINES)
     assert failures and GPU_CONTEXT_LOST_MARKER in failures[0]["error"]
     assert module.gpu_context_lost(failures) is True
 

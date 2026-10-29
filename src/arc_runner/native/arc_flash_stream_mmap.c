@@ -221,7 +221,7 @@ ARC_EXPORT ArcMmapContext* arc_mmap_open(const char* utf8_path, int32_t* out_sta
         return arc_open_fail(out_status, ARC_ERR_OPEN_FAILED);
     }
 
-    ctx->file_handle = (void*)(intptr_t)fd;
+    ctx->file_handle = (void*)((intptr_t)fd + 1); /* fd + 1 so that descriptor 0 is distinguishable from "no file" */
     ctx->map_handle = NULL;
     ctx->base_ptr = (uint8_t*)base_ptr;
     ctx->file_size = (uint64_t)sb.st_size;
@@ -442,7 +442,7 @@ ARC_EXPORT void arc_mmap_close(ArcMmapContext* ctx) {
         munmap(ctx->base_ptr, (size_t)ctx->file_size);
     }
     if (ctx->file_handle) {
-        close((int)(intptr_t)ctx->file_handle);
+        close((int)((intptr_t)ctx->file_handle - 1));
     }
 #endif
 

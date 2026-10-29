@@ -18,6 +18,29 @@ from arc_runner.quant.models import GGUFHeader, GGUFSummary, GGUFTensorInfo, GGU
 logger = get_logger(__name__)
 
 GGUF_MAX_DIMENSIONS = 4
+GGUF_MAX_ARRAY_DEPTH = 8
+GGUF_MAX_ALIGNMENT = 1 << 20
+
+
+def _enum_or_error(enum_cls: Any, raw: int, what: str, stream: BinaryIO) -> Any:
+    """Convert a raw integer into an enum member or raise a typed parse error.
+
+    Args:
+        enum_cls: Enum class to convert into.
+        raw: Integer read from the file.
+        what: Description for the error message.
+        stream: Stream whose position is reported.
+
+    Returns:
+        Any: The enum member.
+
+    Raises:
+        GGUFParseError: If raw is not a member of the enum.
+    """
+    try:
+        return enum_cls(raw)
+    except ValueError:
+        raise GGUFParseError(f"Unsupported {what} id {raw}", stream.tell()) from None
 
 
 def _bytes_remaining(stream: BinaryIO) -> int:
@@ -154,7 +177,7 @@ class GGUFParser:
         string_bytes = _read_declared(stream, length, "Truncated string")
         return string_bytes.decode("utf-8", errors="replace")
 
-    def _read_value(self, stream: BinaryIO, value_type: GGUFValueType) -> Any:
+    def _read_value(self, stream: BinaryIO, value_type: GGUFValueType, depth: int = 0) -> Any:
         """Deserialize typed scalar or composite value from binary stream.
 
         Args:
@@ -227,9 +250,11 @@ class GGUFParser:
             if len(type_bytes) < 4 or len(len_bytes) < 8:
                 raise GGUFParseError("EOF reading ARRAY metadata", stream.tell())
             elem_type_int = struct.unpack("<I", type_bytes)[0]
-            elem_type = GGUFValueType(elem_type_int)
+            if depth >= GGUF_MAX_ARRAY_DEPTH:
+                raise GGUFParseError(f"Arrays nested deeper than {GGUF_MAX_ARRAY_DEPTH} levels", stream.tell())
+            elem_type = _enum_or_error(GGUFValueType, elem_type_int, "array element type", stream)
             array_len = struct.unpack("<Q", len_bytes)[0]
-            return [self._read_value(stream, elem_type) for _ in range(array_len)]
+            return [self._read_value(stream, elem_type, depth + 1) for _ in range(array_len)]
 
         raise GGUFParseError(f"Unsupported GGUF value type {value_type}", stream.tell())
 
@@ -250,7 +275,7 @@ class GGUFParser:
             if len(type_bytes) < 4:
                 raise GGUFParseError(f"EOF reading value type for metadata key '{key}'", stream.tell())
             val_type_int = struct.unpack("<I", type_bytes)[0]
-            val_type = GGUFValueType(val_type_int)
+            val_type = _enum_or_error(GGUFValueType, val_type_int, "metadata value type", stream)
             val = self._read_value(stream, val_type)
             metadata[key] = val
         return metadata
@@ -282,7 +307,7 @@ class GGUFParser:
             if len(type_bytes) < 4 or len(offset_bytes) < 8:
                 raise GGUFParseError(f"EOF reading type and offset for tensor '{name}'", stream.tell())
             tensor_type_int = struct.unpack("<I", type_bytes)[0]
-            tensor_type = GGMLType(tensor_type_int)
+            tensor_type = _enum_or_error(GGMLType, tensor_type_int, "tensor type", stream)
             offset = struct.unpack("<Q", offset_bytes)[0]
 
             tensor_list.append(
@@ -300,6 +325,8 @@ class GGUFParser:
         """Perform full parse of container header, metadata, and tensor info table."""
         if not self.path.exists():
             raise InvalidGGUFError(f"File not found: {self.path}", file_path=str(self.path))
+        if not self.path.is_file():
+            raise InvalidGGUFError(f"Not a regular file: {self.path}", file_path=str(self.path))
 
         with open(self.path, "rb") as f:
             self._header = self.parse_header(f)
@@ -307,6 +334,8 @@ class GGUFParser:
             self._tensor_info = self.parse_tensor_info(f, self._header.tensor_count)
 
             alignment = self._metadata.get("general.alignment", GGUF_DEFAULT_ALIGNMENT)
+            if isinstance(alignment, bool) or not isinstance(alignment, int) or not 1 <= alignment <= GGUF_MAX_ALIGNMENT or alignment & (alignment - 1):
+                raise GGUFParseError(f"general.alignment must be a power of two in [1, {GGUF_MAX_ALIGNMENT}], got {alignment!r}", f.tell())
             current_pos = f.tell()
             remainder = current_pos % alignment
             self._data_offset = current_pos if remainder == 0 else current_pos + (alignment - remainder)

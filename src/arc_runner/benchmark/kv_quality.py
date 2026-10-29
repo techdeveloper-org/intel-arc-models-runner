@@ -9,7 +9,6 @@ perplexity, which need logits the pipeline does not expose. Passing does not cha
 
 from dataclasses import asdict, dataclass
 import json
-import math
 from pathlib import Path
 from typing import Any, Callable, List, Sequence
 
@@ -141,7 +140,7 @@ def compare_kv_precision(
         exact = ref == cand
         comparisons.append(PromptComparison(prompt, len(ref), len(cand), prefix, exact, exact or prefix >= needed))
     pass_count = sum(1 for c in comparisons if c.passes)
-    passed = pass_count >= math.ceil(required_pass_fraction * len(comparisons))
+    passed = pass_count * 1.0 >= required_pass_fraction * len(comparisons) - 1e-9
     return KvQualityReport(
         comparisons, min_prefix_tokens, required_pass_fraction, pass_count, sum(1 for c in comparisons if c.exact_match), passed
     )

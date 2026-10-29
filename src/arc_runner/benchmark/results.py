@@ -113,6 +113,74 @@ def build_result(
     return document
 
 
+def _is_int(value: Any, minimum: int) -> bool:
+    """Tell whether a value is a real integer (not bool, not float) at or above a minimum.
+
+    Args:
+        value: Candidate.
+        minimum: Smallest allowed value.
+
+    Returns:
+        bool: True for an int >= minimum.
+    """
+    return isinstance(value, int) and not isinstance(value, bool) and value >= minimum
+
+
+def _is_number(value: Any) -> bool:
+    """Tell whether a value is a finite, non-negative real number (not bool).
+
+    Args:
+        value: Candidate.
+
+    Returns:
+        bool: True for a finite number >= 0.
+    """
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0
+
+
+def _validate_environment_and_protocol(document: Dict[str, Any]) -> List[str]:
+    """Check the environment and protocol blocks against the published schema.
+
+    Args:
+        document: Document whose environment and protocol keys exist.
+
+    Returns:
+        List[str]: Problems found; never raises on malformed input.
+    """
+    problems: List[str] = []
+    environment, protocol = document["environment"], document["protocol"]
+    if not isinstance(environment, dict):
+        problems.append("environment must be an object")
+    else:
+        for key in _ENVIRONMENT_REQUIRED:
+            if key not in environment:
+                problems.append(f"environment missing {key}")
+            elif not isinstance(environment[key], str):
+                problems.append(f"environment.{key} must be a string")
+        for key in ("openvino_genai", "ollama_version"):
+            if environment.get(key) is not None and not isinstance(environment[key], str):
+                problems.append(f"environment.{key} must be a string or null")
+        if "driver_versions" in environment and not isinstance(environment["driver_versions"], dict):
+            problems.append("environment.driver_versions must be an object")
+        if environment.get("on_ac_power") is not None and not isinstance(environment["on_ac_power"], bool):
+            problems.append("environment.on_ac_power must be a boolean or null")
+    if not isinstance(protocol, dict):
+        problems.append("protocol must be an object")
+        return problems
+    problems += [f"protocol missing {k}" for k in _PROTOCOL_REQUIRED if k not in protocol]
+    if "warmup_runs" in protocol and not _is_int(protocol["warmup_runs"], 0):
+        problems.append("protocol.warmup_runs must be an integer >= 0")
+    if "timed_runs" in protocol and not _is_int(protocol["timed_runs"], 1):
+        problems.append("protocol.timed_runs must be an integer >= 1")
+    if "labels" in protocol and not isinstance(protocol["labels"], dict):
+        problems.append("protocol.labels must be an object")
+    if "max_new_tokens" in protocol and not _is_int(protocol["max_new_tokens"], 1):
+        problems.append("protocol.max_new_tokens must be an integer >= 1")
+    if "temperature" in protocol and (isinstance(protocol["temperature"], bool) or not isinstance(protocol["temperature"], (int, float)) or not math.isfinite(protocol["temperature"])):
+        problems.append("protocol.temperature must be a finite number")
+    return problems
+
+
 def validate_result(document: Any) -> List[str]:
     """Check a result document against the schema-v1 rules.
 
@@ -120,7 +188,7 @@ def validate_result(document: Any) -> List[str]:
         document: Parsed JSON value.
 
     Returns:
-        List[str]: Human-readable problems; empty if the document is valid.
+        List[str]: Human-readable problems; empty if the document is valid. Never raises on malformed input.
     """
     problems: List[str] = []
     if not isinstance(document, dict):
@@ -130,10 +198,13 @@ def validate_result(document: Any) -> List[str]:
             problems.append(f"missing key: {key}")
     if problems:
         return problems
-    if document["schema_version"] != SCHEMA_VERSION:
+    if document["schema_version"] is not SCHEMA_VERSION and not (type(document["schema_version"]) is int and document["schema_version"] == SCHEMA_VERSION):
         problems.append(f"schema_version must be {SCHEMA_VERSION}")
-    problems += [f"environment missing {k}" for k in _ENVIRONMENT_REQUIRED if k not in document["environment"]]
-    problems += [f"protocol missing {k}" for k in _PROTOCOL_REQUIRED if k not in document["protocol"]]
+    if not isinstance(document["run_id"], str) or not document["run_id"]:
+        problems.append("run_id must be a non-empty string")
+    if not isinstance(document["created_utc"], str):
+        problems.append("created_utc must be a string")
+    problems += _validate_environment_and_protocol(document)
     failures = document.get("failures")
     if failures is not None:
         if not isinstance(failures, list) or not all(
@@ -142,8 +213,9 @@ def validate_result(document: Any) -> List[str]:
             problems.append("failures must be a list of {model_id, backend, error} strings")
     if not isinstance(document["samples"], list):
         return problems + ["samples must be a list"]
-    if any(isinstance(row, dict) and row.get("workload", "llm") == "llm" for row in document["samples"]):
-        problems += [f"protocol missing {k}" for k in _PROTOCOL_REQUIRED_LLM if k not in document["protocol"]]
+    protocol = document["protocol"]
+    if isinstance(protocol, dict) and any(isinstance(row, dict) and row.get("workload", "llm") == "llm" for row in document["samples"]):
+        problems += [f"protocol missing {k}" for k in _PROTOCOL_REQUIRED_LLM if k not in protocol]
     for index, sample in enumerate(document["samples"]):
         problems += _validate_sample(index, sample)
     return problems
@@ -164,12 +236,17 @@ def _validate_sample(index: int, sample: Any) -> List[str]:
     problems = [f"samples[{index}] missing {k}" for k in _SAMPLE_REQUIRED if k not in sample]
     if problems:
         return problems
-    if sample["source"] not in ALLOWED_SOURCES:
+    if not isinstance(sample["source"], str) or sample["source"] not in ALLOWED_SOURCES:
         problems.append(f"samples[{index}].source must be one of {ALLOWED_SOURCES}, got {sample['source']!r}")
     for key in ("ttft_ms", "decode_tps"):
         value = sample[key]
-        if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0):
-            problems.append(f"samples[{index}].{key} must be null or a non-negative number")
+        if value is not None and not _is_number(value):
+            problems.append(f"samples[{index}].{key} must be null or a finite non-negative number")
+    for key in ("model_id", "backend"):
+        if not isinstance(sample[key], str):
+            problems.append(f"samples[{index}].{key} must be a string")
+    if "noisy" in sample and not isinstance(sample["noisy"], bool):
+        problems.append(f"samples[{index}].noisy must be a boolean")
     problems += _validate_workload_and_metrics(index, sample)
     for key in ("is_warmup", "fallback_used"):
         if not isinstance(sample[key], bool):

@@ -5,6 +5,7 @@ working set physical RAM pinning, and Level Zero USM buffer allocations.
 """
 
 import ctypes
+import functools
 import hashlib
 import json
 import os
@@ -85,6 +86,50 @@ def _validate_u64(value: Any, field: str) -> int:
     if value < 0 or value > _U64_MAX:
         raise NativeBoundsError(f"{field}={value} is outside the unsigned 64-bit range")
     return value
+
+
+_U32_MAX = (1 << 32) - 1
+_MISSING = object()
+
+
+def _validate_u32(value: Any, field: str) -> int:
+    """Validate that a value is an integer representable as an unsigned 32-bit field.
+
+    Args:
+        value: Candidate value; bool and non-int types are rejected.
+        field: Field name used in the error message.
+
+    Returns:
+        int: The validated value.
+
+    Raises:
+        NativeBoundsError: If value is not an int in [0, 2**32 - 1].
+    """
+    value = _validate_u64(value, field)
+    if value > _U32_MAX:
+        raise NativeBoundsError(f"{field}={value} is outside the unsigned 32-bit range")
+    return value
+
+
+def _locked(method: Any) -> Any:
+    """Run a NativeMemoryEngine method under the engine's re-entrant lock.
+
+    Pointer lookup, view registration and close must not interleave: close() could otherwise unmap
+    between the C lookup and add_view.
+
+    Args:
+        method: Instance method to wrap.
+
+    Returns:
+        Any: The wrapped method.
+    """
+
+    @functools.wraps(method)
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
 
 
 _RAW_DTYPES: Dict[int, Any] = {
@@ -303,12 +348,16 @@ def _fill_tensor_descriptor(c_tensor: ArcTensorDescriptor, record: Any) -> int:
         raise NativeBoundsError(f"tensor {raw_name!r} has {len(dims)} dimensions, maximum is {_MAX_DIMS}")
 
     c_tensor.name = name_bytes
-    c_tensor.tensor_type = _validate_u64(int(_field(record, "tensor_type", "tensor_type", 0)), "tensor_type")
+    c_tensor.tensor_type = _validate_u32(_field(record, "tensor_type", "tensor_type", 0), "tensor_type")
     c_tensor.n_dims = len(dims)
     for index, dim in enumerate(dims):
         c_tensor.dims[index] = _validate_u64(dim, "dimension")
-    c_tensor.file_offset = _validate_u64(_field(record, "offset", "offset", 0), "offset")
-    size_bytes = _validate_u64(_field(record, "size_bytes", "size_bytes", 0), "size_bytes")
+    offset = _field(record, "offset", "offset", _MISSING)
+    raw_size = _field(record, "size_bytes", "size_bytes", _MISSING)
+    if offset is _MISSING or raw_size is _MISSING:
+        raise NativeBoundsError(f"tensor {raw_name!r} needs both 'offset' and 'size_bytes'")
+    c_tensor.file_offset = _validate_u64(offset, "offset")
+    size_bytes = _validate_u64(raw_size, "size_bytes")
     c_tensor.size_bytes = size_bytes
     return size_bytes
 
@@ -411,6 +460,7 @@ class NativeMemoryEngine:
         Args:
             file_path: Optional filesystem path to open immediately.
         """
+        self._lock = threading.RLock()
         self._dll: Optional[ctypes.CDLL] = _load_native_library()
         self._ctx: Optional[int] = None
         self._guard: Optional[_MappingGuard] = None
@@ -437,6 +487,7 @@ class NativeMemoryEngine:
         """
         return self._ctx is not None
 
+    @_locked
     def last_error(self) -> Tuple[int, int]:
         """Return the last native status and operating-system error codes.
 
@@ -495,6 +546,7 @@ class NativeMemoryEngine:
         self._file_path = resolved
         return True
 
+    @_locked
     def register_layer(self, layer_idx: int, tensors: List[Any]) -> bool:
         """Validate and register tensor descriptors for a layer in the native lookup table.
 
@@ -518,6 +570,7 @@ class NativeMemoryEngine:
             self._raise_for_status(status, f"register_layer({layer_idx})")
         return True
 
+    @_locked
     def seal(self) -> None:
         """Freeze the native layer table; further registrations raise NativeLayerError.
 
@@ -531,6 +584,7 @@ class NativeMemoryEngine:
             self._raise_for_status(status, "seal")
         self._sealed = True
 
+    @_locked
     def get_tensor_buffer(
         self,
         layer_idx: int,
@@ -551,10 +605,15 @@ class NativeMemoryEngine:
         Returns:
             Optional[np.ndarray]: Zero-copy array view, or None if the tensor is missing,
             empty, or its byte size is not a multiple of the dtype size.
+
+        Raises:
+            NativeBoundsError: If layer_idx is not an int in [0, ARC_MAX_LAYERS).
         """
         if not self.is_open or self._dll is None:
             return None
 
+        if isinstance(layer_idx, bool) or not isinstance(layer_idx, int) or not 0 <= layer_idx < ARC_MAX_LAYERS:
+            raise NativeBoundsError(f"layer_idx must be an int in [0, {ARC_MAX_LAYERS}), got {layer_idx!r}")
         self.seal()
         out_size = ctypes.c_uint64(0)
         ptr = self._dll.arc_mmap_get_tensor_ptr(
@@ -591,6 +650,7 @@ class NativeMemoryEngine:
 
         return raw_array
 
+    @_locked
     def lock_range(self, offset: int, size: int) -> bool:
         """Best-effort pin of a mapped range into physical RAM.
 
@@ -612,6 +672,7 @@ class NativeMemoryEngine:
             logger.info("Memory lock refused", extra={"status": status, "os_error": os_error})
         return status == 0
 
+    @_locked
     def unlock_range(self, offset: int, size: int) -> bool:
         """Unpin a previously locked mapped range.
 
@@ -630,6 +691,7 @@ class NativeMemoryEngine:
         status = int(self._dll.arc_mmap_unlock_range(self._ctx, _validate_u64(offset, "offset"), _validate_u64(size, "size")))
         return status == 0
 
+    @_locked
     def close(self) -> None:
         """Release the mapping; safe to call repeatedly.
 
@@ -742,7 +804,10 @@ class NativeLevelZeroBridge:
         """
         if not self.is_available or self._dll is None:
             return -10
-        if not isinstance(size_bytes, int) or size_bytes <= 0:
+        for value in (dst_ptr, src_ptr, size_bytes):
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= _U64_MAX:
+                return -1
+        if size_bytes <= 0 or dst_ptr == 0 or src_ptr == 0:
             return -1
         return int(self._dll.arc_ze_dma_copy_async(self._ctx, dst_ptr, src_ptr, size_bytes))
 
