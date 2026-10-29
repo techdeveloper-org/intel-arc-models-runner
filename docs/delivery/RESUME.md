@@ -2,7 +2,7 @@
 doc_id: DOC-RESUME
 title: Resume checkpoint
 stage: all
-version: 1.2.0
+version: 1.3.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-29
@@ -25,7 +25,7 @@ Read this first in a new session. Tracking issue: [#42](https://github.com/techd
 | S-E benchmarks | `stages/S-E-benchmarks/STAGE.md` | statistics, gates, schema, harnesses done; no result files yet (local) |
 | S-F docs, version, CI | `stages/S-F-docs-and-release-prep/STAGE.md` | done; release not done |
 | S-G remaining items | `stages/S-G-remaining-items/STAGE.md` | done in the cloud; needs hardware to run |
-| PERF performance programme | plan section 23, DL-061..DL-068 | planned only; no source changed; WP-01 (honesty) and WP-02 (measurement) are the first packages; Windows measurements M-01..M-16 and N-01..N-18 are listed in 23.4 |
+| PERF performance programme | plan section 23 (v8.4), DL-061..DL-070 | planned only; no source changed; revised after four independent reviews (resolution log in 23.9.1; design contract CC-1..CC-13 in 23.5.0); first packages: WP-01 (honesty, not a performance lever), WP-02 (measurement, shared fakes, `--ov-prop`), then WP-12a (device-keyed compile cache) and WP-17 (decode and first-request levers); WP-03..WP-07 are correctness work; WP-08..WP-10 are measure-first and unscheduled (no served model uses the flash-stream engine); N-02 must run before WP-03 merges; Windows measurements M-01..M-26 and N-01..N-18 are listed in 23.4; open questions in 23.8 carry provisional defaults the maintainer may override |
 
 Version is 0.2.0 in the tree but nothing is tagged or published; tagging, merging and publishing need the maintainer's explicit approval.
 
@@ -57,3 +57,4 @@ python scripts/validate_bench_json.py
 | 1.0.0 | 2026-10-29 | main session | first version | session entry point | pending |
 | 1.1.0 | 2026-10-29 | main session | S-G added, open items updated | remaining technical items closed in the cloud | pending |
 | 1.2.0 | 2026-10-29 | main session | PERF row, plan sections 17-23 | performance bottleneck programme added | pending |
+| 1.3.0 | 2026-10-29 | main session | PERF row: plan v8.4, DL-061..DL-070, new first packages and gates | reviews G1-G4 resolved | pending |
