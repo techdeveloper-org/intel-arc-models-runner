@@ -2,7 +2,7 @@
 doc_id: DOC-RESUME
 title: Resume checkpoint
 stage: all
-version: 1.5.0
+version: 1.6.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-29
@@ -25,7 +25,7 @@ Read this first in a new session. Tracking issue: [#42](https://github.com/techd
 | S-E benchmarks | `stages/S-E-benchmarks/STAGE.md` | statistics, gates, schema, harnesses done; no result files yet (local) |
 | S-F docs, version, CI | `stages/S-F-docs-and-release-prep/STAGE.md` | done; release not done |
 | S-G remaining items | `stages/S-G-remaining-items/STAGE.md` | done in the cloud; needs hardware to run |
-| PERF performance programme | plan section 23 (v9.0), DL-061..DL-079 | planned only; no source changed; **simplified** after three rounds of four independent reviews (resolution logs 23.9.1, 23.9.3 and 23.9.4); design contract CC-1..CC-4 (23.5.0): one serial inference worker (a daemon thread, FIFO) replaces the lease, grant, ticket, reaper and budget machinery; ten active packages: WP-01 (honesty, not a performance lever, includes the speculative config-validity fix), WP-02 (measurement support, items 02a-02g, parallel with WP-01), WP-12a (device-keyed compile cache and opt-in warmup, small, decided by N-04), WP-17 (measurement programme for decode and first-request levers, with `scripts/bench_arms.py`), WP-03 (the PROVEN items: event-loop stall, token loss, leaked generation, telemetry crosstalk, `GET /health`), then WP-05, WP-06, WP-07, WP-14, WP-15; everything else is deferred with exact gates (plan 23.5.3, DF-01..DF-09); N-02 must run before WP-03 merges; **the ordered minimal run list for the one Windows laptop is plan 23.4.0** (about 4 to 5 h of derived machine time plus unmeasured loads and compiles; risky runs M-07 hard and M-25 are optional and last); every `python scratch/run_live_*` command needs `--keep`; open questions in 23.8 carry provisional defaults the maintainer may override |
+| PERF performance programme | plan section 23 (v9.1), DL-061..DL-084 | planned only; no source changed; v9.0 **simplified** the design and v9.1 is a **fix-only** revision after a fourth round of four independent reviews (resolution logs 23.9.1, 23.9.3, 23.9.4 and 23.9.5; gate round 5 pending); design contract CC-1..CC-4 (23.5.0): one serial inference worker (a daemon thread, FIFO) replaces the lease, grant, ticket, reaper and budget machinery, **a request is one job and no route holds an engine object**, and a hang is seen through progress timestamps in `GET /health` (open without the API key; opt-in `ARC_JOB_STALL_EXIT_S`); ten active packages: WP-01 (honesty, not a performance lever, includes the speculative config-validity fix), WP-02 (measurement support, items 02a-02g, parallel with WP-01), WP-17 (measurement programme for decode and first-request levers, with `scripts/bench_arms.py`), WP-03 (the PROVEN items: event-loop stall, token loss, leaked generation, telemetry crosstalk, `GET /health`), then WP-12a (device-keyed compile cache and opt-in warmup, small, decided by N-04, ordered after WP-03), WP-05, WP-07, WP-06 (follows WP-03), WP-14, WP-15; everything else is deferred with exact gates (plan 23.5.3, DF-01..DF-09); N-02 must run before WP-03 merges; **the ordered minimal run list for the one Windows laptop is plan 23.4.0** (about 3.6 h of derived machine time before confirmations and 4.6 h with one winner per device, plus unmeasured loads and compiles; M-02 was removed; risky runs M-07 hard and M-25 are optional and last); every `python scratch/run_live_*` command needs `--keep`; open questions in 23.8 carry provisional defaults the maintainer may override |
 
 Version is 0.2.0 in the tree but nothing is tagged or published; tagging, merging and publishing need the maintainer's explicit approval.
 
@@ -54,9 +54,10 @@ python scripts/validate_bench_json.py
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
 |:--|:--|:--|:--|:--|:--|
-| 1.0.0 | 2026-10-29 | main session | first version | session entry point | pending |
-| 1.1.0 | 2026-10-29 | main session | S-G added, open items updated | remaining technical items closed in the cloud | pending |
-| 1.2.0 | 2026-10-29 | main session | PERF row, plan sections 17-23 | performance bottleneck programme added | pending |
-| 1.3.0 | 2026-10-29 | main session | PERF row: plan v8.4, DL-061..DL-070, new first packages and gates | reviews G1-G4 resolved | pending |
-| 1.4.0 | 2026-10-29 | main session | PERF row: plan v8.5, WP-02 split, round-2 resolution; probe command no longer redirects with `>` | round-2 reviews G1-G4 resolved | pending |
-| 1.5.0 | 2026-10-29 | main session | PERF row: plan v9.0 (simplified), DL-071..DL-079, minimal run list in plan 23.4.0; probe option now WP-02 item 02f | round-3 reviews G1-G4 resolved by simplification | pending |
+| 1.0.0 | 2026-10-29 | main session | first version | session entry point | 93868c6 |
+| 1.1.0 | 2026-10-29 | main session | S-G added, open items updated | remaining technical items closed in the cloud | 8605588 |
+| 1.2.0 | 2026-10-29 | main session | PERF row, plan sections 17-23 | performance bottleneck programme added | d6043f3 |
+| 1.3.0 | 2026-10-29 | main session | PERF row: plan v8.4, DL-061..DL-070, new first packages and gates | reviews G1-G4 resolved | 58ff19e |
+| 1.4.0 | 2026-10-29 | main session | PERF row: plan v8.5, WP-02 split, round-2 resolution; probe command no longer redirects with `>` | round-2 reviews G1-G4 resolved | d0744e3 |
+| 1.5.0 | 2026-10-29 | main session | PERF row: plan v9.0 (simplified), DL-071..DL-079, minimal run list in plan 23.4.0; probe option now WP-02 item 02f | round-3 reviews G1-G4 resolved by simplification | ae428e4 |
+| 1.6.0 | 2026-10-29 | main session | PERF row: plan v9.1 (fix only), DL-080..DL-084, one request = one job, stall detection, run list reordered (3.6-4.6 h), WP-12a after WP-03 | round-4 reviews G1-G4 resolved | pending |
