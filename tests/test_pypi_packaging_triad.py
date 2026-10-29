@@ -14,7 +14,14 @@ from typing import Dict, List, Set
 import zipfile
 import pytest
 
-from scripts.build_wheel import WheelBuilder
+import importlib.util
+
+_BUILD_WHEEL_PATH = Path(__file__).resolve().parents[1] / "scripts" / "build_wheel.py"
+_spec = importlib.util.spec_from_file_location("arc_runner_build_wheel", _BUILD_WHEEL_PATH)
+assert _spec is not None and _spec.loader is not None
+_build_wheel = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_build_wheel)
+WheelBuilder = _build_wheel.WheelBuilder
 
 
 class TestPyPIPackagingPositiveTriad:
