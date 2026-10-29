@@ -47,8 +47,10 @@ def _optional_mean(perf_metrics: Any, accessor: str) -> float:
 def _decode_rate(generated_tokens: int, generate_ms: float, ttft_ms: float) -> float:
     """Derive the decode-phase token rate from documented counters.
 
-    The OpenVINO API does not state whether get_throughput covers decode only, so this rate is
-    reported separately: (tokens - 1) divided by the time after the first token.
+    OpenVINO GenAI 2026.4.1 computes get_throughput as 1000 / mean TPOT, and TPOT excludes the first
+    (prefill) token, so get_throughput is itself decode-only (perf_metrics.cpp, PerfMetrics::evaluate_statistics).
+    This rate is a second, coarser view over wall counters: (tokens - 1) divided by (generate duration - TTFT),
+    which also includes sampling and detokenization time, so it is slightly lower.
 
     Args:
         generated_tokens: Number of generated tokens.
@@ -137,6 +139,7 @@ def telemetry_from_stream(
     end_time: float,
     first_token_time: Optional[float],
     chunk_count: int,
+    token_count: Optional[int] = None,
     **extra: Any,
 ) -> EngineTelemetry:
     """Build wall-clock telemetry for a streamed generation, labelled as an estimate.
@@ -148,6 +151,8 @@ def telemetry_from_stream(
         end_time: time.monotonic() value when generation ended.
         first_token_time: time.monotonic() value of the first emitted chunk, or None.
         chunk_count: Number of streamer callbacks observed (chunks, not tokenizer tokens).
+        token_count: Tokenizer count of the emitted text, if it could be computed; replaces chunk_count and
+            makes the rate (tokens - 1) / time after the first chunk.
         **extra: Additional non-timing fields such as is_speculative.
 
     Returns:
@@ -158,16 +163,20 @@ def telemetry_from_stream(
         return telemetry_unavailable(model_id, device, total_sec, **extra)
 
     decode_sec = max(end_time - first_token_time, 1e-6)
+    if token_count is not None:
+        tokens, rate = token_count, round(max(token_count - 1, 0) / decode_sec, 2)
+    else:
+        tokens, rate = chunk_count, round(chunk_count / decode_sec, 2)
     return EngineTelemetry(
         model_id=model_id,
         device=device,
         ttft_ms=round((first_token_time - start_time) * 1000.0, 2),
-        tokens_per_second=round(chunk_count / decode_sec, 2),
-        total_tokens=chunk_count,
+        tokens_per_second=rate,
+        total_tokens=tokens,
         total_latency_ms=round(total_sec * 1000.0, 2),
         metrics_source="wallclock_stream",
         is_estimate=True,
         is_ttft_valid=True,
-        is_tps_valid=chunk_count > 1,
+        is_tps_valid=tokens > 1,
         **extra,
     )

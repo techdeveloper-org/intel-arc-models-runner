@@ -94,3 +94,48 @@ def test_flash_stream_engine_telemetry_is_labelled_synthetic(tmp_path: Path) -> 
         assert telemetry.is_estimate is True
     finally:
         engine.unload()
+
+
+def test_telemetry_from_stream_uses_tokenizer_count_when_given() -> None:
+    """E6: a tokenizer count replaces the chunk count; the rate is (tokens - 1) over the time after the first token."""
+    from arc_runner.engine.telemetry import telemetry_from_stream
+
+    t = telemetry_from_stream("m", "GPU", 0.0, 3.0, 1.0, chunk_count=3, token_count=21)
+    assert t.total_tokens == 21
+    assert t.tokens_per_second == 10.0
+    assert t.is_estimate is True and t.metrics_source == "wallclock_stream"
+
+
+def test_telemetry_from_stream_without_tokenizer_count_keeps_chunk_count() -> None:
+    """E6: with no tokenizer the chunk count is used, as before, and stays labelled an estimate."""
+    from arc_runner.engine.telemetry import telemetry_from_stream
+
+    t = telemetry_from_stream("m", "GPU", 0.0, 3.0, 1.0, chunk_count=4)
+    assert t.total_tokens == 4 and t.tokens_per_second == 2.0
+
+
+def test_generate_stream_counts_tokens_with_the_pipeline_tokenizer() -> None:
+    """E6: streamed total_tokens comes from tokenizing the emitted text, not from callback chunks."""
+    from types import SimpleNamespace
+    from unittest import mock
+
+    from arc_runner.engine.models import GenerationConfig
+    from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
+
+    class _Pipe:
+        def generate(self, *_a: Any, streamer: Any = None, **_k: Any) -> None:
+            for piece in ("ab", "cd", "ef"):
+                streamer(piece)
+
+        def get_tokenizer(self) -> Any:
+            return SimpleNamespace(encode=lambda text: SimpleNamespace(
+                input_ids=SimpleNamespace(shape=(1, len(text)), data=SimpleNamespace(flatten=lambda: SimpleNamespace(tolist=lambda: list(range(len(text))))))
+            ))
+
+    engine = OpenVINOGenAIEngine()
+    engine._pipeline = _Pipe()
+    engine._is_loaded = True
+    engine._model_path = "m"
+    engine._device = "CPU"
+    list(engine.generate_stream("prompt", GenerationConfig(max_new_tokens=8)))
+    assert engine.get_telemetry().total_tokens == 6
