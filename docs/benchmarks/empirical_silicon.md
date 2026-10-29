@@ -2,6 +2,9 @@
 
 [← Back to Benchmarks Hub](README.md) · [← Back to README](../../README.md) · [Comparative Matrix](comparative_matrix.md) · [Ollama Showdown](ollama_showdown.md)
 
+
+> **Provenance status: UNVERIFIED.** This document predates the schema-v1 result files and the [benchmark method](METHOD.md). Its numbers were not produced by the current harness and must not be quoted as measurements. Known problems: (1) The "30.8x TTFT" and similar ratios are not reproduced by any stored result file. (2) Energy-yield figures (tokens per joule) assume power values that were not measured. (3) "XMX / DPAS engines" on the Meteor Lake Xe-LPG iGPU is unverified: that architecture is not documented here to have XMX units. (4) The flash-stream memory trace ("dM <= 1 MB") reports mapped array bytes, not resident memory, and came from a synthetic container. The measured results, if any, are in the generated table in the [Benchmarks hub](README.md#measured-results-generated).
+
 ---
 
 To provide transparent, reproducible empirical proof to the developer community, `intel-arc-models-runner` was subjected to rigorous live testing on physical Intel silicon.

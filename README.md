@@ -40,7 +40,7 @@ While mainstream local LLM tools like Ollama were designed with a CUDA-first and
 
 - **Native Dual Silicon Acceleration**: Run models natively on **Intel Arc Discrete GPUs** (A770, A750, B580), **Core Ultra iGPUs** (Xe-LPG, Xe2), and **Intel NPUs** (AI Boost NPU 3720 / NPU 4000).
 - **Bare-Metal Flash-Stream Heavy Model Engine**: Run massive models (Qwen 2.5/3 32B & 72B) on memory-constrained devices (e.g. 1.24 GB free DRAM) with zero-RAM OOM crashes via $\mathcal{O}(1)$ layer ring buffering, asynchronous NVMe prefetch DMA, and NPU Attention / Arc GPU SwiGLU disaggregation (Proofs M121–M134)!
-- **World's First Client Speculative Engine**: Run 1B–2B draft models on the **Intel NPU** (zero GPU VRAM cost, 5W power draw) while verifying tokens in parallel on the **Intel Arc GPU** via XMX matrix engines!
+- **Draft-model speculative decoding (NPU draft, GPU verify)**: wired through OpenVINO GenAI's draft-model support. Its speed-up, acceptance rate and power draw have not been measured with this repository's harness; earlier published figures for them were removed (see the [benchmark method](docs/benchmarks/METHOD.md)).
 - **Autonomous Multi-Modal Media Studio**: Orchestrates LLM Director, Kokoro Voiceover, and SDXL / LTX-Video Visuals with zero-copy memory handoff and closed-loop pacing convergence.
 - **Drop-in Ollama & OpenAI Compatibility**: Compatible with `/api/generate`, `/api/chat`, `/api/tags`, and `/v1/chat/completions` for instant use with Open WebUI, Continue.dev, Cursor, and LangChain.
 - **Zero-Bloat Standalone Runtime**: Built directly on OpenVINO GenAI C++ and Level Zero runtimes; no 5 GB oneAPI SDK installation or heavy PyTorch environments required.
@@ -278,44 +278,43 @@ Python Layer  →  ctypes FFI bridge  →  libarc_native_sys.dll
 
 ### Key Capabilities
 
-| Feature | Description | Performance Gain |
+No speed-up figure is claimed for any item below until it is measured with the [benchmark method](docs/benchmarks/METHOD.md); status is what the code and tests establish today.
+
+| Feature | Description | Status |
 |:---|:---|:---|
-| **Win32 `MapViewOfFile` + `VirtualLock`** | Pins model file pages into physical RAM — eliminates OS paging thrash during layer streaming | Eliminates 60–80 ms paging latency per token on 64-layer models |
-| **Zero-Copy Tensor Access** | `arc_mmap_get_tensor_ptr` returns a direct `uint8_t*` pointer into the mapped view; no `memcpy` | 0 bytes copied per tensor read vs Python slice |
-| **Binary C-Struct Layer Table** | Pre-indexed `ArcLayerDescriptor` lookup replaces Python `dict` + regex on each layer swap | 15% decode throughput improvement for 32B+ models |
-| **Level Zero USM Shared Allocation** | `arc_ze_alloc_usm` (shared) gives the Arc GPU direct access to host RAM without PCIe copies | Eliminates host↔device transfer overhead for inference |
-| **Async DMA Double-Buffering** | `arc_ze_dma_copy_async` overlaps next-layer DMA with current-layer GPU compute | Hides all DMA latency for LPDDR5x-sustained bandwidth |
-| **INT8 KV-Cache (`u8` precision)** | `OpenVINOGenAIEngine` sets `KV_CACHE_PRECISION='u8'` by default on GPU | +18–25% sustained decode for sequences >2,048 tokens |
-| **AOT Shader Blob Cache** | OpenCL/Level Zero compiled kernels cached in `.cache/ov_cache/` | Eliminates 10–22 s JIT warm-up on subsequent runs |
-| **FlashAttention-2 SDPA** | `GPU_ENABLE_SDPA_OPTIMIZATION=True` uses block-tiled online softmax in 256 KB SLM | Reduces TTFT for long prompts by up to 30% |
+| **Bounds-checked memory mapping** | `arc_mmap_*` maps the model file read-only; every tensor extent is validated against the file size at registration and again at read time, the layer table is sealed before concurrent reads | Implemented; ASan/UBSan harness with a 1,000,000-case fuzz, Win32 branch compile-checked with mingw-w64 |
+| **Zero-copy tensor views** | NumPy views over the mapping are read-only and keep the mapping alive; closing the engine with live views defers the unmap | Implemented and tested |
+| **Best-effort page locking** | `lock_range` pins ranges with `VirtualLock` / `mlock`; a refusal (quota) is reported, never raised | Implemented; not yet called by the streaming path |
+| **Direct-mapped ring buffer** | layer `L` always uses slot `L % slots`, one loader per slot, safe shutdown; protocol modelled in `docs/formal/RingSlots.tla` | Implemented; explicit-state check done, TLC run pending |
+| **Level Zero USM and DMA** | GPU-only device selection (never the NPU), bounded waits below the 2 s Windows TDR limit, tracked allocations | Implemented and tested against a fake loader; not used by the streaming path; not yet run against a real driver |
+| **INT8 KV cache (`u8`)** | opt-in with `KV_CACHE_PRECISION=u8` or `ARC_KV_CACHE_PRECISION=u8`; off by default because no quality gate exists | Opt-in |
+| **Shader/kernel cache** | compiled kernels are cached in `.cache/ov_cache/` on GPU | Effect on start-up time not measured |
+| **SDPA option** | `GPU_ENABLE_SDPA_OPTIMIZATION=True` on GPU devices | Effect not measured |
 
-### Mathematical Roofline Proof
+### Memory-Bandwidth Roofline
 
-For Qwen 2.5 1.5B INT4 on Intel Arc Xe-LPG with LPDDR5x-7467 MHz:
+Token generation that streams all weights once per token is bounded by
 
 ```
-Max Theoretical TPS  =  B_sustained / Model_Size × η_controller
-                     =  74.5 GB/s   / 0.94 GB    × 0.61
-                     =  48.3 tokens/s
+TPS_max = B_sustained / (W + KV_bytes_per_token_context)
 ```
 
-**Empirical result: 48.2 tok/s → 99.8% of physical memory-bandwidth roofline!**
+where `B_sustained` is the measured sustained memory bandwidth (`python scripts/probe_hardware.py`), `W` is the weight bytes read per token, and the KV term grows with context length. A measured rate above this ceiling is flagged SUSPECT by the claim gates. An earlier version of this section multiplied by an extra efficiency factor of 0.61 on top of a bandwidth that was already a sustained figure and then reported "99.8% of the roofline"; that claim was removed.
 
 ### Building the Native Library
 
-The DLL is pre-compiled and included. To rebuild from source using GCC (MinGW on Windows):
+The prebuilt `libarc_native_sys.dll` in the repository history predates the current native ABI (version 3) and is refused by the Python bridge, which then uses the pure-Python path. Rebuild it before using the native layer:
 
 ```bash
 python src/arc_runner/native/build_native.py
 ```
 
-This compiles `arc_flash_stream_mmap.c` + `arc_level_zero_bridge.c` and links
-`ze_loader.dll` (Level Zero runtime) into `libarc_native_sys.dll`.
+This compiles `arc_flash_stream_mmap.c` and `arc_level_zero_bridge.c` with `-std=c17 -Wall -Wextra -Wpedantic -Werror`, links them, and writes `libarc_native_sys.<dll|so>.build.json` with the sha256, compiler, flags and ABI version; the bridge verifies it on load. Level Zero is loaded at run time (`ze_loader`), not linked. `ARC_NATIVE_DISABLE=1` forces the Python path.
 
 **Requirements for rebuild:**
-- GCC 13+ or MSVC 2022+ (MinGW-w64 recommended on Windows)
-- Intel oneAPI Level Zero headers (`ze_api.h`) — installed automatically with Intel GPU driver stack
-- Intel GPU Driver 32.0.101.6127+
+- GCC 13+ (MinGW-w64 on Windows); MSVC is not supported (the sources use C11 atomics and GCC build info)
+- No Level Zero SDK headers are needed: the structure layouts the bridge uses are in `arc_ze_types.h`
+- A Level Zero loader (`ze_loader`) at run time; Intel GPU driver 32.0.101.6127+ for GPU use
 
 ### Running the Live Benchmark
 

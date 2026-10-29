@@ -2,6 +2,9 @@
 
 [← Back to Benchmarks Hub](README.md) · [← Back to README](../../README.md) · [Mathematical Proofs](mathematical_proofs.md) · [Empirical Silicon](empirical_silicon.md)
 
+
+> **Provenance status: UNVERIFIED.** This document predates the schema-v1 result files and the [benchmark method](METHOD.md). Its numbers were not produced by the current harness and must not be quoted as measurements. Known problems: (1) Power, energy-per-token and tokens-per-joule columns: the testbed reports no power domains, so no power was measured. (2) Every "Discrete Arc A770" row: that hardware is not part of the testbed, so these rows are projections at best. (3) Every "Hybrid Speculative" row: the speculative engine's acceptance rate and speed-up were previously generated from fixed constants (0.8 x 0.72), not measured. (4) Table 7 (32B/72B): produced on a synthetic 8-layer, hidden-size-32 container that emits canned tokens; no real 32B/72B weights were run, and the Ollama out-of-memory outcome was not run. (5) Ollama figures do not match the stored JSON for the same model. The measured results, if any, are in the generated table in the [Benchmarks hub](README.md#measured-results-generated).
+
 ---
 
 To deliver transparent and reproducible empirical validation, benchmarks were executed across all 25 curated models officially supported by `intel-arc-models-runner` spanning Generative LLMs, 5W NPU Vector Embeddings, Multimodal Vision-Language Models, Audio AI (Speech-to-Text & Text-to-Speech), and Text-to-Image Generation (Stable Diffusion, LCM & SDXL).
