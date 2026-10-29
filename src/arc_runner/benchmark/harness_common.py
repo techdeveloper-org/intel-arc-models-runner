@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from pathlib import Path
 import time
-from typing import Any, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from arc_runner.devices.sysman import LevelZeroSysman
 
@@ -71,3 +71,77 @@ def download_snapshot(repo_id: str, dest_dir: Path, marker_files: Sequence[str])
     started = time.perf_counter()
     snapshot_download(repo_id=repo_id, local_dir=str(dest_dir))
     return time.perf_counter() - started
+
+
+GPU_CONTEXT_LOST_MARKER = "CL_OUT_OF_RESOURCES"
+
+
+def select_tiers(spec: Dict[str, Any], tiers: Optional[str]) -> Dict[str, Any]:
+    """Return a copy of a model spec restricted to the requested tiers, in spec order.
+
+    Args:
+        spec: Model spec with a "workloads" mapping.
+        tiers: Comma-separated tier names, or None for all.
+
+    Returns:
+        Dict[str, Any]: Spec whose workloads contain only the selected tiers.
+
+    Raises:
+        ValueError: If a requested tier does not exist.
+    """
+    if not tiers:
+        return spec
+    wanted = [name.strip() for name in tiers.split(",") if name.strip()]
+    unknown = [name for name in wanted if name not in spec["workloads"]]
+    if unknown:
+        raise ValueError(f"unknown tier(s) {unknown}; available: {list(spec['workloads'])}")
+    return {**spec, "workloads": {name: load for name, load in spec["workloads"].items() if name in wanted}}
+
+
+def gpu_context_lost(failures: List[Dict[str, str]]) -> bool:
+    """Tell whether any recorded failure was a GPU out-of-resources error.
+
+    After CL_OUT_OF_RESOURCES the Intel driver may hang on any further OpenCL call, so callers must not
+    unload the engine and should leave the process without normal interpreter shutdown.
+
+    Args:
+        failures: Failure records from collect_tiers.
+
+    Returns:
+        bool: True if the GPU context must be treated as lost.
+    """
+    return any(GPU_CONTEXT_LOST_MARKER in item.get("error", "") for item in failures)
+
+
+def collect_tiers(
+    workloads: Dict[str, Any],
+    alias: str,
+    backend: str,
+    make_samples: Callable[[Any, str], List[Any]],
+    failures: List[Dict[str, str]],
+) -> Tuple[List[Any], bool]:
+    """Measure each tier, recording failures instead of dropping or faking them.
+
+    A GPU out-of-resources error stops the remaining tiers of this backend (the driver may hang); any
+    other error is recorded and the next tier still runs.
+
+    Args:
+        workloads: Tier name -> workload entry.
+        alias: Model alias.
+        backend: Backend name.
+        make_samples: Function (workload, model_id) -> samples; raises on failure.
+        failures: List that receives {model_id, backend, error} records.
+
+    Returns:
+        Tuple[List[Any], bool]: Samples from the tiers that ran, and whether the GPU context was lost.
+    """
+    samples: List[Any] = []
+    for tier, workload in workloads.items():
+        model_id = f"{alias}/{tier}"
+        try:
+            samples += make_samples(workload, model_id)
+        except Exception as exc:
+            failures.append({"model_id": model_id, "backend": backend, "error": str(exc)[:500]})
+            if GPU_CONTEXT_LOST_MARKER in str(exc):
+                return samples, True
+    return samples, False
