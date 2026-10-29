@@ -139,13 +139,53 @@ arc-runner devices
 arc-runner test-hardware
 ```
 
-### 2. High-Throughput Daemon Server & Web UI
-Launch the asynchronous HTTP gateway on port 11434 with embedded 7-Tab glassmorphic Web UI:
+### 2. Run a Pulled Model (Ollama Is Not Required)
+
+`arc-runner` runs models itself using OpenVINO. **You do not need to install or
+start Ollama.** The server implements Ollama-compatible API routes so clients
+that already support Ollama can connect to `arc-runner`; that compatibility
+does not mean the Ollama application is the model runtime here. This project
+does not currently provide an interactive `arc-runner run <model>` terminal
+chat command. Use its browser chat UI or send requests to its API.
+
+Pull a model, then start the server from the same working directory (the
+default model folder is `./models`):
+
 ```bash
-arc-runner serve --host 127.0.0.1 --port 11434 --device GPU
+arc-runner pull llama-3.2-3b
+arc-runner models
+arc-runner serve --host 127.0.0.1 --port 11434 --default-model llama-3.2-3b
 ```
-- Open `http://localhost:11434/` in your browser for the **Intel Arc Model Studio Web UI**.
-- Point **Open WebUI**, **Continue.dev**, or **Cursor** directly to `http://localhost:11434`.
+
+Leave the server running, then open `http://localhost:11434/` and use the Chat
+tab. `--default-model` asks the server to load that model at startup; requests
+should still include its model name.
+
+**Port conflict with Ollama:** Ollama commonly listens on port `11434`. Only one
+process can listen on the same host and port. If Ollama is running, either stop
+it or start `arc-runner` on another port, such as `11435`, and use that port in
+the browser and client settings:
+
+```bash
+arc-runner serve --host 127.0.0.1 --port 11435 --default-model llama-3.2-3b
+```
+
+Then open `http://localhost:11435/`. To keep using both applications, leave
+Ollama on `11434` and use `11435` for `arc-runner`. For compatible clients such
+as Open WebUI, Continue.dev, or Cursor, set the base URL to the matching runner
+address, for example `http://localhost:11435`.
+
+You can also send a one-off prompt using the Ollama-compatible generate API.
+This PowerShell example prints the response as JSON:
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri http://localhost:11435/api/generate `
+  -ContentType "application/json" `
+  -Body '{"model":"llama-3.2-3b","prompt":"Explain Intel Arc GPU in simple words","stream":false}'
+```
+
+Use port `11434` in the URL if that is the port you selected for `arc-runner`.
 
 ### 3. Core CLI Quick Reference
 
