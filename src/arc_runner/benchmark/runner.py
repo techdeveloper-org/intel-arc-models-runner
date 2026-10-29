@@ -105,7 +105,8 @@ class BenchmarkRunner:
             BenchmarkSummary containing computed metrics and per-run breakdown.
 
         Raises:
-            ArcRunnerError: If iterations or tokens is zero/negative, or if model load fails.
+            ArcRunnerError: If iterations or tokens is zero/negative, if model load fails, or if a pass
+                streams no token (NO_TOKENS_GENERATED).
         """
         if iterations <= 0:
             raise ArcRunnerError("Iterations must be greater than zero", "INVALID_ARGUMENT", 422)
@@ -145,14 +146,18 @@ class BenchmarkRunner:
 
             t_end = time.perf_counter_ns()
 
-            if t_first is None:
-                t_first = t_end
+            if t_first is None or generated_tokens == 0:
+                raise ArcRunnerError(
+                    f"Pass {run_idx} of '{model_id}' on {device} produced no tokens; no throughput can be reported",
+                    "NO_TOKENS_GENERATED",
+                    502,
+                )
 
             total_ms = max(0.01, (t_end - t_start) / 1_000_000.0)
             ttft_ms = max(0.01, (t_first - t_start) / 1_000_000.0)
             decode_ms = max(1e-3, (t_end - t_first) / 1_000_000.0)
 
-            tokens_count = max(1, generated_tokens)
+            tokens_count = generated_tokens
             tpot_ms = max(0.01, decode_ms / tokens_count if tokens_count > 1 else decode_ms)
             tok_per_sec = (tokens_count / decode_ms) * 1000.0
 

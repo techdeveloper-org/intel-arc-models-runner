@@ -1057,9 +1057,9 @@ def handle_generate_image(
                 f"[bold green]Image Synthesized Successfully[/bold green]\n"
                 f"Destination: [cyan]{saved_path}[/cyan] ({file_kb:.1f} KB)\n"
                 f"Resolution: [bold]{res.width}x{res.height}[/bold] | Steps: [bold]{res.num_inference_steps}[/bold] | CFG: [dim]{res.guidance_scale}[/dim] | Seed: [dim]{res.seed_used}[/dim]\n"
-                f"Total Latency: [bold]{res.total_latency_s:.3f}s[/bold] | Step Rate: [bold green]{_measured(res.breakdown.iteration_rate_it_s, ".2f", " it/s")}[/bold green] ({_measured(res.breakdown.step_latency_ms, ".1f", " ms/step")})\n"
+                f"Total Latency: [bold]{res.total_latency_s:.3f}s[/bold] | Step Rate: [bold green]{_measured(res.breakdown.iteration_rate_it_s, '.2f', ' it/s')}[/bold green] ({_measured(res.breakdown.step_latency_ms, '.1f', ' ms/step')})\n"
                 f"Raster Throughput: [bold cyan]{res.breakdown.megapixels_per_sec:.3f} MP/s[/bold cyan]\n"
-                f"[dim]Breakdown: TextEnc: {_measured(res.breakdown.text_encoder_ms, ".1f", "ms")} | UNet Denoise: {_measured(res.breakdown.denoise_unet_ms, ".1f", "ms")} | VAE Decode: {_measured(res.breakdown.vae_decoder_ms, ".1f", "ms")}[/dim]"
+                f"[dim]Breakdown: TextEnc: {_measured(res.breakdown.text_encoder_ms, '.1f', 'ms')} | UNet Denoise: {_measured(res.breakdown.denoise_unet_ms, '.1f', 'ms')} | VAE Decode: {_measured(res.breakdown.vae_decoder_ms, '.1f', 'ms')}[/dim]"
             )
             c.print(
                 Panel(
@@ -1169,9 +1169,9 @@ def handle_generate_video(
                 f"Resolution: [bold]{res.resolution[0]}x{res.resolution[1]}[/bold] | Frames: [bold]{res.num_frames}[/bold] @ [bold]{res.fps} fps[/bold] ({res.duration_sec:.2f}s)\n"
                 f"Steps: [bold]{res.request.num_inference_steps}[/bold] | CFG: [dim]{res.request.guidance_scale}[/dim] | Container: [cyan]{res.request.export_container}[/cyan]\n"
                 f"Total Latency: [bold]{res.total_latency_ms / 1000.0:.3f}s[/bold] | Real-Time Factor (RTF): [bold cyan]{res.breakdown.real_time_factor:.2f}x[/bold cyan]\n"
-                f"Video Throughput: [bold green]{res.breakdown.frames_per_second:.2f} fps[/bold green] ({_measured(res.breakdown.step_latency_ms, ".1f", " ms/step")})\n"
-                f"Energy Yield: [bold yellow]{_measured(res.breakdown.energy_yield_frames_per_kwh, ".1f", " frames/kWh")}[/bold yellow]\n"
-                f"[dim]Breakdown: TextEnc: {_measured(res.breakdown.text_encoder_ms, ".1f", "ms")} | 3D Denoise: {_measured(res.breakdown.denoise_transformer_ms, ".1f", "ms")} | 3D VAE: {_measured(res.breakdown.vae_decoder_ms, ".1f", "ms")} | Mux: {res.breakdown.video_encode_ms:.1f}ms[/dim]"
+                f"Video Throughput: [bold green]{res.breakdown.frames_per_second:.2f} fps[/bold green] ({_measured(res.breakdown.step_latency_ms, '.1f', ' ms/step')})\n"
+                f"Energy Yield: [bold yellow]{_measured(res.breakdown.energy_yield_frames_per_kwh, '.1f', ' frames/kWh')}[/bold yellow]\n"
+                f"[dim]Breakdown: TextEnc: {_measured(res.breakdown.text_encoder_ms, '.1f', 'ms')} | 3D Denoise: {_measured(res.breakdown.denoise_transformer_ms, '.1f', 'ms')} | 3D VAE: {_measured(res.breakdown.vae_decoder_ms, '.1f', 'ms')} | Mux: {res.breakdown.video_encode_ms:.1f}ms[/dim]"
             )
             c.print(
                 Panel(
