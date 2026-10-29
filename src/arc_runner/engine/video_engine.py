@@ -36,6 +36,8 @@ def _mean(val: Any) -> float:
     Returns:
         float: The mean duration in milliseconds, or 0.0 when the key is absent.
     """
+    if isinstance(val, (int, float)):
+        return float(val)
     if isinstance(val, dict):
         return float(val.get("mean", 0.0))
     return float(val.mean)
