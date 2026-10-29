@@ -9,7 +9,7 @@
 `intel-arc-models-runner` provides two official production deployment targets designed for high-performance silicon execution across heterogeneous Intel Arc GPUs (discrete and integrated) and Intel AI Boost NPUs:
 
 1. **Standalone PyPI Wheel (`pip install arc-runner`)**:
-   - Universal Python wheel (`arc_runner-0.1.0-py3-none-any.whl`).
+   - Universal Python wheel (`arc_runner-<version>-py3-none-any.whl`).
    - Dual CLI binary commands: `arc-runner` and `intel-arc-models-runner`.
    - Complete bundling of all 7 MultiModal Studio UI tabs, CSS stylesheets, client-side JS, and PEP 561 `py.typed` markers.
    - Cross-platform dynamic driver loading across Windows (`ze_loader.dll`) and Linux (`libze_loader.so.1`).
@@ -31,7 +31,7 @@ Install directly from PyPI (or from pre-compiled local wheel artifact):
 pip install arc-runner
 
 # Or install from local distribution build
-pip install dist/arc_runner-0.1.0-py3-none-any.whl
+pip install dist/arc_runner-<version>-py3-none-any.whl
 ```
 
 ### 2.2 CLI Verification & Silicon Discovery
@@ -88,6 +88,18 @@ docker run -d \
 > [!IMPORTANT]
 > The `--device /dev/dri:/dev/dri` flag grants the container direct access to Intel Level Zero render nodes (`/dev/dri/renderD128`).
 > If deployed on a system without Intel silicon, the entrypoint automatically logs a notice and operates in CPU mode.
+
+---
+
+## 3b. Native acceleration library (optional)
+
+The package works without the native library (pure-Python path). To use it, build it on the target machine with GCC (MinGW-w64 on Windows):
+
+```bash
+python src/arc_runner/native/build_native.py
+```
+
+The build writes `libarc_native_sys.<dll|so>` and `libarc_native_sys.<dll|so>.build.json` (sha256, compiler, flags, ABI version). The Python bridge refuses a library with another ABI version or a different hash and falls back to the Python path; `ARC_NATIVE_DISABLE=1` forces the fallback. Linux container images ship no Windows DLL, so they run the Python path unless a `.so` is built into the image. `ARC_ZE_LOADER_PATH` overrides the Level Zero loader that is loaded at run time and `ARC_ZE_SYNC_TIMEOUT_MS` (clamped to 1900) sets the GPU wait limit. The u8 KV cache is opt-in with `ARC_KV_CACHE_PRECISION=u8`.
 
 ---
 

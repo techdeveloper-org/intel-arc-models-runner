@@ -6,7 +6,7 @@
 
 Every component in `intel-arc-models-runner` is governed by strict **Triad Testing** (Positive, Negative, and Edge-Case scenarios) derived from Claude Global Rules (`33-test-case-roadmap.md`, `35-positive-testing-standards.md`, `36-negative-testing-standards.md`, `37-edge-case-testing-standards.md`, `38-test-mocking-strategy.md`).
 
-As of the latest release, the test suite contains **569 passing automated tests across 36 test modules with 0 failures and 0 errors**.
+As of version 0.2.0 the non-hardware suite collects **741 tests (733 passed, 8 skipped, 0 failures on the Linux CI image)**; tests that need real Intel silicon carry `@pytest.mark.hardware` and are excluded from that count: a skipped hardware test is reported as **not run**, never as passed.
 
 ---
 
@@ -59,7 +59,7 @@ As of the latest release, the test suite contains **569 passing automated tests 
 ### 1. Execute Full Test Suite
 ```bash
 python -m pytest -v --tb=short
-# → 533 passed in ~24.5s
+# → 733 passed, 8 skipped in ~40s (Linux, 4 vCPU)
 ```
 
 ### 2. Run Physical Silicon Hardware Integration Tests
@@ -82,3 +82,19 @@ python -m pytest tests/test_nextgen_orchestration_triad.py -v
 ```bash
 arc-runner test-hardware --iterations 10
 ```
+
+
+## Native layer, ring buffer and benchmark tests (v0.2.0)
+
+| Area | Where | What it proves |
+|:--|:--|:--|
+| Bounds checks in C | `tests/native_c/mmap_harness.c` (run by `tests/test_native_bounds.py`) | boundary table plus 1,000,000-case fuzz of `arc_range_ok`, registration limits, sealing, lock/unlock validation under ASan and UBSan |
+| Level Zero bridge | `tests/native_c/ze_harness.c`, `fake_ze_loader.c`, `tests/test_level_zero_bridge.py` | GPU (not NPU) selection, every failing driver call, wrong structure types caught by an independent oracle, allocation limits, bounded waits, dead context; no real driver needed |
+| Bridge and fallback | `tests/test_native_bounds.py` | integer/count/name validation, ABI and sidecar gating, `ARC_NATIVE_DISABLE`, identical bytes on both paths |
+| Ring buffer | `tests/test_flash_stream_ring.py`, `docs/formal/RingSlots.tla`, `scripts/check_ring_model.py` | one load per slot under contention, no deadlock on colliding layers, safe shutdown, deferred unmap, read-only views |
+| Telemetry honesty | `tests/test_honesty_no_fabrication.py`, `tests/test_telemetry_details.py`, `tests/test_engine_context_and_kv.py` | no invented values, context window enforced, u8 KV cache opt-in |
+| Benchmarks | `tests/test_benchmark_stats.py`, `tests/test_bench_results.py` | exact confidence intervals, claim gates reject projected/derived/fallback/noisy rows, schema validation, generated tables |
+
+Red-first rule: a fix for a confirmed defect starts with a failing test shown failing on the old code. The manual `redfirst` CI job re-runs the new regression tests against the pre-fix baseline commit and requires them to fail there.
+
+Commands: `python scripts/check_docs_sync.py` (code, docs, diagrams, versions), `python scripts/check_delivery_docs.py`, `python scripts/validate_bench_json.py`, `python scripts/render_bench_docs.py --check`.

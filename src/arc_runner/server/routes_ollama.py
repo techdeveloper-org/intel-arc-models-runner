@@ -4,6 +4,7 @@ Provides /api/generate, /api/chat, /api/tags, /api/show, /api/version, and root 
 with NDJSON streaming and non-blocking C++ execution.
 """
 
+from arc_runner._version import __version__
 import asyncio
 from datetime import datetime, timezone
 import json
@@ -95,7 +96,7 @@ async def get_version() -> OllamaVersionResponse:
     Returns:
         OllamaVersionResponse containing active version string.
     """
-    return OllamaVersionResponse(version="0.1.0")
+    return OllamaVersionResponse(version=__version__)
 
 
 @router.get("/api/tags", response_model=OllamaTagsResponse)
