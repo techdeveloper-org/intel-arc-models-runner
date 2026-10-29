@@ -42,6 +42,7 @@ def fake_env(fake_loader: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[pyt
 
     reset_zes_init_cache()
     monkeypatch.setenv("ARC_ZE_LOADER_PATH", str(fake_loader))
+    monkeypatch.setenv("ARC_ZE_LOADER_ALLOW_ANY", "1")
     for name in ("FAKE_ZE_LAYOUT", "FAKE_ZE_FAIL", "FAKE_ZE_SYNC", "FAKE_ZE_COPY_FAIL", "ARC_ZE_SYNC_TIMEOUT_MS", "FAKE_ZES_STRICT_ORDER"):
         monkeypatch.delenv(name, raising=False)
     yield monkeypatch
@@ -227,3 +228,93 @@ def test_sysman_without_gpu_has_no_devices_and_a_reason(fake_env: pytest.MonkeyP
     assert sysman._devices == []
     assert sysman.query_gpu_memory(0) == (None, None)
     assert sysman.get_unavailable_reason("devices") == "no GPU device found"
+
+
+def _loader_named_link(fake_loader: Path, directory: Path, name: str) -> Path:
+    """Symlink the fake loader under a given file name."""
+    link = directory / name
+    link.symlink_to(fake_loader)
+    return link
+
+
+def test_loader_candidates_override_not_loader_named_is_refused_without_opt_in(fake_loader: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """TM-06: an existing library that is not named like a Level Zero loader is not offered to CDLL."""
+    from arc_runner.devices.sysman import _loader_candidates
+
+    monkeypatch.delenv("ARC_ZE_LOADER_ALLOW_ANY", raising=False)
+    monkeypatch.setenv("ARC_ZE_LOADER_PATH", str(fake_loader))
+    assert _loader_candidates() == []
+    monkeypatch.setenv("ARC_ZE_LOADER_PATH", str(_loader_named_link(fake_loader, tmp_path, "libevil.so")))
+    assert _loader_candidates() == []
+
+
+@pytest.mark.parametrize("name", ["libze_loader.so", "libze_loader.so.1", "libze_loader.so.1.17.2", "ze_loader.dll", "ZE_LOADER.DLL", "ze_loader"])
+def test_loader_candidates_loader_named_regular_file_is_accepted(fake_loader: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str) -> None:
+    """TM-06: an existing regular file with a loader-shaped base name is accepted as the override."""
+    from arc_runner.devices.sysman import _loader_candidates
+
+    monkeypatch.delenv("ARC_ZE_LOADER_ALLOW_ANY", raising=False)
+    link = _loader_named_link(fake_loader, tmp_path, name)
+    monkeypatch.setenv("ARC_ZE_LOADER_PATH", str(link))
+    assert _loader_candidates() == [str(link)]
+
+
+@pytest.mark.parametrize("name", ["libze_loader.so.x", "ze_loader.so.", "ze_loader_evil.so", "xze_loader.so", "libze_loaderr.so", "ze_loader.dll.exe"])
+def test_loader_candidates_lookalike_names_are_refused(fake_loader: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str) -> None:
+    """TM-06: names that merely contain 'ze_loader' do not pass the base-name check."""
+    from arc_runner.devices.sysman import _loader_candidates
+
+    monkeypatch.delenv("ARC_ZE_LOADER_ALLOW_ANY", raising=False)
+    monkeypatch.setenv("ARC_ZE_LOADER_PATH", str(_loader_named_link(fake_loader, tmp_path, name)))
+    assert _loader_candidates() == []
+
+
+def test_loader_candidates_missing_file_and_directory_are_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """TM-06: a loader-named path that does not exist or is a directory is refused."""
+    from arc_runner.devices.sysman import _loader_candidates
+
+    monkeypatch.delenv("ARC_ZE_LOADER_ALLOW_ANY", raising=False)
+    monkeypatch.setenv("ARC_ZE_LOADER_PATH", str(tmp_path / "libze_loader.so"))
+    assert _loader_candidates() == []
+    (tmp_path / "ze_loader.dll").mkdir()
+    monkeypatch.setenv("ARC_ZE_LOADER_PATH", str(tmp_path / "ze_loader.dll"))
+    assert _loader_candidates() == []
+
+
+def test_loader_candidates_allow_any_opt_in_must_be_exactly_one(fake_loader: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """TM-06: ARC_ZE_LOADER_ALLOW_ANY=1 permits any path; other values do not."""
+    from arc_runner.devices.sysman import _loader_candidates
+
+    monkeypatch.setenv("ARC_ZE_LOADER_PATH", str(fake_loader))
+    for other in ("0", "", "true", "yes"):
+        monkeypatch.setenv("ARC_ZE_LOADER_ALLOW_ANY", other)
+        assert _loader_candidates() == []
+    monkeypatch.setenv("ARC_ZE_LOADER_ALLOW_ANY", "1")
+    assert _loader_candidates() == [str(fake_loader)]
+
+
+@requires_native
+def test_native_bridge_refuses_non_loader_override_without_opt_in(fake_loader: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """TM-06: the C loader refuses an override not named like a loader, so the library is never dlopen-ed."""
+    monkeypatch.delenv("ARC_ZE_LOADER_ALLOW_ANY", raising=False)
+    monkeypatch.setenv("ARC_ZE_LOADER_PATH", str(fake_loader))
+    ze = NativeLevelZeroBridge()
+    try:
+        assert ze.is_available is False
+    finally:
+        ze.destroy()
+
+
+@requires_native
+def test_native_bridge_accepts_loader_named_override_without_opt_in(fake_loader: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """TM-06: a loader-named regular file works with no opt-in (the normal explicit-override case)."""
+    from arc_runner.devices.sysman import reset_zes_init_cache
+
+    reset_zes_init_cache()
+    monkeypatch.delenv("ARC_ZE_LOADER_ALLOW_ANY", raising=False)
+    monkeypatch.setenv("ARC_ZE_LOADER_PATH", str(_loader_named_link(fake_loader, tmp_path, "libze_loader.so")))
+    ze = NativeLevelZeroBridge()
+    try:
+        assert ze.is_available is True
+    finally:
+        ze.destroy()

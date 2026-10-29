@@ -194,7 +194,10 @@ def handle_pull(model_id: str, base_dir: Optional[str] = None) -> int:
     console.print(f"[bold cyan]Pulling model:[/bold cyan] {info.alias} [dim]({info.repo_id})[/dim]")
     try:
         last_pct = -1.0
+        final_verified: Optional[bool] = None
         for progress in hub.pull(model_id, stream=True):
+            if progress.verified is not None:
+                final_verified = progress.verified
             if progress.percent is not None and progress.percent != last_pct:
                 pct_str = f"{progress.percent:5.1f}%"
                 speed_str = f"{progress.speed_mbps:.1f} MB/s" if progress.speed_mbps else "calculating..."
@@ -204,7 +207,10 @@ def handle_pull(model_id: str, base_dir: Optional[str] = None) -> int:
             elif progress.status in ("pulling manifest", "verifying checksum", "success"):
                 console.print(f"  [bold green]✔[/bold green] {progress.status}")
 
-        console.print(f"[bold green]Model '{info.alias}' successfully pulled and verified![/bold green]")
+        if final_verified:
+            console.print(f"[bold green]Model '{info.alias}' successfully pulled and verified against Hub hashes.[/bold green]")
+        else:
+            console.print(f"[bold yellow]Model '{info.alias}' pulled; no remote hashes were available, so it is NOT verified.[/bold yellow]")
         return 0
     except Exception as exc:
         console.print(f"[bold red]Pull failed:[/bold red] {exc}")

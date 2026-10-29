@@ -15,7 +15,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 
 static unsigned g_failures = 0;
 static unsigned g_checks = 0;
@@ -115,6 +117,68 @@ static void test_missing_loader_and_symbols(void) {
         setenv("ARC_ZE_LOADER_PATH", keep, 1);
         free(keep);
     }
+}
+
+/**
+ * @brief Verify the ARC_ZE_LOADER_PATH policy (TM-06): only a regular file named like a Level Zero
+ * loader is accepted, unless ARC_ZE_LOADER_ALLOW_ANY is exactly "1".
+ *
+ * @param fake_path Path of the fake loader library, which is not named like a Level Zero loader.
+ */
+static void test_loader_override_policy(const char* fake_path) {
+    reset_env();
+    char dir_template[] = "/tmp/ze_policy_XXXXXX";
+    char* dir = mkdtemp(dir_template);
+    CHECK(dir != NULL);
+    if (!dir) {
+        return;
+    }
+    char good[512], bad_name[512], dir_named[512];
+    snprintf(good, sizeof good, "%s/libze_loader.so", dir);
+    snprintf(bad_name, sizeof bad_name, "%s/libevil_loader.so", dir);
+    snprintf(dir_named, sizeof dir_named, "%s/ze_loader.dll", dir);
+    CHECK(symlink(fake_path, good) == 0);
+    CHECK(symlink(fake_path, bad_name) == 0);
+    CHECK(mkdir(dir_named, 0700) == 0);
+
+    unsetenv("ARC_ZE_LOADER_ALLOW_ANY");
+    int32_t status = 0;
+    setenv("ARC_ZE_LOADER_PATH", fake_path, 1);
+    CHECK(arc_ze_init_ex(&status) == NULL && status == ARC_ZE_ERR_LOAD);
+    setenv("ARC_ZE_LOADER_PATH", bad_name, 1);
+    CHECK(arc_ze_init_ex(&status) == NULL && status == ARC_ZE_ERR_LOAD);
+    setenv("ARC_ZE_LOADER_PATH", dir_named, 1);
+    CHECK(arc_ze_init_ex(&status) == NULL && status == ARC_ZE_ERR_LOAD);
+    setenv("ARC_ZE_LOADER_PATH", "libc.so.6", 1);
+    CHECK(arc_ze_init_ex(&status) == NULL && status == ARC_ZE_ERR_LOAD);
+
+    setenv("ARC_ZE_LOADER_ALLOW_ANY", "0", 1);
+    setenv("ARC_ZE_LOADER_PATH", bad_name, 1);
+    CHECK(arc_ze_init_ex(&status) == NULL && status == ARC_ZE_ERR_LOAD);
+    setenv("ARC_ZE_LOADER_ALLOW_ANY", "true", 1);
+    CHECK(arc_ze_init_ex(&status) == NULL && status == ARC_ZE_ERR_LOAD);
+
+    unsetenv("ARC_ZE_LOADER_ALLOW_ANY");
+    setenv("ARC_ZE_LOADER_PATH", good, 1);
+    ArcZeContext* ctx = arc_ze_init_ex(&status);
+    CHECK(ctx != NULL && status == ARC_ZE_OK);
+    if (ctx) {
+        arc_ze_destroy(ctx);
+    }
+
+    setenv("ARC_ZE_LOADER_ALLOW_ANY", "1", 1);
+    setenv("ARC_ZE_LOADER_PATH", bad_name, 1);
+    ctx = arc_ze_init_ex(&status);
+    CHECK(ctx != NULL && status == ARC_ZE_OK);
+    if (ctx) {
+        arc_ze_destroy(ctx);
+    }
+
+    unlink(good);
+    unlink(bad_name);
+    rmdir(dir_named);
+    rmdir(dir);
+    setenv("ARC_ZE_LOADER_PATH", fake_path, 1);
 }
 
 static void test_alloc_guards_and_tracking(void) {
@@ -279,10 +343,13 @@ int main(int argc, char** argv) {
     }
     memcpy(&g_live_allocs, &symbol, sizeof symbol);
     setenv("ARC_ZE_LOADER_PATH", argv[1], 1);
+    setenv("ARC_ZE_LOADER_ALLOW_ANY", "1", 1);
 
     test_selects_gpu_not_npu();
     test_init_reports_every_failing_driver_call();
     test_missing_loader_and_symbols();
+    test_loader_override_policy(argv[1]);
+    setenv("ARC_ZE_LOADER_ALLOW_ANY", "1", 1);
     test_alloc_guards_and_tracking();
     test_alloc_table_full_frees_the_new_allocation();
     test_dma_copy_and_fallback();
