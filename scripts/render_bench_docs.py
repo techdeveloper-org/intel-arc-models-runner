@@ -25,6 +25,18 @@ TARGET_DOCS = [REPO_ROOT / "docs" / "benchmarks" / "README.md"]
 BLOCK = re.compile(r"(<!-- bench:begin measured-summary -->\n)(.*?)(<!-- bench:end -->)", re.S)
 
 
+def _sig(value: float) -> str:
+    """Format a number with three significant digits (whole numbers from 1000 up).
+
+    Args:
+        value: Number to format.
+
+    Returns:
+        str: Text such as 0.0474, 15.6, 204 or 2230.
+    """
+    return f"{value:.0f}" if abs(value) >= 1000 else f"{value:.3g}"
+
+
 def _format(values: List[float]) -> str:
     """Format a metric as median with a 95% Student-t half-width.
 
@@ -34,7 +46,7 @@ def _format(values: List[float]) -> str:
     if not values:
         return "n/a"
     _, half = student_t_ci95(values)
-    return f"{median(values):.1f} +/- {half:.1f}"
+    return f"{_sig(median(values))} +/- {_sig(half)}"
 
 
 def render_tables() -> str:

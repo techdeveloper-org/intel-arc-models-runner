@@ -154,11 +154,76 @@ class _ZeDeviceMemProps(ctypes.Structure):
     ]
 
 
+_ZES_INIT_RESULTS: Dict[str, int] = {}
+ZES_UNINITIALIZED = 0x78000001
+
+
+def reset_zes_init_cache() -> None:
+    """Forget cached zesInit results (tests that swap the loader library)."""
+    _ZES_INIT_RESULTS.clear()
+
+
+def _zes_init_once(lib: Any, key: str) -> int:
+    """Call zesInit once per loader and return its result code.
+
+    zesInit has to run before zeInit in the process; after zeInit the loader answers
+    ZE_RESULT_ERROR_UNINITIALIZED (0x78000001), which is what the first Arc iGPU probe showed.
+
+    Args:
+        lib: Loaded Level Zero loader (ctypes.CDLL).
+        key: Loader identity (library name or path).
+
+    Returns:
+        int: zesInit result, 0 on success.
+
+    Raises:
+        AttributeError: If the loader does not export zesInit.
+    """
+    if key not in _ZES_INIT_RESULTS:
+        lib.zesInit.argtypes = [ctypes.c_uint32]
+        lib.zesInit.restype = ctypes.c_uint32
+        _ZES_INIT_RESULTS[key] = int(lib.zesInit(0))
+    return _ZES_INIT_RESULTS[key]
+
+
+def _loader_candidates() -> List[str]:
+    """List loader library names to try, honouring ARC_ZE_LOADER_PATH.
+
+    Returns:
+        List[str]: Candidate names in priority order.
+    """
+    override = os.environ.get(LOADER_PATH_ENV, "").strip()
+    if override:
+        return [override]
+    if platform.system() == "Windows":
+        return ["ze_loader.dll"]
+    names = ["libze_loader.so.1", "libze_loader.so"]
+    found = ctypes.util.find_library("ze_loader")
+    if found and found not in names:
+        names.append(found)
+    return names
+
+
+def zes_preinit() -> None:
+    """Initialise Sysman before any other Level Zero call in this process; failures are left to the queries.
+
+    Call this before anything that runs zeInit (the native bridge does).
+    """
+    for name in _loader_candidates():
+        try:
+            lib = ctypes.CDLL(name)
+            _zes_init_once(lib, name)
+            return
+        except (OSError, AttributeError):
+            continue
+
+
 class LevelZeroSysman:
     """Wrapper around Level Zero Sysman library for GPU telemetry queries."""
 
     _sysman_ready: Optional[bool] = None
     _sysman_failure: str = ""
+    _loader_key: str = ""
 
     def __init__(self) -> None:
         """Initialize the Level Zero Sysman interface."""
@@ -172,20 +237,10 @@ class LevelZeroSysman:
 
     def _load_library(self) -> None:
         """Attempt to load the Level Zero loader shared library across platforms."""
-        override = os.environ.get(LOADER_PATH_ENV, "").strip()
-        if override:
-            candidate_names: List[str] = [override]
-        elif platform.system() == "Windows":
-            candidate_names = ["ze_loader.dll"]
-        else:
-            candidate_names = ["libze_loader.so.1", "libze_loader.so"]
-            found = ctypes.util.find_library("ze_loader")
-            if found and found not in candidate_names:
-                candidate_names.append(found)
-
-        for lib_name in candidate_names:
+        for lib_name in _loader_candidates():
             try:
                 self._lib = ctypes.CDLL(lib_name)
+                self._loader_key = lib_name
                 self._configure_signatures()
                 self._initialized = True
                 return
@@ -223,6 +278,7 @@ class LevelZeroSysman:
         if not self._lib:
             return
 
+        self._ensure_sysman("sysman")
         try:
             if self._lib.zeInit(ZE_INIT_FLAG_GPU_ONLY) != 0:
                 self._unavailable_reasons["devices"] = "zeInit failed"
@@ -319,20 +375,19 @@ class LevelZeroSysman:
             metric: Unavailable-reason key to fill on failure.
 
         Returns:
-            bool: True if zesInit succeeded.
+            bool: True if zesInit succeeded. It must run before zeInit in the process: after zeInit the loader
+            returns ZE_RESULT_ERROR_UNINITIALIZED (0x78000001), as seen on Windows with an Arc iGPU.
         """
         if self._sysman_ready is None:
             self._sysman_ready = False
             self._sysman_failure = ""
             try:
-                lib = self._lib
-                lib.zesInit.argtypes = [ctypes.c_uint32]
-                lib.zesInit.restype = ctypes.c_uint32
-                result = int(lib.zesInit(0))
+                result = _zes_init_once(self._lib, self._loader_key)
                 if result == 0:
                     self._sysman_ready = True
                 else:
-                    self._sysman_failure = f"zesInit failed with result 0x{result:x}"
+                    hint = " (zeInit already ran in this process; call zes_preinit() before any other Level Zero use)" if result == ZES_UNINITIALIZED else ""
+                    self._sysman_failure = f"zesInit failed with result 0x{result:x}{hint}"
             except (AttributeError, TypeError) as exc:
                 self._sysman_failure = f"Sysman API not exported by the Level Zero loader ({exc})"
         if not self._sysman_ready:

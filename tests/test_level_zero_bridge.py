@@ -38,8 +38,11 @@ def fake_loader(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture
 def fake_env(fake_loader: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[pytest.MonkeyPatch]:
     """Point the bridge and Sysman at the fake loader and clear its controls."""
+    from arc_runner.devices.sysman import reset_zes_init_cache
+
+    reset_zes_init_cache()
     monkeypatch.setenv("ARC_ZE_LOADER_PATH", str(fake_loader))
-    for name in ("FAKE_ZE_LAYOUT", "FAKE_ZE_FAIL", "FAKE_ZE_SYNC", "FAKE_ZE_COPY_FAIL", "ARC_ZE_SYNC_TIMEOUT_MS"):
+    for name in ("FAKE_ZE_LAYOUT", "FAKE_ZE_FAIL", "FAKE_ZE_SYNC", "FAKE_ZE_COPY_FAIL", "ARC_ZE_SYNC_TIMEOUT_MS", "FAKE_ZES_STRICT_ORDER"):
         monkeypatch.delenv(name, raising=False)
     yield monkeypatch
 

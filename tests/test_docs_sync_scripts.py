@@ -155,3 +155,28 @@ def test_unverified_inventory_finds_marked_files_and_counts_numeric_rows(tmp_pat
     (docs / "b.md").write_text("| m | v |\n| x | 41.5 tok/s |\n", encoding="utf-8")
     (tmp_path / "README.md").write_text("plain\n", encoding="utf-8")
     assert module.inventory(tmp_path) == [{"file": "docs/a.md", "numeric_table_rows": 2}]
+
+
+def test_probe_cpu_and_memory_fall_back_to_powershell_when_wmic_is_missing(monkeypatch: "pytest.MonkeyPatch") -> None:
+    """Windows 11 builds without wmic: the probe asks PowerShell instead of reporting the CPU as unavailable."""
+    import importlib.util
+    import subprocess
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location("probe_hardware", root / "scripts" / "probe_hardware.py")
+    assert spec is not None and spec.loader is not None
+    probe = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(probe)
+    monkeypatch.setattr(probe.platform, "system", lambda: "Windows")
+
+    def fake_run(cmd: list, **_kw: object) -> object:
+        if cmd[0] == "wmic":
+            raise FileNotFoundError("wmic")
+        text = "Intel(R) Core(TM) Ultra 5 125H\n" if "Win32_Processor" in cmd[-1] else "8589934592 5600 5600 34\n"
+        return SimpleNamespace(returncode=0, stdout=text)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert probe.cpu_description() == "Intel(R) Core(TM) Ultra 5 125H"
+    assert probe.memory_modules() == [["8589934592", "5600", "5600", "34"]]
