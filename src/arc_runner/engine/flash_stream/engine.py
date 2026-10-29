@@ -200,19 +200,22 @@ class FlashStreamInferenceEngine(BaseEngine):
         """Compute resident memory footprint across ring buffer and KV cache allocations.
 
         Returns:
-            Dictionary containing active memory metrics and O(1) invariant status.
+            Dictionary containing mapped ring-buffer and KV-cache byte counts and ring slot occupancy.
         """
         ring_bytes = self.weight_manager.get_active_memory_bytes() if self.weight_manager else 0
         kv_bytes = self.kv_buffer.get_memory_bytes() if self.kv_buffer else 0
         total_bytes = ring_bytes + kv_bytes
         total_mb = total_bytes / (1024 * 1024)
+        slots_capacity = self.weight_manager.ring_buffer_slots if self.weight_manager else 0
+        slots_occupied = self.weight_manager.get_occupied_slot_count() if self.weight_manager else 0
 
         return {
             "ring_buffer_bytes": ring_bytes,
             "kv_cache_bytes": kv_bytes,
             "total_working_bytes": total_bytes,
             "total_working_mb": round(total_mb, 2),
-            "o1_invariant_satisfied": True,
+            "ring_slots_occupied": slots_occupied,
+            "ring_slots_capacity": slots_capacity,
         }
 
     def unload(self) -> None:

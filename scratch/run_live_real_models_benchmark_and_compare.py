@@ -114,7 +114,7 @@ FLASH_STREAM_HEAVY_SPECS = {
         "layers": 64,
         "hidden_dim": 5120,
         "int4_weights_gb": 18.42,
-        "ollama_status": "Instant OOM Crash (18.42 GB > 15.43 GB Total Physical RAM)",
+        "ollama_status": "not run; expected to exceed RAM (18.42 GB weights vs 15.43 GB physical); not measured",
         "tiers": {
             "low": {
                 "name": "Heavy Model Zero-RAM Cold Start",
@@ -138,7 +138,7 @@ FLASH_STREAM_HEAVY_SPECS = {
         "layers": 80,
         "hidden_dim": 8192,
         "int4_weights_gb": 41.20,
-        "ollama_status": "Instant Crash (41.20 GB exceeds 16GB laptop RAM by 2.67x)",
+        "ollama_status": "not run; expected to exceed RAM (41.20 GB weights vs 16 GB laptop RAM); not measured",
         "tiers": {
             "low": {
                 "name": "Fundamental Particle Physics",
@@ -343,27 +343,27 @@ class LiveSequentialBenchmarkRunner:
                     elapsed = time.perf_counter() - t0
                     telemetry = engine.get_telemetry()
 
-                    tokens_gen = telemetry.total_tokens if telemetry.total_tokens > 0 else max(1, len(completion.split()))
-                    tps = round(telemetry.tokens_per_second if telemetry.tokens_per_second > 0 else (tokens_gen / max(0.01, elapsed)), 2)
-                    ttft_ms = round(telemetry.ttft_ms if telemetry.ttft_ms > 0 else (elapsed * 200.0), 2)
-
                     arc_metrics = {
                         "platform": "arc-runner (Intel Arc Xe-LPG iGPU Level Zero USM)",
-                        "ttft_ms": ttft_ms,
-                        "tokens_per_second": tps,
-                        "generated_tokens": tokens_gen,
+                        "status": "PASS",
+                        "source": telemetry.metrics_source,
+                        "is_estimate": telemetry.is_estimate,
+                        "ttft_ms": telemetry.ttft_ms if telemetry.is_ttft_valid else None,
+                        "tokens_per_second": telemetry.tokens_per_second if telemetry.is_tps_valid else None,
+                        "generated_tokens": telemetry.total_tokens if telemetry.total_tokens > 0 else None,
                         "total_latency_s": round(elapsed, 2),
-                        "power_w": 22.0,
+                        "power_w": None,
                         "completion_preview": completion.strip()[:80] + "...",
                     }
                 else:
                     arc_metrics = {
                         "platform": "arc-runner (Intel Arc Xe-LPG iGPU Level Zero USM)",
-                        "status": "REFERENCE_SWEEP",
-                        "ttft_ms": 165.0,
-                        "tokens_per_second": 54.2,
-                        "power_w": 22.0,
-                        "notes": "Projection based on Intel Arc Xe-LPG Level Zero USM kernel benchmark",
+                        "status": "UNAVAILABLE",
+                        "source": "unavailable",
+                        "ttft_ms": None,
+                        "tokens_per_second": None,
+                        "power_w": None,
+                        "notes": "Model could not be loaded on this machine; no value is reported.",
                     }
 
                 # 2. Ollama CPU comparison
@@ -373,8 +373,13 @@ class LiveSequentialBenchmarkRunner:
                     t_spec["max_tokens"],
                 )
 
-                tps = arc_metrics.get("tokens_per_second", 0.0)
-                speedup_factor = round(tps / max(0.1, ollama_metrics.get("tokens_per_second", 1.0)), 2) if ollama_metrics and ollama_metrics.get("status") == "PASS" else "N/A"
+                tps = arc_metrics.get("tokens_per_second")
+                ollama_ok = bool(ollama_metrics) and ollama_metrics.get("status") == "PASS"
+                speedup_factor = (
+                    round(tps / max(0.1, ollama_metrics.get("tokens_per_second", 1.0)), 2)
+                    if tps is not None and ollama_ok
+                    else "N/A"
+                )
 
                 model_results["tiers"][tier_name] = {
                     "workload_name": t_spec["name"],
@@ -425,7 +430,7 @@ class LiveSequentialBenchmarkRunner:
             "architecture_layers": spec["layers"],
             "int4_weights_size_gb": spec["int4_weights_gb"],
             "ollama_standard_status": spec["ollama_status"],
-            "flash_stream_status": "PASS (Zero-OOM Elimination, Proof M122)",
+            "flash_stream_status": "PASS on synthetic container only; real 32B/72B weights not run",
             "tiers": {},
         }
 
@@ -447,11 +452,11 @@ class LiveSequentialBenchmarkRunner:
                     "resident_ring_ram_mb": round(mem_report.get("ring_buffer_bytes", 0) / (1024 * 1024), 2),
                     "paged_kv_cache_mb": round(mem_report.get("kv_cache_bytes", 0) / (1024 * 1024), 2),
                     "total_working_set_mb": mem_report.get("total_working_mb", 0.0),
-                    "full_scale_32b_ram_mb": 843.0,
-                    "ttft_ms": round(telemetry.ttft_ms, 2),
-                    "tokens_per_second": round(telemetry.tokens_per_second, 2),
-                    "o1_invariant_satisfied": True,
-                    "zero_oom_guarantee": "M_working (952 MB) < M_free (1240 - 4500 MB)",
+                    "model_kind": "synthetic_container_8_layers_hidden_dim_32",
+                    "source": telemetry.metrics_source,
+                    "is_estimate": telemetry.is_estimate,
+                    "ttft_ms": round(telemetry.ttft_ms, 2) if telemetry.is_ttft_valid else None,
+                    "tokens_per_second": round(telemetry.tokens_per_second, 2) if telemetry.is_tps_valid else None,
                 }
         finally:
             engine.unload()
@@ -508,7 +513,13 @@ class LiveSequentialBenchmarkRunner:
                 ollama = t_data.get("ollama", {})
                 speedup = t_data.get("speedup_vs_ollama", "N/A")
 
-                arc_str = f"{arc.get('tokens_per_second', 0):.1f} t/s (TTFT: {arc.get('ttft_ms', 0):.0f}ms)"
+                arc_tps = arc.get("tokens_per_second")
+                arc_ttft = arc.get("ttft_ms")
+                arc_str = (
+                    f"{arc_tps:.1f} t/s (TTFT: {arc_ttft:.0f}ms, {arc.get('source', 'unknown')})"
+                    if arc_tps is not None and arc_ttft is not None
+                    else "N/A (no measured value)"
+                )
                 ollama_str = f"{ollama.get('tokens_per_second', 0):.1f} t/s (TTFT: {ollama.get('ttft_ms', 0):.0f}ms)" if ollama.get("status") == "PASS" else "N/A"
                 speedup_str = f"[bold green]{speedup}x[/bold green]" if speedup != "N/A" else "-"
 
@@ -516,10 +527,16 @@ class LiveSequentialBenchmarkRunner:
 
         for alias, h_data in self.results_data["flash_stream_heavy_models"].items():
             for tier, t_data in h_data.get("tiers", {}).items():
-                arc_str = f"{t_data.get('tokens_per_second', 0):.1f} t/s (TTFT: {t_data.get('ttft_ms', 0):.1f}ms)"
-                ollama_str = "[bold red]CRASH (OOM ENOMEM)[/bold red]"
-                speedup_str = "[bold green]INF (OOM Eliminated)[/bold green]"
-                ram_str = f"[bold green]{t_data.get('full_scale_32b_ram_mb', 843):.0f} MB (O(1))[/bold green]"
+                tps = t_data.get("tokens_per_second")
+                ttft = t_data.get("ttft_ms")
+                arc_str = (
+                    f"{tps:.1f} t/s (TTFT: {ttft:.1f}ms, synthetic container)"
+                    if tps is not None and ttft is not None
+                    else "N/A (no measured value)"
+                )
+                ollama_str = "not run"
+                speedup_str = "-"
+                ram_str = f"{t_data.get('total_working_set_mb', 0.0):.2f} MB mapped (synthetic)"
 
                 tbl.add_row(alias, tier.upper(), arc_str, ollama_str, speedup_str, ram_str)
 

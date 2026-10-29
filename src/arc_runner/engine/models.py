@@ -75,6 +75,13 @@ class EngineTelemetry(BaseModel):
     accepted_tokens_total: int = Field(default=0, description="Total draft tokens accepted by target model")
     acceptance_rate: float = Field(default=0.0, description="Empirical acceptance rate alpha in [0.0, 1.0]")
     speculative_speedup: float = Field(default=1.0, description="Effective throughput speedup factor over baseline")
+    metrics_source: str = Field(
+        default="unavailable",
+        description="Origin of timing values: ov_perf_metrics, wallclock_stream, or unavailable",
+    )
+    is_estimate: bool = Field(default=False, description="True if values are wall-clock approximations, not engine counters")
+    is_ttft_valid: bool = Field(default=False, description="True if ttft_ms was measured and may be reported")
+    is_tps_valid: bool = Field(default=False, description="True if tokens_per_second was measured and may be reported")
 
 
 class SpeculativeConfig(BaseModel):

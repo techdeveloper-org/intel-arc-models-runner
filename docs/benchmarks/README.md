@@ -4,7 +4,7 @@
 
 ---
 
-Welcome to the benchmarking and empirical verification center of `intel-arc-models-runner`. Every metric in this documentation has been physically measured on real Intel silicon (**Intel® Core™ Ultra 5 125H** with Xe-LPG iGPU and AI Boost NPU 3720) or derived from foundational mathematical principles.
+Welcome to the benchmarking and empirical verification center of `intel-arc-models-runner`. Metrics in this documentation are labelled as measured, derived, or projected; measured values come from real Intel silicon (**Intel® Core™ Ultra 5 125H** with Xe-LPG iGPU and AI Boost NPU 3720) or derived from foundational mathematical principles.
 
 ---
 

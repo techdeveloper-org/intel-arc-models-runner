@@ -237,6 +237,23 @@ async def _stream_token_chunks(
         yield item
 
 
+def _eval_timing_ns(engine: Any, duration_ns: int) -> Dict[str, int]:
+    """Split a request duration into prompt and decode nanoseconds using measured TTFT only.
+
+    Args:
+        engine: Engine that served the request.
+        duration_ns: Total wall-clock request duration in nanoseconds.
+
+    Returns:
+        Dict[str, int]: prompt_eval_duration and eval_duration, both 0 when TTFT was not measured.
+    """
+    telemetry = engine.get_telemetry()
+    if not telemetry.is_ttft_valid:
+        return {"prompt_eval_duration": 0, "eval_duration": 0}
+    prompt_ns = min(int(telemetry.ttft_ms * 1_000_000), duration_ns)
+    return {"prompt_eval_duration": prompt_ns, "eval_duration": max(duration_ns - prompt_ns, 0)}
+
+
 @router.post("/api/generate")
 async def generate(
     request: OllamaGenerateRequest,
@@ -309,10 +326,9 @@ async def generate(
                         "done": True,
                         "total_duration": duration_ns,
                         "load_duration": 0,
-                        "prompt_eval_count": chunk.prompt_tokens or len(request.prompt.split()),
-                        "prompt_eval_duration": int(duration_ns * 0.2),
+                        "prompt_eval_count": chunk.prompt_tokens or 0,
                         "eval_count": tokens_generated,
-                        "eval_duration": int(duration_ns * 0.8),
+                        **_eval_timing_ns(engine, duration_ns),
                         "context": [],
                     }
                     yield json.dumps(final_payload) + "\n"
@@ -321,7 +337,7 @@ async def generate(
 
     text = engine.generate(request.prompt, gen_config)
     duration_ns = time.time_ns() - start_ns
-    tokens_count = len(text.split())
+    tokens_count = engine.get_telemetry().total_tokens
     manager.record_generation_metrics(tokens_count)
 
     return OllamaGenerateResponse(
@@ -331,10 +347,9 @@ async def generate(
         done=True,
         total_duration=duration_ns,
         load_duration=0,
-        prompt_eval_count=len(request.prompt.split()),
-        prompt_eval_duration=int(duration_ns * 0.2),
+        prompt_eval_count=0,
         eval_count=tokens_count,
-        eval_duration=int(duration_ns * 0.8),
+        **_eval_timing_ns(engine, duration_ns),
         context=[],
     )
 
@@ -423,10 +438,9 @@ async def chat(
                         "done": True,
                         "total_duration": duration_ns,
                         "load_duration": 0,
-                        "prompt_eval_count": chunk.prompt_tokens or len(chat_prompt.split()),
-                        "prompt_eval_duration": int(duration_ns * 0.2),
+                        "prompt_eval_count": chunk.prompt_tokens or 0,
                         "eval_count": tokens_generated,
-                        "eval_duration": int(duration_ns * 0.8),
+                        **_eval_timing_ns(engine, duration_ns),
                     }
                     yield json.dumps(final_payload) + "\n"
 
@@ -434,7 +448,7 @@ async def chat(
 
     text = engine.generate(chat_prompt, gen_config)
     duration_ns = time.time_ns() - start_ns
-    tokens_count = len(text.split())
+    tokens_count = engine.get_telemetry().total_tokens
     manager.record_generation_metrics(tokens_count)
 
     return OllamaChatResponse(
@@ -444,10 +458,9 @@ async def chat(
         done=True,
         total_duration=duration_ns,
         load_duration=0,
-        prompt_eval_count=len(chat_prompt.split()),
-        prompt_eval_duration=int(duration_ns * 0.2),
+        prompt_eval_count=0,
         eval_count=tokens_count,
-        eval_duration=int(duration_ns * 0.8),
+        **_eval_timing_ns(engine, duration_ns),
     )
 
 

@@ -307,6 +307,15 @@ class FlashStreamWeightManager:
                 self._slot_access_time[slot_idx] = 0.0
                 gc.collect()
 
+    def get_occupied_slot_count(self) -> int:
+        """Count ring buffer slots that currently hold a loaded layer.
+
+        Returns:
+            Number of occupied slots, never more than ring_buffer_slots.
+        """
+        with self._lock:
+            return sum(1 for slot in self._ring_slots if slot is not None)
+
     def get_active_memory_bytes(self) -> int:
         """Calculate current total resident memory consumed by resident ring buffer slots.
 

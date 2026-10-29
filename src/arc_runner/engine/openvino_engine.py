@@ -31,6 +31,7 @@ from arc_runner.engine.base import BaseEngine
 from arc_runner.engine.kv_cache import KVCacheManager
 from arc_runner.engine.lora_manager import LoRAManager
 from arc_runner.engine.models import EngineTelemetry, GenerationConfig, TokenChunk
+from arc_runner.engine.telemetry import telemetry_from_perf_metrics, telemetry_from_stream, telemetry_unavailable
 from arc_runner.utils.dll_loader import initialize_windows_dll_environment
 
 
@@ -198,37 +199,12 @@ class OpenVINOGenAIEngine(BaseEngine):
 
         if hasattr(raw_result, "texts") and hasattr(raw_result, "perf_metrics"):
             text_result = raw_result.texts[0] if raw_result.texts else ""
-            pm = raw_result.perf_metrics
-            try:
-                tps = float(pm.get_throughput().mean)
-                ttft_ms = float(pm.get_ttft().mean)
-                gen_tokens = int(pm.get_num_generated_tokens())
-                gen_dur_ms = float(pm.get_generate_duration().mean)
-            except Exception:
-                gen_tokens = max(1, len(text_result.split()))
-                tps = gen_tokens / elapsed_sec
-                ttft_ms = elapsed_sec * 200.0
-                gen_dur_ms = elapsed_sec * 1000.0
-
-            self._telemetry = EngineTelemetry(
-                model_id=self._model_path,
-                device=self._device,
-                ttft_ms=round(ttft_ms, 2),
-                tokens_per_second=round(tps, 2),
-                total_tokens=gen_tokens,
-                total_latency_ms=round(gen_dur_ms, 2),
+            self._telemetry = telemetry_from_perf_metrics(
+                raw_result.perf_metrics, self._model_path, self._device, elapsed_sec
             )
         else:
             text_result = str(raw_result)
-            approx_tokens = len(text_result.split())
-            self._telemetry = EngineTelemetry(
-                model_id=self._model_path,
-                device=self._device,
-                ttft_ms=round(elapsed_sec * 200.0, 2),
-                tokens_per_second=round(approx_tokens / elapsed_sec, 2),
-                total_tokens=approx_tokens,
-                total_latency_ms=round(elapsed_sec * 1000.0, 2),
-            )
+            self._telemetry = telemetry_unavailable(self._model_path, self._device, elapsed_sec)
 
         return text_result
 
@@ -330,17 +306,8 @@ class OpenVINOGenAIEngine(BaseEngine):
             raise worker_error[0]
 
         end_time = time.monotonic()
-        total_sec = max(end_time - start_time, 1e-6)
-        ttft = (first_token_time - start_time) * 1000.0 if first_token_time else total_sec * 500.0
-        decode_speed = generated_count / max(end_time - (first_token_time or start_time), 1e-6)
-
-        self._telemetry = EngineTelemetry(
-            model_id=self._model_path,
-            device=self._device,
-            ttft_ms=ttft,
-            tokens_per_second=decode_speed,
-            total_tokens=generated_count,
-            total_latency_ms=total_sec * 1000.0,
+        self._telemetry = telemetry_from_stream(
+            self._model_path, self._device, start_time, end_time, first_token_time, generated_count
         )
 
         finish_reason = "length" if generated_count >= cfg.max_new_tokens else "stop"

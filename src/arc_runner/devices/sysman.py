@@ -8,7 +8,7 @@ import ctypes
 import ctypes.util
 import logging
 import platform
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger("arc_runner.devices.sysman")
 
@@ -27,22 +27,6 @@ class _ZeDeviceMemProps(ctypes.Structure):
     ]
 
 
-class _MemoryStatusEx(ctypes.Structure):
-    """Win32 memory status structure descriptor."""
-
-    _fields_ = [
-        ("dwLength", ctypes.c_uint32),
-        ("dwMemoryLoad", ctypes.c_uint32),
-        ("ullTotalPhys", ctypes.c_uint64),
-        ("ullAvailPhys", ctypes.c_uint64),
-        ("ullTotalPageFile", ctypes.c_uint64),
-        ("ullAvailPageFile", ctypes.c_uint64),
-        ("ullTotalVirtual", ctypes.c_uint64),
-        ("ullAvailVirtual", ctypes.c_uint64),
-        ("sullAvailExtendedVirtual", ctypes.c_uint64),
-    ]
-
-
 class LevelZeroSysman:
     """Wrapper around Level Zero Sysman library for GPU telemetry queries."""
 
@@ -51,6 +35,7 @@ class LevelZeroSysman:
         self._lib: Optional[ctypes.CDLL] = None
         self._initialized: bool = False
         self._devices: List[int] = []
+        self._unavailable_reasons: Dict[str, str] = {}
         self._load_library()
         if self._initialized and self._lib is not None:
             self._init_devices()
@@ -138,7 +123,8 @@ class LevelZeroSysman:
             device_index: Hardware device index to inspect.
 
         Returns:
-            Tuple[Optional[int], Optional[int]]: Total and free memory in megabytes, or (None, None).
+            Tuple[Optional[int], Optional[int]]: Total device memory in megabytes and free memory,
+            which is always None because no real free-memory source is queried.
         """
         if not self.is_available or not self._lib or not self._devices:
             return None, None
@@ -163,32 +149,35 @@ class LevelZeroSysman:
             total_bytes = props_array[0].totalSize
             total_mb = int(total_bytes // (1024 * 1024))
 
-            free_mb: Optional[int] = None
-            if platform.system() == "Windows":
-                stat = _MemoryStatusEx()
-                stat.dwLength = ctypes.sizeof(_MemoryStatusEx)
-                if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
-                    avail_bytes = stat.ullAvailPhys
-                    free_mb = int(min(avail_bytes // (1024 * 1024), total_mb))
-
-            if free_mb is None:
-                free_mb = total_mb // 2
-
-            return total_mb, free_mb
+            self._unavailable_reasons["gpu_free_memory"] = (
+                "free device memory is not reported: integrated GPUs share system memory and expose no memory state"
+            )
+            return total_mb, None
         except Exception as exc:
             logger.debug("Error querying Level Zero memory: %s", exc)
             return None, None
 
     def query_package_power(self, device_index: int = 0) -> Optional[float]:
-        """Query estimated package power draw in watts for the target hardware.
+        """Query package power draw in watts for the target hardware.
+
+        No power API is wired up yet, so this never reports a value rather than inventing one.
 
         Args:
             device_index: Hardware device index to inspect.
 
         Returns:
-            Optional[float]: Estimated package power in watts, or None if unavailable.
+            Optional[float]: Always None; see get_unavailable_reason("package_power").
         """
-        if not self.is_available or not self._devices:
-            return None
+        self._unavailable_reasons["package_power"] = "no power domain API is queried; power telemetry is not measured"
+        return None
 
-        return 22.0
+    def get_unavailable_reason(self, metric: str) -> Optional[str]:
+        """Return why a telemetry metric last came back as None.
+
+        Args:
+            metric: Metric key such as "package_power" or "gpu_free_memory".
+
+        Returns:
+            Optional[str]: Human-readable reason, or None if no reason was recorded.
+        """
+        return self._unavailable_reasons.get(metric)

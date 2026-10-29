@@ -34,6 +34,7 @@ def _sysman_with_fake_gpu(total_bytes: int) -> LevelZeroSysman:
     sysman._lib = lib
     sysman._initialized = True
     sysman._devices = [1]
+    sysman._unavailable_reasons = {}
     return sysman
 
 
@@ -212,7 +213,11 @@ _FABRICATION_PATTERNS = [
     r"return 22\.0",
     r"elapsed_sec \* (200|500)",
     r"elapsed \* (200|500)",
-    r"total_sec \* (200|500)",
+    r"total_sec \* (200|400|500)",
+    r"elapsed_sec \* 400",
+    r"int\((approx_tokens|generated_count|draft_tokens) \* 0\.(8|72)\)",
+    r"duration_ns \* 0\.(2|8)\b",
+    r"acceptance_rate \* 0\.9",
     r"REFERENCE_SWEEP",
     r'"power_w":\s*22\.0',
 ]
@@ -228,3 +233,45 @@ def test_source_tree_has_no_fabricated_constants(relative_dir: str) -> None:
             if re.search(pattern, text):
                 offenders.append(f"{path.relative_to(REPO_ROOT)}: {pattern}")
     assert offenders == []
+
+
+def _speculative_engine(pipeline: Any) -> Any:
+    """Build a HybridSpeculativeEngine in the loaded state around a fake pipeline."""
+    from arc_runner.engine.models import SpeculativeConfig
+    from arc_runner.engine.speculative_engine import HybridSpeculativeEngine
+
+    engine = HybridSpeculativeEngine()
+    engine._pipeline = pipeline
+    engine._is_loaded = True
+    engine._model_path = "fake-model"
+    engine._device = "GPU"
+    engine._draft_model_path = "fake-draft"
+    engine._draft_device = "NPU"
+    engine._spec_config = SpeculativeConfig(draft_model_path="fake-draft")
+    return engine
+
+
+def test_speculative_generate_never_invents_acceptance_or_speedup() -> None:
+    """E1: acceptance, draft counts and speedup must be zero/neutral when not measured."""
+    engine = _speculative_engine(_FakePipeline("one two three four five six"))
+    engine.generate("prompt")
+    telemetry = engine.get_telemetry()
+    assert telemetry.is_speculative is True
+    assert telemetry.metrics_source == "unavailable"
+    assert telemetry.total_tokens == 0
+    assert telemetry.ttft_ms == 0.0
+    assert telemetry.draft_tokens_total == 0
+    assert telemetry.accepted_tokens_total == 0
+    assert telemetry.acceptance_rate == 0.0
+    assert telemetry.speculative_speedup == 1.0
+
+
+def test_speculative_stream_without_tokens_reports_no_ttft() -> None:
+    """E1: speculative streaming without a token has no TTFT and no acceptance data."""
+    engine = _speculative_engine(_SilentStreamPipeline())
+    list(engine.generate_stream("prompt", GenerationConfig(max_new_tokens=4)))
+    telemetry = engine.get_telemetry()
+    assert telemetry.ttft_ms == 0.0
+    assert telemetry.is_ttft_valid is False
+    assert telemetry.acceptance_rate == 0.0
+    assert telemetry.speculative_speedup == 1.0

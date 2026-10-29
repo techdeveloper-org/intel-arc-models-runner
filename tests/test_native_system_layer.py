@@ -126,15 +126,16 @@ def test_p8_openvino_engine_perf_metrics_handling() -> None:
 
 
 def test_p9_sysman_live_telemetry_reporting() -> None:
-    """P9: Verify LevelZeroSysman reports live memory and package power."""
+    """P9: Verify LevelZeroSysman reports total memory and never an invented free memory or power value."""
     sysman = LevelZeroSysman()
-    assert sysman.is_available is True
+    if not sysman.is_available:
+        pytest.skip("Level Zero driver not available")
     total_mb, free_mb = sysman.query_gpu_memory(0)
     assert total_mb is not None
     assert total_mb > 0
-    power_w = sysman.query_package_power(0)
-    assert power_w is not None
-    assert power_w > 0.0
+    assert free_mb is None
+    assert sysman.query_package_power(0) is None
+    assert sysman.get_unavailable_reason("package_power")
 
 
 def test_p10_weight_streamer_native_integration(sample_gguf: Path) -> None:
