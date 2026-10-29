@@ -161,7 +161,7 @@ def state_diagram(section: Dict[str, Any]) -> str:
     """
     lines = ["stateDiagram-v2"]
     lines += [f'    state "{q(n["label"])}" as {n["id"]}' for n in section["nodes"]]
-    lines += [f'    {e["from"]} --> {e["to"]} : {q(e["label"])}' for e in section["edges"]]
+    lines += [f'    {e["from"]} --> {e["to"]} : {q(e["label"]).replace(":", " -").replace(";", ",")}' for e in section["edges"]]
     return "\n".join(lines)
 
 

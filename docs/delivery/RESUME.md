@@ -2,7 +2,7 @@
 doc_id: DOC-RESUME
 title: Resume checkpoint
 stage: all
-version: 1.0.0
+version: 1.1.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-29
@@ -24,6 +24,7 @@ Read this first in a new session. Tracking issue: [#42](https://github.com/techd
 | S-D engine and Level Zero | `stages/S-D-engine-and-level-zero/STAGE.md` | done against a fake loader; real-driver run pending (local) |
 | S-E benchmarks | `stages/S-E-benchmarks/STAGE.md` | statistics, gates, schema, harnesses done; no result files yet (local) |
 | S-F docs, version, CI | `stages/S-F-docs-and-release-prep/STAGE.md` | done; release not done |
+| S-G remaining items | `stages/S-G-remaining-items/STAGE.md` | done in the cloud; needs hardware to run |
 
 Version is 0.2.0 in the tree but nothing is tagged or published; tagging, merging and publishing need the maintainer's explicit approval.
 
@@ -38,7 +39,7 @@ Version is 0.2.0 in the tree but nothing is tagged or published; tagging, mergin
 
 ## Open technical items
 
-Speculative engine context-window check; u8 KV quality gate (KL on a fixed prompt set); `try_pin` not wired into the streamer; USM/DMA path not used by streaming; Sysman power/frequency telemetry; multi-domain benchmark scripts still write legacy JSON; independent test authorship (all tests so far written by the implementing sessions, checked by mutation).
+All need a real machine or model weights: run `scratch/run_live_*_benchmarks.py` (LLM, embeddings, VLM, audio, image, video) and `scripts/bench_kv_quality.py`; check Sysman power/frequency on real drivers; give the USM-staged buffers a consumer; push to a pull request so the three CI jobs run. Independent test authorship is still open (tests were written by the implementing sessions, checked by mutation).
 
 ## Commands that must pass before a push
 
@@ -53,3 +54,4 @@ python scripts/validate_bench_json.py
 | Version | Date | Author | What changed | Why | Commit |
 |:--|:--|:--|:--|:--|:--|
 | 1.0.0 | 2026-10-29 | main session | first version | session entry point | pending |
+| 1.1.0 | 2026-10-29 | main session | S-G added, open items updated | remaining technical items closed in the cloud | pending |

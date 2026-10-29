@@ -50,6 +50,26 @@ jobs:
       - name: Code, docs and diagrams in sync
         run: python scripts/check_docs_sync.py
 
+  diagrams:
+    name: Mermaid blocks render
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install mermaid-cli
+        run: npm install --no-save @mermaid-js/mermaid-cli@10.9.1
+
+      - name: Render every Mermaid block
+        run: PATH="$PWD/node_modules/.bin:$PATH" python scripts/check_mermaid.py --require
+
   windows:
     name: Windows (mingw build, no GPU)
     runs-on: windows-latest
