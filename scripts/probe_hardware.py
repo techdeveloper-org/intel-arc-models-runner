@@ -62,7 +62,9 @@ def level_zero_devices() -> Any:
         Any: List of {driver, type, device_id, name} records.
     """
     sys.path.insert(0, str(REPO_ROOT / "src"))
-    from arc_runner.devices.sysman import LevelZeroSysman, _ZeDeviceProps
+    from arc_runner.devices.sysman import LevelZeroSysman, _ZeDeviceProps, zes_preinit
+
+    zes_preinit()
 
     lib_names = ["ze_loader.dll"] if platform.system() == "Windows" else ["libze_loader.so.1", "libze_loader.so"]
     lib = None
@@ -128,6 +130,28 @@ def sysman_telemetry() -> Any:
     return records
 
 
+def _powershell(expression: str) -> str:
+    """Run a PowerShell expression and return its stdout (wmic is absent on current Windows 11 builds).
+
+    Args:
+        expression: PowerShell command text.
+
+    Returns:
+        str: Standard output.
+
+    Raises:
+        RuntimeError: If PowerShell is unavailable or the command fails.
+    """
+    for shell in ("powershell", "pwsh"):
+        try:
+            result = subprocess.run([shell, "-NoProfile", "-Command", expression], capture_output=True, text=True, timeout=30)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+        if result.returncode == 0:
+            return result.stdout
+    raise RuntimeError("PowerShell query failed or is unavailable")
+
+
 def cpu_description() -> str:
     """Return a CPU description string.
 
@@ -139,8 +163,11 @@ def cpu_description() -> str:
             if line.startswith("model name"):
                 return line.split(":", 1)[1].strip()
     if platform.system() == "Windows":
-        out = subprocess.run(["wmic", "cpu", "get", "name"], capture_output=True, text=True, timeout=20).stdout
-        return " ".join(out.split()[1:])
+        try:
+            out = subprocess.run(["wmic", "cpu", "get", "name"], capture_output=True, text=True, timeout=20).stdout
+            return " ".join(out.split()[1:])
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return _powershell("(Get-CimInstance Win32_Processor | Select-Object -First 1).Name").strip()
     return platform.processor()
 
 
@@ -148,15 +175,21 @@ def memory_modules() -> Any:
     """List physical memory modules (capacity, configured speed, type) on Windows.
 
     Returns:
-        Any: Raw wmic output lines.
+        Any: One list of fields per module (Capacity, ConfiguredClockSpeed, Speed, SMBIOSMemoryType).
     """
     if platform.system() != "Windows":
         raise RuntimeError("only implemented on Windows")
-    out = subprocess.run(
-        ["wmic", "memorychip", "get", "Capacity,ConfiguredClockSpeed,Speed,SMBIOSMemoryType"],
-        capture_output=True, text=True, timeout=20,
-    ).stdout
-    return [line.split() for line in out.splitlines() if line.strip()]
+    try:
+        out = subprocess.run(
+            ["wmic", "memorychip", "get", "Capacity,ConfiguredClockSpeed,Speed,SMBIOSMemoryType"],
+            capture_output=True, text=True, timeout=20,
+        ).stdout
+        return [line.split() for line in out.splitlines() if line.strip()]
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        out = _powershell(
+            "Get-CimInstance Win32_PhysicalMemory | ForEach-Object { '{0} {1} {2} {3}' -f $_.Capacity, $_.ConfiguredClockSpeed, $_.Speed, $_.SMBIOSMemoryType }"
+        )
+        return [line.split() for line in out.splitlines() if line.strip()]
 
 
 def openvino_devices() -> Any:

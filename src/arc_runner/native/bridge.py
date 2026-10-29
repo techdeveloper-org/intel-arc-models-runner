@@ -663,6 +663,9 @@ class NativeLevelZeroBridge:
         self._ctx: Optional[int] = None
         self.init_status: int = 0
         if self._dll:
+            from arc_runner.devices.sysman import zes_preinit
+
+            zes_preinit()
             status = ctypes.c_int32(0)
             raw_ctx = self._dll.arc_ze_init_ex(ctypes.byref(status))
             self.init_status = int(status.value)

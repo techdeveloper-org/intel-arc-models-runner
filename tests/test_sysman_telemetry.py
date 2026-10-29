@@ -117,7 +117,61 @@ def test_query_gpu_memory_sysman_unsupported_gives_no_free_value(sysman: LevelZe
 @requires_gcc
 def test_sysman_init_failure_disables_all_sysman_metrics_with_reason(sysman: LevelZeroSysman, fake_env: pytest.MonkeyPatch) -> None:
     """zesInit failing yields None for power and frequency with an explanation."""
+    from arc_runner.devices.sysman import reset_zes_init_cache
+
+    reset_zes_init_cache()
     fake_env.setenv("FAKE_ZES_FAIL", "zesInit")
+    sysman = LevelZeroSysman()
     assert sysman.query_package_power(0, sample_interval_s=0.01) is None
     assert sysman.query_gpu_frequency_mhz(0) is None
     assert "zesInit" in (sysman.get_unavailable_reason("package_power") or "")
+
+
+def _reset_fake(fake_loader_path: object) -> None:
+    """Reset the fake loader's zeInit flag and the Sysman init cache."""
+    import ctypes
+
+    from arc_runner.devices.sysman import reset_zes_init_cache
+
+    ctypes.CDLL(str(fake_loader_path)).fake_ze_reset()
+    reset_zes_init_cache()
+
+
+@requires_gcc
+def test_sysman_created_before_core_init_works_under_strict_loader_order(fake_loader: object, fake_env: pytest.MonkeyPatch) -> None:  # noqa: F811
+    """Real loaders answer UNINITIALIZED to zesInit after zeInit; Sysman initialises first and so still works."""
+    _reset_fake(fake_loader)
+    fake_env.setenv("FAKE_ZES_STRICT_ORDER", "1")
+    sysman = LevelZeroSysman()
+    assert sysman.query_gpu_frequency_mhz(0) == pytest.approx(1100.0)
+
+
+@requires_gcc
+def test_bridge_created_first_still_leaves_sysman_working_under_strict_loader_order(fake_loader: object, fake_env: pytest.MonkeyPatch) -> None:  # noqa: F811
+    """The native bridge pre-initialises Sysman before its own zeInit, so a later Sysman works."""
+    from arc_runner.native import bridge as native_bridge
+
+    if not native_bridge._load_native_library():
+        pytest.skip("native library not built")
+    _reset_fake(fake_loader)
+    fake_env.setenv("FAKE_ZES_STRICT_ORDER", "1")
+    ze = native_bridge.NativeLevelZeroBridge()
+    try:
+        assert ze.is_available
+        assert LevelZeroSysman().query_gpu_frequency_mhz(0) == pytest.approx(1100.0)
+    finally:
+        ze.destroy()
+
+
+@requires_gcc
+def test_zeinit_before_sysman_reports_the_ordering_hint(fake_loader: object, fake_env: pytest.MonkeyPatch) -> None:  # noqa: F811
+    """If something ran zeInit first, the reason names the cause instead of a bare result code."""
+    import ctypes
+
+    _reset_fake(fake_loader)
+    fake_env.setenv("FAKE_ZES_STRICT_ORDER", "1")
+    ctypes.CDLL(str(fake_loader)).zeInit(1)
+    sysman = LevelZeroSysman()
+    assert sysman.query_gpu_frequency_mhz(0) is None
+    reason = sysman.get_unavailable_reason("gpu_frequency") or ""
+    assert "0x78000001" in reason and "zes_preinit" in reason

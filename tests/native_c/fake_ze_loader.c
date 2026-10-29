@@ -96,8 +96,15 @@ FAKE_EXPORT unsigned long fake_ze_live_allocs(void) {
     return g_live_allocs;
 }
 
+static int g_ze_initialized = 0;
+
+FAKE_EXPORT void fake_ze_reset(void) {
+    g_ze_initialized = 0;
+}
+
 FAKE_EXPORT ze_result_t zeInit(uint32_t flags) {
     (void)flags;
+    g_ze_initialized = 1;
     return should_fail("zeInit") ? FAKE_ERR_FAILED : ZE_RESULT_SUCCESS;
 }
 
@@ -422,8 +429,14 @@ static double env_double(const char* name, double fallback) {
     return value ? strtod(value, NULL) : fallback;
 }
 
+/* Real loaders return ZE_RESULT_ERROR_UNINITIALIZED from zesInit once zeInit has run in the process
+ * (observed on Windows, Arc iGPU, 2026-10-29); the check is on only with FAKE_ZES_STRICT_ORDER=1. */
 FAKE_EXPORT ze_result_t zesInit(uint32_t flags) {
     (void)flags;
+    const char* strict = getenv("FAKE_ZES_STRICT_ORDER");
+    if (g_ze_initialized && strict && strict[0] == '1') {
+        return 0x78000001u;
+    }
     return zes_should_fail("zesInit") ? FAKE_ERR_FAILED : ZE_RESULT_SUCCESS;
 }
 

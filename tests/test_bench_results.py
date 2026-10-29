@@ -214,3 +214,13 @@ def test_renderer_summarises_non_llm_metrics_with_confidence_interval(tmp_path: 
     assert "audio_stt" in text and "latency_s" in text and "rtf" in text
     assert "power_w" not in text
     assert "whisper" in text and "arc (iGPU FP16)" in text
+
+
+def test_renderer_keeps_three_significant_digits_for_small_and_large_values() -> None:
+    """Small metrics (RTF 0.047) must not collapse to 0.0 and large ones keep whole numbers."""
+    renderer = _load_script("render_bench_docs")
+    assert renderer._sig(0.0474) == "0.0474"
+    assert renderer._sig(15.62) == "15.6"
+    assert renderer._sig(204.0) == "204"
+    assert renderer._sig(2232.5) == "2232"
+    assert renderer._sig(0.0) == "0"
