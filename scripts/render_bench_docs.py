@@ -41,27 +41,43 @@ def render_tables() -> str:
     """Build the markdown summary from every result file.
 
     Returns:
-        str: Table text, or a sentence stating that no measured results exist yet.
+        str: LLM table and, where non-LLM results exist, a metric table; or a sentence stating that
+        no measured results exist yet.
     """
-    rows: List[Tuple[str, str, str, int, str, str, str]] = []
+    llm_rows: List[Tuple[str, str, str, int, str, str, str]] = []
+    metric_rows: List[Tuple[str, str, str, str, int, str, str, str]] = []
     for path in sorted(RESULTS_DIR.glob("*.json")):
         document = json.loads(path.read_text(encoding="utf-8"))
-        grouped: Dict[Tuple[str, str], List[BenchSample]] = {}
+        grouped: Dict[Tuple[str, str, str], List[BenchSample]] = {}
         for sample in load_samples(document):
             if not sample.is_warmup:
-                grouped.setdefault((sample.model_id, sample.backend), []).append(sample)
+                grouped.setdefault((sample.workload, sample.model_id, sample.backend), []).append(sample)
         labels = document["protocol"]["labels"]
-        for (model, backend), samples in sorted(grouped.items()):
+        for (workload, model, backend), samples in sorted(grouped.items()):
             sources = ",".join(sorted({s.source for s in samples}))
-            rows.append((
-                model, f"{backend} ({labels.get(backend, 'unlabelled')})", path.name, len(samples),
-                _format([s.ttft_ms for s in samples if s.ttft_ms is not None]),
-                _format([s.decode_tps for s in samples if s.decode_tps is not None]), sources,
-            ))
-    if not rows:
+            label = f"{backend} ({labels.get(backend, 'unlabelled')})"
+            if workload == "llm":
+                llm_rows.append((
+                    model, label, path.name, len(samples),
+                    _format([s.ttft_ms for s in samples if s.ttft_ms is not None]),
+                    _format([s.decode_tps for s in samples if s.decode_tps is not None]), sources,
+                ))
+                continue
+            names = sorted({key for s in samples for key in (s.metrics or {})})
+            for name in names:
+                values = [s.metrics[name] for s in samples if s.metrics and s.metrics.get(name) is not None]
+                if values:
+                    metric_rows.append((workload, model, label, path.name, len(values), name, _format(values), sources))
+    if not llm_rows and not metric_rows:
         return "No benchmark result files exist yet. Run the benchmark on real hardware; this table is generated from `docs/benchmarks/results/*.json`.\n"
-    lines = ["| Model | Backend (labels) | Result file | n | TTFT ms (median +/- 95% CI) | Decode tok/s (median +/- 95% CI) | Source |", "|:--|:--|:--|--:|--:|--:|:--|"]
-    lines += [f"| {m} | {b} | {f} | {n} | {t} | {d} | {src} |" for m, b, f, n, t, d, src in rows]
+    lines: List[str] = []
+    if llm_rows:
+        lines += ["| Model | Backend (labels) | Result file | n | TTFT ms (median +/- 95% CI) | Decode tok/s (median +/- 95% CI) | Source |", "|:--|:--|:--|--:|--:|--:|:--|"]
+        lines += [f"| {m} | {b} | {f} | {n} | {t} | {d} | {src} |" for m, b, f, n, t, d, src in llm_rows]
+    if metric_rows:
+        lines += [""] if lines else []
+        lines += ["| Workload | Model | Backend (labels) | Result file | n | Metric | Value (median +/- 95% CI) | Source |", "|:--|:--|:--|:--|--:|:--|--:|:--|"]
+        lines += [f"| {w} | {m} | {b} | {f} | {n} | {name} | {v} | {src} |" for w, m, b, f, n, name, v, src in metric_rows]
     return "\n".join(lines) + "\n"
 
 
