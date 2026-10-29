@@ -29,6 +29,7 @@ from arc_runner.core.exceptions import (
 )
 from arc_runner.core.logging import get_logger
 from arc_runner.engine.base import BaseEngine
+from arc_runner.engine.context_budget import ContextBudgetMixin
 from arc_runner.engine.kv_cache import KVCacheManager
 from arc_runner.engine.lora_manager import LoRAManager
 from arc_runner.engine.models import EngineTelemetry, GenerationConfig, TokenChunk
@@ -41,7 +42,7 @@ logger = get_logger("engine.openvino")
 KV_PRECISION_ENV = "ARC_KV_CACHE_PRECISION"
 
 
-class OpenVINOGenAIEngine(BaseEngine):
+class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
     """Execution engine wrapping openvino_genai.LLMPipeline for Intel heterogeneous silicon."""
 
     VALID_DEVICE_PREFIXES = ("GPU", "NPU", "CPU")
@@ -163,22 +164,6 @@ class OpenVINOGenAIEngine(BaseEngine):
         self._kv_cache_precision = str(props.get("KV_CACHE_PRECISION", ""))
         return props
 
-    def _count_prompt_tokens(self, prompt: str) -> Optional[int]:
-        """Count prompt tokens with the loaded pipeline's own tokenizer.
-
-        Args:
-            prompt: Prompt text.
-
-        Returns:
-            Optional[int]: Token count, or None if the tokenizer cannot be queried.
-        """
-        try:
-            encoded = self._pipeline.get_tokenizer().encode(prompt)
-            return int(encoded.input_ids.shape[-1])
-        except Exception as exc:
-            logger.warning("Prompt token count unavailable; context window not enforced", extra={"reason": str(exc)})
-            return None
-
     def tokenize(self, prompt: str) -> Optional[List[int]]:
         """Return the prompt's token ids from the loaded pipeline's tokenizer.
 
@@ -196,35 +181,6 @@ class OpenVINOGenAIEngine(BaseEngine):
         except Exception as exc:
             logger.warning("Tokenization unavailable", extra={"reason": str(exc)})
             return None
-
-    def _enforce_context_window(self, prompt_tokens: int, max_new_tokens: int) -> None:
-        """Reject requests whose prompt, or prompt plus requested completion, exceeds the context window.
-
-        Args:
-            prompt_tokens: Token count of the prompt.
-            max_new_tokens: Requested maximum completion tokens.
-
-        Raises:
-            ContextWindowExceededError: If prompt_tokens or prompt_tokens + max_new_tokens is too large.
-        """
-        remaining = self.kv_manager.check_headroom(prompt_tokens)
-        if max_new_tokens > remaining:
-            raise ContextWindowExceededError(prompt_tokens + max_new_tokens, self.kv_manager.max_context_length)
-
-    def _check_request_fits_context(self, prompt: str, max_new_tokens: int) -> Optional[int]:
-        """Count prompt tokens and enforce the context window before any generation work starts.
-
-        Args:
-            prompt: Prompt text.
-            max_new_tokens: Requested maximum completion tokens.
-
-        Returns:
-            Optional[int]: Prompt token count, or None if it could not be measured.
-        """
-        prompt_tokens = self._count_prompt_tokens(prompt)
-        if prompt_tokens is not None:
-            self._enforce_context_window(prompt_tokens, max_new_tokens)
-        return prompt_tokens
 
     def _invoke_pipeline(self, prompt: str, ov_config: Any) -> Any:
         """Run one synchronous generation using a single call form that returns DecodedResults.

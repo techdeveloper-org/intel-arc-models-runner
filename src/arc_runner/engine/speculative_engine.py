@@ -20,6 +20,7 @@ from arc_runner.core.exceptions import (
     ModelNotFoundError,
 )
 from arc_runner.engine.base import BaseEngine
+from arc_runner.engine.context_budget import ContextBudgetMixin
 from arc_runner.engine.kv_cache import KVCacheManager
 from arc_runner.engine.telemetry import telemetry_from_perf_metrics, telemetry_from_stream, telemetry_unavailable
 from arc_runner.engine.models import (
@@ -32,7 +33,7 @@ from arc_runner.engine.models import (
 logger = logging.getLogger(__name__)
 
 
-class HybridSpeculativeEngine(BaseEngine):
+class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
     """Dual-silicon speculative decoding engine coupling an NPU draft model with an Arc GPU verifier.
 
     Leverages openvino_genai native draft_model bindings to execute speculative verification
@@ -54,7 +55,7 @@ class HybridSpeculativeEngine(BaseEngine):
         self._telemetry: EngineTelemetry = EngineTelemetry()
         self._spec_config: Optional[SpeculativeConfig] = None
         self._current_gamma: int = 4
-        self._kv_manager: KVCacheManager = kv_cache_manager or KVCacheManager()
+        self.kv_manager: KVCacheManager = kv_cache_manager or KVCacheManager()
 
     @property
     def is_loaded(self) -> bool:
@@ -325,6 +326,7 @@ class HybridSpeculativeEngine(BaseEngine):
 
         cfg = config or GenerationConfig()
         ov_config = self._build_ov_generation_config(cfg)
+        prompt_tokens = self._check_request_fits_context(prompt, cfg.max_new_tokens)
 
         start_time = time.monotonic()
         raw_result = (
@@ -355,6 +357,7 @@ class HybridSpeculativeEngine(BaseEngine):
                 draft_device=self._draft_device if is_spec else "",
             )
 
+        self._telemetry.prompt_tokens = prompt_tokens or 0
         return text_result
 
     def generate_stream(
@@ -396,6 +399,8 @@ class HybridSpeculativeEngine(BaseEngine):
                 completion_tokens=0,
             )
             return
+
+        prompt_tokens = self._check_request_fits_context(prompt, cfg.max_new_tokens)
 
         chunk_queue: queue.Queue[Optional[TokenChunk]] = queue.Queue(
             maxsize=STREAM_BUFFER_SIZE
@@ -496,6 +501,7 @@ class HybridSpeculativeEngine(BaseEngine):
             is_speculative=is_spec,
             draft_device=self._draft_device if is_spec else "",
         )
+        self._telemetry.prompt_tokens = prompt_tokens or 0
 
         finish_reason = (
             "length" if generated_count >= cfg.max_new_tokens else "stop"
