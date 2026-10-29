@@ -94,10 +94,7 @@ To comprehensively prove deterministic accuracy, robustness against adversarial 
 | **E8** | Edge| Hard | `llama-3.2-1b` | Client Abort: Recycles physical KV memory blocks immediately to free pool | 0.08s | **0.02s** | Instant Free | **PASS (Proof M32)**|
 | **E9** | Edge| Hard | `qwen-2.5-1.5b` | Thermal Stepping: Discards warmup passes; bounds jitter with $CV \le 0.75$ | 15.40s | **4.10s** | 2.80s (Spec) | **PASS (CI 95%)** |
 
-```bash
-# Execute the comprehensive 30-Case Triad Audit harness
-python scratch/run_full_catalog_benchmark_audit.py
-```
+> The script that used to produce this table (`run_full_catalog_benchmark_audit.py`) printed fixed timings and a constant PASS verdict without running any model, and has been removed. Reproduce real numbers with `python scratch/run_live_sequential_model_benchmarks.py --model <alias>` (results land in `docs/benchmarks/results/`).
 
 ---
 

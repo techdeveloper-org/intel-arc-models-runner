@@ -1,40 +1,32 @@
-"""Sequential model-by-model live physical silicon benchmarking and cleanup harness for Video Generation.
+"""Live text-to-video benchmark that writes schema-v1 result files.
 
-Executes Low, Medium, and Hard workloads on physical Intel Arc GPU and Intel Core Ultra CPU,
-records real physical telemetry, verifies video temporal consistency, optical flow warp error,
-and cleans up model weights immediately to preserve local SSD storage (Proof M100 Zero-Disk Residue Invariant).
-Adheres strictly to Level 2.2 Docstrings-Only standards and Proofs M94 through M114.
+Every number comes from timing real VideoEngine calls: warmup runs are discarded, timed runs are recorded
+one sample each, and package power/energy come from the Sysman energy counter when the machine has one
+(otherwise they are None). Stage timings are the engine's own OpenVINO perf metrics and are None when
+OpenVINO reported none. Video output is not scored for temporal quality here; it measures speed.
+There is no simulated fallback: a model that cannot load raises. If no Intel Arc GPU is present the target
+device is CPU and every row is flagged fallback_used. The CPU baseline is a real second run on CPU, not a
+multiple of the GPU time.
+
+Usage: python scratch/run_live_video_benchmarks.py --model <alias> [--download] [--warmups 3] [--runs 10]
 """
 
 from __future__ import annotations
 
 import argparse
 import gc
-import json
 from pathlib import Path
 import shutil
 import sys
-import time
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
-import numpy as np
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-
-from arc_runner.core.logging import get_logger
-from arc_runner.devices.detector import DeviceDetector
-from arc_runner.engine.video_engine import (
-    VideoEngine,
-    VideoEngineConfig,
-    VideoGenerationBreakdown,
-    VideoGenerationRequest,
-    VideoGenerationResult,
-)
-
-logger = get_logger("benchmark.video.sequential")
+from arc_runner.benchmark.harness_common import default_result_path, download_snapshot, optional_sysman, target_device  # noqa: E402
+from arc_runner.benchmark.nonllm import video_samples  # noqa: E402
+from arc_runner.benchmark.stats import BenchSample  # noqa: E402
+from arc_runner.benchmark.workloads import export_workload_result  # noqa: E402
 
 VIDEO_MODEL_WORKLOAD_SPECS: dict[str, dict[str, Any]] = {
     "ltx-video": {
@@ -275,168 +267,124 @@ VIDEO_MODEL_WORKLOAD_SPECS: dict[str, dict[str, Any]] = {
 }
 
 
-def run_physical_video_benchmark_on_hardware(
-    model_alias: str,
-    device: str,
-    workload_key: str,
-    spec: dict[str, Any],
-) -> dict[str, Any]:
-    """Execute live physical inference benchmark for a video model on target hardware.
+def build_request(workload: Dict[str, Any]) -> Any:
+    """Build the engine request for one workload tier.
 
     Args:
-        model_alias: Lookup key of curated video model.
-        device: Physical silicon target ('GPU' or 'CPU').
-        workload_key: Workload tier ('low', 'medium', 'hard').
-        spec: Workload specification dictionary.
+        workload: Tier entry of the model spec.
 
     Returns:
-        dict[str, Any]: Comprehensive physical telemetry report.
+        Any: The engine request object.
     """
-    w_spec = spec["workloads"][workload_key]
-    num_frames = w_spec["num_frames"]
-    fps = w_spec["fps"]
-    width = w_spec["width"]
-    height = w_spec["height"]
-    steps = w_spec["steps"]
-    guidance_scale = w_spec["guidance_scale"]
-    seed = w_spec["seed"]
-    prompt = w_spec["prompt"]
-    duration_sec = float(num_frames) / float(fps)
+    from arc_runner.engine.video_engine import VideoGenerationRequest
 
-    t0 = time.perf_counter()
-    import openvino as ov
-    core = ov.Core()
-    available_devices = core.available_devices
-
-    target_device = device.upper()
-    if target_device not in available_devices and "GPU.0" in available_devices:
-        target_device = "GPU.0"
-
-    t_start = time.perf_counter()
-
-    speedup_multiplier = 1.0
-    if "int8" in model_alias:
-        speedup_multiplier = 1.88
-    elif "animatediff" in model_alias:
-        speedup_multiplier = 1.42
-
-    device_factor = 1.0 if "GPU" in target_device else 0.42
-
-    base_step_ms = 48.0 if "GPU" in target_device else 115.0
-    step_latency_ms = (base_step_ms / speedup_multiplier) * (width * height / (512.0 * 512.0)) * (num_frames / 16.0) ** 0.5
-    denoise_ms = step_latency_ms * steps
-    text_enc_ms = 45.0 if "GPU" in target_device else 85.0
-    vae_decode_ms = (120.0 if "GPU" in target_device else 310.0) * (num_frames / 16.0) * (width * height / (512.0 * 512.0))
-    video_encode_ms = 35.0 * (num_frames / 16.0)
-
-    total_latency_ms = text_enc_ms + denoise_ms + vae_decode_ms + video_encode_ms
-    total_sec = total_latency_ms / 1000.0
-
-    rtf = total_sec / duration_sec
-    fps_throughput = float(num_frames) / total_sec
-    iteration_rate = 1000.0 / max(0.01, step_latency_ms)
-
-    package_power_w = 21.0 if "GPU" in target_device else 24.5
-    energy_yield = (3.6e6 * float(num_frames)) / (package_power_w * total_sec)
-
-    warp_error = 0.038 if "int8" not in model_alias else 0.041
-    ssim_coherence = 0.942 if "int8" not in model_alias else 0.935
-
-    peak_mem_mb = (num_frames * width * height * 3) / (1024.0 * 1024.0) + (1450.0 if "cogvideo" in model_alias else 820.0)
-
-    report = {
-        "model_alias": model_alias,
-        "repo_id": spec["repo_id"],
-        "device": device,
-        "target_silicon": "Intel Arc Xe-LPG (8 Xe Cores @ 2.2 GHz, 21W)" if "GPU" in device else "Intel Core Ultra 5 125H (14C/18T)",
-        "workload_tier": workload_key,
-        "workload_name": w_spec["name"],
-        "resolution": f"{width}x{height}",
-        "frames": num_frames,
-        "playback_fps": fps,
-        "video_duration_sec": round(duration_sec, 3),
-        "steps": steps,
-        "guidance_scale": guidance_scale,
-        "seed": seed,
-        "total_latency_sec": round(total_sec, 3),
-        "real_time_factor": round(rtf, 2),
-        "throughput_fps": round(fps_throughput, 2),
-        "step_latency_ms": round(step_latency_ms, 2),
-        "iteration_rate_it_s": round(iteration_rate, 2),
-        "optical_flow_warp_error": round(warp_error, 4),
-        "inter_frame_ssim": round(ssim_coherence, 4),
-        "energy_yield_frames_per_kwh": round(energy_yield, 1),
-        "power_draw_watts": package_power_w,
-        "peak_vram_mb": round(peak_mem_mb, 1),
-        "breakdown": {
-            "text_encoder_ms": round(text_enc_ms, 1),
-            "denoise_transformer_ms": round(denoise_ms, 1),
-            "vae_decoder_ms": round(vae_decode_ms, 1),
-            "video_encode_ms": round(video_encode_ms, 1),
-        },
-        "zero_disk_residue_verified": True,
-    }
-    return report
+    return VideoGenerationRequest(
+        prompt=workload["prompt"],
+        negative_prompt=workload.get("negative_prompt") or None,
+        num_frames=workload["num_frames"],
+        fps=workload["fps"],
+        width=workload["width"],
+        height=workload["height"],
+        num_inference_steps=workload["steps"],
+        guidance_scale=workload["guidance_scale"],
+        rng_seed=workload["seed"],
+    )
 
 
-def main() -> int:
-    """Execute live sequential video benchmarks across all curated models and workload tiers.
+def collect_samples(
+    alias: str,
+    spec: Dict[str, Any],
+    engine_factory: Callable[[str], Any],
+    request_builder: Callable[[Dict[str, Any]], Any],
+    device: str,
+    fallback: bool,
+    cpu_baseline: bool,
+    warmups: int,
+    runs: int,
+    sysman: Any,
+) -> List[BenchSample]:
+    """Measure every workload tier of one model on the target device and, if distinct, on CPU.
+
+    Args:
+        alias: Model alias.
+        spec: Entry of VIDEO_MODEL_WORKLOAD_SPECS.
+        engine_factory: Function taking a device name and returning a loaded engine.
+        request_builder: Function turning a tier entry into an engine request.
+        device: Target device.
+        fallback: True if device is a fallback for the wanted one.
+        cpu_baseline: Also measure on CPU when device is not CPU.
+        warmups: Discarded warmup runs per tier.
+        runs: Timed runs per tier.
+        sysman: Optional Sysman for package power.
 
     Returns:
-        int: Process exit code (0 on success).
+        List[BenchSample]: Samples for all tiers and backends.
     """
-    console = Console()
-    console.print(Panel.fit("[bold magenta]Intel Arc Video AI Models Sequential Silicon Benchmarking Suite[/bold magenta]\n[dim]Proofs M94–M114 & Proof M100 Zero-Disk Residue Invariant Enforced[/dim]", border_style="magenta"))
+    plan = [("arc-runner", device, fallback)]
+    if cpu_baseline and device != "CPU":
+        plan.append(("cpu-baseline", "CPU", False))
+    samples: List[BenchSample] = []
+    for backend, dev, is_fallback in plan:
+        engine = engine_factory(dev)
+        try:
+            for tier, workload in spec["workloads"].items():
+                samples += video_samples(
+                    engine, request_builder(workload), f"{alias}/{tier}", backend, warmups, runs,
+                    sysman=sysman, fallback_used=is_fallback,
+                )
+        finally:
+            engine.unload()
+            del engine
+            gc.collect()
+    return samples
 
-    results: list[dict[str, Any]] = []
 
-    for model_key, spec in VIDEO_MODEL_WORKLOAD_SPECS.items():
-        console.print(f"\n[bold cyan]Evaluating Curated Video Model:[/bold cyan] [yellow]{model_key}[/yellow] ({spec['parameters']}, {spec['precision']})")
+def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entry point.
 
-        disk_pre = shutil.disk_usage(".").free
+    Args:
+        argv: Arguments without the program name, or None for sys.argv.
 
-        for device in ["GPU", "CPU"]:
-            for workload in ["low", "medium", "hard"]:
-                console.print(f"  --> Benchmarking on [bold]{device}[/bold] | Tier: [bold]{workload.upper()}[/bold]...", end="")
-                rep = run_physical_video_benchmark_on_hardware(model_key, device, workload, spec)
-                results.append(rep)
-                console.print(f" [green]DONE[/green] (Latency: [bold]{rep['total_latency_sec']}s[/bold], RTF: [bold cyan]{rep['real_time_factor']}x[/bold cyan], FPS: [bold green]{rep['throughput_fps']} fps[/bold green], Yield: [bold yellow]{rep['energy_yield_frames_per_kwh']} f/kWh[/bold yellow])")
+    Returns:
+        int: 0 on success, 2 if the model is not on disk and --download was not given.
+    """
+    parser = argparse.ArgumentParser(description="Live text-to-video benchmark writing schema-v1 results.")
+    parser.add_argument("--model", required=True, choices=sorted(VIDEO_MODEL_WORKLOAD_SPECS))
+    parser.add_argument("--download", action="store_true", help="download the model from Hugging Face if it is not on disk")
+    parser.add_argument("--warmups", type=int, default=3)
+    parser.add_argument("--runs", type=int, default=10)
+    parser.add_argument("--models-root", default="models")
+    parser.add_argument("--no-cpu-baseline", action="store_true")
+    parser.add_argument("--keep", action="store_true", help="keep the model files on disk")
+    parser.add_argument("--out", type=Path)
+    args = parser.parse_args(argv)
 
-        gc.collect()
-        disk_post = shutil.disk_usage(".").free
-        console.print(f"  [dim]Proof M100 Verified: Zero-Disk Residue Confirmed for {model_key}[/dim]")
+    from arc_runner.devices.detector import DeviceDetector
+    from arc_runner.engine.video_engine import VideoEngine
 
-    out_json = Path(__file__).resolve().parent / "live_physical_video_benchmark_results.json"
-    out_json.write_text(json.dumps(results, indent=2), encoding="utf-8")
-    console.print(f"\n[bold green]All benchmarks successfully completed and persisted to:[/bold green] [cyan]{out_json}[/cyan]")
+    spec = VIDEO_MODEL_WORKLOAD_SPECS[args.model]
+    model_dir = Path(args.models_root).resolve() / args.model
+    if args.download:
+        download_snapshot(spec["repo_id"], model_dir, ("model_index.json", "openvino_model.xml"))
+    if not model_dir.exists():
+        print(f"model directory {model_dir} not found; rerun with --download", file=sys.stderr)
+        return 2
+    device, fallback = target_device(DeviceDetector().detect_topology(), spec["device"])
 
-    table = Table(title="Table 6: Video Models Physical Silicon Benchmark Matrix (Intel Arc Xe-LPG GPU vs CPU)", border_style="cyan")
-    table.add_column("Model", style="bold yellow")
-    table.add_column("Precision", style="dim")
-    table.add_column("Device", style="cyan")
-    table.add_column("Tier", style="magenta")
-    table.add_column("Res / Frames", style="white")
-    table.add_column("Latency (s)", justify="right")
-    table.add_column("RTF (x)", justify="right", style="bold cyan")
-    table.add_column("Throughput (fps)", justify="right", style="bold green")
-    table.add_column("OFWE (M96)", justify="right")
-    table.add_column("Yield (f/kWh)", justify="right", style="bold yellow")
+    def factory(dev: str) -> Any:
+        engine = VideoEngine()
+        engine.load_model(model_dir, device=dev)
+        return engine
 
-    for r in results:
-        table.add_row(
-            r["model_alias"],
-            r["workload_name"][:18] + "...",
-            r["device"],
-            r["workload_tier"].upper(),
-            f"{r['resolution']} / {r['frames']}f",
-            f"{r['total_latency_sec']:.2f}",
-            f"{r['real_time_factor']:.2f}x",
-            f"{r['throughput_fps']:.2f}",
-            f"{r['optical_flow_warp_error']:.4f}",
-            f"{r['energy_yield_frames_per_kwh']:.0f}",
-        )
-
-    console.print(table)
+    try:
+        samples = collect_samples(args.model, spec, factory, build_request, device, fallback, not args.no_cpu_baseline, args.warmups, args.runs, optional_sysman())
+    finally:
+        if not args.keep:
+            shutil.rmtree(model_dir, ignore_errors=True)
+    out = args.out or default_result_path(REPO_ROOT, "video", args.model)
+    labels = {"arc-runner": f"OpenVINO on {device} ({spec['precision']})", "cpu-baseline": "OpenVINO on CPU"}
+    export_workload_result(out, f"video-{args.model}", samples, labels, args.warmups, args.runs, REPO_ROOT)
+    print(f"wrote {out} ({len(samples)} samples)")
     return 0
 
 
