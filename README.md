@@ -55,7 +55,7 @@ While mainstream local LLM tools like Ollama were designed with a CUDA-first and
 User Prompt ──► Director LLM (NPU/GPU) ──► Kokoro TTS (NPU/GPU) ──► Slide Compositor / DiT (Arc GPU) ──► Muxer (.mp4)
 ```
 
-- **Cloud Cost-Killer ROI**: Generates 30-second broadcast-ready educational videos locally for **$0.00** vs. **$0.35/video** on OpenAI + ElevenLabs + Runway (pays for an Intel Arc GPU in <850 runs).
+- **Cloud cost comparison**: runs the studio pipeline locally. Cloud prices are third-party and not verified by this project, so ROI is computed only from prices you supply (see [multimodal studio](docs/multimodal_studio.md)); no savings figure is claimed here.
 - **5 Critical Hurdles Solved**: Heterogeneous Compute Splitting (8.3 GB peak VRAM), Level Zero USM Zero-Copy Bridge ($\le 50\,\mu\text{s}$), Closed-Loop Pacing Convergence ($\|\Delta\| \le 0.05\,\text{s}$), Dual-Stage AST Auto-Repair, and Fork-Join Concurrency Barriers.
 - **Next-Gen Features**: Hardware QSV H.264 encoding, Alpha cross-dissolve, Audio-First Reactive DAG, dynamic karaoke subtitles, and autonomous VLM inspection gate.
 

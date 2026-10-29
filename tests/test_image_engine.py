@@ -246,6 +246,24 @@ class TestImageEnginePositive:
             assert bd.iteration_rate_it_s > 0.0
             assert bd.megapixels_per_sec > 0.0
 
+    def test_image_engine_without_perf_metrics_reports_stage_timings_as_none(self, tmp_path: Path) -> None:
+        """H9: no OpenVINO perf metrics means no stage split; nothing is estimated from total time."""
+
+        class _NoMetricsPipeline(MockText2ImagePipeline):
+            def get_performance_metrics(self) -> Any:
+                raise RuntimeError("perf metrics unavailable")
+
+        model_dir = tmp_path / "mock_sd_model"
+        model_dir.mkdir()
+        with mock.patch("openvino_genai.Text2ImagePipeline", side_effect=_NoMetricsPipeline):
+            engine = ImageEngine()
+            engine.load_model(model_dir, device="GPU")
+            res = engine.generate(ImageGenerationRequest(prompt="No metrics", num_inference_steps=20))
+        bd = res.breakdown
+        assert bd.text_encoder_ms is None and bd.denoise_unet_ms is None and bd.vae_decoder_ms is None
+        assert bd.step_latency_ms is None and bd.iteration_rate_it_s is None
+        assert res.total_latency_s > 0.0 and bd.megapixels_per_sec > 0.0
+
     def test_image_engine_device_switching_gpu_to_cpu(self, tmp_path: Path) -> None:
         """P9: Verify device fallback cleanly re-targets from GPU to Host CPU."""
         model_dir = tmp_path / "mock_sd_model"

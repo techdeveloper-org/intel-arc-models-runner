@@ -126,7 +126,6 @@ class StudioPipeline:
                 stage_name="PLANNING",
                 latency_ms=round(t_plan_ms, 2),
                 device_used="NPU",
-                peak_memory_mb=145.0,
                 throughput_metric="scenes/sec",
                 throughput_value=round(len(scenes) / max(0.001, t_plan_ms / 1000.0), 2),
             )
@@ -158,7 +157,6 @@ class StudioPipeline:
                 stage_name="VLM_INSPECTION_GATE",
                 latency_ms=round(t_vlm_ms, 2),
                 device_used="GPU",
-                peak_memory_mb=210.0,
                 throughput_metric="score_avg",
                 throughput_value=round(float(np.mean(vlm_scores)) if vlm_scores else 9.5, 2),
             )
@@ -193,7 +191,6 @@ class StudioPipeline:
                 stage_name="TIMELINE_MUXING",
                 latency_ms=round(t_mux_ms, 2),
                 device_used="CPU",
-                peak_memory_mb=180.0,
                 throughput_metric="fps_encoded",
                 throughput_value=round((total_duration * request.fps) / max(0.001, t_mux_ms / 1000.0), 2),
             )
@@ -209,10 +206,7 @@ class StudioPipeline:
             usm_zero_copy_latency_us=usm_stats.get("avg_latency_us", 0.0),
             pacing_convergence_iterations=conv_iters,
             devices_utilized=["NPU", "GPU", "CPU"],
-            peak_vram_mb=1850.0,
         )
-
-        cloud_cost_saved = 0.350
 
         if progress_callback:
             progress_callback(PipelineStage.COMPLETED, 100.0, f"Production complete: {final_mp4.name}")
@@ -224,7 +218,6 @@ class StudioPipeline:
             total_duration_sec=round(total_duration, 2),
             resolution=request.resolution,
             telemetry=telemetry,
-            cloud_cost_saved_usd=cloud_cost_saved,
             created_at=datetime.now(timezone.utc).isoformat(),
         )
 
@@ -283,7 +276,6 @@ class StudioPipeline:
                 stage_name="AUDIO_SYNTHESIS",
                 latency_ms=round(t_audio_ms, 2),
                 device_used="NPU",
-                peak_memory_mb=320.0,
                 throughput_metric="rtf",
                 throughput_value=0.22,
             ),
@@ -291,7 +283,6 @@ class StudioPipeline:
                 stage_name="REACTIVE_AUDIO_SYNTHESIS",
                 latency_ms=round(t_audio_ms, 2),
                 device_used="NPU",
-                peak_memory_mb=320.0,
                 throughput_metric="rtf",
                 throughput_value=0.22,
             ),
@@ -299,7 +290,6 @@ class StudioPipeline:
                 stage_name="VISUAL_GENERATION",
                 latency_ms=round(t_vis_ms, 2),
                 device_used="GPU",
-                peak_memory_mb=1820.0,
                 throughput_metric="fps_rendered",
                 throughput_value=round(
                     sum(target_frames_per_scene) / max(0.001, t_vis_ms / 1000.0), 2
@@ -354,7 +344,6 @@ class StudioPipeline:
                 stage_name="PARALLEL_AUDIO_VISUAL_GENERATION",
                 latency_ms=round(t_elapsed_ms, 2),
                 device_used="NPU+GPU",
-                peak_memory_mb=1950.0,
                 throughput_metric="scenes/sec",
                 throughput_value=round(len(scenes) / max(0.001, t_elapsed_ms / 1000.0), 2),
             )
@@ -404,7 +393,6 @@ class StudioPipeline:
                 stage_name="AUDIO_SYNTHESIS",
                 latency_ms=round(t_audio_ms, 2),
                 device_used="NPU",
-                peak_memory_mb=320.0,
                 throughput_metric="rtf",
                 throughput_value=0.25,
             ),
@@ -412,7 +400,6 @@ class StudioPipeline:
                 stage_name="VISUAL_GENERATION",
                 latency_ms=round(t_vis_ms, 2),
                 device_used="GPU",
-                peak_memory_mb=1800.0,
                 throughput_metric="it/s",
                 throughput_value=4.5,
             ),
