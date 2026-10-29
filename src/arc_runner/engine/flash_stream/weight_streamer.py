@@ -20,7 +20,8 @@ from typing import Dict, List, Optional, Set, Tuple, Type, Union
 
 import numpy as np
 
-from arc_runner.core.exceptions import ArcRunnerError, NativeBoundsError
+from arc_runner.core.exceptions import ArcRunnerError, NativeBoundsError, NativeLayerError
+from arc_runner.engine.flash_stream.device_stager import DeviceLayerStager
 from arc_runner.core.logging import get_logger
 from arc_runner.native.bridge import NativeMemoryEngine, dtype_for_tensor_type, view_shape_for_dims
 from arc_runner.quant.gguf_parser import GGUFParser
@@ -132,6 +133,7 @@ class FlashStreamWeightManager:
         model_path: Union[str, Path],
         ring_buffer_slots: int = 3,
         pin_resident_layers: Optional[bool] = None,
+        device_stager: Optional[DeviceLayerStager] = None,
     ) -> None:
         """Initialize the flash-stream weight manager targeting a model container.
 
@@ -140,6 +142,8 @@ class FlashStreamWeightManager:
             ring_buffer_slots: Number of resident layer slots in the memory ring buffer.
             pin_resident_layers: Pin each resident layer into physical RAM (best effort, native mapping
                 only). None reads the ARC_PIN_RING environment variable; unset means off.
+            device_stager: Optional stager that copies each resident layer into Level Zero USM; the
+                first staging error disables it (see get_staging_error) and streaming continues.
 
         Raises:
             FileNotFoundError: If the specified model file does not exist.
@@ -176,6 +180,8 @@ class FlashStreamWeightManager:
         if pin_resident_layers is None:
             pin_resident_layers = os.environ.get(PIN_RING_ENV, "").strip() == "1"
         self._pin_enabled = pin_resident_layers
+        self._stager = device_stager
+        self._staging_error: Optional[str] = None
         self._pinned: Dict[int, Tuple[int, int]] = {}
         self._pending_unpin: List[int] = []
         self._native_engine = NativeMemoryEngine()
@@ -383,8 +389,43 @@ class FlashStreamWeightManager:
                 self._pin_enabled = False
                 logger.info("Layer pinning disabled after the OS refused a lock", extra={"layer": layer_idx})
 
+    def _stage_layer(self, layer_idx: int, arrays: Dict[str, np.ndarray]) -> None:
+        """Stage a freshly loaded layer into USM; the first failure disables staging.
+
+        Args:
+            layer_idx: Layer that was just published as READY.
+            arrays: Its loaded tensors.
+        """
+        stager = self._stager
+        if stager is None or self._staging_error is not None:
+            return
+        try:
+            stager.stage_layer(layer_idx, arrays)
+        except NativeLayerError as exc:
+            self._staging_error = str(exc)
+            logger.warning("USM staging disabled", extra={"layer": layer_idx, "reason": str(exc)})
+            return
+        with self._lock:
+            slot = self._slots[self._slot_index_for(layer_idx)]
+            still_resident = slot.state is SlotState.READY and slot.layer_idx == layer_idx
+        if not still_resident:
+            stager.release_layer(layer_idx)
+
+    def get_staging_error(self) -> Optional[str]:
+        """Return why staging was disabled.
+
+        Returns:
+            Optional[str]: The first staging error message, or None if staging has not failed.
+        """
+        return self._staging_error
+
     def _flush_unpins(self) -> None:
-        """Unlock every layer queued for unpinning by an eviction."""
+        """Unlock and unstage every layer queued by an eviction."""
+        if self._stager is not None:
+            with self._lock:
+                queued_layers = list(self._pending_unpin)
+            for layer_idx in queued_layers:
+                self._stager.release_layer(layer_idx)
         with self._pin_lock:
             with self._lock:
                 queued, self._pending_unpin = self._pending_unpin, []
@@ -472,6 +513,7 @@ class FlashStreamWeightManager:
                     raise
                 self._publish_load(layer_idx, loaded)
                 self._pin_layer(layer_idx)
+                self._stage_layer(layer_idx, loaded)
                 return loaded
             if event is not None and not event.wait(self._slot_wait_timeout_s):
                 raise TimeoutError(f"Timed out waiting for layer load in slot {self._slot_index_for(layer_idx)}")
@@ -587,6 +629,8 @@ class FlashStreamWeightManager:
             mmap_handle, self._mmap_handle = self._mmap_handle, None
             file_handle, self._file_handle = self._file_handle, None
 
+        if self._stager is not None:
+            self._stager.close()
         if native is not None:
             native.close()
         if mmap_handle is not None:
