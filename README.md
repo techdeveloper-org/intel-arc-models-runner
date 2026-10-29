@@ -4,8 +4,8 @@
 [![Intel](https://img.shields.io/badge/Hardware-Intel%20Arc%20GPU%20%7C%20Intel%20NPU-0071C5.svg)](https://www.intel.com)
 [![API](https://img.shields.io/badge/API-Ollama%20%7C%20OpenAI%20Compatible-green.svg)](https://github.com/techdeveloper-org/intel-arc-models-runner)
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org)
-[![Tests](https://img.shields.io/badge/Tests-569%20Passing%20(100%25)-brightgreen.svg)](docs/testing.md)
-[![Release](https://img.shields.io/badge/Release-v0.1.0%20(Wheel%20Available)-orange.svg)](https://github.com/techdeveloper-org/intel-arc-models-runner/releases)
+[![Tests](https://img.shields.io/badge/Tests-pytest%20suite-brightgreen.svg)](docs/testing.md)
+[![Release](https://img.shields.io/badge/Release-v0.2.0%20(wheel%20built%2C%20not%20published)-orange.svg)](https://github.com/techdeveloper-org/intel-arc-models-runner/releases)
 
 A purpose-built, mathematically proven, zero-bloat local LLM runner, multi-modal generative studio, and high-throughput server engineered specifically for **Intel® Arc™ GPUs (discrete & integrated)** and **Intel® NPUs (Neural Processing Units)**.
 
@@ -19,14 +19,14 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 |:---|:---|:---|
 | [**🎬 Arc MultiModal Studio**](docs/multimodal_studio.md) | Autonomous AI Production Studio & Co-Benchmarking | Flagship scenario, 5 bottlenecks solved, Cloud Cost-Killer ROI analysis, Studio CLI & REST API. |
 | [**🏗️ Architecture & Subsystems**](docs/architecture.md) | System Architecture & Hardware Interfaces | Subsystem deep-dive, Level Zero integration, Multi-LoRA hot-swapping, Continuous batching & paged KV cache. |
-| [**📦 Model Hub & Hardware Engines**](docs/model_hub_and_engines.md) | 25 Curated Models & Multi-Modal Engine Guides | Model matrix, Audio AI (Whisper/Kokoro), Image (SD/SDXL), Video (LTX-Video), 7-Tab Web UI, GGUF transpiler, NPU embeddings. |
+| [**📦 Model Hub & Hardware Engines**](docs/model_hub_and_engines.md) | 34 Registry Models & Multi-Modal Engine Guides | Model matrix, Audio AI (Whisper/Kokoro), Image (SD/SDXL), Video (LTX-Video), 7-Tab Web UI, GGUF transpiler, NPU embeddings. |
 | [**📊 Benchmarks Hub**](docs/benchmarks/README.md) | Comprehensive Empirical & Quantitative Results | Entry point to all benchmarking data, testbed silicon specs, and methodology. |
-| ↳ [**Comparative Benchmark Matrix**](docs/benchmarks/comparative_matrix.md) | Quantitative Inference Benchmark Matrix | Tables 1–7 (LLMs, 5W NPU Embeddings, Vision, Audio, Image, Video, and Table 7 Heavy Models Zero-RAM Flash-Stream) & Leviathan speculative efficiency proof. |
+| ↳ [**Comparative Benchmark Matrix**](docs/benchmarks/comparative_matrix.md) | Quantitative Inference Benchmark Matrix | Tables 1–7 (LLMs, 5W NPU Embeddings, Vision, Audio, Image, Video, and Table 7 Flash-Stream 32B/72B from a synthetic container, not real weights) & Leviathan speculative-efficiency derivation; legacy tables, UNVERIFIED. |
 | ↳ [**Mathematical Proofs (M59–M134)**](docs/benchmarks/mathematical_proofs.md) | Formal Theorems & Invariants | 70 formal mathematical proofs covering Audio AI, Diffusion, Video AI, and Flash-Stream Heterogeneous Zero-RAM Execution (Proofs M121–M134). |
-| ↳ [**Empirical Silicon Proofs**](docs/benchmarks/empirical_silicon.md) | Real Silicon Hardware Telemetry | Arc GPU vs CPU (30.8× TTFT), live sequential reclaim runs, 21-test hardware suite, GPU vs NPU breakdown, Flash-Stream memory trace ($\Delta M \le 1\text{ MB}$), and live Ollama CPU vs Arc GPU showdown. |
-| ↳ [**Ollama Showdown & 30-Case Audit**](docs/benchmarks/ollama_showdown.md) | Head-to-Head Comparison vs Ollama | Ollama "Silent CPU Fallback" anatomy (Proof M56), output coherence (M57/M58), 30-case Triad Audit matrix, and Heavy Models Ollama OOM Collapse vs Flash-Stream Zero-RAM. |
+| ↳ [**Empirical Silicon Proofs**](docs/benchmarks/empirical_silicon.md) | Real Silicon Hardware Telemetry | UNVERIFIED legacy document (see its banner): the 30.8× GPU-vs-CPU TTFT figure is not reproduced (measured CPU/GPU TTFT ratios on Qwen2.5-1.5B are 2.3× to 17.7×, and the speed-up claim gate fails), live sequential reclaim runs, 21-test hardware suite, GPU vs NPU breakdown, a Flash-Stream memory trace taken on a synthetic container (mapped bytes, not resident memory), and an Ollama comparison whose Ollama baseline was not run. |
+| ↳ [**Ollama Showdown & 30-Case Audit**](docs/benchmarks/ollama_showdown.md) | Head-to-Head Comparison vs Ollama | Ollama "Silent CPU Fallback" anatomy (Proof M56), output coherence (M57/M58), 30-case Triad Audit matrix, and a heavy-model Ollama OOM comparison whose Ollama run was never executed (UNVERIFIED). |
 | [**🚀 Deployment & Packaging Guide**](docs/deployment.md) | Standalone PyPI Wheel & Docker Deployment | Production guide for `pip install arc-runner`, Ubuntu 24.04 Docker image, `/dev/dri` pass-through, and Kubernetes Helm specs. |
-| [**🧪 Complete Test Coverage**](docs/testing.md) | Full Test Suite Roadmap & Execution | 741 non-hardware tests (733 passed, 8 skipped, 0 failures; hardware-marked tests are reported as not run), Triad testing patterns, C sanitizer harnesses. |
+| [**🧪 Complete Test Coverage**](docs/testing.md) | Full Test Suite Roadmap & Execution | Non-hardware suite counts measured with `pytest` (the guide gives the collected, passed, skipped and hardware-deselected numbers and their date); hardware-marked tests are reported as not run, Triad testing patterns, C sanitizer harnesses. |
 | [**🗺️ Roadmap & Multi-Modal Evolution**](docs/roadmap.md) | Delivered Milestones & Packaging Horizon | 15 core milestones + full Packaging Horizon delivered, 7 next-gen orchestration hurdles scorecard, PyPI & Docker targets. |
 | [**📐 Visual Diagrams Guide**](docs/diagrams/README.md) | UML & Draw.io Diagram Catalog | 13 architectural UML diagrams with embedded previews and editable draw.io links. |
 | [**🔬 R&D Forensics Reports**](docs/research/) | Deep Technical R&D & Whitepapers | 7 foundational research papers on Ollama defects, Intel silicon, solution blueprints, orchestration proofs, packaging math, and bare-metal flash streaming (Proofs M121–M134). |
@@ -39,7 +39,7 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 While mainstream local LLM tools like Ollama were designed with a CUDA-first and Apple Metal-first focus, `intel-arc-models-runner` treats Intel silicon as first-class citizens:
 
 - **Native Dual Silicon Acceleration**: Run models natively on **Intel Arc Discrete GPUs** (A770, A750, B580), **Core Ultra iGPUs** (Xe-LPG, Xe2), and **Intel NPUs** (AI Boost NPU 3720 / NPU 4000).
-- **Bare-Metal Flash-Stream Heavy Model Engine**: Run massive models (Qwen 2.5/3 32B & 72B) on memory-constrained devices (e.g. 1.24 GB free DRAM) with zero-RAM OOM crashes via $\mathcal{O}(1)$ layer ring buffering, asynchronous NVMe prefetch DMA, and NPU Attention / Arc GPU SwiGLU disaggregation (Proofs M121–M134)!
+- **Bare-Metal Flash-Stream Heavy Model Engine**: Designed to stream 32B/72B-class weights through a fixed-size layer ring buffer (memory-mapped reads, optional prefetch, NPU attention / GPU SwiGLU split; Proofs M121–M134 are mathematical models, not measurements). No real 32B/72B model has been run: the only Flash-Stream run on record used a synthetic 8-layer, hidden-size-32 container on a host with about 1.24 GB free DRAM, so no model quality, tokens-per-second, or memory-saving claim is made for 32B/72B.
 - **Draft-model speculative decoding (NPU draft, GPU verify)**: wired through OpenVINO GenAI's draft-model support. Its speed-up, acceptance rate and power draw have not been measured with this repository's harness; earlier published figures for them were removed (see the [benchmark method](docs/benchmarks/METHOD.md)).
 - **Autonomous Multi-Modal Media Studio**: Orchestrates LLM Director, Kokoro Voiceover, and SDXL / LTX-Video Visuals with zero-copy memory handoff and closed-loop pacing convergence.
 - **Drop-in Ollama & OpenAI Compatibility**: Compatible with `/api/generate`, `/api/chat`, `/api/tags`, and `/v1/chat/completions` for instant use with Open WebUI, Continue.dev, Cursor, and LangChain.
@@ -56,7 +56,7 @@ User Prompt ──► Director LLM (NPU/GPU) ──► Kokoro TTS (NPU/GPU) ─�
 ```
 
 - **Cloud cost comparison**: runs the studio pipeline locally. Cloud prices are third-party and not verified by this project, so ROI is computed only from prices you supply (see [multimodal studio](docs/multimodal_studio.md)); no savings figure is claimed here.
-- **5 Critical Hurdles Solved**: Heterogeneous Compute Splitting (8.3 GB peak VRAM), Level Zero USM Zero-Copy Bridge ($\le 50\,\mu\text{s}$), Closed-Loop Pacing Convergence ($\|\Delta\| \le 0.05\,\text{s}$), Dual-Stage AST Auto-Repair, and Fork-Join Concurrency Barriers.
+- **5 Critical Hurdles Solved**: Heterogeneous Compute Splitting (no peak-VRAM figure is claimed; none is measured), a Level Zero USM zero-copy bridge (opt-in, no latency measured), Closed-Loop Pacing Convergence (tolerance `convergence_tolerance_sec=0.05` in the muxer), Dual-Stage AST Auto-Repair, and Fork-Join Concurrency Barriers.
 - **Next-Gen Features**: Hardware QSV H.264 encoding, Alpha cross-dissolve, Audio-First Reactive DAG, dynamic karaoke subtitles, and autonomous VLM inspection gate.
 
 👉 *Read the full guide: [**Arc MultiModal Studio Documentation**](docs/multimodal_studio.md)*
@@ -195,7 +195,7 @@ arc-runner pull llama-3.2-3b
 arc-runner pull deepseek-r1-1.5b
 
 # Benchmark on Intel Arc GPU or NPU with 95% confidence intervals
-arc-runner benchmark llama-3.2-3b --device GPU --runs 5
+arc-runner benchmark llama-3.2-3b --device GPU --iterations 5
 
 # Speech-to-Text with Whisper on Arc GPU
 arc-runner transcribe lecture.wav --model whisper-base --device GPU
@@ -215,11 +215,11 @@ arc-runner studio "Quantum Physics and Wave Particle Duality" --duration 12.0 --
 # Offline GGUF -> OpenVINO INT4/INT8 Transpiler
 arc-runner convert ./llama-3.2-3b-Q4_0.gguf --output ./models/llama-openvino --precision int4
 
-# NPU Vector Embeddings at 5W
-arc-runner embed "What is Intel Arc GPU?" --model nomic-embed-text --device NPU
+# NPU vector embeddings (power not measured)
+arc-runner embed nomic-embed-text "What is Intel Arc GPU?" --device NPU
 ```
 
-👉 *For the full catalog of 25 models and detailed engine parameters, see: [**Model Hub & Hardware Engines Reference**](docs/model_hub_and_engines.md)*
+👉 *For the full catalog of 34 registry entries and detailed engine parameters, see: [**Model Hub & Hardware Engines Reference**](docs/model_hub_and_engines.md)*
 
 ---
 
@@ -251,7 +251,7 @@ flowchart TD
 
     subgraph Silicon ["Physical Intel Silicon Layer (Level Zero)"]
         ArcGPU["Intel Arc GPU (Xe-LPG / Battlemage / A770)"]
-        IntelNPU["Intel AI Boost NPU (3720 / 4000 @ 5W)"]
+        IntelNPU["Intel AI Boost NPU (3720 / 4000)"]
         HostCPU["Intel Core Ultra Host CPU"]
     end
 
@@ -284,7 +284,7 @@ No speed-up figure is claimed for any item below until it is measured with the [
 |:---|:---|:---|
 | **Bounds-checked memory mapping** | `arc_mmap_*` maps the model file read-only; every tensor extent is validated against the file size at registration and again at read time, the layer table is sealed before concurrent reads | Implemented; ASan/UBSan harness with a 1,000,000-case fuzz, Win32 branch compile-checked with mingw-w64 |
 | **Zero-copy tensor views** | NumPy views over the mapping are read-only and keep the mapping alive; closing the engine with live views defers the unmap | Implemented and tested |
-| **Best-effort page locking** | `lock_range` pins ranges with `VirtualLock` / `mlock`; a refusal (quota) is reported, never raised | Implemented; not yet called by the streaming path |
+| **Best-effort page locking** | `lock_range` pins ranges with `VirtualLock` / `mlock`; a refusal (quota) is reported, never raised | Called by the streaming path only when `pin_resident_layers` or `ARC_PIN_RING=1` is set; effect not measured |
 | **Direct-mapped ring buffer** | layer `L` always uses slot `L % slots`, one loader per slot, safe shutdown; protocol modelled in `docs/formal/RingSlots.tla` | Implemented; explicit-state check done, TLC run pending |
 | **Level Zero USM and DMA** | GPU-only device selection (never the NPU), bounded waits below the 2 s Windows TDR limit, tracked allocations | Implemented and tested against a fake loader; not used by the streaming path; not yet run against a real driver |
 | **INT8 KV cache (`u8`)** | opt-in with `KV_CACHE_PRECISION=u8` or `ARC_KV_CACHE_PRECISION=u8`; off by default because no quality gate exists | Opt-in |
@@ -303,7 +303,7 @@ where `B_sustained` is the measured sustained memory bandwidth (`python scripts/
 
 ### Building the Native Library
 
-The prebuilt `libarc_native_sys.dll` in the repository history predates the current native ABI (version 3) and is refused by the Python bridge, which then uses the pure-Python path. Rebuild it before using the native layer:
+The committed `libarc_native_sys.dll` is ABI 3 and its sidecar (`libarc_native_sys.dll.build.json`) records a matching sha256 (built with MinGW GCC 15.2 on Windows 11). Rebuild after any change under `src/arc_runner/native/`; a stale or missing library makes the Python bridge fall back to the pure-Python path:
 
 ```bash
 python src/arc_runner/native/build_native.py
@@ -350,37 +350,41 @@ Results are saved to `scratch/live_real_models_benchmark_results.json`.
 
 ## 📊 Benchmark Highlights: Intel Arc vs. Ollama CPU
 
-> **Provenance notice:** the figures in this table were not produced by the current benchmark harness. The
-> "Discrete Arc A770" column is for hardware that is not part of the testbed and is therefore a projection, not a
-> measurement. All values here are unverified until they are re-measured; see [`docs/plans/MASTER_PLAN_v4.md`](docs/plans/MASTER_PLAN_v4.md) section 18.
+> **Provenance status: UNVERIFIED.** The figures in this table were not produced by the current benchmark harness
+> and must not be quoted. The "Discrete Arc A770" column is for hardware that is not part of the testbed and is a
+> projection, not a measurement. No Llama-3.2-1B, MiniLM, LCM or LTX-Video result file exists in
+> `docs/benchmarks/results/`; no power was measured on this testbed, so every watt and joule value here is unverified;
+> speculative-decoding speed was never measured, so the former "Spec" figures were removed; the Whisper row mixes a
+> 4.0 s clip (Ollama cell) with a 10.0 s clip (iGPU cell), so its ratio is not comparable. Measured results are in the
+> [generated table](docs/benchmarks/README.md#measured-results-generated) (Qwen2.5-1.5B on GPU/NPU/CPU, Whisper-tiny, Qwen2-VL-7B). See [`docs/plans/MASTER_PLAN_v4.md`](docs/plans/MASTER_PLAN_v4.md) section 18.
 
 When Ollama runs on Intel Core Ultra systems, it silently falls back to 100% CPU execution. `intel-arc-models-runner` unleashes native GPU and NPU acceleration:
 
 | Workload & Model | Ollama (100% CPU Fallback) | `arc-runner` AI Boost NPU (5W) | `arc-runner` Arc Xe-LPG iGPU | `arc-runner` Discrete Arc A770 | Hardware Advantage |
 |:---|:---:|:---:|:---:|:---:|:---|
 | **Llama-3.2-1B (TTFT)** | 780 ms (40W) | 890 ms (**5.1W**) | **115 ms** (21W) | **38 ms** (85W) | **20.5× Faster TTFT** 🚀 |
-| **Llama-3.2-1B (Decode)** | 24.2 tok/s | 19.8 tok/s (**3.88 tok/J**) | **72.4 tok/s** (84.1 Spec) | **215.3 tok/s** | **8.9× Higher Throughput** ⚡ |
-| **Llama-3.2-3B (Decode)** | 11.4 tok/s | — | **38.2 tok/s** (68.5 Spec) | **114.6 tok/s** | **10.0× Higher Throughput** ⚡ |
+| **Llama-3.2-1B (Decode)** | 24.2 tok/s | 19.8 tok/s (**3.88 tok/J**) | **72.4 tok/s** | **215.3 tok/s** | **8.9× Higher Throughput** ⚡ |
+| **Llama-3.2-3B (Decode)** | 11.4 tok/s | — | **38.2 tok/s** | **114.6 tok/s** | **10.0× Higher Throughput** ⚡ |
 | **all-MiniLM-L6-v2 (5W RAG)** | 85.2 ms (3.24 J) | **18.6 ms** (**0.09 J**) | **14.2 ms** (0.25 J) | — | **36× More Energy Efficient!** 🌱 |
-| **Whisper-Base (STT)** | 1.944 s (RTF 0.486) | — | **0.354 s** (**28.2× RT**) | — | **5.5× Faster STT** ⚡ |
+| **Whisper-Base (STT)** | 1.944 s (RTF 0.486, 4.0 s clip) | — | 0.354 s (10.0 s clip) | — | not comparable (different clips) |
 | **LCM Image Gen (4-Step)** | 2.230 s | — | **0.310 s** (**12.9 it/s**) | — | **7.2× Faster Image Gen** 🎨 |
 | **LTX-Video Gen (16-Frame)**| 3.305 s (4.8 fps) | — | **1.400 s** (**11.4 fps**) | — | **2.4× Faster Video Gen** 🎥 |
 
-👉 *For the full 25-model comparison, mathematical proofs M59–M114, and 30-case Triad audit, visit: [**Benchmarks & Empirical Proofs Hub**](docs/benchmarks/README.md)*
+👉 *For the full model comparison (UNVERIFIED legacy tables), mathematical proofs M59–M114, and 30-case Triad audit, visit: [**Benchmarks & Empirical Proofs Hub**](docs/benchmarks/README.md)*
 
 ---
 
-## 🧪 Complete Test Coverage (533 Tests / 33 Modules)
+## 🧪 Test Coverage
 
-The codebase is backed by **533 automated tests across 33 test modules** with **100% passing rate, 0 failures, and 0 errors**:
-- **Hardware Integration**: 21 physical silicon tests on live Intel Core Ultra hardware.
-- **Multi-Modal Studio**: 33 Studio Web UI triad tests, 38 slide compositor tests, and 42 next-gen orchestration tests.
-- **Engines & Protocols**: Comprehensive coverage of OpenVINO GenAI, continuous batching, LoRA swapping, and SSE streaming.
+Measured on 2026-10-29 (Linux x86-64 VM, no Intel GPU or NPU): `pytest --collect-only` collects **1507 tests in 72 modules**; `pytest -m "not hardware"` collects 1484 and gives **1476 passed, 8 skipped, 0 failed**. The other **23 tests are marked `hardware`** (21 in `tests/integration/test_real_hardware.py`, 2 in `tests/test_plan_gap_tests.py`), were **not run** for these numbers, and are not counted as passed. The 8 skips are one Windows-only DLL-directory test, six tests needing a Level Zero driver and one needing a Quick Sync device. The suite keeps growing; see [the test guide](docs/testing.md) for the per-module table and how to regenerate it.
+- **Hardware Integration**: `tests/integration/test_real_hardware.py` holds 21 tests meant for Intel Core Ultra hardware; this repository has no committed run log for them, so no on-silicon pass count is claimed.
+- **Multi-Modal Studio**: 33 Studio Web UI triad tests, 38 slide compositor tests, and 42 next-gen orchestration tests (collected).
+- **Engines & Protocols**: tests for OpenVINO GenAI engines, continuous batching, LoRA swapping, and SSE streaming.
 
 ```bash
-# Run full automated test suite
-python -m pytest -v --tb=short
-# → 533 passed in ~24.5s
+# Non-hardware tests (what the counts above use)
+python -m pytest -m "not hardware"
+# → 1476 passed, 8 skipped (Linux, 2026-10-29, about 67 s)
 ```
 
 👉 *For the complete test module matrix and instructions, see: [**Complete Test Coverage Guide**](docs/testing.md)*
@@ -391,8 +395,8 @@ python -m pytest -v --tb=short
 
 - ✅ **Completed Core Milestones**: 15 major milestones including OpenVINO continuous batching, Multi-LoRA swapping, Audio/Image/Video engines, Arc MultiModal Studio with 7-Tab Web UI, and all **7 Next-Gen Orchestration Hurdles** (QSV H.264 encoding, Alpha cross-dissolve, Audio-First Reactive DAG, karaoke subtitles, audio ducking, and closed-loop VLM inspection).
 - ✅ **Completed Packaging Horizon**:
-  1. **PyPI Wheel Publish**: Standalone `pip install arc-runner` binary package distribution (`arc_runner-0.1.0-py3-none-any.whl`) with dual CLI aliases.
-  2. **Docker Container**: Production Ubuntu 24.04 image with pre-baked Intel Level Zero drivers, OpenVINO runtime, non-root user execution, and `/dev/dri` pass-through.
+  1. **PyPI Wheel**: a standalone wheel (`arc_runner-0.1.0-py3-none-any.whl`, and a 0.2.0 build in `dist/`) with dual CLI aliases. Whether any version is published on PyPI was not verified offline; the CHANGELOG states 0.2.0 is not published.
+  2. **Docker Container**: Ubuntu 24.04 Dockerfile (GHCR publication not verified) with pre-baked Intel Level Zero drivers, OpenVINO runtime, non-root user execution, and `/dev/dri` pass-through.
 
 👉 *Read the full status & deployment specs: [**Roadmap & Multi-Modal Evolution**](docs/roadmap.md) and [**Deployment Guide**](docs/deployment.md)*
 
