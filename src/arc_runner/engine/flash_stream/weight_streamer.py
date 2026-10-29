@@ -5,24 +5,122 @@ memory-mapped I/O, maintaining an O(1) memory bound through fixed-slot ring
 buffering and asynchronous prefetching.
 """
 
+import ctypes
+from dataclasses import dataclass, field
+import enum
 import gc
 import mmap
+import os
 from pathlib import Path
 import re
+import sys
 import threading
-import time
 from types import TracebackType
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Set, Tuple, Type, Union
 
 import numpy as np
 
-from arc_runner.core.exceptions import ModelNotFoundError, NativeBoundsError
+from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError, NativeBoundsError
 from arc_runner.core.logging import get_logger
-from arc_runner.native.bridge import NativeMemoryEngine
+from arc_runner.native.bridge import NativeMemoryEngine, dtype_for_tensor_type, view_shape_for_dims
 from arc_runner.quant.gguf_parser import GGUFParser
 from arc_runner.quant.models import GGMLType, GGUFTensorInfo
 
 logger = get_logger(__name__)
+
+SLOT_WAIT_TIMEOUT_SECONDS = 30.0
+PREFETCH_JOIN_TIMEOUT_SECONDS = 5.0
+
+_PLAIN_ITEM_BYTES: Dict[GGMLType, int] = {
+    GGMLType.F32: 4,
+    GGMLType.F16: 2,
+    GGMLType.BF16: 2,
+    GGMLType.F64: 8,
+    GGMLType.I8: 1,
+    GGMLType.I16: 2,
+    GGMLType.I32: 4,
+    GGMLType.I64: 8,
+}
+
+_BLOCK_LAYOUT: Dict[GGMLType, Tuple[int, int]] = {
+    GGMLType.Q4_0: (32, 18),
+    GGMLType.Q4_1: (32, 20),
+    GGMLType.Q5_0: (32, 22),
+    GGMLType.Q5_1: (32, 24),
+    GGMLType.Q8_0: (32, 34),
+    GGMLType.Q8_1: (32, 36),
+    GGMLType.Q2_K: (256, 84),
+    GGMLType.Q3_K: (256, 110),
+    GGMLType.Q4_K: (256, 144),
+    GGMLType.Q5_K: (256, 176),
+    GGMLType.Q6_K: (256, 210),
+    GGMLType.Q8_K: (256, 292),
+}
+
+
+class SlotState(enum.Enum):
+    """Lifecycle of a ring buffer slot; mirrors docs/formal/RingSlots.tla."""
+
+    EMPTY = "empty"
+    PENDING = "pending"
+    READY = "ready"
+
+
+@dataclass
+class _RingSlot:
+    """One direct-mapped ring buffer slot; layer L always occupies slot L % ring_buffer_slots."""
+
+    layer_idx: int = -1
+    state: SlotState = SlotState.EMPTY
+    arrays: Dict[str, np.ndarray] = field(default_factory=dict)
+    ready_event: threading.Event = field(default_factory=threading.Event)
+
+
+def process_resident_bytes() -> Optional[int]:
+    """Return the resident set size (working set) of the current process in bytes.
+
+    Returns:
+        Optional[int]: Resident bytes, or None if the platform offers no cheap source.
+    """
+    if sys.platform == "win32":
+        return _windows_working_set_bytes()
+    try:
+        with open("/proc/self/statm", encoding="ascii") as statm:
+            return int(statm.read().split()[1]) * os.sysconf("SC_PAGE_SIZE")
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _windows_working_set_bytes() -> Optional[int]:
+    """Query the Windows working set size of the current process via psapi.
+
+    Returns:
+        Optional[int]: Working set size in bytes, or None if the call fails.
+    """
+
+    class _Counters(ctypes.Structure):
+        _fields_ = [
+            ("cb", ctypes.c_uint32),
+            ("PageFaultCount", ctypes.c_uint32),
+            ("PeakWorkingSetSize", ctypes.c_size_t),
+            ("WorkingSetSize", ctypes.c_size_t),
+            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+            ("PagefileUsage", ctypes.c_size_t),
+            ("PeakPagefileUsage", ctypes.c_size_t),
+        ]
+
+    counters = _Counters()
+    counters.cb = ctypes.sizeof(_Counters)
+    windll = getattr(ctypes, "windll", None)
+    if windll is None:
+        return None
+    process = windll.kernel32.GetCurrentProcess()
+    if not windll.psapi.GetProcessMemoryInfo(process, ctypes.byref(counters), counters.cb):
+        return None
+    return int(counters.WorkingSetSize)
 
 
 class FlashStreamWeightManager:
@@ -61,9 +159,10 @@ class FlashStreamWeightManager:
             )
 
         self._layer_tensor_map: Dict[int, List[GGUFTensorInfo]] = {}
-        self._ring_slots: List[Optional[Dict[str, np.ndarray]]] = [None] * self.ring_buffer_slots
-        self._slot_layer_idx: List[int] = [-1] * self.ring_buffer_slots
-        self._slot_access_time: List[float] = [0.0] * self.ring_buffer_slots
+        self._slots: List[_RingSlot] = [_RingSlot() for _ in range(self.ring_buffer_slots)]
+        self._closing = threading.Event()
+        self._prefetch_threads: Set[threading.Thread] = set()
+        self._slot_wait_timeout_s = SLOT_WAIT_TIMEOUT_SECONDS
         self._lock = threading.Lock()
         self._native_engine = NativeMemoryEngine()
         if self._native_engine.is_available:
@@ -98,26 +197,34 @@ class FlashStreamWeightManager:
             if hasattr(self, "_native_engine") and self._native_engine.is_available and self._native_engine.is_open:
                 for l_idx, t_list in self._layer_tensor_map.items():
                     if l_idx >= 0:
-                        augmented_tensors = []
-                        for t in t_list:
-                            calc_sz = self._calculate_tensor_byte_size(t)
-                            start_off = self.parser.data_offset + t.offset
-                            augmented_tensors.append({
-                                "name": t.name,
-                                "tensor_type": t.tensor_type,
-                                "dimensions": t.dimensions,
-                                "offset": start_off,
-                                "size_bytes": calc_sz,
-                            })
-                        try:
-                            self._native_engine.register_layer(l_idx, augmented_tensors)
-                        except NativeBoundsError as exc:
-                            logger.warning(
-                                "Layer rejected by native bounds checks; using the Python read path",
-                                extra={"layer": l_idx, "reason": str(exc)},
-                            )
+                        self._register_layer_natively(l_idx, t_list)
 
             return layer_counts
+
+    def _register_layer_natively(self, layer_idx: int, tensors: List[GGUFTensorInfo]) -> None:
+        """Register one layer's tensors with the native mapping, falling back to Python on rejection.
+
+        Args:
+            layer_idx: Layer index.
+            tensors: Tensor descriptors belonging to the layer.
+        """
+        try:
+            records = [
+                {
+                    "name": t.name,
+                    "tensor_type": t.tensor_type,
+                    "dimensions": t.dimensions,
+                    "offset": self.parser.data_offset + t.offset,
+                    "size_bytes": self._calculate_tensor_byte_size(t),
+                }
+                for t in tensors
+            ]
+            self._native_engine.register_layer(layer_idx, records)
+        except (NativeBoundsError, ValueError) as exc:
+            logger.warning(
+                "Layer not registered natively; using the Python read path",
+                extra={"layer": layer_idx, "reason": str(exc)},
+            )
 
     def _calculate_tensor_byte_size(self, tensor: GGUFTensorInfo) -> int:
         """Calculate total byte footprint required for a tensor payload.
@@ -127,6 +234,9 @@ class FlashStreamWeightManager:
 
         Returns:
             Total byte length required on disk.
+
+        Raises:
+            ValueError: If the tensor type has no known layout and the container gave no size.
         """
         if tensor.size_bytes > 0:
             return tensor.size_bytes
@@ -135,19 +245,13 @@ class FlashStreamWeightManager:
         for dim in tensor.dimensions:
             num_elements *= dim
 
-        if tensor.tensor_type == GGMLType.F32:
-            return num_elements * 4
-        elif tensor.tensor_type in (GGMLType.F16, GGMLType.BF16, GGMLType.I16):
-            return num_elements * 2
-        elif tensor.tensor_type in (GGMLType.I8, GGMLType.Q8_0):
-            return (num_elements // 32) * 34 if tensor.tensor_type == GGMLType.Q8_0 else num_elements
-        elif tensor.tensor_type == GGMLType.Q4_0:
-            return (num_elements // 32) * 18
-        elif tensor.tensor_type == GGMLType.Q4_1:
-            return (num_elements // 32) * 20
-        elif tensor.tensor_type == GGMLType.I32:
-            return num_elements * 4
-        return max(num_elements, 1)
+        tensor_type = GGMLType(tensor.tensor_type)
+        if tensor_type in _PLAIN_ITEM_BYTES:
+            return num_elements * _PLAIN_ITEM_BYTES[tensor_type]
+        if tensor_type in _BLOCK_LAYOUT:
+            block_elements, block_bytes = _BLOCK_LAYOUT[tensor_type]
+            return (num_elements // block_elements) * block_bytes
+        raise ValueError(f"Unknown byte layout for tensor '{tensor.name}' of type {tensor_type.name}")
 
     def _read_tensor_array(self, tensor: GGUFTensorInfo) -> np.ndarray:
         """Extract a single tensor array from the memory-mapped file buffer.
@@ -156,7 +260,8 @@ class FlashStreamWeightManager:
             tensor: Descriptor defining tensor dimensions, type, and payload offset.
 
         Returns:
-            Constructed NumPy array containing the tensor payload.
+            Read-only NumPy array; plain types use their own dtype, bfloat16 its raw uint16 bits,
+            and block-quantized types raw uint8 bytes. Identical to the native zero-copy path.
 
         Raises:
             ValueError: If tensor offsets or calculated bounds exceed container length.
@@ -174,29 +279,13 @@ class FlashStreamWeightManager:
                 f"{byte_size} exceeds container length {self._file_size}"
             )
 
+        dtype = dtype_for_tensor_type(tensor.tensor_type)
         raw_bytes = self._mmap_handle[start_offset:end_offset]
-
-        if tensor.tensor_type == GGMLType.F32 and len(raw_bytes) >= 4:
-            arr = np.frombuffer(raw_bytes, dtype=np.float32)
-            try:
-                return arr.reshape(tensor.dimensions)
-            except ValueError:
-                return arr
-        elif tensor.tensor_type in (GGMLType.F16, GGMLType.BF16) and len(raw_bytes) >= 2:
-            arr = np.frombuffer(raw_bytes, dtype=np.float16)
-            try:
-                return arr.reshape(tensor.dimensions)
-            except ValueError:
-                return arr
-        elif tensor.tensor_type in (GGMLType.I8,) and len(raw_bytes) >= 1:
-            arr = np.frombuffer(raw_bytes, dtype=np.int8)
-            try:
-                return arr.reshape(tensor.dimensions)
-            except ValueError:
-                return arr
-
-        raw_uint8 = np.frombuffer(raw_bytes, dtype=np.uint8)
-        return raw_uint8.astype(np.float32)
+        if len(raw_bytes) % dtype.itemsize != 0:
+            dtype = np.dtype(np.uint8)
+        array = np.frombuffer(raw_bytes, dtype=dtype)
+        shape = view_shape_for_dims(tensor.dimensions, array.size) if tensor.tensor_type in _PLAIN_ITEM_BYTES else None
+        return array.reshape(shape) if shape else array
 
     def _extract_short_tensor_name(self, full_name: str) -> str:
         """Derive standard short parameter identifier from full container key.
@@ -210,108 +299,161 @@ class FlashStreamWeightManager:
         cleaned = re.sub(r"^(?:blk|layers|model\.layers)\.\d+\.", "", full_name)
         return cleaned
 
-    def _load_layer_into_slot(self, layer_idx: int, slot_idx: int) -> Dict[str, np.ndarray]:
-        """Load weights for the given layer directly into the designated ring buffer slot.
+    def _slot_index_for(self, layer_idx: int) -> int:
+        """Return the only slot a layer may occupy (direct mapping).
+
+        Args:
+            layer_idx: Layer index.
+
+        Returns:
+            Slot index in [0, ring_buffer_slots).
+        """
+        return layer_idx % self.ring_buffer_slots
+
+    def _load_layer_arrays(self, layer_idx: int) -> Dict[str, np.ndarray]:
+        """Read every tensor of a layer, preferring the native zero-copy mapping.
 
         Args:
             layer_idx: Zero-based layer index to load.
-            slot_idx: Ring buffer slot index to occupy.
 
         Returns:
-            Dictionary containing loaded layer weight arrays.
+            Dictionary mapping short tensor names to read-only arrays.
         """
-        tensors = self._layer_tensor_map.get(layer_idx, [])
+        native = self._native_engine
+        use_native = native is not None and native.is_available and native.is_open
         layer_weights: Dict[str, np.ndarray] = {}
 
-        use_native = hasattr(self, "_native_engine") and self._native_engine.is_available and self._native_engine.is_open
-
-        for t in tensors:
-            short_name = self._extract_short_tensor_name(t.name)
+        for t in self._layer_tensor_map.get(layer_idx, []):
             arr = None
             if use_native:
-                arr = self._native_engine.get_tensor_buffer(layer_idx, t.name, dims=t.dimensions)
-            if arr is not None:
-                layer_weights[short_name] = arr
-            else:
-                layer_weights[short_name] = self._read_tensor_array(t)
-
-        with self._lock:
-            self._ring_slots[slot_idx] = layer_weights
-            self._slot_layer_idx[slot_idx] = layer_idx
-            self._slot_access_time[slot_idx] = time.time()
-
+                dims = tuple(reversed(t.dimensions)) if t.tensor_type in _PLAIN_ITEM_BYTES else None
+                arr = native.get_tensor_buffer(layer_idx, t.name, dims=dims, dtype=dtype_for_tensor_type(t.tensor_type))
+            layer_weights[self._extract_short_tensor_name(t.name)] = arr if arr is not None else self._read_tensor_array(t)
         return layer_weights
 
+    def _reserve_slot(self, layer_idx: int) -> Tuple[str, Optional[Dict[str, np.ndarray]], Optional[threading.Event]]:
+        """Decide, under the lock, whether to hit, wait for, or start loading a layer.
+
+        Args:
+            layer_idx: Layer being requested.
+
+        Returns:
+            ("hit", arrays, None) if resident; ("wait", None, event) if a load is in flight and
+            the caller must wait on the event and retry; ("load", None, None) if the caller became
+            the single loader of the slot.
+
+        Raises:
+            ArcRunnerError: If the manager is closing or closed.
+        """
+        with self._lock:
+            if self._closing.is_set():
+                raise ArcRunnerError("Weight manager is closed", "FLASH_MANAGER_CLOSED", 400)
+            slot = self._slots[self._slot_index_for(layer_idx)]
+            if slot.state is SlotState.READY and slot.layer_idx == layer_idx:
+                return "hit", slot.arrays, None
+            if slot.state is SlotState.PENDING:
+                return "wait", None, slot.ready_event
+            slot.layer_idx = layer_idx
+            slot.state = SlotState.PENDING
+            slot.arrays = {}
+            slot.ready_event = threading.Event()
+            return "load", None, None
+
+    def _publish_load(self, layer_idx: int, arrays: Optional[Dict[str, np.ndarray]]) -> None:
+        """Publish a finished load (or reset the slot after a failed one) and wake waiters.
+
+        Args:
+            layer_idx: Layer that was loaded.
+            arrays: Loaded arrays, or None if the load failed.
+        """
+        with self._lock:
+            slot = self._slots[self._slot_index_for(layer_idx)]
+            if arrays is None:
+                slot.layer_idx = -1
+                slot.state = SlotState.EMPTY
+                slot.arrays = {}
+            else:
+                slot.arrays = arrays
+                slot.state = SlotState.READY
+            slot.ready_event.set()
+
     def acquire_layer_weights(self, layer_idx: int) -> Dict[str, np.ndarray]:
-        """Obtain tensor weights for a layer, loading into the ring buffer if not resident.
+        """Obtain tensor weights for a layer, loading into its slot exactly once if not resident.
+
+        Concurrent callers for the same layer share one load; callers whose slot is busy with
+        another layer wait for that load to finish. Returned arrays stay valid after the slot is
+        recycled because they keep the underlying mapping alive.
 
         Args:
             layer_idx: Target layer index.
 
         Returns:
             Dictionary mapping layer tensor identifiers to NumPy weight arrays.
+
+        Raises:
+            ArcRunnerError: If the manager is closed.
+            TimeoutError: If a load in flight does not finish within the wait timeout.
         """
-        with self._lock:
-            for s in range(self.ring_buffer_slots):
-                if self._slot_layer_idx[s] == layer_idx and self._ring_slots[s] is not None:
-                    self._slot_access_time[s] = time.time()
-                    return self._ring_slots[s]
-
-            free_slot = -1
-            for s in range(self.ring_buffer_slots):
-                if self._ring_slots[s] is None:
-                    free_slot = s
-                    break
-
-            if free_slot == -1:
-                oldest_time = float("inf")
-                target_slot = 0
-                for s in range(self.ring_buffer_slots):
-                    if self._slot_access_time[s] < oldest_time:
-                        oldest_time = self._slot_access_time[s]
-                        target_slot = s
-                free_slot = target_slot
-                self._ring_slots[free_slot] = None
-                self._slot_layer_idx[free_slot] = -1
-                gc.collect()
-
-        return self._load_layer_into_slot(layer_idx, free_slot)
+        while True:
+            action, arrays, event = self._reserve_slot(layer_idx)
+            if action == "hit" and arrays is not None:
+                return arrays
+            if action == "load":
+                try:
+                    loaded = self._load_layer_arrays(layer_idx)
+                except BaseException:
+                    self._publish_load(layer_idx, None)
+                    raise
+                self._publish_load(layer_idx, loaded)
+                return loaded
+            if event is not None and not event.wait(self._slot_wait_timeout_s):
+                raise TimeoutError(f"Timed out waiting for layer load in slot {self._slot_index_for(layer_idx)}")
 
     def prefetch_layer_async(self, layer_idx: int, slot_idx: int) -> threading.Thread:
-        """Initiate asynchronous background prefetch of layer weights into a target slot.
+        """Start a background load of a layer into its direct-mapped slot.
 
         Args:
             layer_idx: Zero-based layer index to prefetch.
-            slot_idx: Designated ring buffer slot index.
+            slot_idx: Ignored; the slot is always layer_idx % ring_buffer_slots. Kept for compatibility.
 
         Returns:
             The started background worker Thread instance.
         """
-        target_slot = slot_idx % self.ring_buffer_slots
+        thread: Optional[threading.Thread] = None
 
         def worker() -> None:
-            self._load_layer_into_slot(layer_idx, target_slot)
+            try:
+                if not self._closing.is_set():
+                    self.acquire_layer_weights(layer_idx)
+            except (ArcRunnerError, TimeoutError, ValueError) as exc:
+                logger.warning("Prefetch failed", extra={"layer": layer_idx, "reason": str(exc)})
+            finally:
+                with self._lock:
+                    self._prefetch_threads.discard(threading.current_thread())
 
-        thread = threading.Thread(
-            target=worker,
-            daemon=True,
-            name=f"prefetch-layer-{layer_idx}-slot-{target_slot}",
-        )
+        thread = threading.Thread(target=worker, daemon=True, name=f"prefetch-layer-{layer_idx}")
+        with self._lock:
+            self._prefetch_threads.add(thread)
         thread.start()
         return thread
 
     def release_layer_slot(self, slot_idx: int) -> None:
-        """Evict and free memory buffers for a specific ring buffer slot.
+        """Evict a loaded slot and drop its array references; a load in flight is left alone.
 
         Args:
             slot_idx: Slot index to release.
         """
+        dropped = False
         with self._lock:
             if 0 <= slot_idx < self.ring_buffer_slots:
-                self._ring_slots[slot_idx] = None
-                self._slot_layer_idx[slot_idx] = -1
-                self._slot_access_time[slot_idx] = 0.0
-                gc.collect()
+                slot = self._slots[slot_idx]
+                if slot.state is SlotState.READY:
+                    slot.layer_idx = -1
+                    slot.state = SlotState.EMPTY
+                    slot.arrays = {}
+                    dropped = True
+        if dropped:
+            gc.collect()
 
     def get_occupied_slot_count(self) -> int:
         """Count ring buffer slots that currently hold a loaded layer.
@@ -320,44 +462,64 @@ class FlashStreamWeightManager:
             Number of occupied slots, never more than ring_buffer_slots.
         """
         with self._lock:
-            return sum(1 for slot in self._ring_slots if slot is not None)
+            return sum(1 for slot in self._slots if slot.state is SlotState.READY)
 
     def get_active_memory_bytes(self) -> int:
-        """Calculate current total resident memory consumed by resident ring buffer slots.
+        """Return the bytes of mapped (virtual) address space viewed by the resident slots.
+
+        This is not resident RAM: mapped file pages may or may not be in the working set. Use
+        get_resident_memory_bytes for process memory.
 
         Returns:
             Total size in bytes across all resident weight arrays.
         """
-        total = 0
         with self._lock:
-            for slot in self._ring_slots:
-                if slot is not None:
-                    for arr in slot.values():
-                        if isinstance(arr, np.ndarray):
-                            total += arr.nbytes
-        return total
+            return sum(
+                arr.nbytes
+                for slot in self._slots
+                if slot.state is SlotState.READY
+                for arr in slot.arrays.values()
+                if isinstance(arr, np.ndarray)
+            )
+
+    def get_resident_memory_bytes(self) -> Optional[int]:
+        """Return the resident set size of this process in bytes.
+
+        Returns:
+            Optional[int]: Process working set / RSS, or None if unavailable on this platform.
+        """
+        return process_resident_bytes()
 
     def close(self) -> None:
-        """Release memory-mapped handles, underlying files, and cached ring slots."""
+        """Stop prefetching, wait for loads in flight, drop cached slots, and release handles."""
         with self._lock:
-            for s in range(self.ring_buffer_slots):
-                self._ring_slots[s] = None
-                self._slot_layer_idx[s] = -1
-                self._slot_access_time[s] = 0.0
+            if self._closing.is_set():
+                return
+            self._closing.set()
+            threads = list(self._prefetch_threads)
+            pending_events = [slot.ready_event for slot in self._slots if slot.state is SlotState.PENDING]
 
-            if self._mmap_handle is not None:
-                self._mmap_handle.close()
-                self._mmap_handle = None
+        for thread in threads:
+            thread.join(PREFETCH_JOIN_TIMEOUT_SECONDS)
+        for event in pending_events:
+            event.wait(PREFETCH_JOIN_TIMEOUT_SECONDS)
 
-            if self._file_handle is not None:
-                self._file_handle.close()
-                self._file_handle = None
+        with self._lock:
+            for slot in self._slots:
+                slot.layer_idx = -1
+                slot.state = SlotState.EMPTY
+                slot.arrays = {}
+            native, self._native_engine = getattr(self, "_native_engine", None), None
+            mmap_handle, self._mmap_handle = self._mmap_handle, None
+            file_handle, self._file_handle = self._file_handle, None
 
-            if hasattr(self, "_native_engine") and self._native_engine is not None:
-                self._native_engine.close()
-                self._native_engine = None
-
-            gc.collect()
+        if native is not None:
+            native.close()
+        if mmap_handle is not None:
+            mmap_handle.close()
+        if file_handle is not None:
+            file_handle.close()
+        gc.collect()
 
     def __enter__(self) -> "FlashStreamWeightManager":
         """Enter execution runtime context.

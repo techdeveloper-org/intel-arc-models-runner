@@ -10,12 +10,15 @@ import json
 import os
 from pathlib import Path
 import sys
+import threading
+import weakref
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
 from arc_runner.core.exceptions import NativeBoundsError, NativeLayerError
 from arc_runner.core.logging import get_logger
+from arc_runner.quant.models import GGMLType
 
 logger = get_logger("arc_runner.native.bridge")
 
@@ -82,6 +85,51 @@ def _validate_u64(value: Any, field: str) -> int:
     if value < 0 or value > _U64_MAX:
         raise NativeBoundsError(f"{field}={value} is outside the unsigned 64-bit range")
     return value
+
+
+_RAW_DTYPES: Dict[int, Any] = {
+    int(GGMLType.F32): np.dtype(np.float32),
+    int(GGMLType.F16): np.dtype(np.float16),
+    int(GGMLType.BF16): np.dtype(np.uint16),
+    int(GGMLType.F64): np.dtype(np.float64),
+    int(GGMLType.I8): np.dtype(np.int8),
+    int(GGMLType.I16): np.dtype(np.int16),
+    int(GGMLType.I32): np.dtype(np.int32),
+    int(GGMLType.I64): np.dtype(np.int64),
+}
+
+
+def dtype_for_tensor_type(tensor_type: int) -> np.dtype:
+    """Return the NumPy dtype used to view a GGML tensor payload without conversion.
+
+    Plain numeric types map to their own dtype; bfloat16 is exposed as its raw uint16 bit
+    pattern (NumPy has no bfloat16); every block-quantized type is exposed as raw uint8 bytes.
+
+    Args:
+        tensor_type: GGML tensor type id.
+
+    Returns:
+        np.dtype: dtype of the zero-copy view.
+    """
+    return _RAW_DTYPES.get(int(tensor_type), np.dtype(np.uint8))
+
+
+def view_shape_for_dims(dims: Any, element_count: int) -> Optional[Tuple[int, ...]]:
+    """Return the row-major NumPy shape for GGUF dimensions, or None if they do not fit.
+
+    GGUF stores ne[0] as the fastest-varying dimension, so the C-order shape is the reversed list.
+
+    Args:
+        dims: Dimension list from the GGUF tensor record.
+        element_count: Number of elements actually present in the payload.
+
+    Returns:
+        Optional[Tuple[int, ...]]: Reversed dimensions when their product equals element_count, else None.
+    """
+    if not dims:
+        return None
+    shape = tuple(int(d) for d in reversed(list(dims)))
+    return shape if int(np.prod(shape, dtype=object)) == element_count else None
 
 
 def _sidecar_matches(lib_path: Path) -> bool:
@@ -278,6 +326,67 @@ def _build_c_layer(layer_idx: int, tensors: List[Any]) -> ArcLayerDescriptor:
     return c_layer
 
 
+class _MappingGuard:
+    """Keeps a native mapping alive until every NumPy view created from it is garbage collected.
+
+    The engine asks for the mapping to be closed; the unmap happens immediately if no view
+    exists, otherwise when the last view dies. This prevents use-after-unmap of zero-copy views.
+    """
+
+    def __init__(self, dll: ctypes.CDLL, ctx: int) -> None:
+        """Create a guard for an open native mapping.
+
+        Args:
+            dll: Loaded native library.
+            ctx: Native context pointer returned by arc_mmap_open.
+        """
+        self._dll = dll
+        self._ctx: Optional[int] = ctx
+        self._views = 0
+        self._close_requested = False
+        self._lock = threading.Lock()
+
+    @property
+    def live_views(self) -> int:
+        """Return the number of NumPy views still referencing the mapping."""
+        with self._lock:
+            return self._views
+
+    def add_view(self, owner: Any) -> None:
+        """Register a buffer owner; the mapping stays valid until the owner is collected.
+
+        Args:
+            owner: ctypes array object that NumPy keeps as the base of the view.
+        """
+        with self._lock:
+            self._views += 1
+        owner._arc_mapping_guard = self
+        weakref.finalize(owner, self._drop_view)
+
+    def _drop_view(self) -> None:
+        """Release one view and close the mapping if it was already requested."""
+        with self._lock:
+            self._views -= 1
+            should_close = self._close_requested and self._views == 0
+        if should_close:
+            self._close_native()
+
+    def request_close(self) -> None:
+        """Close the mapping now if no views exist, otherwise when the last view is released."""
+        with self._lock:
+            self._close_requested = True
+            should_close = self._views == 0
+        if should_close:
+            self._close_native()
+
+    def _close_native(self) -> None:
+        """Unmap the file exactly once."""
+        with self._lock:
+            ctx, self._ctx = self._ctx, None
+        if ctx:
+            self._dll.arc_mmap_close(ctx)
+
+
 class NativeMemoryEngine:
     """Bounds-checked memory-mapped model streaming manager over the native library."""
 
@@ -289,6 +398,7 @@ class NativeMemoryEngine:
         """
         self._dll: Optional[ctypes.CDLL] = _load_native_library()
         self._ctx: Optional[int] = None
+        self._guard: Optional[_MappingGuard] = None
         self._sealed: bool = False
         self._file_path: Optional[Path] = Path(file_path).resolve() if file_path else None
         if self._file_path and self.is_available:
@@ -365,6 +475,7 @@ class NativeMemoryEngine:
             return False
 
         self._ctx = raw_ctx
+        self._guard = _MappingGuard(self._dll, raw_ctx)
         self._sealed = False
         self._file_path = resolved
         return True
@@ -419,7 +530,7 @@ class NativeMemoryEngine:
         Args:
             layer_idx: Layer index identifier.
             tensor_name: Short name of tensor.
-            dims: Optional dimension tuple to reshape.
+            dims: Optional NumPy shape (row-major, so GGUF dimensions must be reversed by the caller).
             dtype: Target NumPy datatype.
 
         Returns:
@@ -449,10 +560,13 @@ class NativeMemoryEngine:
             )
             return None
 
-        raw_array = np.ctypeslib.as_array(
-            ctypes.cast(ptr, ctypes.POINTER(np.ctypeslib.as_ctypes_type(dtype))),
-            shape=(out_size.value // itemsize,),
-        )
+        address = ctypes.cast(ptr, ctypes.c_void_p).value
+        if not address or self._guard is None:
+            return None
+        owner = (ctypes.c_uint8 * out_size.value).from_address(address)
+        self._guard.add_view(owner)
+        raw_array = np.frombuffer(owner, dtype=dtype)
+        raw_array.flags.writeable = False
 
         if dims:
             try:
@@ -502,11 +616,23 @@ class NativeMemoryEngine:
         return status == 0
 
     def close(self) -> None:
-        """Unmap views and release native OS handles; safe to call repeatedly."""
-        if self._ctx and self._dll:
-            self._dll.arc_mmap_close(self._ctx)
+        """Release the mapping; safe to call repeatedly.
+
+        If NumPy views obtained from get_tensor_buffer are still alive, the actual unmap is
+        deferred until the last of them is garbage collected, so no view ever points at unmapped memory.
+        """
+        guard, self._guard = self._guard, None
         self._ctx = None
         self._sealed = False
+        if guard is not None:
+            guard.request_close()
+
+    def __del__(self) -> None:
+        """Release the mapping if the engine is garbage collected without an explicit close."""
+        try:
+            self.close()
+        except Exception:
+            return
 
 
 class NativeLevelZeroBridge:
