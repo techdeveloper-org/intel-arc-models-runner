@@ -22,8 +22,10 @@ if [ -f "/opt/venv/bin/arc-runner" ]; then
     echo "[INFO] Python virtual environment verified: $(python3 --version)"
 fi
 
-if [ "$1" = "server" ] || [ "$1" = "devices" ] || [ "$1" = "run" ] || [ "$1" = "hub" ] || [ "$1" = "benchmark" ]; then
+case "$1" in
+    serve|devices|pull|models|rm|benchmark|inspect-gguf|import-ollama|aot-compile|embed|convert|adapter|batch|test-hardware|transcribe|tts|generate-image|txt2img|generate-video|txt2video|studio|orchestrate|bench-multimodal|bench-studio|run-heavy)
     exec arc-runner "$@"
-fi
+    ;;
+esac
 
 exec "$@"

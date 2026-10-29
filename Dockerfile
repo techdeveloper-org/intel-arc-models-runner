@@ -103,4 +103,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -fsS http://localhost:8000/ || exit 1
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["serve", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["arc-runner", "serve", "--host", "0.0.0.0", "--port", "8000"]
