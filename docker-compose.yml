@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: intel-arc-models-runner:latest
+    image: intel-arc-models-runner:local
     container_name: intel-arc-models-runner
     restart: unless-stopped
     ports:
@@ -11,10 +11,12 @@ services:
     devices:
       - "/dev/dri:/dev/dri"
     environment:
-      - LOG_LEVEL=INFO
       - ONEAPI_DEVICE_SELECTOR=level_zero:*
       - LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
       - LIBVA_DRIVER_NAME=iHD
+      # Optional hardening (see docs/deployment.md): set a key when the port is reachable by others.
+      # - ARC_API_KEY=${ARC_API_KEY}
+      # - ARC_ALLOWED_PATHS=/models
     volumes:
       - arc-models-cache:/home/appuser/.cache/arc-runner/models
       - arc-aot-cache:/home/appuser/.cache/arc-runner/aot
