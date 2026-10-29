@@ -24,6 +24,24 @@ from arc_runner.core.logging import get_logger
 logger = get_logger("arc_runner.engine.image")
 
 
+def _mean(val: Any) -> float:
+    """Extract the mean value from either a MeanStdPair object or a plain dict.
+
+    OpenVINO GenAI returns a MeanStdPair with a .mean attribute in most builds but
+    returns a plain dict {"mean": x, "std": y} in some versions. This helper handles
+    both shapes so perf-metric extraction never raises AttributeError.
+
+    Args:
+        val: Value returned by a get_*_infer_duration() call.
+
+    Returns:
+        float: The mean duration in milliseconds, or 0.0 when the key is absent.
+    """
+    if isinstance(val, dict):
+        return float(val.get("mean", 0.0))
+    return float(val.mean)
+
+
 class ImageEngineError(ArcRunnerError):
     """Raised when text-to-image synthesis fails."""
 
@@ -239,11 +257,11 @@ class ImageEngine:
             vae_ms: Optional[float] = None
             if metrics_obj is not None:
                 try:
-                    reported_text = float(metrics_obj.get_text_encoder_infer_duration().mean)
-                    reported_denoise = float(metrics_obj.get_unet_infer_duration().mean)
+                    reported_text = _mean(metrics_obj.get_text_encoder_infer_duration())
+                    reported_denoise = _mean(metrics_obj.get_unet_infer_duration())
                     if reported_denoise <= 0.0:
-                        reported_denoise = float(metrics_obj.get_transformer_infer_duration().mean)
-                    reported_vae = float(metrics_obj.get_vae_decoder_infer_duration().mean)
+                        reported_denoise = _mean(metrics_obj.get_transformer_infer_duration())
+                    reported_vae = _mean(metrics_obj.get_vae_decoder_infer_duration())
                     if reported_denoise > 0.0:
                         text_enc_ms, denoise_ms, vae_ms = reported_text, reported_denoise, reported_vae
                 except Exception as exc:
