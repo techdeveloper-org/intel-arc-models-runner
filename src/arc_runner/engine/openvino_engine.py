@@ -10,7 +10,7 @@ import queue
 import threading
 import time
 from pathlib import Path
-from typing import Any, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 from arc_runner.core.constants import (
     DEFAULT_CONTEXT_WINDOW,
@@ -27,12 +27,18 @@ from arc_runner.core.exceptions import (
     ModelLoadError,
     ModelNotFoundError,
 )
+from arc_runner.core.logging import get_logger
 from arc_runner.engine.base import BaseEngine
 from arc_runner.engine.kv_cache import KVCacheManager
 from arc_runner.engine.lora_manager import LoRAManager
 from arc_runner.engine.models import EngineTelemetry, GenerationConfig, TokenChunk
 from arc_runner.engine.telemetry import telemetry_from_perf_metrics, telemetry_from_stream, telemetry_unavailable
 from arc_runner.utils.dll_loader import initialize_windows_dll_environment
+
+
+logger = get_logger("engine.openvino")
+
+KV_PRECISION_ENV = "ARC_KV_CACHE_PRECISION"
 
 
 class OpenVINOGenAIEngine(BaseEngine):
@@ -59,6 +65,7 @@ class OpenVINOGenAIEngine(BaseEngine):
         self._model_path: str = ""
         self._device: str = ""
         self._telemetry: EngineTelemetry = EngineTelemetry()
+        self._kv_cache_precision: str = ""
 
     @property
     def is_loaded(self) -> bool:
@@ -113,14 +120,7 @@ class OpenVINOGenAIEngine(BaseEngine):
         if not any(normalized_device.startswith(prefix) for prefix in self.VALID_DEVICE_PREFIXES):
             raise DeviceNotFoundError(device, list(self.VALID_DEVICE_PREFIXES))
 
-        device_props = dict(kwargs)
-        if normalized_device.startswith("GPU"):
-            cache_dir = Path(".cache/ov_cache").resolve()
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            device_props.setdefault("CACHE_DIR", str(cache_dir))
-            device_props.setdefault("KV_CACHE_PRECISION", "u8")
-            device_props.setdefault("PERFORMANCE_HINT", "LATENCY")
-            device_props.setdefault("GPU_ENABLE_SDPA_OPTIMIZATION", True)
+        device_props = self._build_ov_properties(normalized_device, dict(kwargs))
 
         try:
             import openvino_genai as ov_genai
@@ -136,6 +136,107 @@ class OpenVINOGenAIEngine(BaseEngine):
             self._is_loaded = False
             self._pipeline = None
             raise ModelLoadError(str(exc), str(resolved_path), normalized_device) from exc
+
+    def _build_ov_properties(self, device: str, overrides: Dict[str, Any]) -> Dict[str, Any]:
+        """Build OpenVINO pipeline properties for a device.
+
+        The u8 KV cache is NOT enabled by default: it is a quality trade-off with no quality gate in
+        this project. Opt in with the KV_CACHE_PRECISION keyword or ARC_KV_CACHE_PRECISION=u8.
+
+        Args:
+            device: Normalized device string (GPU, NPU, CPU with optional suffix).
+            overrides: Caller-supplied properties; they always win over defaults.
+
+        Returns:
+            Dict[str, Any]: Properties passed to openvino_genai.LLMPipeline.
+        """
+        props = dict(overrides)
+        if device.startswith("GPU"):
+            cache_dir = Path(".cache/ov_cache").resolve()
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            props.setdefault("CACHE_DIR", str(cache_dir))
+            props.setdefault("PERFORMANCE_HINT", "LATENCY")
+            props.setdefault("GPU_ENABLE_SDPA_OPTIMIZATION", True)
+        requested_precision = os.environ.get(KV_PRECISION_ENV, "").strip()
+        if requested_precision:
+            props.setdefault("KV_CACHE_PRECISION", requested_precision)
+        self._kv_cache_precision = str(props.get("KV_CACHE_PRECISION", ""))
+        return props
+
+    def _count_prompt_tokens(self, prompt: str) -> Optional[int]:
+        """Count prompt tokens with the loaded pipeline's own tokenizer.
+
+        Args:
+            prompt: Prompt text.
+
+        Returns:
+            Optional[int]: Token count, or None if the tokenizer cannot be queried.
+        """
+        try:
+            encoded = self._pipeline.get_tokenizer().encode(prompt)
+            return int(encoded.input_ids.shape[-1])
+        except Exception as exc:
+            logger.warning("Prompt token count unavailable; context window not enforced", extra={"reason": str(exc)})
+            return None
+
+    def tokenize(self, prompt: str) -> Optional[List[int]]:
+        """Return the prompt's token ids from the loaded pipeline's tokenizer.
+
+        Args:
+            prompt: Prompt text.
+
+        Returns:
+            Optional[List[int]]: Token ids, or None if no model is loaded or the tokenizer cannot be queried.
+        """
+        if not self.is_loaded:
+            return None
+        try:
+            encoded = self._pipeline.get_tokenizer().encode(prompt)
+            return [int(token) for token in encoded.input_ids.data.flatten().tolist()]
+        except Exception as exc:
+            logger.warning("Tokenization unavailable", extra={"reason": str(exc)})
+            return None
+
+    def _enforce_context_window(self, prompt_tokens: int, max_new_tokens: int) -> None:
+        """Reject requests whose prompt, or prompt plus requested completion, exceeds the context window.
+
+        Args:
+            prompt_tokens: Token count of the prompt.
+            max_new_tokens: Requested maximum completion tokens.
+
+        Raises:
+            ContextWindowExceededError: If prompt_tokens or prompt_tokens + max_new_tokens is too large.
+        """
+        remaining = self.kv_manager.check_headroom(prompt_tokens)
+        if max_new_tokens > remaining:
+            raise ContextWindowExceededError(prompt_tokens + max_new_tokens, self.kv_manager.max_context_length)
+
+    def _check_request_fits_context(self, prompt: str, max_new_tokens: int) -> Optional[int]:
+        """Count prompt tokens and enforce the context window before any generation work starts.
+
+        Args:
+            prompt: Prompt text.
+            max_new_tokens: Requested maximum completion tokens.
+
+        Returns:
+            Optional[int]: Prompt token count, or None if it could not be measured.
+        """
+        prompt_tokens = self._count_prompt_tokens(prompt)
+        if prompt_tokens is not None:
+            self._enforce_context_window(prompt_tokens, max_new_tokens)
+        return prompt_tokens
+
+    def _invoke_pipeline(self, prompt: str, ov_config: Any) -> Any:
+        """Run one synchronous generation using a single call form that returns DecodedResults.
+
+        Args:
+            prompt: Prompt text.
+            ov_config: openvino_genai.GenerationConfig or None.
+
+        Returns:
+            Any: Pipeline result (DecodedResults carrying texts and perf_metrics).
+        """
+        return self._pipeline.generate([prompt], ov_config) if ov_config else self._pipeline.generate([prompt])
 
     def _build_ov_generation_config(self, config: GenerationConfig) -> Any:
         """Convert engine GenerationConfig into an openvino_genai.GenerationConfig instance.
@@ -184,17 +285,16 @@ class OpenVINOGenAIEngine(BaseEngine):
             raise ArcRunnerError("Model not loaded. Call load_model() first.", "MODEL_NOT_LOADED", 400)
 
         if not prompt:
+            self._telemetry = EngineTelemetry(model_id=self._model_path, device=self._device)
             return ""
 
         cfg = config or GenerationConfig()
         ov_config = self._build_ov_generation_config(cfg)
 
-        start_time = time.monotonic()
-        try:
-            raw_result = self._pipeline.generate([prompt], ov_config) if ov_config else self._pipeline.generate([prompt])
-        except Exception:
-            raw_result = self._pipeline.generate(prompt, ov_config) if ov_config else self._pipeline.generate(prompt)
+        prompt_tokens = self._check_request_fits_context(prompt, cfg.max_new_tokens)
 
+        start_time = time.monotonic()
+        raw_result = self._invoke_pipeline(prompt, ov_config)
         elapsed_sec = max(time.monotonic() - start_time, 1e-6)
 
         if hasattr(raw_result, "texts") and hasattr(raw_result, "perf_metrics"):
@@ -206,6 +306,8 @@ class OpenVINOGenAIEngine(BaseEngine):
             text_result = str(raw_result)
             self._telemetry = telemetry_unavailable(self._model_path, self._device, elapsed_sec)
 
+        self._telemetry.prompt_tokens = prompt_tokens or 0
+        self._telemetry.kv_cache_precision = self._kv_cache_precision
         return text_result
 
     def generate_stream(
@@ -268,6 +370,7 @@ class OpenVINOGenAIEngine(BaseEngine):
             return False
 
         ov_config = self._build_ov_generation_config(cfg)
+        prompt_tokens = self._check_request_fits_context(prompt, cfg.max_new_tokens)
 
         worker_error: List[Exception] = []
 
@@ -309,12 +412,15 @@ class OpenVINOGenAIEngine(BaseEngine):
         self._telemetry = telemetry_from_stream(
             self._model_path, self._device, start_time, end_time, first_token_time, generated_count
         )
+        self._telemetry.prompt_tokens = prompt_tokens or 0
+        self._telemetry.kv_cache_precision = self._kv_cache_precision
 
         finish_reason = "length" if generated_count >= cfg.max_new_tokens else "stop"
         yield TokenChunk(
             text="",
             is_finished=True,
             finish_reason=finish_reason,
+            prompt_tokens=prompt_tokens or 0,
             completion_tokens=generated_count,
         )
 

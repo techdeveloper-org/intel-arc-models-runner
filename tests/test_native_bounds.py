@@ -281,17 +281,17 @@ def test_library_name_matches_target_platform() -> None:
 
 @pytest.mark.skipif(shutil.which("gcc") is None, reason="gcc not available")
 def test_compile_library_produces_loadable_abi2_library_with_matching_sidecar(tmp_path: Path) -> None:
-    """The build script emits a -Werror-clean library whose sidecar hash matches and ABI is 2."""
+    """The build script emits a -Werror-clean library whose sidecar hash matches and ABI is 3."""
     output = tmp_path / "libarc_native_sys.so"
     build_native.compile_library(output, target_windows=False)
     sidecar = build_native.write_build_info(output, build_native.find_compiler(), target_windows=False)
     info = json.loads(sidecar.read_text(encoding="utf-8"))
     assert info["sha256"] == hashlib.sha256(output.read_bytes()).hexdigest()
-    assert info["abi_version"] == 2
+    assert info["abi_version"] == 3
     assert "-mavx2" not in json.dumps(info["flags"])
     library = ctypes.CDLL(str(output))
     library.arc_native_abi_version.restype = ctypes.c_uint32
-    assert library.arc_native_abi_version() == 2
+    assert library.arc_native_abi_version() == 3
 
 
 @pytest.mark.skipif(shutil.which("x86_64-w64-mingw32-gcc") is None, reason="mingw-w64 cross compiler not available")

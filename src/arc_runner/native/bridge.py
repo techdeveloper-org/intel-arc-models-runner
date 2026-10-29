@@ -29,7 +29,7 @@ ARC_MAX_LAYERS = 256
 _U64_MAX = (1 << 64) - 1
 _MAX_NAME_BYTES = ARC_MAX_NAME_LEN - 1
 _MAX_DIMS = 4
-_EXPECTED_ABI_VERSION = 2
+_EXPECTED_ABI_VERSION = 3
 _ENV_DISABLE_NATIVE = "ARC_NATIVE_DISABLE"
 _BUILD_INFO_SUFFIX = ".build.json"
 
@@ -234,6 +234,21 @@ def _configure_signatures(dll: ctypes.CDLL) -> None:
 
     dll.arc_ze_init.argtypes = []
     dll.arc_ze_init.restype = ctypes.c_void_p
+
+    dll.arc_ze_init_ex.argtypes = [ctypes.POINTER(ctypes.c_int32)]
+    dll.arc_ze_init_ex.restype = ctypes.c_void_p
+
+    for accessor, result_type in (
+        ("arc_ze_is_dead", ctypes.c_int),
+        ("arc_ze_last_status", ctypes.c_int32),
+        ("arc_ze_last_result", ctypes.c_uint32),
+        ("arc_ze_device_type", ctypes.c_uint32),
+        ("arc_ze_alloc_count", ctypes.c_uint32),
+        ("arc_ze_sync_timeout_ms", ctypes.c_uint32),
+    ):
+        function = getattr(dll, accessor)
+        function.argtypes = [ctypes.c_void_p]
+        function.restype = result_type
 
     dll.arc_ze_alloc_usm.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int]
     dll.arc_ze_alloc_usm.restype = ctypes.c_void_p
@@ -635,47 +650,84 @@ class NativeMemoryEngine:
             return
 
 
+_USM_TYPES = {"host": 0, "device": 1, "shared": 2}
+_MAX_USM_REQUEST_BYTES = (1 << 63) - 1
+
+
 class NativeLevelZeroBridge:
-    """Bare-metal Level Zero Unified Shared Memory and DMA coordinator."""
+    """Level Zero Unified Shared Memory and DMA coordinator (GPU only, bounded waits)."""
 
     def __init__(self) -> None:
-        """Initialize the Level Zero driver interface context."""
+        """Initialize the Level Zero driver interface context and pick the first GPU device."""
         self._dll: Optional[ctypes.CDLL] = _load_native_library()
         self._ctx: Optional[int] = None
+        self.init_status: int = 0
         if self._dll:
-            raw_ctx = self._dll.arc_ze_init()
+            status = ctypes.c_int32(0)
+            raw_ctx = self._dll.arc_ze_init_ex(ctypes.byref(status))
+            self.init_status = int(status.value)
             if raw_ctx:
                 self._ctx = raw_ctx
 
     @property
     def is_available(self) -> bool:
-        """Check whether Level Zero driver runtime is accessible.
+        """Check whether a GPU Level Zero context is open.
 
         Returns:
-            bool: True if ze_loader.dll initialized and context is valid.
+            bool: True if the loader initialized and a GPU context exists.
         """
         return self._ctx is not None and self._dll is not None
 
-    def allocate_usm(self, size_bytes: int, usm_type: str = "shared") -> Optional[int]:
-        """Allocate a Unified Shared Memory buffer on Intel Arc GPU.
-
-        Args:
-            size_bytes: Size of allocation in bytes.
-            usm_type: Residency type ('host', 'device', or 'shared').
+    @property
+    def is_dead(self) -> bool:
+        """Report whether a timeout or device loss disabled the context.
 
         Returns:
-            Optional[int]: Virtual memory pointer address, or None on failure.
+            bool: True once the context must be discarded and recreated.
         """
+        return bool(self.is_available and self._dll.arc_ze_is_dead(self._ctx))
+
+    @property
+    def device_type(self) -> int:
+        """Return the Level Zero device type of the selected device (1 is GPU).
+
+        Returns:
+            int: ze_device_type_t value, or 0 if unavailable.
+        """
+        return int(self._dll.arc_ze_device_type(self._ctx)) if self.is_available else 0
+
+    def last_status(self) -> int:
+        """Return the last native status code (0 is success, negative is an error).
+
+        Returns:
+            int: ArcZeStatus value; ARC_ZE_ERR_NOT_INITIALIZED (-10) when unavailable.
+        """
+        return int(self._dll.arc_ze_last_status(self._ctx)) if self.is_available else -10
+
+    def allocate_usm(self, size_bytes: int, usm_type: str = "host") -> Optional[int]:
+        """Allocate a Unified Shared Memory buffer.
+
+        Args:
+            size_bytes: Size in bytes; must be positive and below 2**63.
+            usm_type: 'host' (default; best for streamed weights on a shared-memory iGPU), 'device', or 'shared'.
+
+        Returns:
+            Optional[int]: Address of the buffer, or None if unavailable, out of range, or refused by the driver.
+
+        Raises:
+            ValueError: If usm_type is not one of host, device, shared.
+        """
+        residency = _USM_TYPES.get(usm_type.lower())
+        if residency is None:
+            raise ValueError(f"usm_type must be one of {sorted(_USM_TYPES)}, got {usm_type!r}")
         if not self.is_available or self._dll is None:
             return None
-
-        type_map = {"host": 0, "device": 1, "shared": 2}
-        t_val = type_map.get(usm_type.lower(), 2)
-        ptr = self._dll.arc_ze_alloc_usm(self._ctx, size_bytes, t_val)
-        return ptr
+        if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or not 0 < size_bytes <= _MAX_USM_REQUEST_BYTES:
+            return None
+        return self._dll.arc_ze_alloc_usm(self._ctx, size_bytes, residency)
 
     def dma_copy_async(self, dst_ptr: int, src_ptr: int, size_bytes: int) -> int:
-        """Submit an asynchronous DMA memory copy on the GPU queue.
+        """Record a copy on the GPU command list.
 
         Args:
             dst_ptr: Destination memory address.
@@ -683,37 +735,42 @@ class NativeLevelZeroBridge:
             size_bytes: Byte count to copy.
 
         Returns:
-            int: 0 on success, non-zero on error.
+            int: 0 on success, 1 if the host memcpy fallback was used, negative on error.
         """
         if not self.is_available or self._dll is None:
+            return -10
+        if not isinstance(size_bytes, int) or size_bytes <= 0:
             return -1
-        return self._dll.arc_ze_dma_copy_async(self._ctx, dst_ptr, src_ptr, size_bytes)
+        return int(self._dll.arc_ze_dma_copy_async(self._ctx, dst_ptr, src_ptr, size_bytes))
 
     def synchronize(self) -> int:
-        """Block until pending hardware DMA operations complete.
+        """Execute recorded commands and wait for completion within the bounded timeout.
 
         Returns:
-            int: 0 on success.
+            int: 0 on success, negative on error; -9 means the wait timed out and the context is now dead.
         """
         if not self.is_available or self._dll is None:
-            return -1
-        return self._dll.arc_ze_synchronize(self._ctx)
+            return -10
+        return int(self._dll.arc_ze_synchronize(self._ctx))
 
     def free_usm(self, ptr: int) -> None:
-        """Release a Unified Shared Memory buffer.
+        """Free a buffer returned by allocate_usm; unknown pointers are ignored.
 
         Args:
-            ptr: Pointer to free.
+            ptr: Buffer address.
         """
-        if self.is_available and self._dll and ptr:
+        if self.is_available and self._dll is not None and ptr:
             self._dll.arc_ze_free_usm(self._ctx, ptr)
 
     def destroy(self) -> None:
-        """Release all driver resources and queues."""
+        """Release the Level Zero context and all outstanding allocations; safe to call repeatedly."""
         if self._ctx and self._dll:
             self._dll.arc_ze_destroy(self._ctx)
-            self._ctx = None
+        self._ctx = None
 
     def __del__(self) -> None:
-        """Ensure driver context is deallocated upon cleanup."""
-        self.destroy()
+        """Release the context if the bridge is garbage collected without destroy()."""
+        try:
+            self.destroy()
+        except Exception:
+            return

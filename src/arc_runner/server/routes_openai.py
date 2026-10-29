@@ -15,6 +15,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from arc_runner.server.prefix_probe import match_prefix_with_real_tokens
 from arc_runner.core.constants import DEFAULT_MAX_NEW_TOKENS
 from arc_runner.core.exceptions import ModelNotFoundError
 from arc_runner.core.logging import get_logger
@@ -177,8 +178,7 @@ async def chat_completions(
 
     batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
     if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
-        dummy_tokens = [hash(word) % 32000 for word in chat_prompt.split()[:32]]
-        batch_pipeline.prefix_cache.match_prefix(dummy_tokens)
+        match_prefix_with_real_tokens(batch_pipeline, engine, chat_prompt)
 
     stops: List[str] = []
     if request.stop:

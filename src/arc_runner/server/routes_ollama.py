@@ -15,6 +15,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
 
+from arc_runner.server.prefix_probe import match_prefix_with_real_tokens
 from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError
 from arc_runner.core.logging import get_logger, set_request_context
 from arc_runner.engine.models import GenerationConfig, LoRAAdapterSpec, TokenChunk
@@ -289,8 +290,7 @@ async def generate(
 
     batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
     if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
-        dummy_tokens = [hash(word) % 32000 for word in request.prompt.split()[:32]]
-        batch_pipeline.prefix_cache.match_prefix(dummy_tokens)
+        match_prefix_with_real_tokens(batch_pipeline, engine, request.prompt)
 
     gen_config = _build_generation_config(
         request.options,
@@ -395,8 +395,7 @@ async def chat(
 
     batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
     if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
-        dummy_tokens = [hash(word) % 32000 for word in chat_prompt.split()[:32]]
-        batch_pipeline.prefix_cache.match_prefix(dummy_tokens)
+        match_prefix_with_real_tokens(batch_pipeline, engine, chat_prompt)
 
     gen_config = _build_generation_config(
         request.options,
