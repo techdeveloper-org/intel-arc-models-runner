@@ -23,6 +23,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from arc_runner.benchmark.harness_common import total_memory_bytes
 from arc_runner.benchmark.results import build_result, capture_environment, write_result
 from arc_runner.benchmark.stats import BenchSample
 from arc_runner.core.logging import get_logger
@@ -116,7 +117,7 @@ FLASH_STREAM_HEAVY_SPECS = {
         "layers": 64,
         "hidden_dim": 5120,
         "int4_weights_gb": 18.42,
-        "ollama_status": "not run; expected to exceed RAM (18.42 GB weights vs 15.43 GB physical); not measured",
+        "ollama_status": "not run; not measured",
         "tiers": {
             "low": {
                 "name": "Heavy Model Zero-RAM Cold Start",
@@ -140,7 +141,7 @@ FLASH_STREAM_HEAVY_SPECS = {
         "layers": 80,
         "hidden_dim": 8192,
         "int4_weights_gb": 41.20,
-        "ollama_status": "not run; expected to exceed RAM (41.20 GB weights vs 16 GB laptop RAM); not measured",
+        "ollama_status": "not run; not measured",
         "tiers": {
             "low": {
                 "name": "Fundamental Particle Physics",
@@ -176,12 +177,14 @@ class LiveSequentialBenchmarkRunner:
         self.console = Console()
         self.topology = DeviceDetector().detect_topology()
         self.results_path = Path(__file__).resolve().parent / "live_real_models_benchmark_results.json"
+        total_ram = total_memory_bytes()
+        ram_gb = round(total_ram / 1e9, 2) if total_ram is not None else None
         self.results_data: Dict[str, Any] = {
             "testbed": {
                 "cpu": self.topology.host_cpu_model,
                 "gpu": "Intel Arc Graphics (Xe-LPG, 7 Xe-cores, Level Zero USM)",
                 "npu": "Intel AI Boost NPU 3720 (5W)",
-                "ram_total_gb": 15.43,
+                "ram_total_gb": ram_gb,
                 "os": self.topology.os_platform,
             },
             "evaluated_models": {},
@@ -511,11 +514,16 @@ class LiveSequentialBenchmarkRunner:
         write_result(target, document)
         self.console.print(f"[green]Wrote schema-v1 results to {target}[/green]")
 
+    def _ram_text(self) -> str:
+        """Return the measured physical RAM as text, or say it was not measured."""
+        ram_gb = self.results_data.get("testbed", {}).get("ram_total_gb")
+        return f"{ram_gb:.2f} GB" if ram_gb is not None else "not measured"
+
     def execute_all(self) -> None:
         """Execute full sequential benchmark sweep across all models with physical verification."""
         self.console.print(Panel(
             f"[bold cyan]Sequential Real-Model Benchmarking & Ollama Head-to-Head Suite[/bold cyan]\n"
-            f"[dim]Silicon: {self.topology.host_cpu_model} | Arc Xe-LPG iGPU | AI Boost NPU | RAM: 15.43 GB[/dim]",
+            f"[dim]Silicon: {self.topology.host_cpu_model} | Arc Xe-LPG iGPU | AI Boost NPU | RAM: {self._ram_text()}[/dim]",
             title="Physical Silicon Validation",
             border_style="cyan",
         ))
@@ -549,9 +557,9 @@ class LiveSequentialBenchmarkRunner:
         tbl.add_column("Model Alias", style="bold cyan")
         tbl.add_column("Tier", style="yellow")
         tbl.add_column("arc-runner (Arc GPU / NPU)", style="green")
-        tbl.add_column("Ollama (CPU Fallback)", style="dim")
+        tbl.add_column("Ollama (device not verified)", style="dim")
         tbl.add_column("Speedup Advantage", style="bold magenta")
-        tbl.add_column("RAM Footprint", style="cyan")
+        tbl.add_column("RAM Footprint (measured only)", style="cyan")
 
         for alias, m_data in self.results_data["evaluated_models"].items():
             for tier, t_data in m_data.get("tiers", {}).items():
@@ -569,7 +577,7 @@ class LiveSequentialBenchmarkRunner:
                 ollama_str = f"{ollama.get('tokens_per_second', 0):.1f} t/s (TTFT: {ollama.get('ttft_ms', 0):.0f}ms)" if ollama.get("status") == "PASS" else "N/A"
                 speedup_str = f"[bold green]{speedup}x[/bold green]" if speedup != "N/A" else "-"
 
-                tbl.add_row(alias, tier.upper(), arc_str, ollama_str, speedup_str, "~1.3 GB USM")
+                tbl.add_row(alias, tier.upper(), arc_str, ollama_str, speedup_str, "not measured")
 
         for alias, h_data in self.results_data["flash_stream_heavy_models"].items():
             for tier, t_data in h_data.get("tiers", {}).items():

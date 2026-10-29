@@ -190,3 +190,49 @@ def test_removed_fixture_script_and_legacy_result_files_stay_removed() -> None:
     scratch = REPO_ROOT / "scratch"
     for name in ("run_full_catalog_benchmark_audit.py", "full_catalog_benchmark_results.json", "live_physical_video_benchmark_results.json", "live_physical_image_benchmark_results.json", "live_physical_audio_benchmark_results.json", "live_physical_benchmark_results.json"):
         assert not (scratch / name).exists(), name
+
+
+def test_vlm_collect_samples_interleave_option_loads_both_engines_and_alternates(tmp_path: Path) -> None:
+    """With interleave the target and CPU engines are both resident and every tier is measured on both."""
+    from arc_runner.benchmark.harness_common import HarnessConfig
+
+    vlm = _script("run_live_vlm_benchmarks")
+    spec = vlm.VLM_MODEL_WORKLOAD_SPECS[sorted(vlm.VLM_MODEL_WORKLOAD_SPECS)[0]]
+    factory = _Recorder(_VlmEngine)
+    cfg = HarnessConfig(max_warmups=None, interleave=True, cooldown_s=0.0)
+    samples = vlm.collect_samples("m", spec, lambda dev: factory(dev), "GPU", False, True, 1, 2, None, harness=cfg)
+    assert factory.devices == ["GPU", "CPU"]
+    assert {s.backend for s in samples} == {"arc-runner", "cpu-baseline"}
+    assert len(samples) == len(spec["workloads"]) * 2 * 3
+
+
+def test_collect_samples_cooldown_runs_between_backends_not_before_the_first() -> None:
+    """The cooldown pauses once per backend switch."""
+    from arc_runner.benchmark.harness_common import HarnessConfig
+
+    vlm = _script("run_live_vlm_benchmarks")
+    spec = vlm.VLM_MODEL_WORKLOAD_SPECS[sorted(vlm.VLM_MODEL_WORKLOAD_SPECS)[0]]
+    slept: List[float] = []
+    cfg = HarnessConfig(max_warmups=None, cooldown_s=20.0, sleep=slept.append)
+    vlm.collect_samples("m", spec, lambda dev: _VlmEngine(), "GPU", False, True, 0, 1, None, harness=cfg)
+    assert slept == [20.0]
+
+
+def test_audio_collect_samples_converged_warmup_option_extends_steady_state(tmp_path: Path) -> None:
+    """The harness max_warmups reaches the audio runners (constant latency converges at the minimum)."""
+    from arc_runner.benchmark.harness_common import HarnessConfig
+
+    audio = _script("run_live_audio_benchmarks")
+    spec = audio.AUDIO_MODEL_WORKLOAD_SPECS["whisper-tiny"]
+    cfg = HarnessConfig(max_warmups=5, cooldown_s=0.0)
+    samples = audio.collect_samples("whisper-tiny", spec, _Recorder(_SttEngine), "GPU", False, False, 3, 2, None, tmp_path, harness=cfg)
+    per_tier = {s.model_id: sum(x.is_warmup for x in samples if x.model_id == s.model_id) for s in samples}
+    assert all(count >= 3 for count in per_tier.values())
+
+
+@pytest.mark.parametrize("name", ["run_live_audio_benchmarks", "run_live_vlm_benchmarks", "run_live_image_benchmarks", "run_live_video_benchmarks", "run_live_sequential_model_benchmarks"])
+def test_every_live_script_exposes_the_shared_protocol_options_and_records_preconditions(name: str) -> None:
+    """The scripts call the shared pre-check and write the harness blocks into the result file."""
+    source = (REPO_ROOT / "scratch" / f"{name}.py").read_text(encoding="utf-8")
+    for needle in ("add_harness_args(parser)", "config_from_args(args)", "begin_run(", "finish_run("):
+        assert needle in source, f"{name} lacks {needle}"

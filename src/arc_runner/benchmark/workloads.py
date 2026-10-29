@@ -6,12 +6,13 @@ Sysman energy counter and are None when no counter exists. Nothing is estimated.
 
 from dataclasses import dataclass
 from pathlib import Path
+import random
 import time
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
 from arc_runner.benchmark.power import PowerMeter, PowerReading
 from arc_runner.benchmark.results import build_result, capture_environment, write_result
-from arc_runner.benchmark.stats import BenchSample
+from arc_runner.benchmark.stats import MIN_WARMUPS, WARMUP_CV, BenchSample, warmup_converged
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,53 @@ class TimedRun:
     power: PowerReading
 
 
+def _timed_call(
+    fn: Callable[[], Any], iteration: int, is_warmup: bool, sysman: Any, device_index: int, clock: Callable[[], float],
+) -> TimedRun:
+    """Execute one run of a workload under a power meter and a clock.
+
+    Args:
+        fn: The workload.
+        iteration: Index recorded on the run.
+        is_warmup: Whether the run is a discarded warmup.
+        sysman: Sysman for package energy, or None.
+        device_index: GPU index whose package domain is read.
+        clock: Monotonic clock returning seconds.
+    """
+    meter = PowerMeter(sysman, device_index)
+    meter.start()
+    started = clock()
+    fn()
+    elapsed = clock() - started
+    return TimedRun(iteration, is_warmup, elapsed, meter.stop())
+
+
+def _tail_converged(values: List[Optional[float]]) -> bool:
+    """Tell whether the last warmup values exist and agree within the warmup coefficient of variation.
+
+    Args:
+        values: Warmup metric values in order; None where the metric was not measured.
+    """
+    tail = values[-MIN_WARMUPS:]
+    return len(tail) == MIN_WARMUPS and all(v is not None for v in tail) and warmup_converged([v for v in tail if v is not None], MIN_WARMUPS, WARMUP_CV)
+
+
+def interleaved_order(names: Sequence[str], iteration: int, seed: int) -> List[str]:
+    """Return a seeded random order of the systems for one iteration; the same inputs give the same order.
+
+    Args:
+        names: System names.
+        iteration: Iteration index (warmups and timed runs share one counter).
+        seed: Run seed.
+
+    Returns:
+        List[str]: The names in the order they run this iteration.
+    """
+    order = list(names)
+    random.Random(f"{seed}:{iteration}").shuffle(order)
+    return order
+
+
 def measure_workload(
     fn: Callable[[], Any],
     warmups: int,
@@ -38,16 +86,24 @@ def measure_workload(
     sysman: Any = None,
     device_index: int = 0,
     clock: Callable[[], float] = time.perf_counter,
+    max_warmups: Optional[int] = None,
+    warmup_metric: Optional[Callable[[TimedRun], Optional[float]]] = None,
 ) -> List[TimedRun]:
     """Run a workload for warmups then timed runs, measuring latency and package power for each.
 
+    With max_warmups set, warmups continue past `warmups` until the last three values of the warmup metric
+    have a coefficient of variation of at most 5% or max_warmups warmups have run. Whether a series
+    converged is not returned; it is recomputed from the warmup rows (harness_common.series_quality).
+
     Args:
         fn: The workload; called with no arguments. Exceptions propagate and stop the measurement.
-        warmups: Discarded warmup runs executed first (zero or more).
+        warmups: Warmup runs executed first (zero or more); the minimum when max_warmups is set.
         runs: Timed runs (at least one).
         sysman: LevelZeroSysman (or compatible) for package energy, or None for no power measurement.
         device_index: GPU index whose package domain is read.
         clock: Monotonic clock returning seconds.
+        max_warmups: Upper bound for convergence-driven warmups, or None for exactly `warmups`.
+        warmup_metric: Maps a warmup run to the value whose convergence is checked (default elapsed_s).
 
     Returns:
         List[TimedRun]: One record per executed run, warmups first.
@@ -57,14 +113,74 @@ def measure_workload(
     """
     if warmups < 0 or runs < 1:
         raise ValueError(f"need warmups >= 0 and runs >= 1, got warmups={warmups}, runs={runs}")
+    metric = warmup_metric or (lambda run: run.elapsed_s)
+    limit = warmups if max_warmups is None else max(warmups, max_warmups)
     records: List[TimedRun] = []
-    for iteration in range(warmups + runs):
-        meter = PowerMeter(sysman, device_index)
-        meter.start()
-        started = clock()
-        fn()
-        elapsed = clock() - started
-        records.append(TimedRun(iteration, iteration < warmups, elapsed, meter.stop()))
+    values: List[Optional[float]] = []
+    while len(records) < limit:
+        if len(records) >= warmups and _tail_converged(values):
+            break
+        record = _timed_call(fn, len(records), True, sysman, device_index, clock)
+        records.append(record)
+        values.append(metric(record))
+    for _ in range(runs):
+        records.append(_timed_call(fn, len(records), False, sysman, device_index, clock))
+    return records
+
+
+def measure_interleaved(
+    fns: Dict[str, Callable[[], Any]],
+    warmups: int,
+    runs: int,
+    seed: int = 0,
+    sysman: Any = None,
+    device_index: int = 0,
+    clock: Callable[[], float] = time.perf_counter,
+    max_warmups: Optional[int] = None,
+    warmup_metrics: Optional[Dict[str, Callable[[TimedRun], Optional[float]]]] = None,
+) -> Dict[str, List[TimedRun]]:
+    """Measure several systems with their runs interleaved per iteration in a seeded random order.
+
+    Every iteration runs each system once, in interleaved_order(names, iteration, seed). Warmup rounds
+    continue past `warmups` (up to max_warmups) until every system's warmup metric has converged. All
+    systems must be loaded at the same time.
+
+    Args:
+        fns: System name -> workload callable.
+        warmups: Minimum warmup iterations.
+        runs: Timed iterations (at least one).
+        seed: Order seed.
+        sysman: Sysman for package energy, or None.
+        device_index: GPU index whose package domain is read.
+        clock: Monotonic clock returning seconds.
+        max_warmups: Upper bound for convergence-driven warmup iterations, or None for exactly `warmups`.
+        warmup_metrics: System name -> warmup metric function (default elapsed_s).
+
+    Returns:
+        Dict[str, List[TimedRun]]: Per system, warmups first, in iteration order.
+
+    Raises:
+        ValueError: If fns is empty, warmups is negative or runs is below one.
+    """
+    if not fns or warmups < 0 or runs < 1:
+        raise ValueError(f"need systems, warmups >= 0 and runs >= 1, got {len(fns)}, {warmups}, {runs}")
+    metrics = {name: (warmup_metrics or {}).get(name) or (lambda run: run.elapsed_s) for name in fns}
+    limit = warmups if max_warmups is None else max(warmups, max_warmups)
+    records: Dict[str, List[TimedRun]] = {name: [] for name in fns}
+    values: Dict[str, List[Optional[float]]] = {name: [] for name in fns}
+    iteration = 0
+    while iteration < limit:
+        if iteration >= warmups and all(_tail_converged(v) for v in values.values()):
+            break
+        for name in interleaved_order(list(fns), iteration, seed):
+            record = _timed_call(fns[name], iteration, True, sysman, device_index, clock)
+            records[name].append(record)
+            values[name].append(metrics[name](record))
+        iteration += 1
+    for _ in range(runs):
+        for name in interleaved_order(list(fns), iteration, seed):
+            records[name].append(_timed_call(fns[name], iteration, False, sysman, device_index, clock))
+        iteration += 1
     return records
 
 
@@ -118,6 +234,8 @@ def export_workload_result(
     runs: int,
     repo_dir: Path,
     failures: Optional[List[Dict[str, str]]] = None,
+    protocol_extra: Optional[Dict[str, Any]] = None,
+    environment_extra: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Validate and write a schema-v1 result file for non-LLM samples.
 
@@ -130,9 +248,12 @@ def export_workload_result(
         runs: Timed runs per series.
         repo_dir: Repository directory, for the git SHA in the environment block.
         failures: Optional records of tiers that failed on the device (kept in the file, never faked).
+        protocol_extra: Optional extra protocol keys (harness settings, series quality).
+        environment_extra: Optional keys merged over the captured environment (on_ac_power, preconditions).
 
     Raises:
         ValueError: If the document violates the schema.
     """
-    protocol = {"warmup_runs": warmups, "timed_runs": runs, "labels": labels}
-    write_result(path, build_result(run_id, samples, protocol, capture_environment(repo_dir), failures))
+    protocol = {"warmup_runs": warmups, "timed_runs": runs, "labels": labels, **(protocol_extra or {})}
+    environment = {**capture_environment(repo_dir), **(environment_extra or {})}
+    write_result(path, build_result(run_id, samples, protocol, environment, failures))

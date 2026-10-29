@@ -16,7 +16,7 @@ import subprocess
 import sys
 from typing import Any, Dict, Iterable, List, Optional
 
-from arc_runner.benchmark.stats import BenchSample
+from arc_runner.benchmark.stats import WORKLOAD_CLAIM_METRIC, BenchSample, ClaimGateResult, evaluate_speedup_gate, evaluate_workload_gate
 
 SCHEMA_VERSION = 1
 ALLOWED_SOURCES = ("measured", "derived", "projected")
@@ -164,6 +164,8 @@ def _validate_environment_and_protocol(document: Dict[str, Any]) -> List[str]:
             problems.append("environment.driver_versions must be an object")
         if environment.get("on_ac_power") is not None and not isinstance(environment["on_ac_power"], bool):
             problems.append("environment.on_ac_power must be a boolean or null")
+        if "preconditions" in environment and not isinstance(environment["preconditions"], dict):
+            problems.append("environment.preconditions must be an object")
     if not isinstance(protocol, dict):
         problems.append("protocol must be an object")
         return problems
@@ -174,6 +176,10 @@ def _validate_environment_and_protocol(document: Dict[str, Any]) -> List[str]:
         problems.append("protocol.timed_runs must be an integer >= 1")
     if "labels" in protocol and not isinstance(protocol["labels"], dict):
         problems.append("protocol.labels must be an object")
+    if "harness" in protocol and not isinstance(protocol["harness"], dict):
+        problems.append("protocol.harness must be an object")
+    if "series_quality" in protocol and not isinstance(protocol["series_quality"], list):
+        problems.append("protocol.series_quality must be a list")
     if "max_new_tokens" in protocol and not _is_int(protocol["max_new_tokens"], 1):
         problems.append("protocol.max_new_tokens must be an integer >= 1")
     if "temperature" in protocol and (isinstance(protocol["temperature"], bool) or not isinstance(protocol["temperature"], (int, float)) or not math.isfinite(protocol["temperature"])):
@@ -314,3 +320,42 @@ def load_samples(document: Dict[str, Any]) -> List[BenchSample]:
         List[BenchSample]: Samples in file order.
     """
     return [BenchSample(**{k: v for k, v in row.items() if k in BenchSample.__dataclass_fields__}) for row in document["samples"]]
+
+
+def evaluate_document_claim(
+    document: Dict[str, Any], arc_backend: str, ref_backend: str, model_id: str, metric: Optional[str] = None,
+) -> ClaimGateResult:
+    """Decide whether a result document supports a speed-up claim of one backend over another.
+
+    The document must validate against schema v1. Rows are selected by backend and model_id and judged by
+    the gate of their workload: llm uses evaluate_speedup_gate (default metric decode_tps), vlm, audio_stt
+    and audio_tts use evaluate_workload_gate. A workload without a gate (embeddings, image, video) never
+    passes, so a published claim for it is refused.
+
+    Args:
+        document: Parsed result file.
+        arc_backend: Backend whose speed is claimed.
+        ref_backend: Reference backend.
+        model_id: Model and tier identifier the claim covers.
+        metric: Optional metric override.
+
+    Returns:
+        ClaimGateResult: Verdict with the reason.
+    """
+    problems = validate_result(document)
+    if problems:
+        return ClaimGateResult(False, "document is not valid schema v1: " + "; ".join(problems[:3]))
+    samples = load_samples(document)
+    arc = [s for s in samples if s.backend == arc_backend and s.model_id == model_id]
+    ref = [s for s in samples if s.backend == ref_backend and s.model_id == model_id]
+    if not arc or not ref:
+        return ClaimGateResult(False, f"no rows for {arc_backend} and {ref_backend} on {model_id}")
+    workloads = {s.workload for s in (*arc, *ref)}
+    if len(workloads) != 1:
+        return ClaimGateResult(False, f"rows mix workloads {sorted(workloads)}")
+    workload = workloads.pop()
+    if workload == "llm":
+        return evaluate_speedup_gate(arc, ref, metric=metric or "decode_tps")
+    if workload in WORKLOAD_CLAIM_METRIC:
+        return evaluate_workload_gate(arc, ref, workload, metric=metric)
+    return ClaimGateResult(False, f"no claim gate exists for workload {workload}")
