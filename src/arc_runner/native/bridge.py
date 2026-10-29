@@ -32,6 +32,7 @@ _MAX_NAME_BYTES = ARC_MAX_NAME_LEN - 1
 _MAX_DIMS = 4
 _EXPECTED_ABI_VERSION = 3
 _ENV_DISABLE_NATIVE = "ARC_NATIVE_DISABLE"
+_ENV_ALLOW_MISSING_SIDECAR = "ARC_NATIVE_ALLOW_MISSING_SIDECAR"
 _BUILD_INFO_SUFFIX = ".build.json"
 
 _ARC_ERR_RANGE = -2
@@ -178,30 +179,44 @@ def view_shape_for_dims(dims: Any, element_count: int) -> Optional[Tuple[int, ..
 
 
 def _sidecar_matches(lib_path: Path) -> bool:
-    """Verify the library bytes against the sha256 recorded in its build sidecar, if present.
+    """Verify the library bytes against the sha256 recorded in its build sidecar.
+
+    This detects a stale, partial or accidentally swapped build. It is not tamper protection against
+    an attacker who can write the package directory: that actor can rewrite the sidecar too.
+
+    A missing sidecar fails the check unless ARC_NATIVE_ALLOW_MISSING_SIDECAR is exactly "1"; the
+    opt-out never excuses a sidecar that is present but wrong.
 
     Args:
         lib_path: Path to the shared library.
 
     Returns:
-        bool: False only when a sidecar exists and its hash differs or is unreadable.
+        bool: True only when the sidecar's sha256 equals the library's, or the sidecar is missing and
+        the explicit opt-out is set.
     """
     sidecar = lib_path.with_name(lib_path.name + _BUILD_INFO_SUFFIX)
     if not sidecar.exists():
-        return True
+        if os.environ.get(_ENV_ALLOW_MISSING_SIDECAR, "") == "1":
+            logger.warning("Native library has no build sidecar; integrity not checked", extra={"reason": _ENV_ALLOW_MISSING_SIDECAR, "path": str(lib_path)})
+            return True
+        return False
     try:
-        recorded = json.loads(sidecar.read_text(encoding="utf-8")).get("sha256", "")
+        info = json.loads(sidecar.read_text(encoding="utf-8"))
+        recorded = info.get("sha256") if isinstance(info, dict) else None
+        if not isinstance(recorded, str):
+            return False
+        return recorded == hashlib.sha256(lib_path.read_bytes()).hexdigest()
     except (OSError, ValueError):
         return False
-    return recorded == hashlib.sha256(lib_path.read_bytes()).hexdigest()
 
 
 def _load_native_library() -> Optional[ctypes.CDLL]:
-    """Locate and load libarc_native_sys, refusing mismatched or tampered builds.
+    """Locate and load libarc_native_sys, refusing stale, mismatched or hash-inconsistent builds.
 
     Returns:
         Optional[ctypes.CDLL]: Loaded library handle, or None if disabled, missing,
-        built with another ABI version, or failing its sidecar hash check.
+        built with another ABI version, or failing its sidecar hash check (including a missing sidecar
+        unless ARC_NATIVE_ALLOW_MISSING_SIDECAR=1).
     """
     if os.environ.get(_ENV_DISABLE_NATIVE, "") not in ("", "0"):
         logger.info("Native layer disabled by environment", extra={"reason": _ENV_DISABLE_NATIVE})
@@ -215,7 +230,7 @@ def _load_native_library() -> Optional[ctypes.CDLL]:
         return None
 
     if not _sidecar_matches(lib_path):
-        logger.warning("Native library hash mismatch", extra={"reason": "sidecar_sha256", "path": str(lib_path)})
+        logger.warning("Native library sidecar missing or hash mismatch", extra={"reason": "sidecar_sha256", "path": str(lib_path)})
         return None
 
     try:

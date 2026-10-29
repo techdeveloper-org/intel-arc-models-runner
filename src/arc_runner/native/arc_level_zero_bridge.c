@@ -21,6 +21,7 @@
   #define FREE_LIB(h) FreeLibrary((HMODULE)(h))
 #else
   #include <dlfcn.h>
+  #include <sys/stat.h>
   #include <time.h>
   #define LOAD_LIB(name) dlopen(name, RTLD_NOW)
   #define FREE_LIB(h) dlclose(h)
@@ -173,13 +174,105 @@ static bool arc_bind_all(ArcZeContext* ctx) {
 }
 
 /**
+ * @brief Test whether a file name has the shape of a Level Zero loader library name.
+ *
+ * Accepted (case-insensitive): [lib]ze_loader, optionally followed by ".dll" or ".so" and any
+ * number of ".<digits>" version suffixes. The directory part of the path is ignored.
+ *
+ * @param path Path or bare file name from the environment.
+ * @return 1 if the base name looks like a Level Zero loader, otherwise 0.
+ */
+static int arc_loader_basename_ok(const char* path) {
+    const char* base = path;
+    for (const char* p = path; *p != '\0'; ++p) {
+        if (*p == '/' || *p == '\\') {
+            base = p + 1;
+        }
+    }
+    const char* cursor = base;
+    if ((cursor[0] == 'l' || cursor[0] == 'L') && (cursor[1] == 'i' || cursor[1] == 'I') && (cursor[2] == 'b' || cursor[2] == 'B')) {
+        cursor += 3;
+    }
+    static const char stem[] = "ze_loader";
+    for (size_t i = 0; i < sizeof stem - 1; ++i) {
+        char c = cursor[i];
+        if (c >= 'A' && c <= 'Z') {
+            c = (char)(c - 'A' + 'a');
+        }
+        if (c != stem[i]) {
+            return 0;
+        }
+    }
+    cursor += sizeof stem - 1;
+    if (*cursor == '\0') {
+        return 1;
+    }
+    if (strlen(cursor) >= 4 && (cursor[0] == '.') && (cursor[1] == 'd' || cursor[1] == 'D') && (cursor[2] == 'l' || cursor[2] == 'L') && (cursor[3] == 'l' || cursor[3] == 'L')) {
+        return cursor[4] == '\0';
+    }
+    if (!(cursor[0] == '.' && (cursor[1] == 's' || cursor[1] == 'S') && (cursor[2] == 'o' || cursor[2] == 'O'))) {
+        return 0;
+    }
+    cursor += 3;
+    while (*cursor == '.') {
+        ++cursor;
+        if (*cursor < '0' || *cursor > '9') {
+            return 0;
+        }
+        while (*cursor >= '0' && *cursor <= '9') {
+            ++cursor;
+        }
+    }
+    return *cursor == '\0';
+}
+
+/**
+ * @brief Test whether a path names an existing regular file (symbolic links are followed).
+ *
+ * @param path Path to test.
+ * @return 1 for an existing non-directory file, otherwise 0.
+ */
+static int arc_is_regular_file(const char* path) {
+#if defined(_WIN32)
+    DWORD attributes = GetFileAttributesA(path);
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+#else
+    struct stat info;
+    return stat(path, &info) == 0 && S_ISREG(info.st_mode);
+#endif
+}
+
+/**
+ * @brief Decide whether ARC_ZE_LOADER_PATH may be loaded.
+ *
+ * The override is code that runs in this process, so it must be an existing regular file whose
+ * base name looks like a Level Zero loader, unless ARC_ZE_LOADER_ALLOW_ANY is exactly "1".
+ *
+ * @param path Non-empty override path.
+ * @return 1 if the path may be loaded, otherwise 0.
+ */
+static int arc_loader_override_allowed(const char* path) {
+    const char* allow_any = getenv(ARC_ZE_LOADER_ALLOW_ANY_ENV);
+    if (allow_any && strcmp(allow_any, "1") == 0) {
+        return 1;
+    }
+    return arc_is_regular_file(path) && arc_loader_basename_ok(path);
+}
+
+/**
  * @brief Load the Level Zero loader library, honouring ARC_ZE_LOADER_PATH first.
  *
- * @return Module handle, or NULL if no candidate could be loaded.
+ * A rejected override is not replaced by the default names: the caller asked for a specific
+ * library, so the load fails.
+ *
+ * @return Module handle, or NULL if no candidate could be loaded or the override was rejected.
  */
 static void* arc_load_loader(void) {
     const char* override_path = getenv(ARC_ZE_LOADER_ENV);
     if (override_path && override_path[0] != '\0') {
+        if (!arc_loader_override_allowed(override_path)) {
+            return NULL;
+        }
         return LOAD_LIB(override_path);
     }
 #if defined(_WIN32)

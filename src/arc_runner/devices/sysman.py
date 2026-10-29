@@ -9,6 +9,7 @@ import ctypes.util
 import logging
 import os
 import platform
+import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -29,6 +30,8 @@ MIN_POWER_SAMPLE_INTERVAL_S = 0.01
 MAX_POWER_SAMPLE_INTERVAL_S = 5.0
 DEFAULT_POWER_SAMPLE_INTERVAL_S = 0.1
 LOADER_PATH_ENV = "ARC_ZE_LOADER_PATH"
+LOADER_ALLOW_ANY_ENV = "ARC_ZE_LOADER_ALLOW_ANY"
+_LOADER_BASENAME = re.compile(r"(?:lib)?ze_loader(?:\.dll|\.so(?:\.\d+)*)?", re.IGNORECASE)
 
 
 class _ZeDeviceProps(ctypes.Structure):
@@ -186,14 +189,40 @@ def _zes_init_once(lib: Any, key: str) -> int:
     return _ZES_INIT_RESULTS[key]
 
 
+def _loader_override_allowed(override: str) -> bool:
+    """Decide whether ARC_ZE_LOADER_PATH may be loaded into this process.
+
+    The override is code that will run here, so it must be an existing regular file whose base name
+    looks like a Level Zero loader, unless ARC_ZE_LOADER_ALLOW_ANY is exactly "1".
+
+    Args:
+        override: Non-empty override path.
+
+    Returns:
+        bool: True if the path may be passed to the dynamic loader.
+    """
+    if os.environ.get(LOADER_ALLOW_ANY_ENV, "") == "1":
+        return True
+    base = re.split(r"[\\/]", override)[-1]
+    return os.path.isfile(override) and _LOADER_BASENAME.fullmatch(base) is not None
+
+
 def _loader_candidates() -> List[str]:
     """List loader library names to try, honouring ARC_ZE_LOADER_PATH.
+
+    A rejected override yields no candidates; it is not replaced by the default names.
 
     Returns:
         List[str]: Candidate names in priority order.
     """
     override = os.environ.get(LOADER_PATH_ENV, "").strip()
     if override:
+        if not _loader_override_allowed(override):
+            logger.warning(
+                "Level Zero loader override refused",
+                extra={"reason": "not_a_regular_loader_named_file", "env": LOADER_PATH_ENV, "allow_any_env": LOADER_ALLOW_ANY_ENV},
+            )
+            return []
         return [override]
     if platform.system() == "Windows":
         return ["ze_loader.dll"]

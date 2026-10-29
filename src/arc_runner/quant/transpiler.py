@@ -10,8 +10,11 @@ import json
 import math
 from pathlib import Path
 import struct
+import re
 import time
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
+
+from xml.sax.saxutils import quoteattr
 
 import numpy as np
 
@@ -69,6 +72,27 @@ class TranspilationResult:
     duration_ms: float
     sha256_hash: str = ""
     average_sqnr_db: float = 34.0
+
+
+_XML_ILLEGAL_CHARS = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+
+
+def _xml_attr(value: Any) -> str:
+    """Return value as a quoted, escaped XML attribute literal.
+
+    Args:
+        value: Text or number taken from untrusted file content.
+
+    Returns:
+        str: The value wrapped in quotes with &, <, > and quotes escaped.
+
+    Raises:
+        TranspilationError: If the text contains a character XML 1.0 cannot represent.
+    """
+    text = str(value)
+    if _XML_ILLEGAL_CHARS.search(text):
+        raise TranspilationError(f"Name contains characters that XML 1.0 cannot represent: {text[:40]!r}", "INVALID_IR_NAME", 422)
+    return quoteattr(text)
 
 
 class GGUFTranspiler:
@@ -420,7 +444,7 @@ class GGUFTranspiler:
         """
         lines = [
             '<?xml version="1.0"?>',
-            f'<net name="{model_name}" version="11">',
+            f'<net name={_xml_attr(model_name)} version="11">',
             '\t<layers>',
         ]
 
@@ -429,11 +453,11 @@ class GGUFTranspiler:
             dims = t.dimensions if hasattr(t, "dimensions") else (t.shape if hasattr(t, "shape") else [1])
             shape_str = ",".join(str(s) for s in dims) if dims else "1"
             lines.append(
-                f'\t\t<layer id="{layer_id}" name="{t.name}" type="Const" version="opset1">'
+                f'\t\t<layer id="{layer_id}" name={_xml_attr(t.name)} type="Const" version="opset1">'
             )
             lines.append('\t\t\t<data element_type="f32" offset="0" size="0"/>')
             lines.append('\t\t\t<output>')
-            lines.append(f'\t\t\t\t<port id="0" precision="FP32" names="{t.name}">')
+            lines.append(f'\t\t\t\t<port id="0" precision="FP32" names={_xml_attr(t.name)}>')
             for dim in (dims or [1]):
                 lines.append(f'\t\t\t\t\t<dim>{dim}</dim>')
             lines.append('\t\t\t\t</port>')
@@ -445,7 +469,7 @@ class GGUFTranspiler:
             '\t</layers>',
             '\t<edges/>',
             '\t<meta_data>',
-            f'\t\t<bin_file name="{bin_filename}" size="{bin_size}"/>',
+            f'\t\t<bin_file name={_xml_attr(bin_filename)} size="{int(bin_size)}"/>',
             '\t</meta_data>',
             '</net>',
         ])

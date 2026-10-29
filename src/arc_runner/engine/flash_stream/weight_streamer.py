@@ -201,7 +201,7 @@ class FlashStreamWeightManager:
         with self._lock:
             self._layer_tensor_map.clear()
             layer_counts: Dict[int, int] = {}
-            layer_pattern = re.compile(r"(?:blk|layers|model\.layers)\.(\d+)\.")
+            layer_pattern = re.compile(r"(?:blk|layers|model\.layers)\.(\d{1,9})\.")
 
             for tensor in self.parser.tensor_info:
                 match = layer_pattern.search(tensor.name)
@@ -318,7 +318,7 @@ class FlashStreamWeightManager:
         Returns:
             Normalized tensor identifier within the layer scope.
         """
-        cleaned = re.sub(r"^(?:blk|layers|model\.layers)\.\d+\.", "", full_name)
+        cleaned = re.sub(r"^(?:blk|layers|model\.layers)\.\d{1,9}\.", "", full_name)
         return cleaned
 
     def _slot_index_for(self, layer_idx: int) -> int:

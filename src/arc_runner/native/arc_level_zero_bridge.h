@@ -33,6 +33,7 @@ extern "C" {
 #define ARC_ZE_DEFAULT_SYNC_TIMEOUT_MS 1500u
 #define ARC_ZE_MAX_SYNC_TIMEOUT_MS 1900u
 #define ARC_ZE_LOADER_ENV "ARC_ZE_LOADER_PATH"
+#define ARC_ZE_LOADER_ALLOW_ANY_ENV "ARC_ZE_LOADER_ALLOW_ANY"
 #define ARC_ZE_SYNC_TIMEOUT_ENV "ARC_ZE_SYNC_TIMEOUT_MS"
 
 /**
@@ -74,7 +75,10 @@ typedef struct ArcZeContext ArcZeContext;
  * @brief Initialize Level Zero and acquire the first GPU device (never the NPU).
  *
  * The loader library is taken from the ARC_ZE_LOADER_PATH environment variable if set,
- * otherwise from the platform default names.
+ * otherwise from the platform default names. The override must be an existing regular file whose
+ * base name looks like a Level Zero loader (ze_loader / libze_loader); any other library requires
+ * ARC_ZE_LOADER_ALLOW_ANY=1. A rejected override fails with ARC_ZE_ERR_LOAD and is not replaced by
+ * the default names.
  *
  * @param out_status Optional receiver for an ArcZeStatus describing the failure.
  * @return Context pointer, or NULL if no usable GPU driver was found or any driver call failed.

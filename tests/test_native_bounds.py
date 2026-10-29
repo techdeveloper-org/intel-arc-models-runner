@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 from typing import Any, List
 
 import numpy as np
@@ -232,18 +233,69 @@ def test_missing_abi_symbol_returns_no_library(monkeypatch: pytest.MonkeyPatch) 
     assert bridge._load_native_library() is None
 
 
-def test_sidecar_matches_detects_hash_mismatch_and_accepts_missing(tmp_path: Path) -> None:
-    """The sidecar check passes when absent or equal and fails when the hash or JSON is wrong."""
+def test_sidecar_matches_detects_hash_mismatch_and_malformed_content(tmp_path: Path) -> None:
+    """The sidecar check passes on an equal hash and fails when the hash or JSON is wrong."""
     lib = tmp_path / "libarc_native_sys.so"
     lib.write_bytes(b"binary")
     sidecar = tmp_path / "libarc_native_sys.so.build.json"
-    assert _sidecar_matches(lib) is True
     sidecar.write_text(json.dumps({"sha256": hashlib.sha256(b"binary").hexdigest()}), encoding="utf-8")
     assert _sidecar_matches(lib) is True
     sidecar.write_text(json.dumps({"sha256": "0" * 64}), encoding="utf-8")
     assert _sidecar_matches(lib) is False
     sidecar.write_text("{not json", encoding="utf-8")
     assert _sidecar_matches(lib) is False
+
+
+@pytest.mark.parametrize("content", ["[1, 2]", "null", '"text"', '{"sha256": 5}', '{"sha256": null}', "{}"])
+def test_sidecar_matches_non_object_or_non_string_hash_returns_false_without_raising(tmp_path: Path, content: str) -> None:
+    """TM-07: a sidecar that parses as JSON but has the wrong shape is a failed check, not an AttributeError."""
+    lib = tmp_path / "libarc_native_sys.so"
+    lib.write_bytes(b"binary")
+    (tmp_path / "libarc_native_sys.so.build.json").write_text(content, encoding="utf-8")
+    assert _sidecar_matches(lib) is False
+
+
+def test_sidecar_matches_missing_sidecar_refuses_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """TM-07: deleting the sidecar must not turn the integrity check off."""
+    monkeypatch.delenv("ARC_NATIVE_ALLOW_MISSING_SIDECAR", raising=False)
+    lib = tmp_path / "libarc_native_sys.so"
+    lib.write_bytes(b"binary")
+    assert _sidecar_matches(lib) is False
+
+
+def test_sidecar_matches_missing_sidecar_allowed_only_with_explicit_opt_out(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """TM-07: ARC_NATIVE_ALLOW_MISSING_SIDECAR=1 (and only 1) permits a library with no sidecar."""
+    lib = tmp_path / "libarc_native_sys.so"
+    lib.write_bytes(b"binary")
+    monkeypatch.setenv("ARC_NATIVE_ALLOW_MISSING_SIDECAR", "1")
+    assert _sidecar_matches(lib) is True
+    for other in ("0", "", "true", "yes"):
+        monkeypatch.setenv("ARC_NATIVE_ALLOW_MISSING_SIDECAR", other)
+        assert _sidecar_matches(lib) is False
+
+
+def test_sidecar_opt_out_does_not_excuse_a_present_but_wrong_hash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """TM-07: the opt-out covers a missing sidecar only; a mismatching one still refuses."""
+    monkeypatch.setenv("ARC_NATIVE_ALLOW_MISSING_SIDECAR", "1")
+    lib = tmp_path / "libarc_native_sys.so"
+    lib.write_bytes(b"binary")
+    (tmp_path / "libarc_native_sys.so.build.json").write_text(json.dumps({"sha256": "0" * 64}), encoding="utf-8")
+    assert _sidecar_matches(lib) is False
+
+
+def test_load_native_library_missing_sidecar_falls_back_to_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """TM-07: with the sidecar absent the loader returns None (Python read path) without calling CDLL."""
+    name = "libarc_native_sys.dll" if sys.platform == "win32" else "libarc_native_sys.so"
+    (tmp_path / name).write_bytes(b"binary")
+    monkeypatch.delenv("ARC_NATIVE_ALLOW_MISSING_SIDECAR", raising=False)
+    monkeypatch.delenv("ARC_NATIVE_DISABLE", raising=False)
+    monkeypatch.setattr(bridge, "__file__", str(tmp_path / "bridge.py"))
+
+    def forbidden(_path: str) -> Any:
+        raise AssertionError("CDLL must not be reached")
+
+    monkeypatch.setattr(bridge.ctypes, "CDLL", forbidden)
+    assert bridge._load_native_library() is None
 
 
 @requires_native
