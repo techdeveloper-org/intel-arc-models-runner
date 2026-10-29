@@ -4,7 +4,6 @@ Nothing here estimates tokens, latency splits, or speculative acceptance. When a
 cannot be measured the field stays zero and its validity flag stays False.
 """
 
-import time
 from typing import Any, Optional
 
 from arc_runner.core.logging import get_logger

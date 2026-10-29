@@ -20,7 +20,7 @@ from typing import Dict, List, Optional, Set, Tuple, Type, Union
 
 import numpy as np
 
-from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError, NativeBoundsError
+from arc_runner.core.exceptions import ArcRunnerError, NativeBoundsError
 from arc_runner.core.logging import get_logger
 from arc_runner.native.bridge import NativeMemoryEngine, dtype_for_tensor_type, view_shape_for_dims
 from arc_runner.quant.gguf_parser import GGUFParser

@@ -1,6 +1,5 @@
 """Slice S-A regression tests: telemetry and benchmark output must never contain invented values."""
 
-import ctypes
 import json
 import re
 from pathlib import Path
@@ -10,7 +9,7 @@ from unittest import mock
 
 import pytest
 
-from arc_runner.devices.sysman import LevelZeroSysman, _ZeDeviceMemProps
+from arc_runner.devices.sysman import LevelZeroSysman
 from arc_runner.engine.models import GenerationConfig
 from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
 
