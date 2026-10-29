@@ -26,6 +26,21 @@ from arc_runner.engine.vision_engine import VisionEngine
 logger = get_logger("server.model_manager")
 
 
+def _default_model_dir() -> Path:
+    """Find the repository's model store independently of the server CWD.
+
+    The installed console script may be launched from a shortcut or another
+    working directory. Prefer the project's local ``models`` directory when
+    present, while preserving the historical CWD-based fallback for installs.
+    """
+    package_root = Path(__file__).resolve().parents[3]
+    project_models = package_root / "models"
+    cwd_models = Path.cwd() / "models"
+    if project_models.is_dir():
+        return project_models
+    return cwd_models
+
+
 class ModelManager:
     """Manages active engine instances and model directories with thread-safe LRU eviction."""
 
@@ -42,7 +57,8 @@ class ModelManager:
         """
         self._lock = threading.Lock()
         self._max_loaded_models = max_loaded_models
-        self._model_dirs: List[Path] = [Path(d).resolve() for d in (model_dirs or [Path("models")])]
+        defaults = model_dirs if model_dirs is not None else [_default_model_dir()]
+        self._model_dirs: List[Path] = [Path(d).resolve() for d in defaults]
         self._cache: OrderedDict[str, BaseEngine] = OrderedDict()
         self._embedding_cache: OrderedDict[str, EmbeddingEngine] = OrderedDict()
         self._vision_cache: OrderedDict[str, VisionEngine] = OrderedDict()

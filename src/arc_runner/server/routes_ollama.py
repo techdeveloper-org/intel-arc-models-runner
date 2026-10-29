@@ -174,6 +174,11 @@ def _build_generation_config(
             stops = options["stop"]
             cfg_args["stop_strings"] = [stops] if isinstance(stops, str) else list(stops)
 
+    if (options is None or "temperature" not in options) and cfg_args.get("temperature", 0.0) == 0.0:
+        cfg_args["temperature"] = 0.6
+    if options is None or not ("num_predict" in options or "max_tokens" in options):
+        cfg_args["max_new_tokens"] = 256 if cfg_args.get("temperature", 0.0) > 0 else 128
+
     lora_specs: List[LoRAAdapterSpec] = []
     if adapter:
         lora_specs.append(LoRAAdapterSpec(name=adapter, scale=1.0))
@@ -191,6 +196,73 @@ def _build_generation_config(
         cfg_args["adapters"] = lora_specs
 
     return GenerationConfig(**cfg_args)
+
+
+def _format_chat_prompt(messages: List[Any], model_id: str) -> str:
+    """Format chat messages using the model family's expected prompt tokens."""
+    is_deepseek_r1 = "deepseek" in model_id.lower()
+    formatted_lines: List[str] = []
+    for msg in messages:
+        content = msg.content
+        if is_deepseek_r1:
+            if msg.role == "system":
+                formatted_lines.append(content)
+            elif msg.role == "user":
+                formatted_lines.append(f"<|User|>{content}")
+            elif msg.role == "assistant":
+                # Keep prior visible assistant responses as context, excluding private reasoning.
+                if "</think>" in content:
+                    content = content.rsplit("</think>", 1)[-1].lstrip()
+                formatted_lines.append(f"<|Assistant|>{content}<|end_of_sentence|>")
+        else:
+            formatted_lines.append(f"<|im_start|>{msg.role}\n{content}<|im_end|>")
+
+    if is_deepseek_r1:
+        formatted_lines.append("<|Assistant|><think>\n")
+    else:
+        formatted_lines.append("<|im_start|>assistant\n")
+    return "\n".join(formatted_lines)
+
+
+class _ChatOutputParser:
+    """Separate DeepSeek reasoning and answer text across arbitrary stream chunks."""
+
+    def __init__(self, model_id: str) -> None:
+        self._reasoning_model = "deepseek" in model_id.lower()
+        self._in_thinking = self._reasoning_model
+        self._pending = ""
+
+    def feed(self, text: str, *, final: bool = False) -> Dict[str, str]:
+        if not self._reasoning_model:
+            return {"thinking": "", "content": text}
+
+        data = self._pending + text
+        self._pending = ""
+        output = {"thinking": "", "content": ""}
+        marker = "</think>"
+
+        if self._in_thinking:
+            end = data.find(marker)
+            if end >= 0:
+                output["thinking"] = data[:end]
+                output["content"] = data[end + len(marker):].lstrip("\r\n ")
+                self._in_thinking = False
+            elif final:
+                output["thinking"] = data
+            else:
+                keep = min(len(data), len(marker) - 1)
+                split_at = len(data) - keep
+                output["thinking"] = data[:split_at]
+                self._pending = data[split_at:]
+        else:
+            output["content"] = data
+        return output
+
+
+def _split_chat_output(text: str, model_id: str) -> Dict[str, str]:
+    """Parse a complete model result into optional thinking and answer fields."""
+    parser = _ChatOutputParser(model_id)
+    return parser.feed(text, final=True)
 
 
 async def _stream_token_chunks(
@@ -372,11 +444,7 @@ async def chat(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to load engine: {exc}") from exc
 
-    formatted_lines: List[str] = []
-    for msg in request.messages:
-        formatted_lines.append(f"<|im_start|>{msg.role}\n{msg.content}<|im_end|>")
-    formatted_lines.append("<|im_start|>assistant\n")
-    chat_prompt = "\n".join(formatted_lines)
+    chat_prompt = _format_chat_prompt(request.messages, request.model)
 
     batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
     if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
@@ -394,23 +462,27 @@ async def chat(
     if request.stream:
         async def chat_ndjson_generator() -> AsyncIterator[str]:
             tokens_generated = 0
+            output_parser = _ChatOutputParser(request.model)
             async for chunk in _stream_token_chunks(engine, chat_prompt, gen_config):
                 if await raw_request.is_disconnected():
                     break
                 now_iso = datetime.now(timezone.utc).isoformat()
                 if not chunk.is_finished:
                     tokens_generated += 1
+                    parsed_text = output_parser.feed(chunk.text)
                     payload = {
                         "model": request.model,
                         "created_at": now_iso,
                         "message": {
                             "role": "assistant",
-                            "content": chunk.text,
+                            "content": parsed_text["content"],
+                            "thinking": parsed_text["thinking"],
                         },
                         "done": False,
                     }
                     yield json.dumps(payload) + "\n"
                 else:
+                    parsed_text = output_parser.feed(chunk.text, final=True)
                     duration_ns = time.time_ns() - start_ns
                     manager.record_generation_metrics(tokens_generated)
                     final_payload = {
@@ -418,7 +490,8 @@ async def chat(
                         "created_at": now_iso,
                         "message": {
                             "role": "assistant",
-                            "content": chunk.text,
+                            "content": parsed_text["content"],
+                            "thinking": parsed_text["thinking"],
                         },
                         "done": True,
                         "total_duration": duration_ns,
@@ -432,15 +505,15 @@ async def chat(
 
         return StreamingResponse(chat_ndjson_generator(), media_type="application/x-ndjson")
 
-    text = engine.generate(chat_prompt, gen_config)
+    parsed_text = _split_chat_output(engine.generate(chat_prompt, gen_config), request.model)
     duration_ns = time.time_ns() - start_ns
-    tokens_count = len(text.split())
+    tokens_count = len(parsed_text["content"].split())
     manager.record_generation_metrics(tokens_count)
 
     return OllamaChatResponse(
         model=request.model,
         created_at=datetime.now(timezone.utc).isoformat(),
-        message=OllamaChatMessage(role="assistant", content=text),
+        message=OllamaChatMessage(role="assistant", content=parsed_text["content"], thinking=parsed_text["thinking"] or None),
         done=True,
         total_duration=duration_ns,
         load_duration=0,

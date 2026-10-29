@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Intel® Arc™ Model Studio | Dual-Silicon Local LLM Runner</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=20261029-2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -34,37 +34,37 @@
             </div>
 
             <nav class="nav-menu">
-                <button class="nav-item active" data-tab="tab-cockpit">
+                <a class="nav-item active" href="/cockpit" data-tab="tab-cockpit">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                     <span>Silicon Cockpit</span>
-                </button>
-                <button class="nav-item" data-tab="tab-chat">
+                </a>
+                <a class="nav-item" href="/chat" data-tab="tab-chat">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     <span>Chat Playground</span>
-                </button>
-                <button class="nav-item" data-tab="tab-ollama">
+                </a>
+                <a class="nav-item" href="/models/ollama" data-tab="tab-ollama">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
                     <span>Ollama & GGUF</span>
-                </button>
-                <button class="nav-item" data-tab="tab-hub">
+                </a>
+                <a class="nav-item" href="/models/hub" data-tab="tab-hub">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                     <span>Model Hub</span>
-                </button>
-                <button class="nav-item" data-tab="tab-benchmark">
+                </a>
+                <a class="nav-item" href="/benchmarks" data-tab="tab-benchmark">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                     <span>Benchmarks</span>
-                </button>
-                <button class="nav-item" data-tab="tab-embeddings">
+                </a>
+                <a class="nav-item" href="/embeddings" data-tab="tab-embeddings">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
                     <span>NPU Embeddings</span>
-                </button>
-                <button class="nav-item" data-tab="tab-studio">
+                </a>
+                <a class="nav-item" href="/studio" data-tab="tab-studio">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                         <polygon points="23 7 16 12 23 17 23 7"/>
                         <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
                     </svg>
                     <span>MultiModal Studio</span>
-                </button>
+                </a>
             </nav>
 
             <div class="sidebar-footer">
@@ -254,27 +254,53 @@
             <!-- TAB 2: CHAT PLAYGROUND -->
             <section id="tab-chat" class="tab-pane">
                 <div class="chat-container glass-card">
+                    <div class="chat-layout" id="chat-layout">
+                        <button type="button" class="chat-history-backdrop" id="chat-history-backdrop" aria-label="Close conversation history"></button>
+                        <aside class="chat-history-panel" id="chat-history-panel" aria-label="Chat history">
+                            <div class="history-panel-header">
+                                <div><span class="history-eyebrow">YOUR WORKSPACE</span><h2>Conversations</h2></div>
+                                <button type="button" id="btn-chat-new" class="btn btn-primary history-new-button" title="Start a fresh conversation">+ New chat</button>
+                            </div>
+                            <div class="history-filters" role="tablist" aria-label="Conversation filter">
+                                <button type="button" class="history-filter active" data-history-filter="active" role="tab" aria-selected="true">Recent</button>
+                                <button type="button" class="history-filter" data-history-filter="archived" role="tab" aria-selected="false">Archived</button>
+                            </div>
+                            <div class="chat-history-list" id="chat-history-list" role="list" aria-label="Saved conversations"></div>
+                            <p class="history-local-note">Saved privately in this browser</p>
+                        </aside>
+                        <div class="chat-workspace">
                     <div class="chat-header">
                         <div class="model-selector-group">
                             <label for="chat-model-select">Active Model:</label>
-                            <select id="chat-model-select" class="form-select">
-                                <option value="llama-3.2-3b">Llama-3.2-3B (OpenVINO INT4 on Arc GPU)</option>
-                                <option value="qwen-2.5-7b">Qwen-2.5-7B (OpenVINO INT4 on Arc GPU)</option>
-                                <option value="phi-3.5-mini">Phi-3.5-mini (OpenVINO INT4 on Arc GPU)</option>
-                                <option value="deepseek-r1-1.5b">DeepSeek-R1-1.5B (Intel NPU 5W)</option>
-                                <option value="llama-3.2-11b-vision">Llama-3.2-11B-Vision (Arc GPU VLM)</option>
-                                <option value="qwen2-vl-7b">Qwen2-VL-7B (Arc GPU VLM)</option>
+                            <select id="chat-model-select" class="form-select" disabled>
+                                <option value="">Loading Arc Runner models...</option>
                             </select>
+                            <span class="chat-model-note" id="chat-model-note">Local inference · your prompts stay on this machine</span>
                         </div>
                         <div class="device-selector-group">
                             <label for="chat-device-select">Silicon Target:</label>
                             <select id="chat-device-select" class="form-select">
-                                <option value="GPU">Intel Arc GPU (Xe-LPG / XMX)</option>
+                                <option value="GPU">Intel Arc GPU · Xe-LPG / XMX</option>
                                 <option value="NPU">Intel AI Boost NPU (5W)</option>
-                                <option value="CPU">Intel Core Ultra CPU</option>
+                                <option value="CPU">Intel Core Ultra CPU · AVX</option>
                             </select>
                         </div>
+                        <div class="chat-header-actions">
+                            <span class="chat-live-status" id="chat-live-status" data-state="ready" role="status" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span class="chat-status-label">Ready</span></span>
+                            <button type="button" id="btn-chat-new-top" class="btn btn-secondary chat-new-top-button">New chat</button>
+                            <button type="button" id="btn-chat-history" class="btn btn-secondary chat-history-toggle" aria-controls="chat-history-panel" aria-expanded="false">History</button>
+                            <button type="button" id="btn-chat-compact" class="btn btn-secondary chat-compact-button" title="Summarize older turns and keep recent context">Compact context</button>
+                            <button type="button" id="btn-chat-archive" class="btn btn-secondary chat-archive-button" title="Archive this conversation">Archive</button>
+                        </div>
                     </div>
+
+                    <div id="chat-model-recovery" class="chat-model-recovery hidden" role="status" aria-live="polite">
+                        <span id="chat-model-recovery-message">No local chat model is available.</span>
+                        <button type="button" id="btn-chat-retry-models" class="btn btn-secondary">Retry</button>
+                        <a class="btn btn-secondary" href="/models/hub">Open Model Hub</a>
+                    </div>
+
+                    <div id="chat-context-banner" class="chat-context-banner hidden" role="status"></div>
 
                     <!-- Multi-LoRA Adapter Drawer (Option B) -->
                     <div id="lora-drawer" class="lora-drawer">
@@ -301,21 +327,30 @@
                     </div>
 
                     <!-- Messages Stream -->
-                    <div id="chat-messages" class="chat-messages">
+                    <div id="chat-messages" class="chat-messages" role="log" aria-label="Chat conversation" aria-live="polite" aria-relevant="additions text">
                         <div class="message assistant">
-                            <div class="message-bubble">
-                                <p>Welcome to <strong>Intel Arc Model Studio</strong>! I am running natively on your Intel Core Ultra silicon. Ask me anything to observe real-time token decoding speed and latency metrics.</p>
+                            <div class="assistant-avatar" aria-hidden="true">A</div>
+                            <div class="message-content">
+                                <div class="message-meta"><span>Arc Assistant</span><span class="message-meta-dot">·</span><span>Local model</span></div>
+                                <div class="message-bubble">
+                                    <p>Hey! Ask me anything—from a quick question to a coding problem. I’ll answer using the model and silicon you choose above.</p>
+                                    <div class="chat-suggestions" aria-label="Try a prompt">
+                                        <button type="button" class="chat-suggestion" data-prompt="Say hi in one sentence.">Say hi</button>
+                                        <button type="button" class="chat-suggestion" data-prompt="Explain a Python list comprehension with a short example.">Explain Python</button>
+                                        <button type="button" class="chat-suggestion" data-prompt="Write a Python function that checks whether a string is a palindrome.">Write code</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Live Inference Telemetry Ribbon -->
                     <div class="chat-telemetry-ribbon" id="chat-telemetry-ribbon">
-                        <div class="ribbon-item">TTFT: <span id="metric-ttft" class="text-cyan">-- ms</span></div>
-                        <div class="ribbon-item">TPOT: <span id="metric-tpot" class="text-cyan">-- ms</span></div>
-                        <div class="ribbon-item">Rate: <span id="metric-rate" class="text-emerald">-- tok/s</span></div>
-                        <div class="ribbon-item">Engine: <span id="metric-engine" class="text-purple">OpenVINO GenAI</span></div>
-                        <div class="ribbon-item">LoRA: <span id="metric-lora" class="text-cyan">None (Base)</span></div>
+                        <div class="ribbon-item"><span class="ribbon-label">First response (ms)</span><span id="metric-ttft" class="text-cyan">—</span></div>
+                        <div class="ribbon-item"><span class="ribbon-label">Avg. gap (ms/char est.)</span><span id="metric-tpot" class="text-cyan">—</span></div>
+                        <div class="ribbon-item"><span class="ribbon-label">Text rate (chars/s est.)</span><span id="metric-rate" class="text-emerald">—</span></div>
+                        <div class="ribbon-item"><span class="ribbon-label">Target</span><span id="metric-engine" class="text-purple">GPU · OpenVINO</span></div>
+                        <div class="ribbon-item"><span class="ribbon-label">Adapter</span><span id="metric-lora" class="text-cyan">None</span></div>
                     </div>
 
                     <!-- Image Attachment Preview -->
@@ -327,16 +362,22 @@
 
                     <!-- Chat Input Form -->
                     <form id="chat-form" class="chat-input-row">
-                        <label for="chat-image-input" class="btn btn-secondary btn-icon" title="Attach image (Multimodal Vision)">
+                        <label for="chat-image-input" class="btn btn-secondary btn-icon chat-image-unavailable" title="Image input is not connected to chat yet" aria-label="Image input unavailable">
                             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                         </label>
-                        <input type="file" id="chat-image-input" accept="image/png,image/jpeg,image/webp" class="hidden">
-                        <input type="text" id="chat-input" class="chat-input" placeholder="Enter your prompt or ask about an attached image..." autocomplete="off">
-                        <button type="submit" id="chat-submit" class="btn btn-primary">
-                            <span>Generate</span>
+                        <input type="file" id="chat-image-input" accept="image/png,image/jpeg,image/webp" class="hidden" disabled aria-describedby="chat-image-unavailable-note">
+                        <textarea id="chat-input" class="chat-input" rows="1" placeholder="Message the local model…" aria-label="Message the local model" autocomplete="off"></textarea>
+                        <button type="button" id="chat-stop" class="btn btn-secondary chat-stop-button hidden">
+                            <span>Stop</span>
+                        </button>
+                        <button type="submit" id="chat-submit" class="btn btn-primary" aria-label="Send message">
+                            <span>Send</span>
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                         </button>
                     </form>
+                    <p class="chat-input-hint">Enter to send <span>·</span> Shift + Enter for a new line <span>·</span> Runs locally <span>·</span> <span id="chat-image-unavailable-note">Image input is not connected yet</span></p>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -784,6 +825,6 @@
         </main>
     </div>
 
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v=20261029-2"></script>
 </body>
 </html>
