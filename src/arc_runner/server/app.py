@@ -4,6 +4,7 @@ Provides centralized request tracing, CORS policy enforcement, structured domain
 and hardware telemetry exposition.
 """
 
+from arc_runner._version import __version__
 from pathlib import Path
 import time
 from typing import Any, Callable, Dict, Optional
@@ -90,7 +91,7 @@ def create_app(
     app = FastAPI(
         title="Intel Arc Models Runner Daemon",
         description="High-throughput local LLM runner optimized for Intel Arc GPUs and AI Boost NPUs",
-        version="0.1.0",
+        version=__version__,
         docs_url="/docs" if debug else None,
         redoc_url=None,
     )

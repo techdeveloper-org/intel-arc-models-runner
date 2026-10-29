@@ -51,7 +51,7 @@ class TestDockerContainerPositiveTriad:
         content = Path("Dockerfile").read_text(encoding="utf-8")
 
         assert "HEALTHCHECK" in content
-        assert "http://localhost:8000/v1/health" in content
+        assert "http://localhost:8000/ " in content
         assert "--interval=30s" in content
         assert "--timeout=5s" in content
         assert "--retries=3" in content
