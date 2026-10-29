@@ -118,3 +118,45 @@ def test_build_ov_properties_cpu_gets_no_gpu_only_options(tmp_path: Path, monkey
     monkeypatch.delenv(KV_PRECISION_ENV, raising=False)
     props = OpenVINOGenAIEngine()._build_ov_properties("CPU", {})
     assert props == {}
+
+
+def _speculative_engine(prompt_tokens: int, max_context: int = 100) -> tuple:
+    """Build a loaded speculative engine whose tokenizer reports a fixed prompt length."""
+    from arc_runner.engine.models import SpeculativeConfig
+    from arc_runner.engine.speculative_engine import HybridSpeculativeEngine
+
+    pipeline = mock.MagicMock()
+    pipeline.get_tokenizer.return_value.encode.return_value = SimpleNamespace(input_ids=SimpleNamespace(shape=(1, prompt_tokens)))
+    pipeline.generate.return_value = "ok"
+    engine = HybridSpeculativeEngine(kv_cache_manager=KVCacheManager(max_context_length=max_context))
+    engine._pipeline = pipeline
+    engine._is_loaded = True
+    engine._model_path = "model"
+    engine._device = "GPU"
+    engine._draft_model_path = "draft"
+    engine._spec_config = SpeculativeConfig(draft_model_path="draft")
+    return engine, pipeline
+
+
+def test_speculative_generate_prompt_plus_completion_over_context_raises_before_pipeline_call() -> None:
+    """E2: the speculative engine enforces the same window as the plain engine."""
+    engine, pipeline = _speculative_engine(90)
+    with pytest.raises(ContextWindowExceededError):
+        engine.generate("p", GenerationConfig(max_new_tokens=11))
+    pipeline.generate.assert_not_called()
+
+
+def test_speculative_generate_exactly_fitting_context_is_allowed_and_records_prompt_tokens() -> None:
+    """E2: a request filling the window exactly runs, and prompt_tokens is reported."""
+    engine, pipeline = _speculative_engine(90)
+    engine.generate("p", GenerationConfig(max_new_tokens=10))
+    pipeline.generate.assert_called_once()
+    assert engine.get_telemetry().prompt_tokens == 90
+
+
+def test_speculative_generate_stream_over_context_raises_before_worker_starts() -> None:
+    """E2: speculative streaming rejects an oversized request before any worker thread runs."""
+    engine, pipeline = _speculative_engine(95)
+    with pytest.raises(ContextWindowExceededError):
+        list(engine.generate_stream("p", GenerationConfig(max_new_tokens=20)))
+    pipeline.generate.assert_not_called()
