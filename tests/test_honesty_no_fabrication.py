@@ -220,6 +220,18 @@ _FABRICATION_PATTERNS = [
     r"acceptance_rate \* 0\.9",
     r"REFERENCE_SWEEP",
     r'"power_w":\s*22\.0',
+    r"total_(sec|latency_ms) \* (850|0\.82|0\.06|0\.12)\b",
+    r"power_watts\s*=\s*\d",
+    r'"power_watts":\s*\d',
+    r"package_power_w\s*=\s*\d",
+    r"cloud_cost_saved\s*=\s*0\.",
+    r"audio_rtf=0\.\d",
+    r"base_step_ms\s*=",
+    r"cpu_factor\s*=",
+    r"target_it_s|target_rtf",
+    r"len\((out|output|result)[a-z_]*\.split\(\)\)",
+    r"warp_error\s*=\s*0\.\d",
+    r"ssim_coherence\s*=\s*0\.\d",
 ]
 
 

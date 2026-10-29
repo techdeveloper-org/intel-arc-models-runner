@@ -53,12 +53,15 @@ You don't need hundreds of gigabytes of disk space! Our sequential runner downlo
 # Benchmark an individual model:
 python scratch/run_live_sequential_model_benchmarks.py --model qwen-2.5-1.5b
 
-# Or run the comprehensive 12-model triad verification audit:
-python scratch/run_full_catalog_benchmark_audit.py
+# Other workloads (each writes a schema-v1 result file):
+python scratch/run_live_vlm_benchmarks.py --model qwen2-vl-7b
+python scratch/run_live_audio_benchmarks.py --model whisper-tiny
+python scratch/run_live_image_benchmarks.py --model stable-diffusion-v1-5 --download
+python scratch/run_live_video_benchmarks.py --model ltx-video --download
 ```
 
 ### 3. Submit Your Telemetry
-- The runner generates structured telemetry in `scratch/live_physical_benchmark_results.json` (and logs to stdout).
+- Each runner writes a schema-v1 result file under `docs/benchmarks/results/` (validate it with `python scripts/validate_bench_json.py`; method in [METHOD.md](benchmarks/METHOD.md)).
 - [**Open a GitHub Issue**](https://github.com/techdeveloper-org/intel-arc-models-runner/issues/new) titled `[Community Benchmark] <Your Silicon Model> - <Model Slug>` and paste your telemetry.
 - Or open a Pull Request updating the benchmark matrix in [`docs/benchmarks/comparative_matrix.md`](benchmarks/comparative_matrix.md)!
 - **All community benchmark contributors receive permanent credit in the project's Hall of Fame and documentation!**
