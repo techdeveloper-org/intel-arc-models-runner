@@ -1119,7 +1119,7 @@ function initMultiModalStudio() {
                 <td style="font-weight: 600;">${escapeHtml(item.stage_name)}</td>
                 <td><span class="badge ${item.device_used === 'GPU' ? 'badge-intel' : 'badge-emerald'}">${escapeHtml(item.device_used)}</span></td>
                 <td class="font-mono text-cyan">${item.latency_ms.toFixed(1)} ms</td>
-                <td class="font-mono">${item.peak_memory_mb.toFixed(0)} MB</td>
+                <td class="font-mono">${item.peak_memory_mb == null ? 'n/a' : item.peak_memory_mb.toFixed(0) + ' MB'}</td>
                 <td class="font-mono text-muted">${item.throughput_value.toFixed(1)} ${escapeHtml(item.throughput_metric)}</td>
             `;
             telemetryBody.appendChild(row);
@@ -1356,7 +1356,7 @@ function initMultiModalStudio() {
                         stage_name: name,
                         device_used: name === 'AUDIO' ? 'NPU' : name === 'VISUAL' ? 'GPU' : 'CPU',
                         latency_ms: stat.mean_ms,
-                        peak_memory_mb: 180.0,
+                        peak_memory_mb: null,
                         throughput_value: stat.ci95_ms,
                         throughput_metric: '± CI95 ms'
                     }));

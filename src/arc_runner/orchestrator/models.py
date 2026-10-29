@@ -168,7 +168,7 @@ class StageTelemetry(BaseModel):
     stage_name: str = Field(description="Name of the measured pipeline phase.")
     latency_ms: float = Field(description="Execution wall-clock latency in milliseconds.")
     device_used: str = Field(description="Identifier of physical silicon executing the stage.")
-    peak_memory_mb: float = Field(description="Peak resident memory consumption during stage execution.")
+    peak_memory_mb: float | None = Field(default=None, description="Peak resident memory during the stage in megabytes; None because the pipeline does not measure it.")
     throughput_metric: str = Field(description="Primary throughput metric unit.")
     throughput_value: float = Field(description="Measured throughput numeric quantity.")
 
@@ -192,7 +192,7 @@ class OrchestrationTelemetry(BaseModel):
     )
     pacing_convergence_iterations: int = 0
     devices_utilized: list[str] = Field(default_factory=list, description="Silicon accelerators engaged.")
-    peak_vram_mb: float = Field(default=0.0, description="Highest observed VRAM allocation during pipeline.")
+    peak_vram_mb: float | None = Field(default=None, description="Highest observed VRAM allocation during pipeline; None when not measured.")
 
 
 class StudioArtifactPayload(BaseModel):
@@ -204,7 +204,7 @@ class StudioArtifactPayload(BaseModel):
     total_duration_sec: float = Field(description="Final video playback duration in seconds.")
     resolution: tuple[int, int] = Field(description="Video raster resolution as (width, height).")
     telemetry: OrchestrationTelemetry = Field(description="End-to-end hardware and stage performance telemetry.")
-    cloud_cost_saved_usd: float = Field(description="Estimated cloud API replacement cost saved in USD.")
+    cloud_cost_saved_usd: float | None = Field(default=None, description="Cloud API replacement cost saved in USD; None unless a price assumption was supplied.")
     created_at: str = Field(description="ISO-8601 production timestamp.")
 
 
@@ -217,11 +217,11 @@ class MultiModelBenchmarkReport(BaseModel):
     ci95_latency_ms: float = Field(description="Student's t 95% confidence interval half-width for latency.")
     avg_usm_transfer_us: float = Field(description="Sample mean USM zero-copy tensor transfer latency in microseconds.")
     ci95_usm_transfer_us: float = Field(description="Student's t 95% confidence interval for USM transfer.")
-    audio_rtf: float = Field(description="Speech synthesis Real-Time Factor (synthesis time / audio duration).")
-    video_rtf: float = Field(description="Video synthesis Real-Time Factor (render time / video duration).")
-    llm_tok_per_sec: float = Field(description="Director LLM planning throughput in tokens per second.")
-    cloud_comparison_usd_per_run: float = Field(description="Commercial cloud API cost equivalent in USD ($0.35/run).")
-    hardware_payback_runs: int = Field(description="Number of generation runs required to amortize Intel Arc GPU cost.")
+    audio_rtf: float | None = Field(default=None, description="Speech synthesis Real-Time Factor (synthesis time / audio duration); None when not measured.")
+    video_rtf: float | None = Field(default=None, description="Video synthesis Real-Time Factor (render time / video duration); None when not measured.")
+    llm_tok_per_sec: float | None = Field(default=None, description="Director LLM planning throughput in tokens per second; None when not measured.")
+    cloud_comparison_usd_per_run: float | None = Field(default=None, description="Caller-supplied cloud API cost per run in USD (an assumption, not a measurement); None if not supplied.")
+    hardware_payback_runs: int | None = Field(default=None, description="ceil(hardware cost / cloud cost per run) from caller-supplied prices; None if either price is missing.")
     stage_latencies_ms: dict[str, float] = Field(
         default_factory=dict,
         description="Average execution latency mapped by pipeline stage name.",

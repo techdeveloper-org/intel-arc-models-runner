@@ -37,6 +37,8 @@ Our multi-agent orchestration engine executes the full production lifecycle 100%
 
 ## 💰 The "Cloud Cost-Killer" ROI Analysis: Paid Cloud APIs vs. Local Intel Arc
 
+> **Provenance status: UNVERIFIED illustration.** The cloud prices, cloud latencies, local latencies, payback periods and the "850 runs" figure below were not measured by this project and are not tied to any result file. Third-party prices change and are not verified here. The software no longer emits them: `cloud_cost_saved_usd`, `cloud_comparison_usd_per_run` and `hardware_payback_runs` are `None` unless the caller supplies prices (`run_co_benchmark(cloud_cost_per_run_usd=..., hardware_cost_usd=...)`), and the audio/video RTF and LLM tok/s fields stay `None` because the co-benchmark does not measure them. Real numbers come from schema-v1 result files ([method](benchmarks/METHOD.md)).
+
 Running multi-modal pipelines on cloud APIs introduces compounding per-second costs, network transfer latency, and data privacy risks. Arc Studio provides a zero-cost, air-gapped on-premise alternative:
 
 | Production Stage | Commercial Cloud Stack | Cloud Cost per Video | Intel Arc Studio Cost | Cloud Latency | Local Intel Arc Latency | Data Privacy |
