@@ -2,7 +2,7 @@
 doc_id: DOC-DECISION-LOG
 title: Decision log
 stage: all
-version: 1.0.0
+version: 1.1.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-29
@@ -71,8 +71,14 @@ Append-only. A changed decision gets a new entry that names the one it supersede
 | DL-053 | Version lives in src/arc_runner/_version.py | importing it from the package root created a circular import | duplicate strings | S-F |
 | DL-054 | Diagrams are extended additively with a generated native-layer section instead of regenerating all earlier content | a repository-wide hand-built model was not rebuilt; the generated parts are tied to the code by ast and checked for drift | full regeneration of all earlier content | S-F |
 | DL-055 | Stale tests that failed before this work are corrected or skipped with a reason rather than left red | CI must be able to go green; hardware-dependent behaviour is reported as skipped, never as passed | leave them failing | S-F |
+| DL-056 | Non-LLM results extend schema v1 additively (workload + metrics) | existing files and tooling stay valid | schema v2 | S-G |
+| DL-057 | Power is measured with the Sysman energy counter or is None | wattage constants are fabrication | assumed TDP | S-G |
+| DL-058 | The fixture audit script is deleted, not patched | there was no measurement to keep | keep with a banner | S-G |
+| DL-059 | u8 KV stays opt-in whatever the gate says | a default change is a human decision | auto-enable on pass | S-G |
+| DL-060 | Mermaid validity is checked by rendering, in CI | structural checks cannot see syntax errors | none | S-G |
 
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
 |:--|:--|:--|:--|:--|:--|
 | 1.0.0 | 2026-10-29 | main session | DL-001..DL-055 consolidated from the plan and the stage records | create the log | pending |
+| 1.1.0 | 2026-10-29 | main session | DL-056..DL-060 | S-G decisions | pending |

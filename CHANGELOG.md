@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [UNRELEASED]
 
+### Added
+- Context-window enforcement in `HybridSpeculativeEngine` (shared `ContextBudgetMixin`).
+- Opt-in best-effort layer pinning (`pin_resident_layers`, `ARC_PIN_RING=1`) and opt-in Level Zero USM staging (`DeviceLayerStager`) in the flash-stream weight manager.
+- Sysman package power (energy-counter delta), GPU frequency and free device memory, each `None` with a reason when unavailable; `benchmark.power.PowerMeter`.
+- Schema-v1 `workload` and `metrics` fields (additive), `benchmark/workloads`, `benchmark/nonllm`, `benchmark/harness_common`; schema-v1 runners for LLM, embeddings, VLM (`scratch/run_live_vlm_benchmarks.py`), audio, image and video.
+- u8 KV-cache quality gate (`benchmark/kv_quality`, `scripts/bench_kv_quality.py`, hypothesis H-D); `scripts/check_mermaid.py` and a CI job that renders every Mermaid block.
+
+### Changed
+- Image and video stage timings, step rate, power, energy yield and peak memory are `None` when the engine did not measure them; the studio pipeline and co-benchmark no longer attach fixed memory, RTF, tok/s or cloud-price figures (ROI is computed only from caller-supplied prices).
+- Four hand-written Mermaid diagrams (communication, component, composite, object) and the state-diagram generator were fixed so they parse.
+
+### Removed
+- `scratch/run_full_catalog_benchmark_audit.py` (fixed timings and a constant PASS) and the legacy result JSONs holding formula-derived numbers.
+
 ## [0.2.0] - 2026-10-29
 
 Not published yet: tagging and publishing (PyPI, GHCR) need the maintainer's explicit approval, and the items under "Needs a real machine" are not done.

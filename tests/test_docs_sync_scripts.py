@@ -122,3 +122,18 @@ def test_delivery_checker_reports_front_matter_index_and_log_problems(tmp_path: 
     assert "INDEX.md row for DOC-A is stale" in problems
     assert "lists unknown DOC-GHOST" in problems
     assert "gaps" in problems
+
+
+def test_state_diagram_labels_never_contain_a_second_colon_or_semicolon() -> None:
+    """Mermaid reads the first colon of a transition as the label separator; later colons break parsing."""
+    import importlib.util
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location("generate_diagrams", root / "scripts" / "generate_diagrams.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    section = {"nodes": [{"id": "A", "label": "A"}, {"id": "B", "label": "B"}], "edges": [{"from": "A", "to": "B", "label": "reserve: one; two"}]}
+    transition = [line for line in module.state_diagram(section).splitlines() if "-->" in line][0]
+    assert transition.count(":") == 1 and ";" not in transition
