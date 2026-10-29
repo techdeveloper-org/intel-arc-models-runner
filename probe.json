@@ -1,0 +1,86 @@
+{
+  "schema": "probe_hardware.v1",
+  "platform": "Windows-11-10.0.26220-SP0",
+  "python": "3.13.15",
+  "cpu": {
+    "status": "unavailable",
+    "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
+  },
+  "logical_cpus": 18,
+  "memory_modules": {
+    "status": "unavailable",
+    "reason": "FileNotFoundError: [WinError 2] The system cannot find the file specified"
+  },
+  "memory_bandwidth_gbs": {
+    "status": "ok",
+    "value": {
+      "copy": 30.6,
+      "triad": 15.75
+    }
+  },
+  "level_zero_devices": {
+    "status": "ok",
+    "value": [
+      {
+        "driver": 0,
+        "type": 1,
+        "device_id": "0x7d55",
+        "name": "Intel(R) Arc(TM) Graphics"
+      },
+      {
+        "driver": 1,
+        "type": 5,
+        "device_id": "0x7d1d",
+        "name": "Intel(R) AI Boost"
+      }
+    ]
+  },
+  "sysman_telemetry": {
+    "status": "ok",
+    "value": [
+      {
+        "device": 0,
+        "package_power_w": null,
+        "gpu_frequency_mhz": null,
+        "total_mb": 6976,
+        "free_mb": null,
+        "unavailable": {
+          "package_power": "zesInit failed with result 0x78000001",
+          "gpu_frequency": "zesInit failed with result 0x78000001",
+          "gpu_free_memory": "zesInit failed with result 0x78000001"
+        }
+      }
+    ]
+  },
+  "openvino_devices": {
+    "status": "ok",
+    "value": {
+      "CPU": "Intel(R) Core(TM) Ultra 5 125H",
+      "GPU": "Intel(R) Arc(TM) Graphics (iGPU)",
+      "NPU": "Intel(R) AI Boost"
+    }
+  },
+  "openvino_genai": {
+    "status": "ok",
+    "value": {
+      "version": "2026.4.1.0-3408-ab01d1771e4",
+      "accessors": [
+        "get_chat_template_duration",
+        "get_detokenization_duration",
+        "get_generate_duration",
+        "get_grammar_compile_time",
+        "get_grammar_compiler_init_times",
+        "get_inference_duration",
+        "get_ipot",
+        "get_load_time",
+        "get_num_generated_tokens",
+        "get_num_input_tokens",
+        "get_sampling_duration",
+        "get_throughput",
+        "get_tokenization_duration",
+        "get_tpot",
+        "get_ttft"
+      ]
+    }
+  }
+}
