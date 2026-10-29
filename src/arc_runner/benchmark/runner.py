@@ -4,8 +4,6 @@ Executes deterministic warmup passes, measures TTFT, TPOT, and tokens/sec throug
 and renders formatted Rich visual scorecards for Intel Arc GPUs and NPUs.
 """
 
-import math
-from pathlib import Path
 import time
 from typing import List, Optional, Tuple
 from pydantic import BaseModel, Field
@@ -15,6 +13,7 @@ from rich.table import Table
 
 from arc_runner.core.exceptions import ArcRunnerError
 from arc_runner.core.logging import get_logger
+from arc_runner.benchmark.stats import student_t_ci95, student_t_critical_95
 from arc_runner.engine.models import GenerationConfig
 from arc_runner.server.model_manager import ModelManager
 
@@ -53,21 +52,6 @@ class BenchmarkSummary(BaseModel):
 class BenchmarkRunner:
     """Orchestrates hardware benchmark runs with warmup rejection and statistical confidence."""
 
-    STUDENT_T_95_TABLE = {
-        1: 12.706,
-        2: 4.303,
-        3: 3.182,
-        4: 2.776,
-        5: 2.571,
-        6: 2.447,
-        7: 2.365,
-        8: 2.306,
-        9: 2.262,
-        10: 2.228,
-        20: 2.086,
-        30: 2.042,
-    }
-
     def __init__(self, model_manager: Optional[ModelManager] = None) -> None:
         """Initialize the benchmark runner with optional engine model manager.
 
@@ -77,7 +61,7 @@ class BenchmarkRunner:
         self._manager = model_manager or ModelManager()
 
     def _get_student_t_critical(self, df: int) -> float:
-        """Lookup two-tailed Student's t critical value for 95% confidence level.
+        """Return the two-sided 95% Student's t critical value (see arc_runner.benchmark.stats).
 
         Args:
             df: Degrees of freedom (n - 1).
@@ -85,14 +69,7 @@ class BenchmarkRunner:
         Returns:
             float: Critical t-score multiplier.
         """
-        if df in self.STUDENT_T_95_TABLE:
-            return self.STUDENT_T_95_TABLE[df]
-        if df > 30:
-            return 1.960
-        for k in sorted(self.STUDENT_T_95_TABLE.keys()):
-            if df <= k:
-                return self.STUDENT_T_95_TABLE[k]
-        return 2.0
+        return student_t_critical_95(df)
 
     def _compute_confidence_interval_95(self, samples: List[float]) -> Tuple[float, float]:
         """Compute sample mean and 95% Student's t confidence interval half-width.
@@ -103,19 +80,7 @@ class BenchmarkRunner:
         Returns:
             Tuple[float, float]: (sample_mean, ci95_half_width).
         """
-        n = len(samples)
-        if n == 0:
-            return 0.0, 0.0
-        mean_val = sum(samples) / n
-        if n < 2:
-            return mean_val, 0.0
-
-        variance = sum((x - mean_val) ** 2 for x in samples) / (n - 1)
-        std_dev = math.sqrt(variance)
-        df = n - 1
-        t_crit = self._get_student_t_critical(df)
-        half_width = t_crit * (std_dev / math.sqrt(n))
-        return mean_val, half_width
+        return student_t_ci95(samples)
 
     def run_benchmark(
         self,

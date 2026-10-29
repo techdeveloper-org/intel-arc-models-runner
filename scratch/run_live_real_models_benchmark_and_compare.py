@@ -23,6 +23,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from arc_runner.benchmark.results import build_result, capture_environment, write_result
+from arc_runner.benchmark.stats import BenchSample
 from arc_runner.core.logging import get_logger
 from arc_runner.devices.detector import DeviceDetector
 from arc_runner.engine.flash_stream.engine import FlashStreamInferenceEngine
@@ -466,6 +468,49 @@ class LiveSequentialBenchmarkRunner:
 
         return heavy_results
 
+    def collect_schema_v1_samples(self) -> List[BenchSample]:
+        """Convert the single-run tier results into schema-v1 samples with honest provenance.
+
+        arc-runner rows are `measured` only when they came from engine perf_metrics; stream wall-clock
+        estimates are `derived`; rows without a source (legacy results) are skipped. Ollama rows are
+        measured from Ollama's own durations. Rows without a value are skipped. One iteration per tier is a smoke measurement; the claim gates need at least
+        ten timed iterations and will refuse these rows.
+
+        Returns:
+            List[BenchSample]: Samples for every tier that produced a value.
+        """
+        samples: List[BenchSample] = []
+        for alias, model in self.results_data["evaluated_models"].items():
+            for tier, data in model.get("tiers", {}).items():
+                arc = data.get("arc_runner", {})
+                if arc.get("tokens_per_second") is not None and arc.get("source") in ("ov_perf_metrics", "wallclock_stream"):
+                    source = "measured" if arc.get("source") == "ov_perf_metrics" else "derived"
+                    samples.append(BenchSample(
+                        f"{alias}/{tier}", "arc-runner", 0, arc.get("ttft_ms"), arc.get("tokens_per_second"), 0,
+                        int(arc.get("generated_tokens") or 0), source,  # type: ignore[arg-type]
+                    ))
+                ollama = data.get("ollama", {})
+                if ollama.get("status") == "PASS":
+                    samples.append(BenchSample(
+                        f"{alias}/{tier}", "ollama", 0, ollama.get("ttft_ms"), ollama.get("tokens_per_second"), 0,
+                        int(ollama.get("generated_tokens") or 0), "measured",
+                    ))
+        return samples
+
+    def write_schema_v1_results(self) -> None:
+        """Write the schema-v1 result file next to the legacy JSON when there are samples."""
+        samples = self.collect_schema_v1_samples()
+        if not samples:
+            return
+        protocol = {
+            "warmup_runs": 0, "timed_runs": 1, "temperature": 0.0, "max_new_tokens": 0,
+            "labels": {"arc-runner": "OpenVINO on the detected device", "ollama": "Ollama CPU"},
+        }
+        document = build_result("live-real-models-smoke", samples, protocol, capture_environment(Path(__file__).resolve().parents[1]))
+        target = Path(__file__).resolve().parents[1] / "docs" / "benchmarks" / "results" / "live_real_models_smoke.v1.json"
+        write_result(target, document)
+        self.console.print(f"[green]Wrote schema-v1 results to {target}[/green]")
+
     def execute_all(self) -> None:
         """Execute full sequential benchmark sweep across all models with physical verification."""
         self.console.print(Panel(
@@ -495,6 +540,7 @@ class LiveSequentialBenchmarkRunner:
             json.dump(self.results_data, f, indent=2)
 
         self.console.print(f"\n[bold green]✔ Successfully recorded physical benchmark results to {self.results_path}[/bold green]")
+        self.write_schema_v1_results()
         self.render_summary_table()
 
     def render_summary_table(self) -> None:

@@ -97,7 +97,9 @@
             "generated_tokens": 15,
             "total_latency_s": 0.78,
             "power_w": 22.0,
-            "completion_preview": "Tokyo; Mount Fuji; Shinkansen (Japanese Bullet Train)..."
+            "completion_preview": "Tokyo; Mount Fuji; Shinkansen (Japanese Bullet Train)...",
+            "source": "legacy_unverified",
+            "notes": "Produced by a script version whose engine fell back to word-count tokens and elapsed*200 TTFT when perf_metrics failed; provenance cannot be established. Do not quote; rerun on hardware."
           },
           "ollama": {
             "model": "qwen2.5:1.5b",
@@ -115,7 +117,9 @@
             "generated_tokens": 200,
             "total_latency_s": 6.64,
             "power_w": 22.0,
-            "completion_preview": "```python\nfrom typing import Text\n\ndef find_longest_palindrome(s: Text) -> Text:..."
+            "completion_preview": "```python\nfrom typing import Text\n\ndef find_longest_palindrome(s: Text) -> Text:...",
+            "source": "legacy_unverified",
+            "notes": "Produced by a script version whose engine fell back to word-count tokens and elapsed*200 TTFT when perf_metrics failed; provenance cannot be established. Do not quote; rerun on hardware."
           },
           "ollama": {
             "model": "qwen2.5:1.5b",
@@ -133,7 +137,9 @@
             "generated_tokens": 237,
             "total_latency_s": 7.99,
             "power_w": 22.0,
-            "completion_preview": "```python\nclass FSM:\n    def __init__(self):\n        self.state = 'CLOSED'\n\n    ..."
+            "completion_preview": "```python\nclass FSM:\n    def __init__(self):\n        self.state = 'CLOSED'\n\n    ...",
+            "source": "legacy_unverified",
+            "notes": "Produced by a script version whose engine fell back to word-count tokens and elapsed*200 TTFT when perf_metrics failed; provenance cannot be established. Do not quote; rerun on hardware."
           },
           "ollama": {
             "model": "qwen2.5:1.5b",
@@ -158,7 +164,9 @@
             "generated_tokens": 50,
             "total_latency_s": 1.16,
             "power_w": 22.0,
-            "completion_preview": "The exact mathematical theorem explaining why the result of dividing 1250 by 0 i..."
+            "completion_preview": "The exact mathematical theorem explaining why the result of dividing 1250 by 0 i...",
+            "source": "legacy_unverified",
+            "notes": "Produced by a script version whose engine fell back to word-count tokens and elapsed*200 TTFT when perf_metrics failed; provenance cannot be established. Do not quote; rerun on hardware."
           },
           "ollama": {
             "model": "tinyllama:latest",
@@ -176,7 +184,9 @@
             "generated_tokens": 250,
             "total_latency_s": 4.94,
             "power_w": 22.0,
-            "completion_preview": "The solution to this problem is as follows:\n\nStep 1: Identify the problem and it..."
+            "completion_preview": "The solution to this problem is as follows:\n\nStep 1: Identify the problem and it...",
+            "source": "legacy_unverified",
+            "notes": "Produced by a script version whose engine fell back to word-count tokens and elapsed*200 TTFT when perf_metrics failed; provenance cannot be established. Do not quote; rerun on hardware."
           },
           "ollama": {
             "model": "tinyllama:latest",
@@ -194,7 +204,9 @@
             "generated_tokens": 450,
             "total_latency_s": 9.08,
             "power_w": 22.0,
-            "completion_preview": "The unique digit mapping for the cryptarithmetic puzzle SEND + MORE = MONEY is a..."
+            "completion_preview": "The unique digit mapping for the cryptarithmetic puzzle SEND + MORE = MONEY is a...",
+            "source": "legacy_unverified",
+            "notes": "Produced by a script version whose engine fell back to word-count tokens and elapsed*200 TTFT when perf_metrics failed; provenance cannot be established. Do not quote; rerun on hardware."
           },
           "ollama": {
             "model": "tinyllama:latest",

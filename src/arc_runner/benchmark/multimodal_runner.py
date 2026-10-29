@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import math
 import time
-from typing import ClassVar
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from arc_runner.benchmark.stats import student_t_ci95
 from arc_runner.core.logging import get_logger
 from arc_runner.orchestrator.models import (
     DeviceSchedulingStrategy,
@@ -31,20 +31,6 @@ logger = get_logger("benchmark.multimodal")
 class MultiModelCoBenchmarker:
     """Orchestrates multi-modal co-benchmarking passes across heterogeneous Intel silicon."""
 
-    STUDENT_T_95_TABLE: ClassVar[dict[int, float]] = {
-        1: 12.706,
-        2: 4.303,
-        3: 3.182,
-        4: 2.776,
-        5: 2.571,
-        6: 2.447,
-        7: 2.365,
-        8: 2.306,
-        9: 2.262,
-        10: 2.228,
-        20: 2.086,
-        30: 2.042,
-    }
 
     def __init__(
         self,
@@ -219,17 +205,4 @@ class MultiModelCoBenchmarker:
         Returns:
             Tuple of (sample_mean, confidence_half_width).
         """
-        n = len(samples)
-        if n == 0:
-            return 0.0, 0.0
-        if n == 1:
-            return samples[0], 0.0
-
-        mean = sum(samples) / n
-        variance = sum((x - mean) ** 2 for x in samples) / (n - 1)
-        std_dev = math.sqrt(variance)
-        std_error = std_dev / math.sqrt(n)
-
-        df = n - 1
-        t_crit = self.STUDENT_T_95_TABLE.get(df, 2.0)
-        return mean, t_crit * std_error
+        return student_t_ci95(samples)
