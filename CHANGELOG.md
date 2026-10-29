@@ -2,7 +2,9 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Tracking issue: [#42](https://github.com/techdeveloper-org/intel-arc-models-runner/issues/42).
 
-## [UNRELEASED]
+## [Unreleased]
+
+Work on the branch after the `0.2.0` entry below. The version files stay at `0.2.0`; whether this work ships in `0.2.0` or in a later release is a maintainer decision (nothing is tagged or published).
 
 ### Added
 - Context-window enforcement in `HybridSpeculativeEngine` (shared `ContextBudgetMixin`).
@@ -10,12 +12,24 @@ All notable changes to this project are documented in this file. The format foll
 - Sysman package power (energy-counter delta), GPU frequency and free device memory, each `None` with a reason when unavailable; `benchmark.power.PowerMeter`.
 - Schema-v1 `workload` and `metrics` fields (additive), `benchmark/workloads`, `benchmark/nonllm`, `benchmark/harness_common`; schema-v1 runners for LLM, embeddings, VLM (`scratch/run_live_vlm_benchmarks.py`), audio, image and video.
 - u8 KV-cache quality gate (`benchmark/kv_quality`, `scripts/bench_kv_quality.py`, hypothesis H-D); `scripts/check_mermaid.py` and a CI job that renders every Mermaid block.
+- `core/path_policy`: model-name validation, containment checks and an allow-list of directories (`ARC_ALLOWED_PATHS`); optional API key (`ARC_API_KEY`) and extra CORS origins (`ARC_CORS_ORIGINS`) for the server.
+- Streamed `total_tokens` use the pipeline tokenizer; `scripts/list_unverified_numbers.py`; plan test-list audit with new boundary, 80-layer, lock-refusal and `@hardware` tests.
+- Optional `failures` list in schema-v1 result files, recording tiers that failed on the device; `--tiers` option for the image and video benchmark scripts.
+- First measured result files and `probe.json` from an Intel Arc iGPU machine (LLM, VLM, audio), committed under `docs/benchmarks/results/`.
+- Independent review reports R01 to R10 under `docs/delivery/reviews/`.
 
 ### Changed
 - Image and video stage timings, step rate, power, energy yield and peak memory are `None` when the engine did not measure them; the studio pipeline and co-benchmark no longer attach fixed memory, RTF, tok/s or cloud-price figures (ROI is computed only from caller-supplied prices).
 - Four hand-written Mermaid diagrams (communication, component, composite, object) and the state-diagram generator were fixed so they parse.
+- Server: request-supplied model names and paths are validated against the allowed roots (HTTP 403 `PATH_NOT_ALLOWED`); CORS is limited to local origins plus `ARC_CORS_ORIGINS` and no longer allows credentials; when `ARC_API_KEY` is set every route except `/`, `/docs`, `/openapi.json` and `/static` requires it.
+- Flash-stream ring slots carry a generation so a stale unpin or a load finishing after eviction or close cannot touch a slot that now holds another layer.
+- Level Zero and bridge hardening from the review wave (R01, R05, R06, R09): the DMA CPU fallback checks the whole range against tracked allocations, bridge calls are serialised so close cannot unmap under a lookup, GGUF unknown type ids and bad alignment raise `GGUFParseError`, `validate_result` enforces the published schema. The native C changes need a Windows DLL rebuild by the maintainer (ABI unchanged).
+- Sysman: `zesInit` runs before `zeInit` (`zes_preinit`), `probe_hardware` falls back to PowerShell when `wmic` is missing, generated benchmark tables use three significant digits.
+- Image and video engines accept plain-float, dict and `MeanStdPair` perf metrics; video benchmark specs point to the upstream source repositories and convert locally with `optimum-cli`.
+- A benchmark pass that returns no token raises `NO_TOKENS_GENERATED` instead of reporting a floored throughput; the image and video scripts keep going after `CL_OUT_OF_RESOURCES` and exit with code 3 after writing the result file.
 
-- Streamed `total_tokens` use the pipeline tokenizer; `scripts/list_unverified_numbers.py`; plan test-list audit with new boundary, 80-layer, lock-refusal and `@hardware` tests.
+### Fixed
+- `cli/main.py` reused double quotes inside f-string fields, a `SyntaxError` on Python 3.11.
 
 ### Removed
 - `scratch/run_full_catalog_benchmark_audit.py` (fixed timings and a constant PASS) and the legacy result JSONs holding formula-derived numbers.
@@ -51,8 +65,8 @@ Not published yet: tagging and publishing (PyPI, GHCR) need the maintainer's exp
 ### Removed
 - Fabricated telemetry: constant `22.0` W package power, system RAM reported as GPU free memory, word-count token estimates, `elapsed * 200/400/500` TTFT guesses, speculative acceptance and speed-up generated from constants, Ollama-compatible duration splits of 0.2/0.8, `hash(word)` prefix-cache token ids, hard-coded `REFERENCE_SWEEP` benchmark rows and hard-coded heavy-model constants. Unverified published numbers are labelled in the docs (see `docs/benchmarks/`).
 
-### Needs a real machine (not done)
-- Rebuild and commit the Windows DLL, run `pytest -m hardware`, run `scripts/probe_hardware.py`, run the benchmark matrix and the regression benchmark, run TLC on `docs/formal/RingSlots.tla`.
+### Still open (needs a real machine)
+- Run TLC on `docs/formal/RingSlots.tla`, a full `pytest -m hardware` pass on the Arc machine (one hardware test failed on a host without the requested device), the regression benchmark, and package-power results with the Sysman fix. The Windows DLL was rebuilt (ABI 3 with sidecar) and the first probe and result files are committed.
 
 ## [0.1.0]
 
