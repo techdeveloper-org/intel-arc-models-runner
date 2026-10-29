@@ -27,7 +27,10 @@ import numpy as np
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from arc_runner.benchmark.harness_common import default_result_path, download_snapshot, optional_sysman, target_device  # noqa: E402
+from arc_runner.benchmark.harness_common import (  # noqa: E402
+    HarnessConfig, add_harness_args, begin_run, config_from_args, default_result_path, directory_size_bytes, download_snapshot,
+    finish_run, optional_sysman, target_device,
+)
 from arc_runner.benchmark.nonllm import stt_samples, tts_samples  # noqa: E402
 from arc_runner.benchmark.stats import BenchSample  # noqa: E402
 from arc_runner.benchmark.workloads import export_workload_result  # noqa: E402
@@ -247,6 +250,7 @@ def collect_samples(
     runs: int,
     sysman: Any,
     workdir: Path,
+    harness: Optional[HarnessConfig] = None,
 ) -> List[BenchSample]:
     """Measure every workload tier of one audio model on the target device and, if distinct, on CPU.
 
@@ -261,6 +265,7 @@ def collect_samples(
         runs: Timed runs per tier.
         sysman: Optional Sysman for package power.
         workdir: Directory for generated test clips.
+        harness: Harness settings (converged warmup, interleaving, cooldown); None keeps fixed warmups with no cooldown.
 
     Returns:
         List[BenchSample]: Samples for all tiers and backends.
@@ -268,8 +273,11 @@ def collect_samples(
     plan = [("arc-runner", device, fallback)]
     if cpu_baseline and device != "CPU":
         plan.append(("cpu-baseline", "CPU", False))
+    cfg = harness or HarnessConfig(max_warmups=None, cooldown_s=0.0)
     samples: List[BenchSample] = []
-    for backend, dev, is_fallback in plan:
+    for plan_index, (backend, dev, is_fallback) in enumerate(plan):
+        if plan_index:
+            cfg.cooldown()
         engine = engine_factory(dev)
         try:
             for tier, workload in spec["workloads"].items():
@@ -277,9 +285,9 @@ def collect_samples(
                 if spec["type"] == "stt":
                     clip = workdir / f"{alias}_{tier}.wav"
                     write_test_tone(workload["duration_s"], clip)
-                    samples += stt_samples(engine, clip, workload["duration_s"], model_id, backend, warmups, runs, sysman=sysman, fallback_used=is_fallback)
+                    samples += stt_samples(engine, clip, workload["duration_s"], model_id, backend, warmups, runs, sysman=sysman, fallback_used=is_fallback, max_warmups=cfg.max_warmups)
                 else:
-                    samples += tts_samples(engine, workload["prompt"], model_id, backend, warmups, runs, sysman=sysman, fallback_used=is_fallback)
+                    samples += tts_samples(engine, workload["prompt"], model_id, backend, warmups, runs, sysman=sysman, fallback_used=is_fallback, max_warmups=cfg.max_warmups)
         finally:
             engine.unload()
             del engine
@@ -304,6 +312,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--no-cpu-baseline", action="store_true")
     parser.add_argument("--keep", action="store_true", help="keep the model files on disk")
     parser.add_argument("--out", type=Path)
+    add_harness_args(parser)
     args = parser.parse_args(argv)
 
     from arc_runner.devices.detector import DeviceDetector
@@ -319,16 +328,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         engine.load_model(model_dir, device=dev)
         return engine
 
+    harness = config_from_args(args)
+    report = begin_run(harness, directory_size_bytes(model_dir))
     workdir = Path(tempfile.mkdtemp(prefix="audio_bench_"))
     try:
-        samples = collect_samples(args.model, spec, factory, device, fallback, not args.no_cpu_baseline, args.warmups, args.runs, optional_sysman(), workdir)
+        samples = collect_samples(args.model, spec, factory, device, fallback, not args.no_cpu_baseline, args.warmups, args.runs, optional_sysman(), workdir, harness)
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
         if not args.keep:
             shutil.rmtree(model_dir, ignore_errors=True)
+    samples, protocol_extra, environment_extra = finish_run(samples, harness, report)
     out = args.out or default_result_path(REPO_ROOT, f"audio_{spec['type']}", args.model)
     labels = {"arc-runner": f"OpenVINO on {device}", "cpu-baseline": "OpenVINO on CPU"}
-    export_workload_result(out, f"audio-{args.model}", samples, labels, args.warmups, args.runs, REPO_ROOT)
+    export_workload_result(out, f"audio-{args.model}", samples, labels, args.warmups, args.runs, REPO_ROOT, protocol_extra=protocol_extra, environment_extra=environment_extra)
     print(f"wrote {out} ({len(samples)} samples)")
     return 0
 

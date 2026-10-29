@@ -190,3 +190,63 @@ def test_llm_samples_unavailable_metrics_leave_values_none() -> None:
 
     sample = llm_samples(_LlmEngine("unavailable"), "p", 8, "m", "arc", warmups=0, runs=1, clock=_clock())[0]
     assert sample.ttft_ms is None and sample.decode_tps is None and sample.completion_tokens == 0
+
+
+def test_llm_samples_converged_warmup_runs_extra_warmups_until_ttft_is_steady() -> None:
+    """max_warmups makes the LLM runner keep warming while the TTFT of the last three runs still moves."""
+    from arc_runner.benchmark.nonllm import llm_samples
+
+    class Engine(_LlmEngine):
+        ttfts = iter([900.0, 400.0, 200.0, 100.0, 100.0, 100.0] + [100.0] * 5)
+
+        def get_telemetry(self) -> Any:
+            t = super().get_telemetry()
+            t.ttft_ms = next(self.ttfts)
+            return t
+
+    samples = llm_samples(Engine(), "p", 8, "m", "arc", warmups=3, runs=2, clock=_clock(), max_warmups=5)
+    assert sum(s.is_warmup for s in samples) == 5 and len(samples) == 7
+
+
+def test_llm_samples_interleaved_alternates_engines_per_iteration_and_labels_each_backend() -> None:
+    """Both engines run once per iteration in the seeded order; each backend keeps its own telemetry."""
+    from arc_runner.benchmark.nonllm import llm_samples_interleaved
+    from arc_runner.benchmark.workloads import interleaved_order
+
+    trace: List[str] = []
+
+    class Engine(_LlmEngine):
+        def __init__(self, name: str) -> None:
+            super().__init__()
+            self.name = name
+
+        def generate(self, prompt: str, config: Any = None) -> str:
+            trace.append(self.name)
+            return super().generate(prompt, config)
+
+    systems = [("gpu", Engine("gpu"), False), ("cpu", Engine("cpu"), False)]
+    samples = llm_samples_interleaved(systems, "p", 8, "m/low", warmups=1, runs=2, seed=5, clock=_clock())
+    expected: List[str] = []
+    for iteration in range(3):
+        expected += interleaved_order(["gpu", "cpu"], iteration, 5)
+    assert trace == expected
+    assert [s.backend for s in samples] == ["gpu"] * 3 + ["cpu"] * 3
+    assert [s.is_warmup for s in samples[:3]] == [True, False, False]
+
+
+def test_vlm_samples_interleaved_records_chunk_counts_per_backend() -> None:
+    """Each backend's rows carry that backend's own chunk count."""
+    from arc_runner.benchmark.nonllm import vlm_samples_interleaved
+
+    class Short(_VlmEngine):
+        pass
+
+    class Long(_VlmEngine):
+        def generate(self, prompt: str, images: Any, config: Any = None) -> Any:
+            yield from super().generate(prompt, images, config)
+            yield SimpleNamespace(text="c", is_finished=True)
+
+    samples = vlm_samples_interleaved([("a", Short(), False), ("b", Long(), True)], "p", [], 8, "v/low", warmups=0, runs=2, clock=_clock())
+    by = {b: [s.metrics["output_chunk_count"] for s in samples if s.backend == b] for b in ("a", "b")}
+    assert by == {"a": [2.0, 2.0], "b": [3.0, 3.0]}
+    assert all(s.fallback_used for s in samples if s.backend == "b") and not any(s.fallback_used for s in samples if s.backend == "a")

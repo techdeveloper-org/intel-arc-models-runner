@@ -24,8 +24,11 @@ from typing import Any, Callable, Dict, List, Optional
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from arc_runner.benchmark.harness_common import default_result_path, download_snapshot, optional_sysman, target_device  # noqa: E402
-from arc_runner.benchmark.nonllm import vlm_samples  # noqa: E402
+from arc_runner.benchmark.harness_common import (  # noqa: E402
+    HarnessConfig, add_harness_args, begin_run, config_from_args, default_result_path, directory_size_bytes, download_snapshot,
+    finish_run, optional_sysman, target_device,
+)
+from arc_runner.benchmark.nonllm import vlm_samples, vlm_samples_interleaved  # noqa: E402
 from arc_runner.benchmark.stats import BenchSample  # noqa: E402
 from arc_runner.benchmark.workloads import export_workload_result  # noqa: E402
 
@@ -87,6 +90,7 @@ def collect_samples(
     runs: int,
     sysman: Any,
     image_factory: Callable[[int], bytes] = make_test_image,
+    harness: Optional[HarnessConfig] = None,
 ) -> List[BenchSample]:
     """Measure every tier of one VLM on the target device and, if distinct, on CPU.
 
@@ -101,6 +105,7 @@ def collect_samples(
         runs: Timed runs per tier.
         sysman: Optional Sysman for package power.
         image_factory: Function returning PNG bytes for a side length.
+        harness: Harness settings (converged warmup, interleaving, cooldown); None keeps fixed warmups with no cooldown.
 
     Returns:
         List[BenchSample]: Samples for all tiers and backends.
@@ -108,15 +113,32 @@ def collect_samples(
     plan = [("arc-runner", device, fallback)]
     if cpu_baseline and device != "CPU":
         plan.append(("cpu-baseline", "CPU", False))
+    cfg = harness or HarnessConfig(max_warmups=None, cooldown_s=0.0)
     samples: List[BenchSample] = []
-    for backend, dev, is_fallback in plan:
+    if cfg.interleave:
+        systems = [(backend, engine_factory(dev), is_fallback) for backend, dev, is_fallback in plan]
+        try:
+            for index, (tier, workload) in enumerate(spec["workloads"].items()):
+                if index:
+                    cfg.cooldown()
+                samples += vlm_samples_interleaved(
+                    systems, workload["prompt"], [image_factory(workload["image_px"])], workload["max_tokens"], f"{alias}/{tier}",
+                    warmups, runs, seed=cfg.seed, sysman=sysman, max_warmups=cfg.max_warmups,
+                )
+        finally:
+            del systems
+            gc.collect()
+        return samples
+    for plan_index, (backend, dev, is_fallback) in enumerate(plan):
+        if plan_index:
+            cfg.cooldown()
         engine = engine_factory(dev)
         try:
             for tier, workload in spec["workloads"].items():
                 image = image_factory(workload["image_px"])
                 samples += vlm_samples(
                     engine, workload["prompt"], [image], workload["max_tokens"], f"{alias}/{tier}", backend, warmups, runs,
-                    sysman=sysman, fallback_used=is_fallback,
+                    sysman=sysman, fallback_used=is_fallback, max_warmups=cfg.max_warmups,
                 )
         finally:
             del engine
@@ -141,6 +163,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--no-cpu-baseline", action="store_true")
     parser.add_argument("--keep", action="store_true", help="keep the model files on disk")
     parser.add_argument("--out", type=Path)
+    add_harness_args(parser)
     args = parser.parse_args(argv)
 
     from arc_runner.devices.detector import DeviceDetector
@@ -150,14 +173,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     model_dir = Path(args.models_root).resolve() / args.model
     download_snapshot(spec["repo_id"], model_dir, ("openvino_language_model.xml", "openvino_model.xml"))
     device, fallback = target_device(DeviceDetector().detect_topology(), spec["device"])
+    harness = config_from_args(args)
+    resident = 2 if harness.interleave and not args.no_cpu_baseline and device != "CPU" else 1
+    on_disk = directory_size_bytes(model_dir)
+    report = begin_run(harness, on_disk * resident if on_disk is not None else None)
     try:
-        samples = collect_samples(args.model, spec, lambda dev: VisionEngine(str(model_dir), device=dev), device, fallback, not args.no_cpu_baseline, args.warmups, args.runs, optional_sysman())
+        samples = collect_samples(args.model, spec, lambda dev: VisionEngine(str(model_dir), device=dev), device, fallback, not args.no_cpu_baseline, args.warmups, args.runs, optional_sysman(), harness=harness)
     finally:
         if not args.keep:
             shutil.rmtree(model_dir, ignore_errors=True)
+    samples, protocol_extra, environment_extra = finish_run(samples, harness, report)
     out = args.out or default_result_path(REPO_ROOT, "vlm", args.model)
     labels = {"arc-runner": f"OpenVINO on {device} ({spec['precision']})", "cpu-baseline": "OpenVINO on CPU"}
-    export_workload_result(out, f"vlm-{args.model}", samples, labels, args.warmups, args.runs, REPO_ROOT)
+    export_workload_result(out, f"vlm-{args.model}", samples, labels, args.warmups, args.runs, REPO_ROOT, protocol_extra=protocol_extra, environment_extra=environment_extra)
     print(f"wrote {out} ({len(samples)} samples)")
     return 0
 

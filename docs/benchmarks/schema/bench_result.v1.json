@@ -20,7 +20,8 @@
         "openvino_genai": {"type": ["string", "null"]},
         "ollama_version": {"type": ["string", "null"]},
         "driver_versions": {"type": "object"},
-        "on_ac_power": {"type": ["boolean", "null"]}
+        "on_ac_power": {"type": ["boolean", "null"]},
+        "preconditions": {"type": "object", "description": "Optional. Results of the pre-run AC-power, idle-CPU and memory checks; each value is null with a reason when it could not be read."}
       }
     },
     "protocol": {
@@ -32,7 +33,9 @@
         "timed_runs": {"type": "integer", "minimum": 1},
         "temperature": {"type": "number"},
         "max_new_tokens": {"type": "integer", "minimum": 1},
-        "labels": {"type": "object", "description": "backend -> device and quantization labels printed next to every row"}
+        "labels": {"type": "object", "description": "backend -> device and quantization labels printed next to every row"},
+        "harness": {"type": "object", "description": "Optional. Harness settings of the run: max_warmups, interleaved, interleave_seed, cooldown_s, idle_window_s, warmup_cv_threshold."},
+        "series_quality": {"type": "array", "description": "Optional. Per series: warmups_run, warmup_converged (null if fewer than 3 warmups), timed_n, cv, non_normal (null if undefined). Recorded next to the data; not a gate condition."}
       }
     },
     "failures": {

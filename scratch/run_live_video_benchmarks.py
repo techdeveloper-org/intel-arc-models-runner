@@ -27,8 +27,14 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 import subprocess
 
 from arc_runner.benchmark.harness_common import (  # noqa: E402
+    HarnessConfig,
+    add_harness_args,
+    begin_run,
     collect_tiers,
+    config_from_args,
     default_result_path,
+    directory_size_bytes,
+    finish_run,
     gpu_context_lost,
     retain_lost_engine,
     optional_sysman,
@@ -357,6 +363,7 @@ def collect_samples(
     runs: int,
     sysman: Any,
     failures: Optional[List[Dict[str, str]]] = None,
+    harness: Optional[HarnessConfig] = None,
 ) -> List[BenchSample]:
     """Measure every workload tier of one model on the target device and, if distinct, on CPU.
 
@@ -373,6 +380,7 @@ def collect_samples(
         sysman: Optional Sysman for package power.
         failures: List that receives {model_id, backend, error} for tiers that failed; after a GPU
             CL_OUT_OF_RESOURCES the engine is not unloaded (the driver may hang) and later GPU tiers are skipped.
+        harness: Harness settings (converged warmup, cooldown); None keeps fixed warmups with no cooldown. Interleaving is not used for this workload.
 
     Returns:
         List[BenchSample]: Samples for all tiers and backends.
@@ -380,14 +388,17 @@ def collect_samples(
     plan = [("arc-runner", device, fallback)]
     if cpu_baseline and device != "CPU":
         plan.append(("cpu-baseline", "CPU", False))
+    cfg = harness or HarnessConfig(max_warmups=None, cooldown_s=0.0)
     samples: List[BenchSample] = []
     failures = failures if failures is not None else []
-    for backend, dev, is_fallback in plan:
+    for plan_index, (backend, dev, is_fallback) in enumerate(plan):
+        if plan_index:
+            cfg.cooldown()
         engine = engine_factory(dev)
 
         def make(workload: Dict[str, Any], model_id: str, engine: Any = engine, backend: str = backend, is_fallback: bool = is_fallback) -> List[BenchSample]:
             return video_samples(
-                engine, request_builder(workload), model_id, backend, warmups, runs, sysman=sysman, fallback_used=is_fallback,
+                engine, request_builder(workload), model_id, backend, warmups, runs, sysman=sysman, fallback_used=is_fallback, max_warmups=cfg.max_warmups,
             )
 
         got, lost = collect_tiers(spec["workloads"], alias, backend, make, failures)
@@ -420,6 +431,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--tiers", help="comma-separated tiers to run, for example low,medium (default: all)")
     parser.add_argument("--keep", action="store_true", help="keep the model files on disk")
     parser.add_argument("--out", type=Path)
+    add_harness_args(parser)
     args = parser.parse_args(argv)
 
     from arc_runner.devices.detector import DeviceDetector
@@ -439,15 +451,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         engine.load_model(model_dir, device=dev)
         return engine
 
+    harness = config_from_args(args)
+    report = begin_run(harness, directory_size_bytes(model_dir))
     failures: List[Dict[str, str]] = []
     try:
-        samples = collect_samples(args.model, spec, factory, build_request, device, fallback, not args.no_cpu_baseline, args.warmups, args.runs, optional_sysman(), failures=failures)
+        samples = collect_samples(args.model, spec, factory, build_request, device, fallback, not args.no_cpu_baseline, args.warmups, args.runs, optional_sysman(), failures=failures, harness=harness)
     finally:
         if not args.keep:
             shutil.rmtree(model_dir, ignore_errors=True)
+    samples, protocol_extra, environment_extra = finish_run(samples, harness, report)
     out = args.out or default_result_path(REPO_ROOT, "video", args.model)
     labels = {"arc-runner": f"OpenVINO on {device} ({spec['precision']})", "cpu-baseline": "OpenVINO on CPU"}
-    export_workload_result(out, f"video-{args.model}", samples, labels, args.warmups, args.runs, REPO_ROOT, failures=failures)
+    export_workload_result(out, f"video-{args.model}", samples, labels, args.warmups, args.runs, REPO_ROOT, failures=failures, protocol_extra=protocol_extra, environment_extra=environment_extra)
     print(f"wrote {out} ({len(samples)} samples, {len(failures)} failed tier(s))")
     for item in failures:
         print(f"FAILED {item['model_id']} on {item['backend']}: {item['error'][:160]}", file=sys.stderr)

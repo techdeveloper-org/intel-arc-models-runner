@@ -22,8 +22,11 @@ from typing import Any, Callable, Dict, List, Optional
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from arc_runner.benchmark.harness_common import default_result_path, download_snapshot, optional_sysman, target_device  # noqa: E402
-from arc_runner.benchmark.nonllm import embedding_samples, llm_samples  # noqa: E402
+from arc_runner.benchmark.harness_common import (  # noqa: E402
+    HarnessConfig, add_harness_args, begin_run, config_from_args, default_result_path, directory_size_bytes, download_snapshot,
+    finish_run, optional_sysman, target_device,
+)
+from arc_runner.benchmark.nonllm import embedding_samples, llm_samples, llm_samples_interleaved  # noqa: E402
 from arc_runner.benchmark.stats import BenchSample  # noqa: E402
 from arc_runner.benchmark.workloads import export_workload_result  # noqa: E402
 
@@ -391,6 +394,7 @@ def collect_samples(
     warmups: int,
     runs: int,
     sysman: Any,
+    harness: Optional[HarnessConfig] = None,
 ) -> List[BenchSample]:
     """Measure every tier of one model on every planned backend.
 
@@ -402,20 +406,38 @@ def collect_samples(
         warmups: Discarded warmup runs per tier.
         runs: Timed runs per tier.
         sysman: Optional Sysman for package power.
+        harness: Harness settings (converged warmup, interleaving, cooldown); None keeps fixed warmups with no cooldown.
 
     Returns:
         List[BenchSample]: Samples for all tiers and backends.
     """
+    cfg = harness or HarnessConfig(max_warmups=None, cooldown_s=0.0)
     samples: List[BenchSample] = []
-    for backend, device, fallback in plan:
+    if cfg.interleave and spec["type"] == "llm":
+        for index, (tier, workload) in enumerate(spec["workloads"].items()):
+            if index:
+                cfg.cooldown()
+            systems = [(backend, engine_factory(device, workload), fallback) for backend, device, fallback in plan]
+            try:
+                samples += llm_samples_interleaved(
+                    systems, workload["prompt"], workload["max_tokens"], f"{alias}/{tier}", warmups, runs,
+                    seed=cfg.seed, sysman=sysman, max_warmups=cfg.max_warmups,
+                )
+            finally:
+                del systems
+                gc.collect()
+        return samples
+    for plan_index, (backend, device, fallback) in enumerate(plan):
+        if plan_index:
+            cfg.cooldown()
         for tier, workload in spec["workloads"].items():
             engine = engine_factory(device, workload)
             model_id = f"{alias}/{tier}"
             try:
                 if spec["type"] == "llm":
-                    samples += llm_samples(engine, workload["prompt"], workload["max_tokens"], model_id, backend, warmups, runs, sysman=sysman, fallback_used=fallback)
+                    samples += llm_samples(engine, workload["prompt"], workload["max_tokens"], model_id, backend, warmups, runs, sysman=sysman, fallback_used=fallback, max_warmups=cfg.max_warmups)
                 else:
-                    samples += embedding_samples(engine, embedding_batch(workload), model_id, backend, warmups, runs, sysman=sysman, fallback_used=fallback)
+                    samples += embedding_samples(engine, embedding_batch(workload), model_id, backend, warmups, runs, sysman=sysman, fallback_used=fallback, max_warmups=cfg.max_warmups)
             finally:
                 del engine
                 gc.collect()
@@ -439,6 +461,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--no-cpu-baseline", action="store_true")
     parser.add_argument("--keep", action="store_true", help="keep the model files on disk")
     parser.add_argument("--out", type=Path)
+    add_harness_args(parser)
     args = parser.parse_args(argv)
 
     from arc_runner.devices.detector import DeviceDetector
@@ -449,6 +472,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     model_dir = Path(args.models_root).resolve() / args.model
     download_snapshot(spec["repo_id"], model_dir, ("openvino_model.xml", "openvino_tokenizer.xml"))
     plan = backend_plan(spec, DeviceDetector().detect_topology(), not args.no_cpu_baseline)
+    harness = config_from_args(args)
+    resident = len(plan) if harness.interleave and spec["type"] == "llm" else 1
+    on_disk = directory_size_bytes(model_dir)
+    report = begin_run(harness, on_disk * resident if on_disk is not None else None)
 
     def factory(device: str, workload: Dict[str, Any]) -> Any:
         if spec["type"] == "llm":
@@ -458,10 +485,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         return EmbeddingEngine(str(model_dir), device=device, normalize=True, max_length=max(512, int(workload.get("seq_length", 512))))
 
     try:
-        samples = collect_samples(args.model, spec, factory, plan, args.warmups, args.runs, optional_sysman())
+        samples = collect_samples(args.model, spec, factory, plan, args.warmups, args.runs, optional_sysman(), harness)
     finally:
         if not args.keep:
             shutil.rmtree(model_dir, ignore_errors=True)
+    samples, protocol_extra, environment_extra = finish_run(samples, harness, report)
     workload = "llm" if spec["type"] == "llm" else "embeddings"
     out = args.out or default_result_path(REPO_ROOT, workload, args.model)
     labels = {backend: f"OpenVINO on {device}" for backend, device, _ in plan}
@@ -469,10 +497,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     if spec["type"] == "llm":
         from arc_runner.benchmark.results import build_result, capture_environment, write_result
 
-        protocol = {"warmup_runs": args.warmups, "timed_runs": args.runs, "temperature": 0.0, "max_new_tokens": max(w["max_tokens"] for w in spec["workloads"].values()), "labels": protocol_labels}
-        write_result(out, build_result(f"{workload}-{args.model}", samples, protocol, capture_environment(REPO_ROOT)))
+        protocol = {"warmup_runs": args.warmups, "timed_runs": args.runs, "temperature": 0.0, "max_new_tokens": max(w["max_tokens"] for w in spec["workloads"].values()), "labels": protocol_labels, **protocol_extra}
+        write_result(out, build_result(f"{workload}-{args.model}", samples, protocol, {**capture_environment(REPO_ROOT), **environment_extra}))
     else:
-        export_workload_result(out, f"{workload}-{args.model}", samples, protocol_labels, args.warmups, args.runs, REPO_ROOT)
+        export_workload_result(out, f"{workload}-{args.model}", samples, protocol_labels, args.warmups, args.runs, REPO_ROOT, protocol_extra=protocol_extra, environment_extra=environment_extra)
     print(f"wrote {out} ({len(samples)} samples)")
     return 0
 

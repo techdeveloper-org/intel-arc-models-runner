@@ -6,10 +6,10 @@ reports about itself are used only where the engine measured them (stage timings
 the engine did not. A failing engine call raises; there is no simulated fallback.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from arc_runner.benchmark.stats import BenchSample
-from arc_runner.benchmark.workloads import TimedRun, measure_workload, workload_samples
+from arc_runner.benchmark.workloads import TimedRun, measure_interleaved, measure_workload, workload_samples
 
 Extra = Callable[[TimedRun], Dict[str, Optional[float]]]
 
@@ -26,6 +26,7 @@ def _run(
     device_index: int,
     clock: Optional[Callable[[], float]],
     fallback_used: bool,
+    max_warmups: Optional[int] = None,
 ) -> List[BenchSample]:
     """Time a workload and derive per-run metrics from each run's own result.
 
@@ -41,6 +42,7 @@ def _run(
         device_index: GPU index for power.
         clock: Optional clock override (tests).
         fallback_used: Whether the engine ran on a fallback device.
+        max_warmups: Upper bound for convergence-driven warmups on run latency, or None for exactly `warmups`.
 
     Returns:
         List[BenchSample]: Samples, warmups first.
@@ -51,7 +53,7 @@ def _run(
         results.append(call())
 
     kwargs: Dict[str, Any] = {} if clock is None else {"clock": clock}
-    timed = measure_workload(once, warmups, runs, sysman=sysman, device_index=device_index, **kwargs)
+    timed = measure_workload(once, warmups, runs, sysman=sysman, device_index=device_index, max_warmups=max_warmups, **kwargs)
     return workload_samples(
         model_id, backend, workload, timed,
         extra=lambda run: derive(run, results[run.iteration]), fallback_used=fallback_used,
@@ -61,6 +63,7 @@ def _run(
 def stt_samples(
     engine: Any, audio: Any, audio_duration_s: float, model_id: str, backend: str, warmups: int, runs: int,
     sysman: Any = None, device_index: int = 0, clock: Optional[Callable[[], float]] = None, fallback_used: bool = False,
+    max_warmups: Optional[int] = None,
 ) -> List[BenchSample]:
     """Measure speech recognition: rtf = latency_s / audio_duration_s.
 
@@ -76,6 +79,7 @@ def stt_samples(
         device_index: GPU index for power.
         clock: Optional clock override.
         fallback_used: True if the engine runs on a fallback device.
+        max_warmups: Upper bound for convergence-driven warmups, or None for exactly `warmups`.
 
     Returns:
         List[BenchSample]: audio_stt samples.
@@ -87,12 +91,13 @@ def stt_samples(
             "throughput_audio_s_per_s": audio_duration_s / run.elapsed_s if run.elapsed_s > 0 else None,
         }
 
-    return _run("audio_stt", model_id, backend, lambda: engine.transcribe(audio), derive, warmups, runs, sysman, device_index, clock, fallback_used)
+    return _run("audio_stt", model_id, backend, lambda: engine.transcribe(audio), derive, warmups, runs, sysman, device_index, clock, fallback_used, max_warmups)
 
 
 def tts_samples(
     engine: Any, text: str, model_id: str, backend: str, warmups: int, runs: int,
     sysman: Any = None, device_index: int = 0, clock: Optional[Callable[[], float]] = None, fallback_used: bool = False,
+    max_warmups: Optional[int] = None,
 ) -> List[BenchSample]:
     """Measure speech synthesis: rtf = latency_s / duration_s of the audio that run produced.
 
@@ -107,6 +112,7 @@ def tts_samples(
         device_index: GPU index for power.
         clock: Optional clock override.
         fallback_used: True if the engine runs on a fallback device.
+        max_warmups: Upper bound for convergence-driven warmups, or None for exactly `warmups`.
 
     Returns:
         List[BenchSample]: audio_tts samples.
@@ -115,12 +121,13 @@ def tts_samples(
         duration = float(result.duration_s)
         return {"audio_duration_s": duration, "rtf": run.elapsed_s / duration if duration > 0 else None}
 
-    return _run("audio_tts", model_id, backend, lambda: engine.synthesize(text), derive, warmups, runs, sysman, device_index, clock, fallback_used)
+    return _run("audio_tts", model_id, backend, lambda: engine.synthesize(text), derive, warmups, runs, sysman, device_index, clock, fallback_used, max_warmups)
 
 
 def image_samples(
     engine: Any, request: Any, model_id: str, backend: str, warmups: int, runs: int,
     sysman: Any = None, device_index: int = 0, clock: Optional[Callable[[], float]] = None, fallback_used: bool = False,
+    max_warmups: Optional[int] = None,
 ) -> List[BenchSample]:
     """Measure text-to-image: megapixels_per_s = width*height/1e6 over measured latency.
 
@@ -138,6 +145,7 @@ def image_samples(
         device_index: GPU index for power.
         clock: Optional clock override.
         fallback_used: True if the engine runs on a fallback device.
+        max_warmups: Upper bound for convergence-driven warmups, or None for exactly `warmups`.
 
     Returns:
         List[BenchSample]: image samples.
@@ -150,12 +158,13 @@ def image_samples(
             "iteration_rate_it_s": result.breakdown.iteration_rate_it_s,
         }
 
-    return _run("image", model_id, backend, lambda: engine.generate(request), derive, warmups, runs, sysman, device_index, clock, fallback_used)
+    return _run("image", model_id, backend, lambda: engine.generate(request), derive, warmups, runs, sysman, device_index, clock, fallback_used, max_warmups)
 
 
 def video_samples(
     engine: Any, request: Any, model_id: str, backend: str, warmups: int, runs: int,
     sysman: Any = None, device_index: int = 0, clock: Optional[Callable[[], float]] = None, fallback_used: bool = False,
+    max_warmups: Optional[int] = None,
 ) -> List[BenchSample]:
     """Measure text-to-video: frames_per_s = num_frames / latency_s and rtf = latency_s / video_duration_s.
 
@@ -170,6 +179,7 @@ def video_samples(
         device_index: GPU index for power.
         clock: Optional clock override.
         fallback_used: True if the engine runs on a fallback device.
+        max_warmups: Upper bound for convergence-driven warmups, or None for exactly `warmups`.
 
     Returns:
         List[BenchSample]: video samples.
@@ -183,12 +193,13 @@ def video_samples(
             "step_latency_ms": result.breakdown.step_latency_ms,
         }
 
-    return _run("video", model_id, backend, lambda: engine.generate(request), derive, warmups, runs, sysman, device_index, clock, fallback_used)
+    return _run("video", model_id, backend, lambda: engine.generate(request), derive, warmups, runs, sysman, device_index, clock, fallback_used, max_warmups)
 
 
 def embedding_samples(
     engine: Any, texts: Sequence[str], model_id: str, backend: str, warmups: int, runs: int,
     sysman: Any = None, device_index: int = 0, clock: Optional[Callable[[], float]] = None, fallback_used: bool = False,
+    max_warmups: Optional[int] = None,
 ) -> List[BenchSample]:
     """Measure embeddings: texts_per_s = len(texts) / latency_s for one batch call.
 
@@ -203,6 +214,7 @@ def embedding_samples(
         device_index: GPU index for power.
         clock: Optional clock override.
         fallback_used: True if the engine runs on a fallback device.
+        max_warmups: Upper bound for convergence-driven warmups, or None for exactly `warmups`.
 
     Returns:
         List[BenchSample]: embeddings samples.
@@ -212,12 +224,13 @@ def embedding_samples(
     def derive(run: TimedRun, _result: Any) -> Dict[str, Optional[float]]:
         return {"batch_size": float(len(batch)), "texts_per_s": len(batch) / run.elapsed_s if run.elapsed_s > 0 else None}
 
-    return _run("embeddings", model_id, backend, lambda: engine.embed_documents(batch), derive, warmups, runs, sysman, device_index, clock, fallback_used)
+    return _run("embeddings", model_id, backend, lambda: engine.embed_documents(batch), derive, warmups, runs, sysman, device_index, clock, fallback_used, max_warmups)
 
 
 def vlm_samples(
     engine: Any, prompt: str, images: Sequence[Any], max_new_tokens: int, model_id: str, backend: str, warmups: int, runs: int,
     sysman: Any = None, device_index: int = 0, clock: Optional[Callable[[], float]] = None, fallback_used: bool = False,
+    max_warmups: Optional[int] = None,
 ) -> List[BenchSample]:
     """Measure a vision-language request end to end; the chunk count is streamer callbacks, not tokens.
 
@@ -237,6 +250,7 @@ def vlm_samples(
         device_index: GPU index for power.
         clock: Optional clock override.
         fallback_used: True if the engine runs on a fallback device.
+        max_warmups: Upper bound for convergence-driven warmups, or None for exactly `warmups`.
 
     Returns:
         List[BenchSample]: vlm samples.
@@ -251,12 +265,13 @@ def vlm_samples(
     def derive(_run_: TimedRun, chunks: Any) -> Dict[str, Optional[float]]:
         return {"output_chunk_count": float(len(chunks))}
 
-    return _run("vlm", model_id, backend, call, derive, warmups, runs, sysman, device_index, clock, fallback_used)
+    return _run("vlm", model_id, backend, call, derive, warmups, runs, sysman, device_index, clock, fallback_used, max_warmups)
 
 
 def llm_samples(
     engine: Any, prompt: str, max_new_tokens: int, model_id: str, backend: str, warmups: int, runs: int,
     sysman: Any = None, device_index: int = 0, clock: Optional[Callable[[], float]] = None, fallback_used: bool = False,
+    max_warmups: Optional[int] = None,
 ) -> List[BenchSample]:
     """Measure an LLM from the engine's own telemetry (never from splitting the output into words).
 
@@ -275,6 +290,7 @@ def llm_samples(
         device_index: GPU index for power.
         clock: Optional clock override.
         fallback_used: True if the engine runs on a fallback device.
+        max_warmups: Upper bound for convergence-driven warmups, or None for exactly `warmups`.
 
     Returns:
         List[BenchSample]: llm samples with ttft_ms, decode_tps and token counts filled when measured.
@@ -289,7 +305,32 @@ def llm_samples(
         telemetry.append(engine.get_telemetry())
 
     kwargs: Dict[str, Any] = {} if clock is None else {"clock": clock}
-    timed = measure_workload(once, warmups, runs, sysman=sysman, device_index=device_index, **kwargs)
+    timed = measure_workload(
+        once, warmups, runs, sysman=sysman, device_index=device_index, max_warmups=max_warmups,
+        warmup_metric=lambda run: _ttft_or_none(telemetry[run.iteration]), **kwargs,
+    )
+    return _llm_rows(model_id, backend, timed, telemetry, fallback_used)
+
+
+def _ttft_or_none(t: Any) -> Optional[float]:
+    """Return the telemetry TTFT in milliseconds when it is valid, else None.
+
+    Args:
+        t: Engine telemetry of one run.
+    """
+    return t.ttft_ms if t.is_ttft_valid else None
+
+
+def _llm_rows(model_id: str, backend: str, timed: List[TimedRun], telemetry: List[Any], fallback_used: bool) -> List[BenchSample]:
+    """Build LLM samples from timed runs and the telemetry the engine reported for each run.
+
+    Args:
+        model_id: Model and tier identifier.
+        backend: Backend name.
+        timed: Timed runs in order.
+        telemetry: Engine telemetry per run, indexed by run iteration.
+        fallback_used: True if the engine runs on a fallback device.
+    """
     base = workload_samples(model_id, backend, "llm", timed, fallback_used=fallback_used)
     samples: List[BenchSample] = []
     for run, sample in zip(timed, base):
@@ -301,4 +342,98 @@ def llm_samples(
             int(t.prompt_tokens), int(t.total_tokens), source,  # type: ignore[arg-type]
             is_warmup=run.is_warmup, fallback_used=fallback_used, workload="llm", metrics=sample.metrics,
         ))
+    return samples
+
+
+def llm_samples_interleaved(
+    systems: Sequence[Tuple[str, Any, bool]], prompt: str, max_new_tokens: int, model_id: str, warmups: int, runs: int,
+    seed: int = 0, sysman: Any = None, device_index: int = 0, clock: Optional[Callable[[], float]] = None,
+    max_warmups: Optional[int] = None,
+) -> List[BenchSample]:
+    """Measure several loaded LLM engines with their runs interleaved per iteration in a seeded random order.
+
+    Args:
+        systems: (backend name, loaded engine, fallback_used) per system; all engines stay resident.
+        prompt: Prompt text.
+        max_new_tokens: Completion budget.
+        model_id: Model and tier identifier.
+        warmups: Minimum warmup iterations.
+        runs: Timed iterations.
+        seed: Order seed.
+        sysman: Optional Sysman for package power.
+        device_index: GPU index for power.
+        clock: Optional clock override.
+        max_warmups: Upper bound for convergence-driven warmups, or None for exactly `warmups`.
+
+    Returns:
+        List[BenchSample]: llm samples of every system, grouped by system, warmups first.
+    """
+    from arc_runner.engine.models import GenerationConfig
+
+    config = GenerationConfig(max_new_tokens=max_new_tokens, temperature=0.0)
+    telemetry: Dict[str, List[Any]] = {backend: [] for backend, _, _ in systems}
+
+    def make(backend: str, engine: Any) -> Callable[[], None]:
+        def once() -> None:
+            engine.generate(prompt, config)
+            telemetry[backend].append(engine.get_telemetry())
+        return once
+
+    kwargs: Dict[str, Any] = {} if clock is None else {"clock": clock}
+    timed = measure_interleaved(
+        {backend: make(backend, engine) for backend, engine, _ in systems}, warmups, runs, seed=seed, sysman=sysman,
+        device_index=device_index, max_warmups=max_warmups,
+        warmup_metrics={b: (lambda run, b=b: _ttft_or_none(telemetry[b][run.iteration])) for b in telemetry}, **kwargs,
+    )
+    samples: List[BenchSample] = []
+    for backend, _, fallback in systems:
+        samples += _llm_rows(model_id, backend, timed[backend], telemetry[backend], fallback)
+    return samples
+
+
+def vlm_samples_interleaved(
+    systems: Sequence[Tuple[str, Any, bool]], prompt: str, images: Sequence[Any], max_new_tokens: int, model_id: str,
+    warmups: int, runs: int, seed: int = 0, sysman: Any = None, device_index: int = 0,
+    clock: Optional[Callable[[], float]] = None, max_warmups: Optional[int] = None,
+) -> List[BenchSample]:
+    """Measure several loaded VLM engines with their runs interleaved per iteration in a seeded random order.
+
+    Args:
+        systems: (backend name, loaded VisionEngine, fallback_used) per system; all engines stay resident.
+        prompt: Text instruction.
+        images: Images passed to every engine.
+        max_new_tokens: Generation budget.
+        model_id: Model and tier identifier.
+        warmups: Minimum warmup iterations.
+        runs: Timed iterations.
+        seed: Order seed.
+        sysman: Optional Sysman for package power.
+        device_index: GPU index for power.
+        clock: Optional clock override.
+        max_warmups: Upper bound for convergence-driven warmups on run latency, or None for exactly `warmups`.
+
+    Returns:
+        List[BenchSample]: vlm samples of every system, grouped by system, warmups first.
+    """
+    from arc_runner.engine.models import GenerationConfig
+
+    config = GenerationConfig(max_new_tokens=max_new_tokens, temperature=0.0)
+    results: Dict[str, List[Any]] = {backend: [] for backend, _, _ in systems}
+
+    def make(backend: str, engine: Any) -> Callable[[], None]:
+        def once() -> None:
+            results[backend].append(list(engine.generate(prompt, images, config)))
+        return once
+
+    kwargs: Dict[str, Any] = {} if clock is None else {"clock": clock}
+    timed = measure_interleaved(
+        {backend: make(backend, engine) for backend, engine, _ in systems}, warmups, runs, seed=seed, sysman=sysman,
+        device_index=device_index, max_warmups=max_warmups, **kwargs,
+    )
+    samples: List[BenchSample] = []
+    for backend, _, fallback in systems:
+        samples += workload_samples(
+            model_id, backend, "vlm", timed[backend],
+            extra=lambda run, b=backend: {"output_chunk_count": float(len(results[b][run.iteration]))}, fallback_used=fallback,
+        )
     return samples

@@ -15,6 +15,13 @@ SampleSource = Literal["measured", "derived", "projected"]
 MIN_TIMED_ITERATIONS = 10
 MAX_CV_FOR_CLAIMS = 0.10
 DEFAULT_NONINFERIORITY_MARGIN = 0.03
+MIN_WARMUPS = 3
+MAX_WARMUPS = 5
+WARMUP_CV = 0.05
+NON_NORMAL_TOLERANCE = 0.05
+MIN_VALUES_FOR_NON_NORMAL = 3
+LOWER_IS_BETTER = frozenset({"ttft_ms", "latency_s", "rtf", "step_latency_ms"})
+WORKLOAD_CLAIM_METRIC = {"vlm": "latency_s", "audio_stt": "latency_s", "audio_tts": "rtf"}
 
 _T_95 = {
     1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228,
@@ -246,6 +253,31 @@ def warmup_converged(values: Sequence[float], window: int = 3, eps: float = 0.05
     return coefficient_of_variation(values[-window:]) <= eps
 
 
+def non_normal_flag(values: Sequence[float], tolerance: float = NON_NORMAL_TOLERANCE, seed: int = 0) -> Optional[bool]:
+    """Flag a series whose Student-t and bootstrap intervals of the mean disagree.
+
+    The test: compute the 95% Student-t interval (mean +- t * s / sqrt(n)) and the 95% percentile
+    bootstrap interval of the mean (2000 resamples, given seed). The series is flagged non-normal when
+    either endpoint of the two intervals differs by more than `tolerance` times the sample mean. A flag
+    is a warning on the row, it does not change any gate.
+
+    Args:
+        values: Timed values of one series.
+        tolerance: Allowed endpoint disagreement as a fraction of the mean.
+        seed: Bootstrap seed.
+
+    Returns:
+        Optional[bool]: True or False, or None when there are fewer than three values or the mean is not
+        positive (the test is undefined, so no verdict is given).
+    """
+    if len(values) < MIN_VALUES_FOR_NON_NORMAL or mean(values) <= 0:
+        return None
+    mu, half = student_t_ci95(values)
+    boot_lo, boot_hi = bootstrap_ci(values, seed=seed)
+    gap = max(abs((mu - half) - boot_lo), abs((mu + half) - boot_hi))
+    return gap > tolerance * mu
+
+
 def is_within_roofline(tps: float, weight_bytes: float, kv_bytes: float, bandwidth_gbs: float) -> bool:
     """Check that a decode rate does not exceed the memory-bandwidth ceiling B / (W + KV).
 
@@ -269,9 +301,25 @@ def _timed_values(samples: Sequence[BenchSample], metric: str) -> List[float]:
 
     Args:
         samples: Samples to read.
-        metric: Attribute name (decode_tps or ttft_ms).
+        metric: Metric name (decode_tps, ttft_ms, or a key of the samples' metrics).
     """
-    return [getattr(s, metric) for s in samples if not s.is_warmup and getattr(s, metric) is not None]
+    values = [_sample_value(s, metric) for s in samples if not s.is_warmup]
+    return [v for v in values if v is not None]
+
+
+def _sample_value(sample: BenchSample, metric: str) -> Optional[float]:
+    """Read one metric of a sample: ttft_ms and decode_tps are fields, any other key lives in metrics.
+
+    Args:
+        sample: Sample to read.
+        metric: ttft_ms, decode_tps, or a key of sample.metrics (latency_s, rtf, ...).
+
+    Returns:
+        Optional[float]: The value, or None when absent.
+    """
+    if metric in ("ttft_ms", "decode_tps"):
+        return getattr(sample, metric)
+    return (sample.metrics or {}).get(metric)
 
 
 def _ineligible_reason(samples: Sequence[BenchSample], label: str, metric: str, min_n: int, max_cv: float) -> str:
@@ -344,6 +392,73 @@ def evaluate_speedup_gate(
     passed = lo > 1.0
     reason = "ratio lower bound above 1.0" if passed else f"ratio lower bound {lo:.3f} does not clear 1.0"
     return ClaimGateResult(passed, reason, lo, hi, n_arc, n_ref)
+
+
+def _workload_precheck(arc: Sequence[BenchSample], ref: Sequence[BenchSample], workload: str, require_equal_output: bool) -> str:
+    """Return why two non-LLM sample sets are not comparable, or an empty string.
+
+    Args:
+        arc: Samples of the system being promoted.
+        ref: Samples of the reference system.
+        workload: Expected workload name.
+        require_equal_output: Also require one identical output_chunk_count in every timed row.
+    """
+    timed = [s for s in (*arc, *ref) if not s.is_warmup]
+    if any(s.workload != workload for s in timed):
+        return f"rows are not all workload {workload}"
+    if len({s.model_id for s in timed}) > 1:
+        return "rows mix several model/tier ids; a claim covers one model and tier"
+    if require_equal_output:
+        counts = [(s.metrics or {}).get("output_chunk_count") for s in timed]
+        if any(c is None for c in counts):
+            return "a timed row has no output_chunk_count, so output length cannot be checked"
+        if len(set(counts)) > 1:
+            return "output_chunk_count differs between timed rows; latency is confounded by output length"
+    return ""
+
+
+def evaluate_workload_gate(
+    arc: Sequence[BenchSample],
+    ref: Sequence[BenchSample],
+    workload: str,
+    metric: Optional[str] = None,
+    min_n: int = MIN_TIMED_ITERATIONS,
+    max_cv: float = MAX_CV_FOR_CLAIMS,
+    seed: int = 0,
+    require_equal_output: Optional[bool] = None,
+) -> ClaimGateResult:
+    """Decide whether arc may be claimed faster than ref for a VLM or audio workload.
+
+    Same conditions as evaluate_speedup_gate (measured, fallback-free, not noisy rows; at least min_n timed
+    values per system; coefficient of variation within max_cv; ratio lower bound above 1.0) on a
+    lower-is-better metric, with the ratio ref/arc. Additionally every timed row must be of the stated
+    workload and one model/tier id, and for vlm every timed row must have the same output_chunk_count
+    (latency scales with output length, so a series whose length varies cannot be compared). Default
+    metrics: vlm latency_s, audio_stt latency_s (same clip), audio_tts rtf (output length varies).
+
+    Args:
+        arc: Samples of the system being promoted.
+        ref: Samples of the reference system.
+        workload: vlm, audio_stt or audio_tts.
+        metric: Lower-is-better metric key; defaults per workload.
+        min_n: Minimum timed values per system.
+        max_cv: Maximum coefficient of variation.
+        seed: Bootstrap seed.
+        require_equal_output: Override of the equal-output rule (default True for vlm only).
+
+    Returns:
+        ClaimGateResult: Verdict and the ratio interval; never passes for a workload without a gate.
+    """
+    if workload not in WORKLOAD_CLAIM_METRIC:
+        return ClaimGateResult(False, f"no claim gate exists for workload {workload}")
+    chosen = metric or WORKLOAD_CLAIM_METRIC[workload]
+    if chosen not in LOWER_IS_BETTER:
+        return ClaimGateResult(False, f"metric {chosen} is not a lower-is-better workload metric")
+    equal_output = workload == "vlm" if require_equal_output is None else require_equal_output
+    reason = _workload_precheck(arc, ref, workload, equal_output)
+    if reason:
+        return ClaimGateResult(False, reason, n_arc=len(_timed_values(arc, chosen)), n_ref=len(_timed_values(ref, chosen)))
+    return evaluate_speedup_gate(arc, ref, metric=chosen, min_n=min_n, max_cv=max_cv, seed=seed)
 
 
 def evaluate_noninferiority_gate(
