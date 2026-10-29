@@ -34,7 +34,8 @@ DIAGRAMS = [
 ]
 CLASS_SCOPE = [
     "native/bridge.py", "engine/flash_stream/weight_streamer.py", "devices/sysman.py", "engine/models.py",
-    "engine/kv_cache.py", "benchmark/stats.py", "benchmark/results.py",
+    "engine/kv_cache.py", "engine/context_budget.py", "engine/flash_stream/device_stager.py",
+    "benchmark/stats.py", "benchmark/results.py",
 ]
 
 

@@ -211,8 +211,8 @@ def test_sysman_keeps_only_gpu_devices_and_reports_total_memory_with_correct_sty
     assert len(sysman._devices) == 1
     total_mb, free_mb = sysman.query_gpu_memory(0)
     assert total_mb == 8 * 1024
-    assert free_mb is None
-    assert sysman.query_package_power(0) is None
+    assert free_mb == 5 * 1024
+    assert sysman.query_package_power(0, sample_interval_s=0.01) is not None
 
 
 @requires_gcc

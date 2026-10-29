@@ -99,6 +99,35 @@ def level_zero_devices() -> Any:
     return records
 
 
+def sysman_telemetry() -> Any:
+    """Read Sysman power, GPU frequency and free memory once per GPU, with reasons for any gap.
+
+    Returns:
+        Any: List of {device, package_power_w, gpu_frequency_mhz, total_mb, free_mb, unavailable} records.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "src"))
+    from arc_runner.devices.sysman import LevelZeroSysman
+
+    sysman = LevelZeroSysman()
+    if not sysman.is_available:
+        raise RuntimeError("Level Zero loader not available")
+    records = []
+    for index in range(len(sysman._devices)):
+        power = sysman.query_package_power(index, sample_interval_s=0.5)
+        frequency = sysman.query_gpu_frequency_mhz(index)
+        total_mb, free_mb = sysman.query_gpu_memory(index)
+        reasons = {key: sysman.get_unavailable_reason(key) for key in ("package_power", "gpu_frequency", "gpu_free_memory")}
+        records.append({
+            "device": index,
+            "package_power_w": None if power is None else round(power, 3),
+            "gpu_frequency_mhz": frequency,
+            "total_mb": total_mb,
+            "free_mb": free_mb,
+            "unavailable": {key: reason for key, reason in reasons.items() if reason},
+        })
+    return records
+
+
 def cpu_description() -> str:
     """Return a CPU description string.
 
@@ -169,6 +198,7 @@ def main() -> int:
         "memory_modules": fact(memory_modules),
         "memory_bandwidth_gbs": fact(memory_bandwidth_gbs),
         "level_zero_devices": fact(level_zero_devices),
+        "sysman_telemetry": fact(sysman_telemetry),
         "openvino_devices": fact(openvino_devices),
         "openvino_genai": fact(perf_metrics_api),
     }
