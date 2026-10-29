@@ -1074,3 +1074,381 @@ Supersedes the finding lists in 21.6 and 21.7. Non-hardware suite: all tests pas
 - **Open, needs the maintainer's machine:** H2 (Ollama TTFT constancy), Windows DLL rebuild, `@hardware` tests, probe, benchmark matrix, regression run, TLC, real-driver check of Sysman, and a pull request so the three CI jobs (Linux 3.10, Windows, diagrams) run.
 - **Removed as fabricated:** the fixture audit script, five legacy result JSONs, and invented constants in the image and video engines, studio pipeline and co-benchmark (details in S-G and DL-056..060).
 - **Not done by choice:** release, tag, merge, publish (maintainer approval); default KV precision stays FP16-class.
+
+
+---
+
+## 23. PERFORMANCE BOTTLENECK PROGRAMME (plan only, no source changed)
+
+Status (2026-10-29): PLANNING. Nothing in `src/`, `scripts/` or `tests/` was changed to produce this section. It turns five read-only discovery reports into a register, measurement requests, ordered work packages and architecture decisions (DL-061..DL-068 in `docs/delivery/DECISION_LOG.md`). Section 22 already exists (library access), so this is 23.
+
+Source reports (session scratchpad `perf/`, not committed): P1 LLM engine hot path, P2 native streamer, P3 what the committed result files prove, P4 server and orchestration, P5 non-LLM pipelines and memory. Roles used: solution-architect (decisions, ordering) and hardware-performance-engineer (evidence classes, measurement design).
+
+### 23.1 Evidence classes and the limits that apply to every row
+
+| Tag | Meaning | Rule for use |
+|:--|:--|:--|
+| PROVEN | Recomputed from a committed result file in `docs/benchmarks/results/` (3 files: LLM qwen-2.5-1.5b, VLM qwen2-vl-7b, STT whisper-tiny) or `probe.json`; all by P3 unless stated | May drive priorities. Cause may still be a HYPOTHESIS even when the effect is PROVEN |
+| READ | Established by reading code (file:line in the reports); the mechanism is certain, the cost is not | May justify a correctness or honesty fix. Cost claims need a measurement |
+| READ+replica | READ plus a measurement on a Linux VM (4 vCPU, Python 3.13, OpenVINO CPU only, no Arc, no NPU, no Level Zero); P4 scripts `p4_bench_*.py`, P2 `p2_replica.py`, in the scratchpad and not committed | Proves the mechanism and relative size. NOT a Windows/Arc number. WP-02 commits the scripts so the claim becomes reproducible |
+| DERIVED | Arithmetic on PROVEN or READ inputs, formula shown | Only as good as its inputs |
+| HYPOTHESIS | Not measured; the report names a method | No work package may assume it; each has a measurement request in 23.4 |
+
+Global caveats (P3): the three committed files were produced with 3 fixed warmups, sequential backend order, no cooldown and no preconditions; `package_power_w` is null in all 270 rows; `driver_versions` is empty; `on_ac_power` is null. There is no result for load/compile time, speculative decoding, native streaming (B8/B9), image, video, embeddings, Ollama, regression or KV quality. Every statement below that needs one of those is a HYPOTHESIS until a result file exists.
+
+### 23.2 What the committed data already settles (PROVEN, P3 unless stated)
+
+| Id | Fact | Consequence for the programme |
+|:--|:--|:--|
+| P3-01 | Decode owns wall time: TTFT is 0.5-1.0 % of GPU latency at 200-300 tokens | Per-token bridge cost matters only if it is comparable to a decode step. P4-12 measured 3.7 us per token (JSON plus timestamp, replica) against 24.9 ms per GPU token (DERIVED 1000/40.14, hard tier), i.e. 0.015 %. Micro-optimising the bridge is NOT a throughput lever (see WP-16) |
+| P3-02 | NPU TTFT is a flat 2233-2271 ms across 20/35/42-token prompts; NPU decode 14.4-15.4 tps vs CPU 13.1-13.7 vs GPU 40-52 | NPU is not a latency win on this model. Cause of the flat 2.2 s (static padded prefill) is a HYPOTHESIS; M-04/M-05 decide |
+| P3-03 | No load/compile time exists in any file. First-call cost is visible in discarded warmup row 0: CPU TTFT 9.0-14.2 s vs steady 0.07-0.36 s, GPU 134-221 ms vs 20-74 ms, NPU 2.5-4.9 s | A real first user request pays this. Load/compile seconds are UNMEASURED (WP-02, N-04) |
+| P3-04, P3-05 | Warmup of 3 does not converge for CPU; CPU CV 11.1-38.0 %; speed-up gate fails in 6 of 6 LLM cells | The GPU/CPU ratios are directionally safe, magnitudes are not. Re-baseline (M-01) before any "before/after" claim |
+| P3-06 (with P1-12) | GPU low-tier decode falls from 53.35 to 45.38 tps across 10 timed rows (-14.9 %, Spearman -0.85); later tiers run at 0.79-0.81x of the low-tier mean | Order confound: cause (thermal/power) is a HYPOTHESIS. Frequency is null (zesInit 0x78000001). M-01/M-02/M-03 decide. Do not attribute any later tier effect to code |
+| P3-07 | GPU TTFT 20.1 / 25.0 / 73.7 ms for 20/35/42 tokens is not monotone per token | Unexplained; M-04 |
+| P3-08 | Output length differs by device at temperature 0 (GPU 18 vs CPU/NPU 20 tokens; VLM GPU hard chunks 95-172) | Compare per-token or per-chunk time, not raw latency |
+| P3-09 | `probe.json` copy 30.6 GB/s and triad 15.75 GB/s are single-thread NumPy; implied GPU decode traffic 37.7-48.9 GB/s (DERIVED from a spec-constant 0.94 GB) exceeds them | The probe cannot be a roofline ceiling. M-09 |
+| P3-11 | CPU baseline is untuned (cache dir, hints, SDPA only set for GPU, openvino_engine.py:155-160) | Ratios are "GPU vs OpenVINO-default CPU" |
+| P3-12, P3-13, P3-14 | SD-1.5 failure is documented but has no result row; power, frequency, memory use are absent; legacy docs (30.8x TTFT, 139 ms GPU TTFT) contradict measured rows | No cause for CL_OUT_OF_RESOURCES may be published. Doc corrections are WP-01 |
+
+### 23.3 (a) Consolidated bottleneck register
+
+Original ids are kept; a row merges duplicates (the second id is the duplicate). Severity is the highest given by a source report. "WP" is the work package that closes or measures it (23.5).
+
+#### 23.3.1 Honesty-rule violations (listed separately; fixed first, WP-01 unless stated)
+
+| Ref | Source id | Violation | Where (from the report) | Class |
+|:--|:--|:--|:--|:--|
+| H-01 | P4-16 | Invented `sqnr_db` 34.6 (Q4_0) / 99.0 and `average_sqnr_db=34.6`; the transpiler is a raw byte copy that computes no error | quant/transpiler.py:341, 393; served by `/api/gguf/convert*` and SSE `final_sqnr_db` | READ |
+| H-02 | P4-16 | OpenAI `usage` and embedding counts are `len(text.split())`; non-stream `prompt_eval_count=0` with no validity flag. Residual of S-A finding H4 (plan 21.2), which fixed only part of the Ollama routes | routes_openai.py:266-267; routes_embeddings.py:108,165; routes_ollama.py:350,460 | READ |
+| H-03 | P5-08 | `warm_load_time_ms = max(compile_time_ms * 0.15, 12.0)` on exception, then used in `speedup_multiplier`; `cache_hit` is "directory non-empty"; "45-120 s JIT" docstring has no measurement (also P1-02) | engine/aot_cache.py:158, 79, 114, 4 | READ |
+| H-04 | P5-10 | Constant telemetry in media paths: VAD-gated clip `latency_s=0.001` (reports 1000x real time); `compute_warp_error` returns 0.038 on any exception; frames padded by repetition while `num_frames=len(frames)`; stage telemetry 9.5, 0.22, 0.25, 4.5; `usm_zero_copy_latency_us` times an `ndarray.view()`; audio worker reports "Kokoro initialized on NPU" after a failed load; video `seed` computed but never passed; visual worker reads a missing attribute and renders synthetic slides | audio_engine.py:249-259; video_engine.py:391, 465-471, 484-487, 527; orchestrator/pipeline.py:161, 206, 281-287, 397, 403; audio_worker.py:210-226; visual_worker.py:192-194, 228, 239 | READ |
+| H-05 | P1-13, P5-12 | `except Exception: return None` in the generation-config builder drops temperature, stop strings, `max_new_tokens`, adapters; LoRA load failure is stored as loaded and `build_adapter_config` returns an empty config; adapter paths skip `ensure_path_allowed`. Violates "do not swallow errors" | openvino_engine.py:223-224; speculative_engine.py:270-271; lora_manager.py:333-335, 397-398, 295-296 | READ |
+| H-06 | P1-09 | Benchmark `tok_per_sec = n / decode_ms` with the first token excluded from time but included in the count: overstates by n/(n-1) (18/17 = +5.9 % at the low tier, 200/199 = +0.5 %); telemetry.py:363 uses (n-1) so the two paths disagree; `benchmark/runner.py` uses temperature 0.7 so it is not the producer of the committed LLM file | benchmark/runner.py:160-161, 122 | READ+DERIVED |
+| H-07 | P1-04 (P1-09, P1-06) | Stream "tokens" are streamer callbacks, and the end-of-stream count re-tokenizes the output (`is_estimate=True`); speculative stream telemetry has no token count | openvino_engine.py:327, 371; telemetry.py:371; speculative_engine.py:494-503 | READ (callback-vs-token equality is a HYPOTHESIS) |
+| H-08 | P5-05 | Any exception on GPU (including CL_OUT_OF_RESOURCES) silently builds the pipeline on CPU; `fallback_used` depends on the caller comparing devices | image_engine.py:176-185; video_engine.py:196-205; vision_engine.py:92-101; audio_engine.py:177-182; embedding_engine.py:102-115 | READ |
+| H-09 | P5-06 | `text_encode_device`, `denoise_device`, `vae_device` are declared and never read | image_engine.py:55-57 | READ |
+| H-10 | P5-15 | VLM `generate()` collects all chunks then yields, so API TTFT equals total latency while presented as streaming | vision_engine.py:208-228 | READ |
+| H-11 | P5-09 | 24-bit WAV falls into the float32 `frombuffer` branch and yields garbage with no error | audio_engine.py:448-449 | READ |
+| H-12 | P1-10 | KV footprint and admission use hard-coded model shape (28 layers, 8 heads, 128 head_dim, 2 bytes) and a constant 4096 window as if read from the model | kv_cache.py:49-56, 75-82; core/constants.py:5 | READ |
+| H-13 | P4-14 | `/api/batch/status` "prefix cache hit rate" counts the stats-only probe, not real KV reuse | server/batch_pipeline.py; prefix_probe.py | READ |
+| H-14 | P3-14 (R08 F10) | Legacy docs contradicted by measured rows (30.8x TTFT vs 20.1x/2.8x/2.3x; hub README row still 30.8x) | docs/benchmarks/empirical_silicon.md, docs/benchmarks/README.md | PROVEN |
+| H-15 | P1-07 | Wording about NPU draft speed-up in README/plan must be checked against the derived c = 2.82 (see R-18) | README, plan | DERIVED |
+| H-16 | P1-06 | Speculative TPS is chunk-based and may undercount when one step emits several tokens | speculative_engine.py:494-503 | HYPOTHESIS |
+
+#### 23.3.2 Performance and robustness bottlenecks
+
+| Id (merged) | Title | Class | Sev | WP |
+|:--|:--|:--|:--|:--|
+| **Event loop and streaming bridge** | | | | |
+| P4-01 (P1-01) | Blocking load, compile, generate, tokenize, embed, GGUF parse, pull, `/api/devices` inside `async def`. Replica: a probe that needs ~52 ms took 2077 ms while one 1 s load plus 1 s generate was in flight; only routes_lora and routes_studio use `to_thread` | READ+replica | Critical | WP-03 |
+| P4-03 (P1-03 bug) | `call_soon_threadsafe(queue.put_nowait)` never raises `QueueFull` in the worker; the `sleep(0.002)` branch is dead; sentinel can be dropped. Replica: 67 of 300 tokens lost with a 2 s loop stall; a burst producer hung the consumer | READ+replica | High | WP-03 |
+| P4-04 | Client disconnect leaves the worker generating. Replica: 102 tokens produced 1 s after the consumer left at token 5, thread alive; `record_generation_metrics` never runs for aborted streams | READ+replica | High | WP-03 |
+| P4-15 | Hub `pull(stream=False)` runs on the loop; streaming pull shares the P4-03 bridge bug | READ | Low | WP-03 |
+| P4-12 (P1-03 overhead) | Per-token cost: 3 queues, 2 threads, per-token `is_disconnected()`, timestamp, `json.dumps`. Only JSON plus timestamp measured (3.7 us/token) | HYPOTHESIS (JSON part replica) | Low | WP-16 |
+| P4-11 | `BaseHTTPMiddleware` x2 plus synchronous Rich/file logging on the loop; Egress logged at first byte; request id lost while streaming. Replica us/request: bare 274-280, app 714, +ApiKey 967, INFO 2548 | READ+replica | Low-Med | WP-15 |
+| P4-14 | `BatchExecutionPipeline` is unwired; if wired it runs `batcher.step()` on the loop and drops chunks on a full queue | READ | Latent | WP-15 (guard) |
+| **Model manager and lifecycle** | | | | |
+| P4-05 (P1-11) | No per-engine serialization; `_telemetry` is one mutable field per engine so concurrent requests read each other's numbers (certain from code); eviction sets `_pipeline=None` under an in-flight request. Thread-safety of concurrent `LLMPipeline.generate` is a HYPOTHESIS | READ | High | WP-04 |
+| P4-02 (P1-02, P5-03) | `ModelManager._lock` held across resolve, evict, unload and compile; shared with `record_generation_metrics`, `get_telemetry`, `list_available_models`; no warmup after load. First-request cost is PROVEN (P3-03); compile duration is a HYPOTHESIS (P4-02 says O(10-100 s), unmeasured) | READ + PROVEN (first-request) | High | WP-05 |
+| P4-06 | Cache key uses the raw request string (`qwen`, `qwen:latest`, path = 3 engines) and includes gamma; eviction happens before the new load succeeds; `unload_model` matches raw prefix | READ | Medium | WP-05 |
+| P5-02 | `EmbeddingEngine` and `VisionEngine` have no `unload()`; eviction pops and drops; `unload_all` and `unload_model` touch only the LLM cache; an evicted in-flight LLM engine fails with "not loaded" | READ | High | WP-05 |
+| P5-01 | Three LRU caches each capped at `max_loaded_models=2` by count, no byte accounting; worst case 6 resident engines against a 6976 MiB shared ceiling (probe). Whether the sum exceeds it is a HYPOTHESIS | READ + HYPOTHESIS | High | WP-07 |
+| P5-17 | Context-lost handling exists only in the benchmark harness; the server has none; image/video wrap the error text in a generic error | READ | Medium | WP-07 |
+| P5-16 | Gate uses on-disk bytes x 1.2; no peak RSS, shared-GPU memory or host-available field in any result; blocks calibration of P5-01/P5-04 | READ | Medium | WP-02 |
+| **Engine and LLM** | | | | |
+| P1-05 (P5-13) | Speculative engine ignores the requested device (`load_model(..., device="GPU")` default, `target_device` dropped by pydantic); draft silently falls back to CPU while the cache key still says NPU | READ | High | WP-01 |
+| P1-06 | `_adapt_gamma` has no caller; gamma in cache key forces a full recompile on change; both `num_assistant_tokens` and confidence threshold set (whether OpenVINO accepts both is a HYPOTHESIS) | READ | Medium | WP-13 |
+| P1-07 | NPU draft against GPU target: DERIVED c = t_draft/t_target = 41.42/14.67 = 2.82 (medium tier, same 1.5B model, so a real small draft's c is UNMEASURED). With S <= (g+1)/(g*c+1): g=4 gives 5/12.28 = 0.41. No speculative result file exists | DERIVED from PROVEN | High (claim risk) | WP-13 |
+| P1-08 (P5-07) | Compile cache set only for GPU and relative to CWD (`Path(".cache/ov_cache").resolve()`); NPU/CPU/draft and all non-LLM pipelines get no properties; `AOTCompilationManager` writes `~/.arc-runner/cache/blobs/<DEV>/<model>`, a different directory, so "AOT compile" does not warm what engines read. Benefit is a HYPOTHESIS (NPU 2.2 s floor is PROVEN P3-02, its cause is not) | READ | Medium-High | WP-12 |
+| P1-04 | Prompt tokenized 2-3x per request plus a full re-tokenize of the output before the final chunk; cost is a HYPOTHESIS | READ (cost HYPOTHESIS) | Medium | WP-14 |
+| P1-10 | KV: footprint from constants, `reserve_allocation` has no caller, window constant 4096; u8 KV memory/quality effect unmeasured | READ | Low-Med | WP-14 |
+| P1-12 (P3-06) | GPU decode decays 14.9 % within the low tier | PROVEN (cause HYPOTHESIS) | Medium | WP-02 (record), M-01/M-03 |
+| **LoRA and media pipelines** | | | | |
+| P5-12 (rest) | Adapters not registered at pipeline construction (HYPOTHESIS; verify A/B at temperature 0); LoRA on a static NPU graph probably unsupported (HYPOTHESIS) | READ + HYPOTHESIS | High | WP-16 (after A/B); errors and path in WP-01 |
+| P5-04 | Image/video requests have no pixel/frame budget (width/height up to 2048, 4 images, 300 frames). DERIVED unfused-attention bound for SD-1.5 (8 heads, batch 2): 512 = 0.54 GB, 768 = 2.72 GB (matches R09 and the recorded failure), 1024 = 8.59 GB (> 6976 MiB); upper bounds only, SDPA fusion unverified | READ + DERIVED | High | WP-06 |
+| P5-15 | VLM: no pixel cap, unbounded image count, no `unload`; hard tier 12.75-23.58 s within one tier (PROVEN range, memory share unattributed) | READ + PROVEN range | Medium | WP-06 |
+| P5-09 | Audio via Python float lists: 32 B/sample vs 4 B (DERIVED 8x; one hour at 16 kHz = 1.84 GB list); whole file read; no duration bound | READ + DERIVED | Medium | WP-06 |
+| P5-14 | Embedding: unbounded batch, no NPU shape control, double normalisation in pure Python | READ | Medium | WP-06 |
+| P5-11 | Video float temporaries and full-frame retention (studio 512x512, 960 frames = 755 MB DERIVED) | READ + DERIVED | Medium | WP-06 |
+| P5-18 | Sysman: two snapshots per run outside the clock (good), handles re-enumerated per snapshot, whole-package power, no idle baseline; snapshot cost unmeasured | HYPOTHESIS | Low-Med | WP-02 / WP-16 |
+| P5-19 | First-inference cost absent from schema (VLM GPU warmup0 17.53 s vs median 1.23 s; CPU 45.58 s vs 8.75 s; whisper 2.5x) | PROVEN (absence) | Low | WP-02 |
+| P5-20 | Host memory behaviour of OpenVINO IR loading (mmap or read) | HYPOTHESIS | Low | measurement only |
+| **Native streamer (P2, all READ-level unless stated; no native or flash-stream result exists)** | | | | |
+| P2-03 | Cold page faults happen inside the DMA copy, under a 1.5 s sync timeout (`ARC_ZE_DEFAULT_SYNC_TIMEOUT_MS`, max 1900) whose expiry marks the context dead and disables staging for the manager's life | READ (impact HYPOTHESIS) | High | WP-08 |
+| P2-02 | No madvise/readahead/pre-touch in the native path: "prefetch" does no I/O without stager or pin; Windows open uses `FILE_FLAG_RANDOM_ACCESS` | READ (impact HYPOTHESIS) | High | WP-08, WP-11 |
+| P2-07 | No wrap-around prefetch (layer 0 of the next token is a sync miss); thread per prefetch; depth 1 of R-1; `_reserve_slot` can evict a READY slot the consumer holds while its USM buffer is queued for release | READ | Medium (hazard: correctness) | WP-08 |
+| P2-01 | `_pin_lock` and the engine RLock held across `mlock`/`VirtualLock`; consumer load can wait behind a background pin; layer span pinned min..max including gaps. Active only with `ARC_PIN_RING=1` | READ | High (when pinning on) | WP-09 |
+| P2-04 | USM allocate and free per staged layer; `StagingStats.seconds_total` lumps alloc, copy, sync, free | READ (magnitude HYPOTHESIS) | Medium | WP-02 (timers), WP-09 |
+| P2-05 | One queue, ordinal 0, close/execute/sync/reset per layer; `_submit_lock` spans alloc plus copy plus sync; no copy-only queue group query | READ (HYPOTHESIS) | Medium | WP-09, WP-10, WP-11 |
+| P2-06 | CPU fallback copy cannot trigger for mmap sources (only USM-to-USM); memmove runs under a bare spinlock | READ | Medium | WP-09, WP-10 |
+| P2-08 | Per-tensor Python/ctypes overhead 2.95 us (same sizes) to 11.09 us (all-distinct sizes), `re.sub` 0.72 us; C lookup is a linear scan | READ+replica (Python side only) | Low | WP-16 |
+| P2-09 | Python fallback copies each tensor out of the mapping (`mmap[a:b]` returns bytes); replica 4.73 GB/s at 1 MB, 7.69 GB/s at 16 MB | READ+replica | Low-Med | WP-16 |
+| P2-10 | 32 B GGUF source vs 64 B USM destination; no page/huge alignment | HYPOTHESIS | Low | WP-16 |
+| **Server, CLI and storage hygiene** | | | | |
+| P4-07 | `/api/devices` rebuilds `DeviceDetector`, `LevelZeroSysman`, `ov.Core()` per call; replica 15-18 ms on a CPU-only VM; Arc cost is a HYPOTHESIS | READ+replica | Medium | WP-15 (loop part WP-03) |
+| P4-08 | GGUF header re-parsed repeatedly: 381-416 ms per summary for a synthetic 151,936-token vocabulary; transpile parses twice; N+1 manifest scans in `/api/ollama/local` | READ+replica | Medium | WP-15 |
+| P4-09 | Transpiler reads whole tensors (peak RAM = largest tensor), single-thread read/write/SHA, no cancel hook | READ (throughput HYPOTHESIS) | Medium | WP-15 |
+| P4-10 | `--version` pays 664 ms (median of 5, replica) because `cli/main.py` imports server, FastAPI, engines, benchmark eagerly | READ+replica | Medium | WP-15 |
+| P4-13 | Template read per request; stats-only prefix probe tokenizes the whole prompt and keeps 32 ids; disk rescans (3.9 ms for 30 models, replica) | READ+replica | Low | WP-15 / WP-14 |
+
+### 23.4 (b) Measurement requests for the Windows machine
+
+Machine: Core Ultra 5 125H, Arc iGPU, AI Boost NPU, 15 GB, Windows 11 (probe.json). Run from the repository root in PowerShell, AC power connected, nothing else running, models under `models/`. Results go to `docs/benchmarks/results/` (schema v1) and are committed; a number that is not in a committed file may not be quoted in docs.
+
+Priority (P3 section 5 plus the new items): M-01, then M-03/M-09 (power and bandwidth truth), M-07 (SD-1.5 evidence), N-04 (load and first request), N-01, then M-04/M-05, N-07, N-10, the rest.
+
+#### 23.4.1 From P3 (ids kept; commands as given by P3, which verified them against the repository)
+
+| Id | Resolves | Command |
+|:--|:--|:--|
+| M-01 | Re-baseline under the documented protocol (P3-04, P3-05, P3-06 order, P3-13) | `python scratch/run_live_sequential_model_benchmarks.py --model qwen-2.5-1.5b --runs 30 --warmups 3 --max-warmups 5 --interleave --cooldown-s 20 --seed 0` then `python scripts/validate_bench_json.py` and `python scripts/render_bench_docs.py`; repeat with `--seed 1`. Confirm `on_ac_power` is true and inspect `protocol.series_quality` |
+| M-02 | Interleave vs sequential effect (P3-06 vs P3-10) | M-01 once without `--interleave` and once with, same `--seed`; compare the GPU low-tier slope |
+| M-03 | Thermal or clock cause of GPU decay (P1-12, P3-06) | `python scripts/probe_hardware.py > probe.json`; check `sysman_telemetry.value[0].gpu_frequency_mhz` and `package_power_w` are non-null; if null, log GPU clock, package temperature and power with HWiNFO alongside M-01 (outside the repo) |
+| M-04 | TTFT vs prompt length on GPU/CPU/NPU (P3-07, P3-02) | No repo script sweeps prompt length. Edit a copy of `MODEL_WORKLOAD_SPECS["qwen-2.5-1.5b"]` in `scratch/run_live_sequential_model_benchmarks.py` (`max_tokens` 1-4, prompts of about 1, 20, 35, 42, 100, 200, 400, 800 tokens) and run the M-01 command with `--runs 30 --interleave`. WP-02 adds a supported `--prompt-lengths` option |
+| M-05 | NPU decode vs CPU, fixed prefill, compile (P3-02, P3-03) | As M-04 for `npu` (included by the LLM script); time `OpenVINOGenAIEngine.load_model` for NPU in a throwaway session until WP-02 records it |
+| M-06 | Cold start and cache effect (P3-03, P1-08) | Superseded by N-04, which uses existing CLI flags |
+| M-07 | SD-1.5 failure: which tier, allocation vs TDR (P3-12, P5-04) | `python scratch/run_live_image_benchmarks.py --model stable-diffusion-v1-5 --download --tiers low,medium --runs 10` (exits 3 on CL_OUT_OF_RESOURCES; commit the written file); then `--tiers hard` separately with Windows Event Viewer System "Display" event 4101 captured; then `--model stable-diffusion-v1-5-int8 --download --tiers low,medium,hard` |
+| M-08 | Memory ceiling and single-allocation limit (P3-09, P3-12) | `python scripts/probe_hardware.py > probe.json`; watch `total_mb=6976` against Task Manager "Shared GPU memory" during M-07 (also N-10) |
+| M-09 | True bandwidth ceiling (P3-09) | `python scripts/bench_native_micro.py` (native library built) plus a multi-thread STREAM-class tool built outside the repo (Intel MLC or stream.exe); memory speed with `Get-CimInstance Win32_PhysicalMemory \| Select Speed,ConfiguredClockSpeed,SMBIOSMemoryType`. USM host/device/shared copy micro-benchmark is not scripted (WP-02 adds it) |
+| M-10 | CPU baseline tuning and variance (P3-05, P3-11) | `python scratch/run_live_sequential_model_benchmarks.py --model qwen-2.5-1.5b --runs 30 --warmups 5 --fixed-warmups` under the Windows High performance plan; record whether CPU CV falls below 10 % |
+| M-11 | VLM vision-encode vs prefill vs decode (P3-08, P5-15) | `python scratch/run_live_vlm_benchmarks.py --model qwen2-vl-7b --runs 30 --interleave --cooldown-s 20`; until a fixed-length control exists use per-chunk latency |
+| M-12 | STT fixed-window cost (P3-01 analogue) | `python scratch/run_live_audio_benchmarks.py --model whisper-tiny --runs 30 --warmups 3`; real speech clips for WER are not in the repo |
+| M-13 | H-A/H-B vs Ollama | BLOCKED: the schema-v1 LLM script has no Ollama backend and `scratch/run_live_real_models_benchmark_and_compare.py` is unsafe (R08 F9). Needs a collector first; out of scope here |
+| M-14 | H-C regression | `python scripts/bench_regression.py --baseline c7312e0 --workload llm --model-dir <qwen-2.5-1.5b dir> --device GPU --runs 30 --warmup 3` (cold process per sample; not a steady-state figure, R08 F4/F13) |
+| M-15 | H-D u8 KV | `python scripts/bench_kv_quality.py --model-dir <qwen-2.5-1.5b dir> --device GPU --max-new-tokens 128` (8 prompts today) |
+| M-16 | Pre-run record | `python scripts/probe_hardware.py > probe.json`, `python scripts/validate_bench_json.py`, `python scripts/check_docs_sync.py` |
+
+#### 23.4.2 New requests from P1, P2, P4, P5
+
+"Existing" means every flag below was found in the repository (`cli/main.py`, `app.py`, `scripts/`). "Delivered by WP-xx" means the command does not exist yet; the work package creates it, and the planned invocation is given so the request can be scheduled.
+
+| Id | Resolves | Command | Status |
+|:--|:--|:--|:--|
+| N-01 | Loop stall with a real engine (P4-01, P1-01): p99 of `/api/version` idle vs during one non-stream generate | Terminal 1: `python -m arc_runner.cli.main serve --model-dir models --default-model qwen-2.5-1.5b`. Terminal 2 idle: `1..400 \| % { $s=[Diagnostics.Stopwatch]::StartNew(); Invoke-RestMethod http://localhost:11434/api/version \| Out-Null; $s.Elapsed.TotalMilliseconds; Start-Sleep -Milliseconds 50 } > probe_idle.txt`. Terminal 3: `Invoke-RestMethod -Method Post -Uri http://localhost:11434/api/generate -ContentType application/json -Body '{"model":"qwen-2.5-1.5b","prompt":"Write a long story.","stream":false,"options":{"num_predict":300}}'` while repeating the terminal-2 loop into `probe_busy.txt`. (`num_predict` is read at routes_ollama.py:163.) Report median and p99 of both files | Existing |
+| N-02 | Does OpenVINO honour a streamer `True` return promptly (P4-04 risk); worker stops after disconnect | `python -m pytest -m hardware -k stream_cancel` | Delivered by WP-03 |
+| N-03 | Concurrent pipeline safety (P1-11, P4-05): 8 concurrent streams on one pipeline, outputs at temperature 0 diffed against sequential runs; telemetry per request vs client-side counts | `python -m pytest -m hardware -k concurrent_streams` | Delivered by WP-04 |
+| N-04 | Cold vs warm load and first request per device (P1-02, P1-08, P5-07, P5-19, P3-03) | Per device D in GPU, NPU, CPU, in a fresh process each time: `Remove-Item -Recurse -Force .cache\ov_cache -ErrorAction SilentlyContinue; Measure-Command { python -m arc_runner.cli.main benchmark --model <model dir> --device D --iterations 1 --warmup 0 --tokens 8 --json }` then the identical command again (warm). Repeat 5 times each. Do not read the `aot-compile` warm-load figure until H-03 is fixed. WP-02 records `load_s` and `first_inference_s` in the schema | Existing (timing outside the repo until WP-02) |
+| N-05 | Tokenization cost vs prompt length and output re-encode (P1-04) | `python scripts/bench_engine_overhead.py --model-dir <dir> --prompt-tokens 20,1000,3500` | Delivered by WP-02 |
+| N-06 | Bridge overhead end to end (P1-03, P4-12): 5,000 tokens from a fast fake engine through real uvicorn vs a direct generator, with and without middleware | `python scripts/bench_server_overhead.py --tokens 5000` (CPU only, runs on any OS) | Delivered by WP-02 |
+| N-07 | Native cold-cache read, with and without advice/pre-touch (P2-02, P2-03) | `python scripts/bench_native_micro.py --cold` after emptying the standby list (Sysinternals `RAMMap64.exe -Es`; confirm the flag with `RAMMap64.exe /?`), runs >= 15 per series so `benchmark/stats.py` gives a 95 % interval | Delivered by WP-02 |
+| N-08 | `stage_layer` phase split on Arc: alloc, copy-append, sync, free (P2-04, P2-05); ordinal 0 vs copy-only ordinal later | `python scripts/bench_native_micro.py --stage` with the split timers | Delivered by WP-02 |
+| N-09 | Pin on/off consumer stall (P2-01), per-token miss count and layer-0 bubble (P2-07), lookup cost at 12 tensors x 80 layers (P2-08) | `$env:ARC_PIN_RING='1'; python scripts/bench_native_micro.py --ring` and the same without the variable | Delivered by WP-02 |
+| N-10 | Peak shared GPU memory and host available memory (P5-01, P5-04, P5-15, P5-16, P5-20) during SD-1.5 sizes 512, 576, 640, 704, 768 in fresh processes, VLM 7B INT4 low/hard, LLM+VLM+embedding resident together | In a second window: `typeperf "\GPU Adapter Memory(*)\Shared Usage" -si 1 -o shared_usage.csv` for the whole run. Size sweep needs `--sizes` on `scratch/run_live_image_benchmarks.py` | Counter existing; sweep delivered by WP-02 |
+| N-11 | Sysman snapshot cost (P5-18): 1000 consecutive `read_package_energy` calls, median and p99 | `python scripts/bench_engine_overhead.py --sysman-calls 1000` | Delivered by WP-02 |
+| N-12 | CLI start cost on Windows (P4-10) | `python -X importtime -c "import arc_runner.cli.main" 2> imp.txt` and `1..5 \| % { (Measure-Command { python -m arc_runner.cli.main --version }).TotalMilliseconds }` | Existing |
+| N-13 | `/api/devices` cost on Arc, first vs warm (P4-07) | with the server running: `1..20 \| % { (Measure-Command { Invoke-RestMethod http://localhost:11434/api/devices }).TotalMilliseconds }` | Existing |
+| N-14 | GGUF parse cost on a real model (P4-08) | `1..3 \| % { (Measure-Command { python -m arc_runner.cli.main inspect-gguf <model.gguf> --json }).TotalMilliseconds }` | Existing |
+| N-15 | Transpile time and peak RAM (P4-09) | `Measure-Command { python -m arc_runner.cli.main convert <model.gguf> -o <out dir> --precision int4 }`; peak working set via the WP-02 helper (`scripts/bench_engine_overhead.py --peak-rss -- <command>`) | Time existing, RSS delivered by WP-02 |
+| N-16 | Speculative calibration (P1-07): target-only vs NPU draft vs CPU draft vs GPU draft with a real small draft model, derive c and acceptance only from `perf_metrics` counters | `python scratch/run_live_speculative_benchmarks.py --target <dir> --draft <dir> --draft-device NPU` | Delivered by WP-13 |
+| N-17 | LoRA A/B at temperature 0 (P5-12): same prompt with and without an adapter must differ | needs an adapter; run after WP-01 | Delivered by WP-16 |
+| N-18 | NPU embedding batch sweep 1/8/32 and padding behaviour (P5-14, P5-07) | `python scratch/run_live_embedding_benchmarks.py --device NPU --batches 1,8,32` | Delivered by WP-06 |
+
+### 23.5 (c) Work packages, ordered by dependency
+
+Rules for every package: red-first (failing test committed or shown failing, then the fix), tests named `test_<function>_<scenario>_<expected>`, hardware tests marked `@pytest.mark.hardware` and reported as not run when skipped, `python scripts/check_docs_sync.py` and `python scripts/check_delivery_docs.py` after each package, conventional commits referencing #42, one package (or one lettered item) per commit. A native source change and its rebuilt library plus sidecar share a commit (DL-040: the Windows DLL is rebuilt locally). A behaviour change that clients can see gets a CHANGELOG line. Gate: CLOUD = runnable without Intel silicon; LOCAL = needs the maintainer's machine.
+
+```mermaid
+flowchart LR
+  WP01["WP-01 honesty"] --> WP03["WP-03 async bridge"]
+  WP01 --> WP06["WP-06 request limits"]
+  WP02["WP-02 measurement"] --> WP07["WP-07 memory budget"]
+  WP03 --> WP04["WP-04 lease"]
+  WP04 --> WP05["WP-05 manager"]
+  WP05 --> WP07
+  WP04 --> WP14["WP-14 accounting"]
+  WP05 --> WP12["WP-12 cache"]
+  WP12 --> WP13["WP-13 speculative"]
+  WP02 --> WP13
+  WP02 --> WP08["WP-08 prefault and ring"]
+  WP08 --> WP09["WP-09 stager"]
+  WP09 --> WP10["WP-10 native internal"]
+  WP10 --> WP11["WP-11 ABI 4"]
+  WP03 --> WP15["WP-15 hygiene"]
+  WP02 --> WP16["WP-16 deferred"]
+```
+
+(Mermaid block not rendered here: `mmdc` is absent in this environment and `scripts/check_mermaid.py` does not scan `docs/plans/`. It uses only plain flowchart syntax with quoted labels.)
+
+#### WP-01 Honesty and fail-loud fixes (CLOUD, no ABI change)
+- Scope: close H-01..H-16 that need no hardware. Items are independent and each is its own commit: 01a H-01; 01b H-02; 01c H-03; 01d H-04; 01e H-05 (plus LoRA path through `ensure_path_allowed`); 01f P1-05/P5-13 device pass-through and `extra="forbid"` on `SpeculativeConfig`; 01g H-09 (raise `ValueError` naming the field when a per-stage device differs from the main device); 01h H-06 benchmark formula `(n-1)/decode_s` with n<2 invalid, and relabelling of already-published figures (never silently changed); 01i H-13 counter relabelled "probes"; 01j H-14/H-15 doc corrections in `docs/benchmarks/` and README so no sentence contradicts a measured row (cite file and row).
+- Files: quant/transpiler.py, quant/models.py, server/routes_ui.py, routes_openai.py, routes_embeddings.py, routes_ollama.py, engine/aot_cache.py, audio_engine.py, video_engine.py, orchestrator/{pipeline,audio_worker,visual_worker}.py, engine/{openvino_engine,speculative_engine,lora_manager,image_engine,models}.py, server/model_manager.py, benchmark/runner.py, tests/test_honesty_no_fabrication.py, docs/benchmarks/*.
+- Design: a fabricated constant becomes `None` plus a validity flag and a reason string (DL-067); model fields become Optional (additive, as DL-014 and DL-056); `except Exception: return None` becomes a typed `ArcRunnerError` subclass naming the field; an adapter that fails to load raises `AdapterConfigError`; usage counts come from the tokenizer or are null; short video output is flagged, not padded; unknown fields on `SpeculativeConfig` fail loudly; `load_model(..., device=device)` is passed through.
+- Tests: positive - real measured paths still report values; usage equals tokenizer counts; device CPU reaches the fake `ov_genai`. Negative - warp-error failure never yields 0.038; invalid adapter raises; unknown config field raises; n=1 TPS is invalid not a number; grep guard fails if literals 0.038, 0.22, 0.25, 4.5, 9.5, 34.6, 99.0, 0.15 or 12.0 reappear in telemetry construction. Edge - exactly-requested frame count; n=2; upper/lower-case device strings; transpile progress with no SQNR.
+- Acceptance (logical): no fabricated literal found by the extended grep test; every affected API field is a measured value or null with a reason; non-hardware suite green; docs sync green; CHANGELOG lists each client-visible null.
+- Rollback: per-item `git revert`; Optional fields are additive so older clients are unaffected by a revert.
+
+#### WP-02 Measurement instrumentation and baselines (CLOUD for code, LOCAL to produce data; no ABI change)
+- Scope: make every HYPOTHESIS in 23.3 measurable and commit the replica scripts: 02a schema-v1 additive Optional fields `load_s`, `load_cache_state`, `first_inference_s`, `first_request_ttft_ms`, `peak_working_set_mb`, `host_available_mb_before/after`, per-iteration `gpu_frequency_mhz`/temperature with null plus reason (P1-12, P5-16, P5-19, P3-03); METHOD.md item 4 ("cold start is not reported") updated; 02b `scripts/bench_server_overhead.py` from p4_bench_mw/gguf/importtime and a loop/leak harness (prints JSON, no claims, like `bench_native_micro.py`); 02c `scripts/bench_engine_overhead.py` (tokenize cost, Sysman snapshot cost, `--peak-rss`); 02d extend `scripts/bench_native_micro.py` per P2 appendix: cold-cache with and without advice, miss latency split, pin on/off, per-token miss count, 12 tensors x 80 layers, `--stage`, and either add `--subset linux` or correct the plan text (the flag is cited at plan line 859 and does not exist); 02e split timers in `StagingStats` (alloc, copy-append, sync, free); 02f `--prompt-lengths` and `--sizes` options in the scratch runners; 02g make `scripts/` runnable without `rich` (P2 section 0: package import fails without it).
+- Design: additive only; no field is populated unless measured; old files still validate.
+- Tests: positive - fake readers land in the result; the three committed result files still pass `validate_bench_json.py`. Negative - unreadable counter gives null plus reason, never 0. Edge - counter wraps or goes backwards; zero tensors.
+- Acceptance (logical): validator accepts old and new files; no new field has a default numeric value; each scripted request in 23.4.2 marked "delivered by WP-02" runs with `--help` and a smoke mode on a non-Intel machine.
+- Rollback: revert; fields are optional.
+
+#### WP-03 Shared async bridge and event-loop offload (CLOUD, no ABI change; depends on WP-01 for typed errors)
+- Scope: P4-01, P4-03, P4-04, P4-15, loop part of P4-07, template read of P4-13, P1-01, bug part of P1-03.
+- Files: new server/_stream.py; routes_openai.py, routes_ollama.py (stream, chat, generate, pull), routes_embeddings.py, routes_ui.py, app.py; engine/openvino_engine.py (stream worker folded into the helper).
+- Design (DL-061): a dedicated named `ThreadPoolExecutor` for blocking engine, disk and hub work (initial size `max_loaded_models + 2`, from P4-01 option 1, to be revisited after N-01); `run_blocking(fn, *args)` runs `fn` inside `contextvars.copy_context().run` so request-id logging survives; every blocking call in the P4-01 list goes through it (load, tokenize, non-stream generate, embed, GGUF parse, transpile, `hub.pull(stream=False)`, `/api/devices`). One `async_token_stream(...)` helper replaces the three bridge copies: one worker thread iterates the engine generator and appends to an unbounded buffer on the loop via `call_soon_threadsafe` (growth bounded by `max_new_tokens`, asserted); the finish state is a flag, never a droppable queue item; a `threading.Event` set in `finally` and by a disconnect watcher task makes the worker call `gen.close()` after the current chunk, which triggers the engine's `cancel_event`; the per-token `is_disconnected()` poll is removed. Interim safety: a per-engine `threading.Lock` around generate so offloading cannot expose concurrent `LLMPipeline` calls before WP-04 (P1-01 and P1-11 coupling).
+- Tests: positive - fake engine (1 s load, 1 s generate): a probe request completes before the generate completes; 300 of 300 chunks plus the finish chunk arrive with a 2 s loop stall; after client close the worker thread exits and `produced` stops growing; request id present in logs from the thread. Negative - engine exception mid-stream terminates the stream and reaches the client; `ModelNotFoundError` is still 404; a normal completion does not cancel and still records metrics. Edge - disconnect during prefill before the first token; disconnect at the finish chunk; double close; zero tokens; executor saturated queues instead of failing; 100k-token generation keeps the buffer bounded by `max_new_tokens`.
+- Acceptance (logical, thresholds recorded from the pre-change replica baseline in WP-02, none assumed here): the three replica scenarios (loop stall, token loss, leak) fail on the current code and pass after; a hardware test `stream_cancel` (N-02) shows OpenVINO stops after `True` return, reported not run if skipped; N-01 p99 during generate is compared with idle by the stats module and the committed numbers are quoted as measured.
+- Rollback: revert to the previous routes; the helper is additive and the executor is private.
+
+#### WP-04 Per-engine lease, serialization and request-scoped telemetry (CLOUD; depends on WP-03)
+- Scope: P4-05, P1-11, lease half of P5-02.
+- Files: server/model_manager.py, engine/openvino_engine.py, engine/telemetry.py, engine/models.py, routes_ollama.py (`_eval_timing_ns`), routes_openai.py.
+- Design (DL-062): `ModelManager.lease(key)` context manager (sync and async forms) returns the engine and increments a counter; eviction skips leased engines; `unload_model` with a lease held waits up to a timeout then raises `EngineBusyError`; one request runs per engine at a time (the interim lock from WP-03 becomes the lease queue), with optional 429 when queue depth exceeds a configured limit (off by default); telemetry is returned from the call as part of the result object and `engine.get_telemetry()` is kept as last-value only, documented as racy.
+- Tests: positive - 8 concurrent requests each get their own complete output and their own telemetry equal to client-side counts; eviction while leased evicts a different idle engine or waits. Negative - lease released on exception, cancel and client disconnect (`leases == 0` in stats); leaked lease reported. Edge - `max_loaded_models=1` with two models requested concurrently (queue, no deadlock); cancel while waiting for the lease; unload with lease held.
+- Acceptance (logical): no code path can set `_pipeline=None` while a lease is held; N-03 (hardware) outputs at temperature 0 equal the sequential outputs, or the result is recorded as "concurrent calls not safe, serialization mandatory" and kept.
+- Rollback: revert; the lease is additive to the manager API, callers fall back to direct get.
+
+#### WP-05 Model manager concurrency, canonical key, lifecycle (CLOUD; depends on WP-04)
+- Scope: P4-02, P1-02, P5-03, P4-06, unload half of P5-02, lock-free listing (P4-02, P4-13).
+- Files: server/model_manager.py, engine/embedding_engine.py, engine/vision_engine.py, engine/audio_engine.py (add `unload()`), cli/main.py (sync API kept).
+- Design (DL-062): a short `_state_lock` for dictionary operations only; `_loading: Dict[key, Future]` single flight so concurrent callers for the same key share one compile; one compile at a time per device (semaphore of 1, because two concurrent compiles double peak memory on a 6976 MiB shared ceiling, P5-03); cache key is the resolved path plus device plus draft path (gamma removed, passed per request); load-before-evict when the resident count is below `max_loaded_models` (after WP-07: when the byte budget allows), otherwise evict an idle LRU entry first and log it (a failed load must not lose the hot model when memory allows both); eviction and `unload_all` cover all three caches and call `unload()`; `list_available_models` copies `_model_dirs` under the lock and scans outside it, with a short TTL cache; `aget_or_load_engine()` for the server, the sync call remains for the CLI; optional `warmup()` after load, off by default and excluded from served-request metrics.
+- Tests: positive - a cache hit for model B returns while model A compiles; two concurrent requests for one cold key produce exactly one `load_model`; `qwen`, `qwen:latest` and the absolute path give one engine; eviction calls `unload` once and the object is released (weakref). Negative - a failing load releases waiters with the exception, leaves no half-registered key and keeps the previous engine; a different device or draft still gives a separate engine; two loads of different models on one device never overlap. Edge - `unload_model` during a load; eviction racing a hit; symlinked and case-insensitive paths; exception inside `unload` leaves no half-cleared cache.
+- Acceptance (logical): the ordering assertions above hold under a deterministic fake engine; N-04 shows the first-request penalty with and without `warmup_on_load`; the default of `warmup_on_load` is flipped only if the committed N-04 result shows first-request TTFT within the steady-state interval, otherwise it stays off.
+- Rollback: revert; keys and caches are in-memory only.
+
+#### WP-06 Request limits and fail-closed media validation (CLOUD; depends on WP-01)
+- Scope: P5-04, P5-15, P5-09, P5-14, P5-11 option A, H-10 labelling.
+- Files: new core/request_limits.py (config or `ARC_LIMITS_FILE`), `RequestLimitError` (an `ArcRunnerError` subclass, mapped to HTTP 413/422), engine/{image,video,vision,audio,embedding}_engine.py, orchestrator/visual_worker.py.
+- Design (DL-063): limits are data, not code: max pixels x images for image, max frames x pixels for video, `max_image_pixels` and `max_images` for VLM, `max_audio_seconds`, embedding batch cap with order-preserving chunking and a single normalisation (verified by a norm check at load); validation runs before any device call and counts `num_images_per_prompt` multiplicatively; audio keeps numpy arrays end to end, rejects `sampwidth` 3 with `InvalidAudioFormatError` unconditionally (a correctness fix, not a tuning limit); video float-to-uint8 conversion in chunks; no auto-downscale, no silent truncation. Numeric defaults for image/video/VLM are NOT shipped until a committed result file from M-07/N-10 exists; until then an unset limit logs one warning per process and does not reject (DL-063; open question 1 in 23.8).
+- Tests: positive - a size inside the configured limit passes; 16-bit mono WAV transcribes identically before and after (fake pipeline receives equal samples); chunked embeddings equal unchunked for 100 inputs. Negative - over-limit request raises before the pipeline is called (fake asserts not called); 24-bit WAV raises; decompression-bomb image maps to `InvalidImageFormatError`; non-multiple-of-8 still rejected first. Edge - value exactly at the limit; `num_images_per_prompt=4` counts 4x; batch size not dividing N; zero-length and NaN audio; tracemalloc peak on a 33x256x256 fake.
+- Acceptance (logical): no request that violates a configured limit reaches a device call; limit values in any shipped config cite a result file path; the SD-1.5 sweep result (N-10) is committed before any numeric default is added.
+- Rollback: revert; limits are config.
+
+#### WP-07 Device memory budget, typed device errors, fallback policy (CLOUD code, LOCAL calibration; depends on WP-05 and WP-02)
+- Scope: P5-01, P5-05, P5-17, strict-draft half of P5-13, P5-16 consumption.
+- Files: server/model_manager.py, engine/*_engine.py, core/exceptions.py, benchmark/harness_common.py (reuse `GPU_CONTEXT_LOST_MARKER`, line 92), server/app.py (`/health`).
+- Design (DL-063): byte budget across all three caches per device: sum of on-disk bytes times a configured factor (a convention, reported as `budget_basis: on_disk_bytes_x_convention` until the calibration table from WP-02 data replaces it) against a configured fraction of Sysman `total_mb` (or an explicit `ARC_DEVICE_BUDGET_MB`); LRU eviction across caches until it fits, else a typed `DeviceResourceError` with nothing evicted; when no budget is available fall back to the count limit and log it; enforcement flag off by default at first. Typed `DeviceContextLostError` raised when the marker (and the other CL strings in R09) appears; the manager marks the device unhealthy, refuses further GPU loads, keeps (does not unload) the dead engines, reports it in `/health`. CL_OUT_OF_RESOURCES is never converted to a CPU fallback; fallback for "device unsupported" classes always sets `fallback_used` and logs. Making fallback opt-in by default is a product decision (open question 2).
+- Tests: positive - fake engines with declared sizes: loading a third model evicts LRU across caches and the total stays under budget; budget unknown uses `total_mb`, and the count limit if that too is missing. Negative - a model larger than the whole budget raises the typed error and evicts nothing; ordinary `ValueError` does not mark the device unhealthy. Edge - concurrent loads from two threads; in-flight requests after the unhealthy mark; engine objects retained (weakref alive); draft device not the requested device is flagged or, in strict mode, raises.
+- Acceptance (logical): total resident bytes (declared) never exceed the configured budget in the fake; a dead-context mark blocks new GPU loads; the calibration factor table, when added, cites the result file.
+- Rollback: flag off restores the count-only behaviour.
+
+#### WP-08 Pre-fault, prefetch and ring behaviour without ABI change (CLOUD logic, LOCAL measurement; depends on WP-02)
+- Scope: P2-03, P2-02 (stage 1), P2-07.
+- Files: engine/flash_stream/weight_streamer.py, engine/flash_stream/device_stager.py, engine/flash_stream/engine.py (consumer loop 150-195), docs/formal/RingSlots.tla and `RingSlots.cfg` if the eviction rule changes.
+- Design (DL-064): a `prefault_layer(L)` step in the prefetch worker touches one byte per page over the registered tensor ranges (not the min..max span) before `_submit_lock` and before DMA, so the timed region of the 1.5 s sync is a pure copy; optional Linux `os.posix_fadvise(WILLNEED)` as an A/B knob; flag `ARC_PREFAULT`, default off until N-07 shows a benefit; prefetch `(L+k) % N` for k in 1..R-1 and skip only after the last token; one persistent prefetch worker with a bounded queue replaces a thread per call, joined within `PREFETCH_JOIN_TIMEOUT_SECONDS` by `close()`; slot rule: a slot is reusable only after its layer is released, which closes the hazard where `_reserve_slot` evicts a READY slot whose staged buffer the GPU may still read. The timeout is not raised (it is clamped below the TDR on purpose, DL-051).
+- Tests: positive - misses per token fall below N for R>=2 in a fake-timing test and layer 0 of token t+1 is READY before consumption; slot invariants of RingSlots.tla hold in the Python stress test; cold stage succeeds with `fallback_copies == 0` when pre-fault is on. Negative - prefetch beyond the last layer on the final token does nothing; simulated sync timeout still marks the context dead and retains buffers; `close()` during prefetch joins in time. Edge - R=1; N<=R; ARC_ZE_SYNC_TIMEOUT_MS at 1 and 1900; prefetch failure logged not raised; the 30 s acquire timeout path.
+- Acceptance (logical): the eviction rule change is reflected in the TLA+ model and `scripts/check_ring_model.py` passes (TLC itself is a LOCAL step, RESUME item 5); measured effect (miss count per token, cold touch time) is recorded in a result file, not asserted.
+- Rollback: flag off; the prefetch worker change is reverted as one commit.
+
+#### WP-09 Stager restructuring in Python (CLOUD logic, LOCAL measurement; ABI no; depends on WP-08)
+- Scope: P2-01, P2-04, P2-05 option 1, P2-06 option 1.
+- Files: engine/flash_stream/{weight_streamer,device_stager}.py, native/bridge.py (lock use only).
+- Design (DL-064): a dedicated background pin worker, per-tensor page-aligned ranges instead of the min..max span, the consumer never takes `_pin_lock`; `_submit_lock` narrowed to appends plus synchronize, with allocation and pre-fault outside it; a pool of R USM slot buffers sized to the largest layer span, reused by slot generation, with a layer larger than its slot buffer raising `NativeLayerError` (never truncated) and retained buffers after a timeout never reused after a dead context; on a staging failure for a tensor, a Python-side host copy (numpy `copyto` into a view over the host-USM destination, host/shared USM only) replaces the C fallback that cannot trigger for mmap sources. Gate for the slot pool: adopted only if N-08 shows alloc plus free as a material share of `stage_layer` time; the threshold is set when the result is reviewed and recorded as a DL entry, not fixed here.
+- Tests: positive - allocation count over N layers x T tokens equals R (`arc_ze_alloc_count` export exists); consumer acquire latency with a concurrent pin is within noise of the no-pin run (30+ runs, stats CI); fake loader forcing append failure stages an mmap tensor into host USM byte for byte with `fallback_copies` counted. Negative - tiny `RLIMIT_MEMLOCK` still disables pinning exactly once; dst in device USM refuses fallback; out-of-range dst writes nothing. Edge - ring size 1; evict-while-staged does not free a newer buffer; `close()` frees slot buffers once; `close()` racing an in-flight `lock_range`; Close/Execute/Sync/Reset order preserved per layer in the fake.
+- Acceptance (logical): staged bytes unchanged; no consumer path acquires `_pin_lock`; every change either keeps the fake-loader call order or is justified in the stage record.
+- Rollback: revert; the C library is untouched.
+
+#### WP-10 Native C-internal changes (LOCAL gate; ABI no; depends on WP-09 and hardware numbers)
+- Scope: P2-06 option 3 (memmove out of the spinlock), P2-08 option 2 (layer index table), P2-05 option 2 (copy-only queue ordinal).
+- Files: native/arc_level_zero_bridge.c, arc_flash_stream_mmap.c, tests/native_c harnesses including the fake Level Zero loader.
+- Design (DL-066): internal changes only, no exported signature changes, so `ARC_NATIVE_ABI_VERSION` stays 3; memmove moves out of `arc_table_lock` behind a refcount or shared lock on the allocation; the layer-to-slot index is built at seal time; the copy ordinal is found through `zeDeviceGetCommandQueueGroupProperties` (one more bound symbol) and falls back to ordinal 0. The ordinal and index items are gated: ordinal only if N-08 shows copy time dominant with compute idle, index only if N-09 shows lookup above the threshold P2-08 proposes (about 1 % of layer time, confirmed at review).
+- Tests: sanitizer harnesses (ASan/UBSan/TSan style as in S-B) clean; fake loader returning no copy group falls back to ordinal 0; unknown tensor still NOT_FOUND; layer 255; 64 tensors in a layer; duplicate names; unsealed table.
+- Acceptance (logical): `-Werror` build clean, harness check count not lower than the S-B baseline (1,000,078 checks), `.so`, `.dll` and both sidecars rebuilt in the same commit; DLL rebuild is a LOCAL step.
+- Rollback: revert the commit including library and sidecars; the bridge falls back to the Python path on a stale library.
+
+#### WP-11 ABI 4 batching and advice (LOCAL gate; ABI YES; depends on WP-10 and WP-08 results)
+- Scope: P2-02 option 2 (`arc_mmap_advise(ctx, offset, size, mode)` with madvise on POSIX and `PrefetchVirtualMemory` on Windows, and `FILE_FLAG_SEQUENTIAL_SCAN` or no hint instead of `FILE_FLAG_RANDOM_ACCESS`), optionally P2-08 option 3 (`arc_mmap_get_layer_ptrs`, `arc_ze_dma_copy_batch`), P2-06 option 2 (`arc_ze_host_copy`), P2-05 option 3 (immediate command list with submit/wait exports).
+- Design (DL-066): one bump to ABI 4 for all exports that are justified at the time, never one bump per export; an export with no supporting measurement is not added. Bump `ARC_NATIVE_ABI_VERSION` in arc_flash_stream_mmap.h, `_EXPECTED_ABI_VERSION` in bridge.py, build_native.py and the hard-coded `abi=3` in `arc_native_build_info`.
+- Gate: advice only if N-07 shows pre-touch (WP-08) does not recover the cold-cache cost on Windows; batch exports only if N-09 shows per-call overhead in layer time; immediate lists only if N-08 shows copy dominant and compute idle.
+- Tests: offset beyond file gives `ARC_ERR_RANGE` without an OS call; closed context gives invalid argument; not page-aligned range rounds inside C; size 0; file smaller than a page; repeated advice of a resident range does not regress the warm path; API absent (Windows 7) is a no-op; an old library with ABI 3 makes the bridge fall back to the Python path (existing stale-library test extended).
+- Acceptance (logical): ABI strings agree in all four places; both libraries and sidecars rebuilt in the same commit; stale-library fallback test passes.
+- Rollback: revert the commit; ABI check makes a mixed state fall back safely rather than crash.
+
+#### WP-12 Cache unification and NPU properties (CLOUD code, LOCAL measurement; depends on WP-05)
+- Scope: P1-08, P5-07, residual of H-03, P1-02 cache part.
+- Files: new core/cache.py (`resolve_cache_dir(device)`), core/constants.py (22), engine/{openvino_engine,speculative_engine,audio_engine,embedding_engine,vision_engine,image_engine,video_engine,aot_cache}.py.
+- Design (DL-065): one absolute cache root (env `ARC_CACHE_DIR`, default under `DEFAULT_CACHE_DIR`), device-keyed, passed as `CACHE_DIR` to GPU, NPU and CPU for every pipeline type and for the speculative target and draft; `AOTCompilationManager` uses the same root; the existing user-supplied `CACHE_DIR` `setdefault` behaviour (openvino_engine.py:158) is kept; an unwritable directory degrades to no cache with a logged reason; `cache_hit` is derived from a before/after listing; NPU static-shape knobs (prompt-length cap and similar) are added per workload only where a committed result shows a win, with property names verified against the installed GenAI (a wrong name raises at compile). Cache-key staleness after a driver or OpenVINO update is a HYPOTHESIS (OpenVINO is believed to hash model plus config) and must be tested.
+- Tests: positive - every engine resolves the same absolute path independent of CWD; second load of the same model finds a non-empty cache (file presence, not time). Negative - unwritable dir degrades without crashing; user `CACHE_DIR` wins. Edge - two processes sharing the directory; purge while an engine is loaded; hardware: cold vs warm per device (N-04), reported not run if skipped.
+- Acceptance (logical): one cache root visible in `/api/ps` or logs; N-04 results committed before any "faster after cache" sentence appears in docs.
+- Rollback: revert; cache directories are disposable.
+
+#### WP-13 Speculative decoding claim gate (CLOUD code, LOCAL calibration; depends on WP-01f, WP-02, WP-12)
+- Scope: P1-06, P1-07, H-15, H-16, P5-13 recording.
+- Files: engine/speculative_engine.py, server/model_manager.py, engine/models.py, benchmark workloads (new `llm_speculative`), scratch runner, docs.
+- Design (DL-068): gamma leaves the cache key and is passed per request; `dynamic_gamma`, `_adapt_gamma` and min/max fields are deleted unless the pipeline exposes acceptance counters (no acceptance rate is ever invented); only one of the two draft-length knobs is set per config after verifying the 2026.4.1 rule; stream telemetry carries a token count like the plain engine. Gate: from the P1-07 formula the upper bound (g+1)/(g*c+1) exceeds 1 if and only if c < 1 (DERIVED here: g+1 > g*c+1 reduces to c < 1, independent of g), so a draft that is not cheaper per step than the target can never speed up; on the committed same-model data c = 2.82. Speculative decoding is therefore refused (fall back to the plain target with a clear log and telemetry `draft_device`) unless a committed calibration result for that target, draft and device shows a measured c < 1 and a measured speed-up whose lower confidence bound exceeds 1 under the stats module; the explicit override is an open question (3).
+- Tests: positive - one engine object serves gamma 2 and 6; calibration flips the gate at the formula's break-even. Negative - missing calibration disables, never guesses; both knobs per the documented rule against a real tiny CPU model (hardware-optional). Edge - draft falls back to CPU: telemetry shows `draft_device=CPU`; gamma bounds.
+- Acceptance (logical): no speculative claim in docs without a result file; README NPU-draft wording matches the data; N-16 result committed or the feature stays gated.
+- Rollback: revert; the gate is a pre-check on enabling.
+
+#### WP-14 Engine-side accounting: tokenize once, measured token counts, config-derived limits (CLOUD, no ABI; depends on WP-04)
+- Scope: P1-04, token half of P1-09, P1-10, probe half of P4-13, stop-string boundary gap noted in P1-03.
+- Files: engine/{openvino_engine,context_budget,kv_cache,telemetry}.py, server/prefix_probe.py, routes.
+- Design: tokenize once per request and reuse the ids for the probe, the context check and the count; drop the end-of-stream re-tokenization and take `perf_metrics.get_num_generated_tokens()` from the result that `generate(..., streamer=cb)` already returns, so streaming telemetry is measured (`is_estimate` false) and chunks and tokens are labelled separately; context window and KV footprint derived from the model's `config.json` with `window_source` reported, and a typed `ModelConfigError` where a footprint is requested but the shape cannot be derived (no silent default); the prefix probe runs only when the prefix cache is consulted; stop strings matched across chunk boundaries (current code matches within one chunk only, a correctness gap).
+- Tests: positive - exactly one `encode` call per request (mock count); streaming `total_tokens` equals the non-stream count for the same greedy prompt; footprint for a known `config.json` matches a hand calculation; u8 halves `dtype_bytes`. Negative - missing or odd `config.json` raises where required; tokenizer failure is logged and surfaced per the decision recorded in the stage record. Edge - empty prompt; prompt exactly at the window; GQA vs attention heads; stop string split across two chunks.
+- Acceptance (logical): the callback-count vs `perf_metrics` token count comparison (the H-07 HYPOTHESIS) is recorded from one hardware run; any figure computed by the old formula stays labelled as such.
+- Rollback: revert.
+
+#### WP-15 Server, CLI and storage hygiene (CLOUD; depends on WP-03)
+- Scope: P4-07, P4-08, P4-09, P4-10, P4-11, P4-13 (template, listing TTL), P4-14 guard.
+- Files: server/app.py, core/logging.py, quant/{gguf_parser,transpiler}.py, hub/ollama_importer.py, routes_ui.py, cli/main.py, server/batch_pipeline.py.
+- Design: `/api/devices` topology cached on `app.state` with a TTL or `?refresh=1` and a short TTL on failure; GGUF summary cached by `(path, st_size, st_mtime_ns)`, the duplicate `parse_all()` in the transpiler removed, one manifest index per `/api/ollama/local` call; chunked copy through a reusable buffer with per-chunk hashing and a `cancel_event` set on SSE disconnect; lazy imports inside each CLI handler plus a guard test that `sys.modules` lacks `fastapi`, `numpy` and `rich.table` after importing the CLI module; pure ASGI middleware logging Egress when the final body frame is sent, a `QueueHandler` in front of the Rich and file handlers, Ingress demoted to DEBUG; template read once; a test that fails if `BatchExecutionPipeline` is wired in without a scheduler thread.
+- Tests: positive - second `/api/devices` call does not construct a Sysman (counting fake); summaries equal before and after on the existing GGUF fixtures; transpiled `.bin` byte-identical to the current output; `--help` for every subcommand still works. Negative - hostile GGUF inputs still rejected (parser is a security boundary); 401 and OPTIONS bypass unchanged; truncated source raises `TranspilationError` with the tensor name; cancel flags or removes the partial output. Edge - file replaced between calls; 1M-token vocabulary; tensor larger than 2 GiB; zero-byte tensor; disk full; client disconnect mid-stream still logs an abort line; tests that patch `arc_runner.cli.main.X` are updated.
+- Acceptance (logical): the import guard test passes; the Egress line for a stream reports duration at completion and keeps the request id; N-12, N-13, N-14, N-15 are recorded before any "faster" claim.
+- Rollback: per-item revert.
+
+#### WP-16 Deferred, measure-first optimisations (gated; ABI none unless stated)
+Nothing here is scheduled until a committed result passes its gate, and none has a numeric target in this plan.
+- P1-03 option 1 and P4-12 option 2 (one-thread bridge, chunk coalescing): gate N-06 shows consumer-side overhead.
+- P2-08 option 1 (per-layer load plan), P2-09 option 1 (zero-copy fallback view with a deferred-close guard), P2-10 (alignment sweep 64 B / 4 KB / 2 MB): gates N-09 and a B9-style copy sweep.
+- P4-09 option 2 (reader and hasher overlap): gate N-15 shows disk is fast enough to matter.
+- P5-18 handle caching and idle-baseline energy: gate N-11 and a working Sysman (M-03).
+- P5-12 adapter registration at construction: gate N-17 shows adapters are ignored.
+- P5-06 option A per-stage placement experiment and P5-01 option B calibrated table: gates N-10 and M-07.
+- P5-11 option B (stream frames to the encoder) if studio durations grow.
+- Each item that is adopted gets its own DL entry and its own tests per the P-report test plan.
+
+### 23.6 Where the work packages overlap, and what was resolved
+
+| Overlap | Resolution |
+|:--|:--|
+| P1-03 option 2 (blocking `run_coroutine_threadsafe(...).result()`) vs P4-03 option 2 (unbounded buffer) | Different answers to the same defect. DL-061 chooses the unbounded, `max_new_tokens`-bounded buffer: blocking the producer would hold the single engine for as long as a slow client stalls |
+| P1-01 recommends `to_thread` plus a lock; P4-01 recommends a dedicated executor plus semaphores | Merged in WP-03 (dedicated executor, interim per-engine lock) and WP-04 (lease) |
+| P1-08 and P5-07 (CWD-relative cache) and P5-08 (AOT cache directory) | One cache root, WP-12, DL-065 |
+| P1-05 and P5-13 (speculative device) | One fix in WP-01f; strictness and recording in WP-07 and WP-13 |
+| P1-13 and P5-12 (the same `except Exception: return None`) | One fix in WP-01e |
+| P4-01 non-stream offload vs P1-11 thread safety | Offload may not ship without serialization: WP-03 carries the interim lock |
+
+### 23.7 (d) Explicit non-goals, and what cannot be decided without hardware numbers
+
+Non-goals of this programme:
+- No source, script or test is changed by this section; it creates no benchmark result.
+- No numeric speed-up, latency, throughput or memory target is set anywhere. Acceptance is logical (ordering, equality, absence of a literal, a gate passing) or compares a committed before and after through `benchmark/stats.py`.
+- No default numeric request limit (image, video, VLM) and no calibrated memory factor until a result file exists (DL-063).
+- No ABI change before a measurement justifies the export (DL-066); `ARC_NATIVE_ABI_VERSION` stays 3 through WP-10.
+- No release, tag, merge or publish, and no Windows DLL rebuild in the cloud (DL-011, DL-040).
+- No process isolation for GPU work (R09 F8; a larger design item), no wiring of `BatchExecutionPipeline` or continuous batching as the route to concurrency (separate feature), no `orjson`, no Ollama comparison (M-13 is blocked on a collector), no power or energy claim until Sysman reads work (M-03).
+
+Cannot be decided without hardware numbers:
+
+| Decision | Deciding measurement | Reports |
+|:--|:--|:--|
+| Whether concurrent `LLMPipeline.generate` calls are safe or serialization is mandatory | N-03 | P1-11, P4-05 |
+| Executor size and whether bridge hops matter at all | N-01, N-06 | P4-01, P4-12 |
+| Whether warmup-on-load becomes the default; how long a compile takes | N-04 | P1-02, P4-02 |
+| Whether pre-touch helps, whether native advice is needed on Windows | N-07 | P2-02, P2-03 |
+| Whether the USM slot pool, narrowed lock, copy-only ordinal or immediate lists pay | N-08 | P2-04, P2-05 |
+| Whether pinning hurts the consumer | N-09 | P2-01 |
+| Numeric image/video/VLM limits and the memory budget factor | M-07, N-10, M-08 | P5-01, P5-04, P5-15 |
+| Whether CACHE_DIR removes NPU/GPU first-use cost; NPU static-shape knobs | N-04, M-04, M-05 | P1-08, P5-07, P3-02 |
+| Whether any speculative configuration speeds up | N-16 | P1-07 |
+| Cause of GPU decay and of the 42-token TTFT anomaly | M-01, M-02, M-03, M-04 | P1-12, P3-06, P3-07 |
+| Whether the SDPA is fused (so whether the derived attention bounds apply) | M-07, N-10 | P5-04 |
+| Whether adapters are ignored by the pipeline | N-17 | P5-12 |
+| Whether the KV u8 trade-off is acceptable | M-15, N-10 | P1-10 |
+
+### 23.8 Open questions for the maintainer
+
+1. Ship WP-06 with no default numeric limits for image/video/VLM (warn once, do not reject) until M-07/N-10 are committed, or ship the R09 derived 768x768 bound as a hard cap now even though SDPA fusion is unverified?
+2. Make CPU fallback opt-in by default (P5-05 option B)? WP-07 ships the flag but keeps today's default and always records `fallback_used`; flipping it is a behaviour change.
+3. Should speculative decoding be refused by default without a committed calibration (DL-068), with an explicit "allow unmeasured" override, or only warn?
+4. `warmup_on_load`: is a rule of "flip the default only after N-04 shows first-request TTFT within the steady-state interval" acceptable?
+5. Run the Windows measurements in the priority order of 23.4 before WP-07, WP-09 and later; WP-01 to WP-06, WP-14 and WP-15 do not depend on them.
+
+### 23.9 Revision history
+
+| Version | Date | Section | Change |
+|:--|:--|:--|:--|
+| v8.3 | 2026-10-29 | Section 23 | performance bottleneck programme from reports P1-P5; DL-061..DL-068 |
