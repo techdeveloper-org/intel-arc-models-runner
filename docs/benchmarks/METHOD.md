@@ -38,6 +38,7 @@ Tokens are counted with the model's tokenizer, never by splitting words.
   - H-A: arc-runner on the iGPU has higher decode TPS than Ollama on CPU for each model in the matrix (ratio lower bound > 1.0).
   - H-B: arc-runner TTFT is lower than Ollama's for each model (old/new ratio lower bound > 1.0).
   - H-C: v0.2.0 is not slower than v0.1.0 by more than 3% on decode TPS and TTFT.
+  - H-D: with `KV_CACHE_PRECISION=u8`, greedy generations agree with the runtime-default precision for at least 32 tokens (or entirely, if shorter) on at least 90% of the fixed prompt set (`scripts/bench_kv_quality.py`, `arc_runner.benchmark.kv_quality`). The criterion is prefix agreement only; KL divergence and perplexity need logits the pipeline does not expose and are not computed. u8 stays opt-in (`ARC_KV_CACHE_PRECISION`) whatever the outcome; changing the default is a separate human decision.
 
 ## Power and memory
 
