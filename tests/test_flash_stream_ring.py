@@ -301,3 +301,125 @@ def test_ring_model_check_passes_for_small_configuration() -> None:
     spec.loader.exec_module(module)
     stats = module.check(2, 3, 2, 2)
     assert stats["final_states"] > 0
+
+
+class _FakeNative:
+    """Native engine stand-in that records pin calls and defers every read to the Python path."""
+
+    is_available = True
+    is_open = True
+
+    def __init__(self, lock_result: bool = True) -> None:
+        self.lock_result = lock_result
+        self.events: List[tuple] = []
+
+    def get_tensor_buffer(self, *_args: Any, **_kwargs: Any) -> None:
+        return None
+
+    def lock_range(self, offset: int, size: int) -> bool:
+        self.events.append(("lock", offset, size))
+        return self.lock_result
+
+    def unlock_range(self, offset: int, size: int) -> bool:
+        self.events.append(("unlock", offset, size))
+        return True
+
+    def close(self) -> None:
+        self.events.append(("close",))
+
+
+def _pinning_manager(model_path: Path, fake: _FakeNative, pin: bool = True, slots: int = 3) -> FlashStreamWeightManager:
+    """Build a manager whose native engine is replaced by a recording fake."""
+    manager = FlashStreamWeightManager(model_path, ring_buffer_slots=slots, pin_resident_layers=pin)
+    manager._native_engine.close()
+    manager._native_engine = fake
+    return manager
+
+
+def _layer_span(manager: FlashStreamWeightManager, layer_idx: int) -> tuple:
+    """Expected (offset, size) covering every tensor of a layer."""
+    tensors = manager._layer_tensor_map[layer_idx]
+    starts = [manager.parser.data_offset + t.offset for t in tensors]
+    ends = [s + manager._calculate_tensor_byte_size(t) for s, t in zip(starts, tensors)]
+    return min(starts), max(ends) - min(starts)
+
+
+def test_acquire_with_pinning_disabled_never_locks(model_path: Path) -> None:
+    """C7: pinning is opt-in; the default never touches lock_range."""
+    fake = _FakeNative()
+    manager = _pinning_manager(model_path, fake, pin=False)
+    manager.acquire_layer_weights(0)
+    manager.close()
+    assert [e for e in fake.events if e[0] in ("lock", "unlock")] == []
+
+
+def test_acquire_with_pinning_locks_exactly_the_layer_span(model_path: Path) -> None:
+    """C7: a freshly loaded layer is pinned over the span of its tensors."""
+    fake = _FakeNative()
+    manager = _pinning_manager(model_path, fake)
+    manager.acquire_layer_weights(2)
+    assert fake.events == [("lock", *_layer_span(manager, 2))]
+    manager.acquire_layer_weights(2)
+    assert len(fake.events) == 1
+    manager.close()
+
+
+def test_acquire_colliding_layer_unlocks_evicted_layer_before_locking_new_one(model_path: Path) -> None:
+    """C7: recycling a slot releases the old pin so the locked footprint stays bounded by the ring."""
+    fake = _FakeNative()
+    manager = _pinning_manager(model_path, fake, slots=3)
+    expected_old, expected_new = None, None
+    manager.acquire_layer_weights(0)
+    expected_old = _layer_span(manager, 0)
+    manager.acquire_layer_weights(3)
+    expected_new = _layer_span(manager, 3)
+    assert fake.events == [("lock", *expected_old), ("unlock", *expected_old), ("lock", *expected_new)]
+    manager.close()
+
+
+def test_release_layer_slot_unlocks_pinned_layer(model_path: Path) -> None:
+    """C7: explicit release unpins the layer once."""
+    fake = _FakeNative()
+    manager = _pinning_manager(model_path, fake)
+    manager.acquire_layer_weights(1)
+    manager.release_layer_slot(1)
+    manager.release_layer_slot(1)
+    span = _layer_span(manager, 1)
+    assert fake.events == [("lock", *span), ("unlock", *span)]
+    manager.close()
+
+
+def test_close_unlocks_every_pinned_layer_before_closing_native(model_path: Path) -> None:
+    """C7: no locked range outlives the mapping."""
+    fake = _FakeNative()
+    manager = _pinning_manager(model_path, fake)
+    manager.acquire_layer_weights(0)
+    manager.acquire_layer_weights(1)
+    manager.close()
+    kinds = [e[0] for e in fake.events]
+    assert kinds.count("unlock") == 2
+    assert kinds[-1] == "close"
+    assert max(i for i, k in enumerate(kinds) if k == "unlock") < kinds.index("close")
+
+
+def test_pin_refused_by_os_keeps_streaming_and_stops_retrying(model_path: Path) -> None:
+    """C7/E8: a refused lock (quota) leaves the layer usable, is never unlocked, and is not retried."""
+    fake = _FakeNative(lock_result=False)
+    manager = _pinning_manager(model_path, fake)
+    assert manager.acquire_layer_weights(0)
+    assert manager.acquire_layer_weights(1)
+    manager.close()
+    assert [e[0] for e in fake.events].count("lock") == 1
+    assert [e[0] for e in fake.events].count("unlock") == 0
+
+
+def test_pin_resident_layers_environment_flag_enables_pinning(model_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """C7: ARC_PIN_RING=1 turns pinning on when the constructor argument is left unset."""
+    monkeypatch.setenv("ARC_PIN_RING", "1")
+    fake = _FakeNative()
+    manager = FlashStreamWeightManager(model_path, ring_buffer_slots=3)
+    manager._native_engine.close()
+    manager._native_engine = fake
+    manager.acquire_layer_weights(0)
+    assert fake.events and fake.events[0][0] == "lock"
+    manager.close()

@@ -30,6 +30,7 @@ logger = get_logger(__name__)
 
 SLOT_WAIT_TIMEOUT_SECONDS = 30.0
 PREFETCH_JOIN_TIMEOUT_SECONDS = 5.0
+PIN_RING_ENV = "ARC_PIN_RING"
 
 _PLAIN_ITEM_BYTES: Dict[GGMLType, int] = {
     GGMLType.F32: 4,
@@ -126,12 +127,19 @@ def _windows_working_set_bytes() -> Optional[int]:
 class FlashStreamWeightManager:
     """Manages constant-memory ring-buffered streaming of model weights from disk."""
 
-    def __init__(self, model_path: Union[str, Path], ring_buffer_slots: int = 3) -> None:
+    def __init__(
+        self,
+        model_path: Union[str, Path],
+        ring_buffer_slots: int = 3,
+        pin_resident_layers: Optional[bool] = None,
+    ) -> None:
         """Initialize the flash-stream weight manager targeting a model container.
 
         Args:
             model_path: Filesystem path to the model container file.
             ring_buffer_slots: Number of resident layer slots in the memory ring buffer.
+            pin_resident_layers: Pin each resident layer into physical RAM (best effort, native mapping
+                only). None reads the ARC_PIN_RING environment variable; unset means off.
 
         Raises:
             FileNotFoundError: If the specified model file does not exist.
@@ -164,6 +172,12 @@ class FlashStreamWeightManager:
         self._prefetch_threads: Set[threading.Thread] = set()
         self._slot_wait_timeout_s = SLOT_WAIT_TIMEOUT_SECONDS
         self._lock = threading.Lock()
+        self._pin_lock = threading.Lock()
+        if pin_resident_layers is None:
+            pin_resident_layers = os.environ.get(PIN_RING_ENV, "").strip() == "1"
+        self._pin_enabled = pin_resident_layers
+        self._pinned: Dict[int, Tuple[int, int]] = {}
+        self._pending_unpin: List[int] = []
         self._native_engine = NativeMemoryEngine()
         if self._native_engine.is_available:
             self._native_engine.open_model(self.model_path)
@@ -331,6 +345,55 @@ class FlashStreamWeightManager:
             layer_weights[self._extract_short_tensor_name(t.name)] = arr if arr is not None else self._read_tensor_array(t)
         return layer_weights
 
+    def _layer_span(self, layer_idx: int) -> Optional[Tuple[int, int]]:
+        """Return the file range (offset, size) covering every tensor of a layer.
+
+        Args:
+            layer_idx: Layer index.
+
+        Returns:
+            Optional[Tuple[int, int]]: Offset and size, or None if the layer has no tensors.
+        """
+        tensors = self._layer_tensor_map.get(layer_idx, [])
+        if not tensors:
+            return None
+        starts = [self.parser.data_offset + t.offset for t in tensors]
+        ends = [start + self._calculate_tensor_byte_size(t) for start, t in zip(starts, tensors)]
+        return min(starts), max(ends) - min(starts)
+
+    def _pin_layer(self, layer_idx: int) -> None:
+        """Best-effort pin of a resident layer; the first OS refusal disables further attempts.
+
+        Args:
+            layer_idx: Layer that was just published as READY.
+        """
+        native = self._native_engine
+        if not self._pin_enabled or native is None or not (native.is_available and native.is_open):
+            return
+        with self._pin_lock:
+            with self._lock:
+                slot = self._slots[self._slot_index_for(layer_idx)]
+                still_resident = slot.state is SlotState.READY and slot.layer_idx == layer_idx
+            span = self._layer_span(layer_idx)
+            if not still_resident or span is None or layer_idx in self._pinned:
+                return
+            if native.lock_range(span[0], span[1]):
+                self._pinned[layer_idx] = span
+            else:
+                self._pin_enabled = False
+                logger.info("Layer pinning disabled after the OS refused a lock", extra={"layer": layer_idx})
+
+    def _flush_unpins(self) -> None:
+        """Unlock every layer queued for unpinning by an eviction."""
+        with self._pin_lock:
+            with self._lock:
+                queued, self._pending_unpin = self._pending_unpin, []
+            native = self._native_engine
+            for layer_idx in queued:
+                span = self._pinned.pop(layer_idx, None)
+                if span is not None and native is not None:
+                    native.unlock_range(span[0], span[1])
+
     def _reserve_slot(self, layer_idx: int) -> Tuple[str, Optional[Dict[str, np.ndarray]], Optional[threading.Event]]:
         """Decide, under the lock, whether to hit, wait for, or start loading a layer.
 
@@ -353,6 +416,8 @@ class FlashStreamWeightManager:
                 return "hit", slot.arrays, None
             if slot.state is SlotState.PENDING:
                 return "wait", None, slot.ready_event
+            if slot.state is SlotState.READY:
+                self._pending_unpin.append(slot.layer_idx)
             slot.layer_idx = layer_idx
             slot.state = SlotState.PENDING
             slot.arrays = {}
@@ -399,12 +464,14 @@ class FlashStreamWeightManager:
             if action == "hit" and arrays is not None:
                 return arrays
             if action == "load":
+                self._flush_unpins()
                 try:
                     loaded = self._load_layer_arrays(layer_idx)
                 except BaseException:
                     self._publish_load(layer_idx, None)
                     raise
                 self._publish_load(layer_idx, loaded)
+                self._pin_layer(layer_idx)
                 return loaded
             if event is not None and not event.wait(self._slot_wait_timeout_s):
                 raise TimeoutError(f"Timed out waiting for layer load in slot {self._slot_index_for(layer_idx)}")
@@ -448,11 +515,13 @@ class FlashStreamWeightManager:
             if 0 <= slot_idx < self.ring_buffer_slots:
                 slot = self._slots[slot_idx]
                 if slot.state is SlotState.READY:
+                    self._pending_unpin.append(slot.layer_idx)
                     slot.layer_idx = -1
                     slot.state = SlotState.EMPTY
                     slot.arrays = {}
                     dropped = True
         if dropped:
+            self._flush_unpins()
             gc.collect()
 
     def get_occupied_slot_count(self) -> int:
@@ -506,9 +575,14 @@ class FlashStreamWeightManager:
 
         with self._lock:
             for slot in self._slots:
+                if slot.state is SlotState.READY:
+                    self._pending_unpin.append(slot.layer_idx)
                 slot.layer_idx = -1
                 slot.state = SlotState.EMPTY
                 slot.arrays = {}
+        self._flush_unpins()
+
+        with self._lock:
             native, self._native_engine = getattr(self, "_native_engine", None), None
             mmap_handle, self._mmap_handle = self._mmap_handle, None
             file_handle, self._file_handle = self._file_handle, None
