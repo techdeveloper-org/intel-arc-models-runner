@@ -8,7 +8,7 @@ noisy, or produced through a fallback can never support a claim.
 from dataclasses import dataclass
 import math
 import random
-from typing import List, Literal, Optional, Sequence, Tuple
+from typing import Dict, List, Literal, Optional, Sequence, Tuple
 
 SampleSource = Literal["measured", "derived", "projected"]
 
@@ -28,7 +28,12 @@ _T_95_INFINITY = 1.960
 
 @dataclass(frozen=True)
 class BenchSample:
-    """One timed (or warmup) measurement with its provenance."""
+    """One timed (or warmup) measurement with its provenance.
+
+    LLM samples use ttft_ms, decode_tps and the token counts. Other workloads (embeddings, VLM, audio,
+    image, video) leave those None/0 and report named measurements in metrics, whose keys carry their unit
+    as a suffix (latency_s, rtf, throughput_fps, energy_j); a metric that could not be measured is None.
+    """
 
     model_id: str
     backend: str
@@ -41,6 +46,8 @@ class BenchSample:
     is_warmup: bool = False
     fallback_used: bool = False
     noisy: bool = False
+    workload: str = "llm"
+    metrics: Optional[Dict[str, Optional[float]]] = None
 
 
 @dataclass(frozen=True)

@@ -25,7 +25,8 @@
     },
     "protocol": {
       "type": "object",
-      "required": ["warmup_runs", "timed_runs", "temperature", "max_new_tokens", "labels"],
+      "required": ["warmup_runs", "timed_runs", "labels"],
+      "description": "temperature and max_new_tokens are additionally required when the file contains llm samples",
       "properties": {
         "warmup_runs": {"type": "integer", "minimum": 0},
         "timed_runs": {"type": "integer", "minimum": 1},
@@ -50,7 +51,14 @@
           "source": {"enum": ["measured", "derived", "projected"]},
           "is_warmup": {"type": "boolean"},
           "fallback_used": {"type": "boolean"},
-          "noisy": {"type": "boolean"}
+          "noisy": {"type": "boolean"},
+          "workload": {"enum": ["llm", "embeddings", "vlm", "audio_stt", "audio_tts", "image", "video"], "default": "llm"},
+          "metrics": {
+            "type": ["object", "null"],
+            "description": "Named measurements whose key carries the unit suffix (latency_s, rtf, throughput_fps, energy_j). Required and non-empty when workload is not llm; a null value means not measured.",
+            "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+            "additionalProperties": {"type": ["number", "null"], "minimum": 0}
+          }
         }
       }
     }

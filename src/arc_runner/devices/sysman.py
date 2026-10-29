@@ -447,11 +447,39 @@ class LevelZeroSysman:
             Optional[float]: Average watts over the interval, or None with a reason in
             get_unavailable_reason("package_power") if no honest value exists.
         """
+        interval = min(max(float(sample_interval_s), MIN_POWER_SAMPLE_INTERVAL_S), MAX_POWER_SAMPLE_INTERVAL_S)
+        first = self.read_package_energy(device_index)
+        if first is None:
+            return None
+        time.sleep(interval)
+        second = self.read_package_energy(device_index)
+        if second is None:
+            return None
+        metric = "package_power"
+        if second[0] < first[0]:
+            self._unavailable_reasons[metric] = "energy counter went backwards (wrap or reset); no power value"
+            return None
+        if second[1] <= first[1]:
+            self._unavailable_reasons[metric] = "energy counter timestamps did not advance"
+            return None
+        self._unavailable_reasons.pop(metric, None)
+        return float(second[0] - first[0]) / float(second[1] - first[1])
+
+    def read_package_energy(self, device_index: int = 0) -> Optional[Tuple[int, int]]:
+        """Read the package-domain energy counter once.
+
+        Args:
+            device_index: Hardware device index to inspect.
+
+        Returns:
+            Optional[Tuple[int, int]]: (energy in microjoules, timestamp in microseconds) of the first
+            non-subdevice power domain, or None with a reason in get_unavailable_reason("package_power").
+            The timestamp is only meaningful as a difference between two reads.
+        """
         metric = "package_power"
         device = self._sysman_device(device_index, metric)
         if device is None or not self._ensure_sysman(metric):
             return None
-        interval = min(max(float(sample_interval_s), MIN_POWER_SAMPLE_INTERVAL_S), MAX_POWER_SAMPLE_INTERVAL_S)
         try:
             package = None
             for domain in self._enumerate_handles("zesDeviceEnumPowerDomains", device, metric):
@@ -466,24 +494,13 @@ class LevelZeroSysman:
                 if metric not in self._unavailable_reasons:
                     self._unavailable_reasons[metric] = "no package-level power domain (only subdevice domains)"
                 return None
-            first, second = _ZesEnergyCounter(), _ZesEnergyCounter()
-            if not self._call("zesPowerGetEnergyCounter", package, first, metric):
-                return None
-            time.sleep(interval)
-            if not self._call("zesPowerGetEnergyCounter", package, second, metric):
+            counter = _ZesEnergyCounter()
+            if not self._call("zesPowerGetEnergyCounter", package, counter, metric):
                 return None
         except Exception as exc:
             self._unavailable_reasons[metric] = f"power query raised {type(exc).__name__}: {exc}"
             return None
-        if second.energy < first.energy:
-            self._unavailable_reasons[metric] = "energy counter went backwards (wrap or reset); no power value"
-            return None
-        elapsed_us = second.timestamp - first.timestamp
-        if second.timestamp <= first.timestamp:
-            self._unavailable_reasons[metric] = "energy counter timestamps did not advance"
-            return None
-        self._unavailable_reasons.pop(metric, None)
-        return float(second.energy - first.energy) / float(elapsed_us)
+        return int(counter.energy), int(counter.timestamp)
 
     def query_gpu_frequency_mhz(self, device_index: int = 0) -> Optional[float]:
         """Read the resolved GPU-core frequency in MHz from Sysman.

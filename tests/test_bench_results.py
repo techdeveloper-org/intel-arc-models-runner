@@ -137,3 +137,80 @@ def test_live_script_converts_existing_results_into_valid_schema_v1_samples() ->
     assert all(sample.backend == "ollama" for sample in samples), "legacy arc-runner rows without a source must be skipped"
     document = build_result("t", samples, PROTOCOL, capture_environment(REPO_ROOT))
     assert validate_result(document) == []
+
+
+NON_LLM_PROTOCOL = {"warmup_runs": 1, "timed_runs": 3, "labels": {"arc": "iGPU FP16"}}
+
+
+def _non_llm_document(workload: str = "audio_stt") -> dict:
+    """Build a valid document for a non-LLM workload (no temperature or token budget)."""
+    samples = [
+        BenchSample("whisper", "arc", 0, None, None, 0, 0, "measured", is_warmup=True, workload=workload, metrics={"latency_s": 2.0, "rtf": 0.2}),
+        BenchSample("whisper", "arc", 1, None, None, 0, 0, "measured", workload=workload, metrics={"latency_s": 1.5, "rtf": 0.15}),
+        BenchSample("whisper", "arc", 2, None, None, 0, 0, "measured", workload=workload, metrics={"latency_s": 1.7, "rtf": 0.17, "power_w": None}),
+    ]
+    return build_result("run-nl", samples, NON_LLM_PROTOCOL, capture_environment(REPO_ROOT))
+
+
+def test_non_llm_document_validates_without_llm_protocol_fields_and_round_trips(tmp_path: Path) -> None:
+    """Non-LLM runs need no temperature or max_new_tokens; workload and metrics survive a round trip."""
+    document = _non_llm_document()
+    assert validate_result(document) == []
+    path = tmp_path / "nl.json"
+    write_result(path, document)
+    reloaded = load_samples(json.loads(path.read_text(encoding="utf-8")))
+    assert reloaded[1].workload == "audio_stt"
+    assert reloaded[1].metrics == {"latency_s": 1.5, "rtf": 0.15}
+    assert reloaded[2].metrics["power_w"] is None
+
+
+def test_llm_document_still_requires_temperature_and_token_budget() -> None:
+    """The LLM protocol fields remain mandatory when any sample is an LLM sample."""
+    document = _document()
+    del document["protocol"]["temperature"]
+    del document["protocol"]["max_new_tokens"]
+    problems = " ".join(validate_result(document))
+    assert "temperature" in problems and "max_new_tokens" in problems
+
+
+def test_legacy_sample_rows_without_workload_default_to_llm() -> None:
+    """Existing schema-v1 files (no workload key) still load as LLM samples."""
+    document = _document()
+    for row in document["samples"]:
+        row.pop("workload", None)
+        row.pop("metrics", None)
+    assert validate_result(document) == []
+    assert all(sample.workload == "llm" for sample in load_samples(document))
+
+
+@pytest.mark.parametrize(
+    "mutation,expected",
+    [
+        (lambda s: s.update(workload="telepathy"), "workload"),
+        (lambda s: s.update(metrics={}), "metrics"),
+        (lambda s: s.pop("metrics"), "metrics"),
+        (lambda s: s.update(metrics={"latency_s": -1.0}), "latency_s"),
+        (lambda s: s.update(metrics={"latency_s": float("nan")}), "latency_s"),
+        (lambda s: s.update(metrics={"latency_s": True}), "latency_s"),
+        (lambda s: s.update(metrics={"Latency S": 1.0}), "Latency S"),
+        (lambda s: s.update(metrics=[1.0]), "metrics"),
+    ],
+)
+def test_validate_rejects_bad_non_llm_samples(mutation: Any, expected: str) -> None:
+    """Unknown workloads, empty or malformed metrics, negative, NaN and boolean values are reported."""
+    document = _non_llm_document()
+    mutation(document["samples"][1])
+    assert any(expected in problem for problem in validate_result(document))
+
+
+def test_renderer_summarises_non_llm_metrics_with_confidence_interval(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Non-LLM files render a metric table; null metrics are skipped, never shown as zero."""
+    renderer = _load_script("render_bench_docs")
+    results = tmp_path / "results"
+    results.mkdir()
+    write_result(results / "nl.json", _non_llm_document())
+    monkeypatch.setattr(renderer, "RESULTS_DIR", results)
+    text = renderer.render_tables()
+    assert "audio_stt" in text and "latency_s" in text and "rtf" in text
+    assert "power_w" not in text
+    assert "whisper" in text and "arc (iGPU FP16)" in text
