@@ -7,6 +7,13 @@
  *   FAKE_ZE_FAIL     name of one function that must fail
  *   FAKE_ZE_SYNC     ok | never | lost | slow:<ms>
  *   FAKE_ZE_COPY_FAIL=1  make zeCommandListAppendMemoryCopy fail
+ *   FAKE_ZES_WATTS   package power in watts (default 12); energy counter = elapsed_us * watts
+ *   FAKE_ZES_UNSUPPORTED  power | freq | mem: the enumerate call reports UNSUPPORTED_FEATURE
+ *   FAKE_ZES_NO_PACKAGE=1  only subdevice power domains
+ *   FAKE_ZES_COUNTER_WRAP=1  energy counter decreases between reads
+ *   FAKE_ZES_FREQ    actual GPU frequency in MHz (default 1100)
+ *   FAKE_ZES_MEM_LOC 0 system module, 1 device module (default 1; 5 GiB free of 8 GiB)
+ *   FAKE_ZES_FAIL    name of one Sysman function that must fail (e.g. zesInit)
  * Every descriptor structure type (stype) is checked against the values in ze_api.h; a wrong
  * value makes the call fail with an invalid-enumeration result.
  */
@@ -31,6 +38,12 @@
 #define FAKE_STYPE_COMMAND_LIST_DESC 0xfu
 #define FAKE_STYPE_DEVICE_MEM_ALLOC_DESC 0x15u
 #define FAKE_STYPE_HOST_MEM_ALLOC_DESC 0x16u
+#define FAKE_STYPE_ZES_FREQ_PROPERTIES 0x9u
+#define FAKE_STYPE_ZES_MEM_PROPERTIES 0xbu
+#define FAKE_STYPE_ZES_POWER_PROPERTIES 0xdu
+#define FAKE_STYPE_ZES_FREQ_STATE 0x1bu
+#define FAKE_STYPE_ZES_MEM_STATE 0x1eu
+#define FAKE_ERR_UNSUPPORTED 0x78000003u
 #define FAKE_ERR_INVALID_ENUM 0x78000004u
 #define FAKE_ERR_FAILED 0x70000004u
 #define FAKE_ERR_OOM 0x70000002u
@@ -317,5 +330,208 @@ FAKE_EXPORT ze_result_t zeDeviceGetMemoryProperties(void* device, uint32_t* coun
         return FAKE_ERR_INVALID_ENUM;
     }
     props[0].totalSize = (uint64_t)8 << 30;
+    return ZE_RESULT_SUCCESS;
+}
+
+/* ---- Sysman (zes*) -------------------------------------------------------------------------
+ * Layouts follow zes_api.h; handles are opaque tokens. */
+
+typedef struct {
+    uint32_t stype;
+    void* pNext;
+    uint8_t onSubdevice;
+    uint32_t subdeviceId;
+    uint8_t canControl;
+    uint8_t isEnergyThresholdSupported;
+    int32_t defaultLimit;
+    int32_t minLimit;
+    int32_t maxLimit;
+} fake_zes_power_properties_t;
+
+typedef struct {
+    uint64_t energy;
+    uint64_t timestamp;
+} fake_zes_energy_counter_t;
+
+typedef struct {
+    uint32_t stype;
+    void* pNext;
+    uint32_t type;
+    uint8_t onSubdevice;
+    uint32_t subdeviceId;
+    uint8_t canControl;
+    uint8_t isThrottleEventSupported;
+    double min;
+    double max;
+} fake_zes_freq_properties_t;
+
+typedef struct {
+    uint32_t stype;
+    void* pNext;
+    double currentVoltage;
+    double request;
+    double tdp;
+    double efficient;
+    double actual;
+    uint32_t throttleReasons;
+} fake_zes_freq_state_t;
+
+typedef struct {
+    uint32_t stype;
+    void* pNext;
+    uint32_t type;
+    uint8_t onSubdevice;
+    uint32_t subdeviceId;
+    uint32_t location;
+    uint64_t physicalSize;
+    int32_t busWidth;
+    int32_t numChannels;
+} fake_zes_mem_properties_t;
+
+typedef struct {
+    uint32_t stype;
+    const void* pNext;
+    uint32_t health;
+    uint64_t free;
+    uint64_t size;
+} fake_zes_mem_state_t;
+
+static char g_pwr_tokens[2];
+static char g_freq_token;
+static char g_mem_token;
+static unsigned long long g_last_energy = 0;
+
+static int unsupported(const char* what) {
+    const char* target = getenv("FAKE_ZES_UNSUPPORTED");
+    return target && strcmp(target, what) == 0;
+}
+
+static unsigned long long now_us(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (unsigned long long)ts.tv_sec * 1000000u + (unsigned long long)ts.tv_nsec / 1000u;
+}
+
+static int zes_should_fail(const char* name) {
+    const char* target = getenv("FAKE_ZES_FAIL");
+    return target && strcmp(target, name) == 0;
+}
+
+static double env_double(const char* name, double fallback) {
+    const char* value = getenv(name);
+    return value ? strtod(value, NULL) : fallback;
+}
+
+FAKE_EXPORT ze_result_t zesInit(uint32_t flags) {
+    (void)flags;
+    return zes_should_fail("zesInit") ? FAKE_ERR_FAILED : ZE_RESULT_SUCCESS;
+}
+
+FAKE_EXPORT ze_result_t zesDeviceEnumPowerDomains(void* device, uint32_t* count, void** handles) {
+    (void)device;
+    if (unsupported("power")) {
+        return FAKE_ERR_UNSUPPORTED;
+    }
+    uint32_t n = getenv("FAKE_ZES_NO_PACKAGE") ? 1u : 2u;
+    if (!handles) {
+        *count = n;
+        return ZE_RESULT_SUCCESS;
+    }
+    for (uint32_t i = 0; i < n && i < *count; ++i) {
+        handles[i] = &g_pwr_tokens[i];
+    }
+    return ZE_RESULT_SUCCESS;
+}
+
+FAKE_EXPORT ze_result_t zesPowerGetProperties(void* handle, fake_zes_power_properties_t* props) {
+    if (props->stype != FAKE_STYPE_ZES_POWER_PROPERTIES) {
+        return FAKE_ERR_INVALID_ENUM;
+    }
+    int is_subdevice_domain = (handle == &g_pwr_tokens[0]);
+    if (getenv("FAKE_ZES_NO_PACKAGE")) {
+        is_subdevice_domain = 1;
+    }
+    props->onSubdevice = (uint8_t)is_subdevice_domain;
+    props->subdeviceId = 0;
+    return ZE_RESULT_SUCCESS;
+}
+
+FAKE_EXPORT ze_result_t zesPowerGetEnergyCounter(void* handle, fake_zes_energy_counter_t* out) {
+    unsigned long long t = now_us();
+    double watts = (handle == &g_pwr_tokens[0]) ? env_double("FAKE_ZES_WATTS", 12.0) / 2.0 : env_double("FAKE_ZES_WATTS", 12.0);
+    unsigned long long energy = (unsigned long long)((double)t * watts);
+    if (getenv("FAKE_ZES_COUNTER_WRAP") && g_last_energy > 0) {
+        energy = g_last_energy - 1;
+    }
+    g_last_energy = energy;
+    out->energy = energy;
+    out->timestamp = t;
+    return ZE_RESULT_SUCCESS;
+}
+
+FAKE_EXPORT ze_result_t zesDeviceEnumFrequencyDomains(void* device, uint32_t* count, void** handles) {
+    (void)device;
+    if (unsupported("freq")) {
+        return FAKE_ERR_UNSUPPORTED;
+    }
+    if (!handles) {
+        *count = 1;
+        return ZE_RESULT_SUCCESS;
+    }
+    handles[0] = &g_freq_token;
+    return ZE_RESULT_SUCCESS;
+}
+
+FAKE_EXPORT ze_result_t zesFrequencyGetProperties(void* handle, fake_zes_freq_properties_t* props) {
+    (void)handle;
+    if (props->stype != FAKE_STYPE_ZES_FREQ_PROPERTIES) {
+        return FAKE_ERR_INVALID_ENUM;
+    }
+    props->type = 0; /* ZES_FREQ_DOMAIN_GPU */
+    props->onSubdevice = 0;
+    return ZE_RESULT_SUCCESS;
+}
+
+FAKE_EXPORT ze_result_t zesFrequencyGetState(void* handle, fake_zes_freq_state_t* state) {
+    (void)handle;
+    if (state->stype != FAKE_STYPE_ZES_FREQ_STATE) {
+        return FAKE_ERR_INVALID_ENUM;
+    }
+    state->actual = env_double("FAKE_ZES_FREQ", 1100.0);
+    state->request = -1.0;
+    return ZE_RESULT_SUCCESS;
+}
+
+FAKE_EXPORT ze_result_t zesDeviceEnumMemoryModules(void* device, uint32_t* count, void** handles) {
+    (void)device;
+    if (unsupported("mem")) {
+        return FAKE_ERR_UNSUPPORTED;
+    }
+    if (!handles) {
+        *count = 1;
+        return ZE_RESULT_SUCCESS;
+    }
+    handles[0] = &g_mem_token;
+    return ZE_RESULT_SUCCESS;
+}
+
+FAKE_EXPORT ze_result_t zesMemoryGetProperties(void* handle, fake_zes_mem_properties_t* props) {
+    (void)handle;
+    if (props->stype != FAKE_STYPE_ZES_MEM_PROPERTIES) {
+        return FAKE_ERR_INVALID_ENUM;
+    }
+    const char* loc = getenv("FAKE_ZES_MEM_LOC");
+    props->location = loc ? (uint32_t)strtoul(loc, NULL, 10) : 1u;
+    props->physicalSize = (uint64_t)8 << 30;
+    return ZE_RESULT_SUCCESS;
+}
+
+FAKE_EXPORT ze_result_t zesMemoryGetState(void* handle, fake_zes_mem_state_t* state) {
+    (void)handle;
+    if (state->stype != FAKE_STYPE_ZES_MEM_STATE) {
+        return FAKE_ERR_INVALID_ENUM;
+    }
+    state->free = (uint64_t)5 << 30;
+    state->size = (uint64_t)8 << 30;
     return ZE_RESULT_SUCCESS;
 }
