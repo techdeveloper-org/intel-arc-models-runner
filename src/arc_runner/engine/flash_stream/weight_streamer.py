@@ -18,6 +18,7 @@ import numpy as np
 
 from arc_runner.core.exceptions import ModelNotFoundError
 from arc_runner.core.logging import get_logger
+from arc_runner.native.bridge import NativeMemoryEngine
 from arc_runner.quant.gguf_parser import GGUFParser
 from arc_runner.quant.models import GGMLType, GGUFTensorInfo
 
@@ -64,6 +65,9 @@ class FlashStreamWeightManager:
         self._slot_layer_idx: List[int] = [-1] * self.ring_buffer_slots
         self._slot_access_time: List[float] = [0.0] * self.ring_buffer_slots
         self._lock = threading.Lock()
+        self._native_engine = NativeMemoryEngine()
+        if self._native_engine.is_available:
+            self._native_engine.open_model(self.model_path)
 
         self.index_layers()
 
@@ -90,6 +94,22 @@ class FlashStreamWeightManager:
                     if -1 not in self._layer_tensor_map:
                         self._layer_tensor_map[-1] = []
                     self._layer_tensor_map[-1].append(tensor)
+
+            if hasattr(self, "_native_engine") and self._native_engine.is_available and self._native_engine.is_open:
+                for l_idx, t_list in self._layer_tensor_map.items():
+                    if l_idx >= 0:
+                        augmented_tensors = []
+                        for t in t_list:
+                            calc_sz = self._calculate_tensor_byte_size(t)
+                            start_off = self.parser.data_offset + t.offset
+                            augmented_tensors.append({
+                                "name": t.name,
+                                "tensor_type": t.tensor_type,
+                                "dimensions": t.dimensions,
+                                "offset": start_off,
+                                "size_bytes": calc_sz,
+                            })
+                        self._native_engine.register_layer(l_idx, augmented_tensors)
 
             return layer_counts
 
@@ -197,9 +217,17 @@ class FlashStreamWeightManager:
         tensors = self._layer_tensor_map.get(layer_idx, [])
         layer_weights: Dict[str, np.ndarray] = {}
 
+        use_native = hasattr(self, "_native_engine") and self._native_engine.is_available and self._native_engine.is_open
+
         for t in tensors:
             short_name = self._extract_short_tensor_name(t.name)
-            layer_weights[short_name] = self._read_tensor_array(t)
+            arr = None
+            if use_native:
+                arr = self._native_engine.get_tensor_buffer(layer_idx, t.name, dims=t.dimensions)
+            if arr is not None:
+                layer_weights[short_name] = arr
+            else:
+                layer_weights[short_name] = self._read_tensor_array(t)
 
         with self._lock:
             self._ring_slots[slot_idx] = layer_weights
@@ -309,6 +337,10 @@ class FlashStreamWeightManager:
             if self._file_handle is not None:
                 self._file_handle.close()
                 self._file_handle = None
+
+            if hasattr(self, "_native_engine") and self._native_engine is not None:
+                self._native_engine.close()
+                self._native_engine = None
 
             gc.collect()
 

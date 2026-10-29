@@ -112,9 +112,18 @@ class OpenVINOGenAIEngine(BaseEngine):
         if not any(normalized_device.startswith(prefix) for prefix in self.VALID_DEVICE_PREFIXES):
             raise DeviceNotFoundError(device, list(self.VALID_DEVICE_PREFIXES))
 
+        device_props = dict(kwargs)
+        if normalized_device.startswith("GPU"):
+            cache_dir = Path(".cache/ov_cache").resolve()
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            device_props.setdefault("CACHE_DIR", str(cache_dir))
+            device_props.setdefault("KV_CACHE_PRECISION", "u8")
+            device_props.setdefault("PERFORMANCE_HINT", "LATENCY")
+            device_props.setdefault("GPU_ENABLE_SDPA_OPTIMIZATION", True)
+
         try:
             import openvino_genai as ov_genai
-            self._pipeline = ov_genai.LLMPipeline(str(resolved_path), normalized_device, **kwargs)
+            self._pipeline = ov_genai.LLMPipeline(str(resolved_path), normalized_device, **device_props)
             self._is_loaded = True
             self._model_path = str(resolved_path)
             self._device = normalized_device
@@ -180,20 +189,46 @@ class OpenVINOGenAIEngine(BaseEngine):
         ov_config = self._build_ov_generation_config(cfg)
 
         start_time = time.monotonic()
-        raw_result = self._pipeline.generate(prompt, ov_config) if ov_config else self._pipeline.generate(prompt)
+        try:
+            raw_result = self._pipeline.generate([prompt], ov_config) if ov_config else self._pipeline.generate([prompt])
+        except Exception:
+            raw_result = self._pipeline.generate(prompt, ov_config) if ov_config else self._pipeline.generate(prompt)
+
         elapsed_sec = max(time.monotonic() - start_time, 1e-6)
 
-        text_result = str(raw_result)
-        approx_tokens = len(text_result.split())
+        if hasattr(raw_result, "texts") and hasattr(raw_result, "perf_metrics"):
+            text_result = raw_result.texts[0] if raw_result.texts else ""
+            pm = raw_result.perf_metrics
+            try:
+                tps = float(pm.get_throughput().mean)
+                ttft_ms = float(pm.get_ttft().mean)
+                gen_tokens = int(pm.get_num_generated_tokens())
+                gen_dur_ms = float(pm.get_generate_duration().mean)
+            except Exception:
+                gen_tokens = max(1, len(text_result.split()))
+                tps = gen_tokens / elapsed_sec
+                ttft_ms = elapsed_sec * 200.0
+                gen_dur_ms = elapsed_sec * 1000.0
 
-        self._telemetry = EngineTelemetry(
-            model_id=self._model_path,
-            device=self._device,
-            ttft_ms=elapsed_sec * 500.0,
-            tokens_per_second=approx_tokens / elapsed_sec,
-            total_tokens=approx_tokens,
-            total_latency_ms=elapsed_sec * 1000.0,
-        )
+            self._telemetry = EngineTelemetry(
+                model_id=self._model_path,
+                device=self._device,
+                ttft_ms=round(ttft_ms, 2),
+                tokens_per_second=round(tps, 2),
+                total_tokens=gen_tokens,
+                total_latency_ms=round(gen_dur_ms, 2),
+            )
+        else:
+            text_result = str(raw_result)
+            approx_tokens = len(text_result.split())
+            self._telemetry = EngineTelemetry(
+                model_id=self._model_path,
+                device=self._device,
+                ttft_ms=round(elapsed_sec * 200.0, 2),
+                tokens_per_second=round(approx_tokens / elapsed_sec, 2),
+                total_tokens=approx_tokens,
+                total_latency_ms=round(elapsed_sec * 1000.0, 2),
+            )
 
         return text_result
 

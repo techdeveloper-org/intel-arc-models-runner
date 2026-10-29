@@ -343,8 +343,8 @@ class LiveSequentialBenchmarkRunner:
                     elapsed = time.perf_counter() - t0
                     telemetry = engine.get_telemetry()
 
-                    tokens_gen = max(1, len(completion.split()))
-                    tps = round(tokens_gen / max(0.01, elapsed), 2)
+                    tokens_gen = telemetry.total_tokens if telemetry.total_tokens > 0 else max(1, len(completion.split()))
+                    tps = round(telemetry.tokens_per_second if telemetry.tokens_per_second > 0 else (tokens_gen / max(0.01, elapsed)), 2)
                     ttft_ms = round(telemetry.ttft_ms if telemetry.ttft_ms > 0 else (elapsed * 200.0), 2)
 
                     arc_metrics = {
