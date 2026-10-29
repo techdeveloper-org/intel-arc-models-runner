@@ -13,6 +13,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError
 from arc_runner.core.logging import get_logger
+from arc_runner.core.path_policy import resolve_inside
 from arc_runner.hub.downloader import DownloadProgress, ModelDownloader
 from arc_runner.hub.registry import CuratedModelInfo, ModelRegistry
 from arc_runner.server.model_manager import ModelManager
@@ -62,12 +63,15 @@ class HubManager:
             ModelNotFoundError: If model does not exist locally.
         """
         clean_id = model_id.strip().split(":")[0]
-        direct = (self._base_dir / clean_id).resolve()
+        try:
+            direct = resolve_inside(self._base_dir, clean_id)
+        except ArcRunnerError:
+            raise ModelNotFoundError(model_id, str(self._base_dir)) from None
         if direct.exists() and direct.is_dir():
             return direct
 
         alias_info = ModelRegistry.resolve(clean_id)
-        candidate = (self._base_dir / alias_info.alias).resolve()
+        candidate = resolve_inside(self._base_dir, alias_info.alias)
         if candidate.exists() and candidate.is_dir():
             return candidate
 
@@ -208,7 +212,7 @@ class HubManager:
             ArcRunnerError: If destination directory already exists.
         """
         src_dir = self.resolve_model_dir(source)
-        dest_dir = (self._base_dir / destination.strip()).resolve()
+        dest_dir = resolve_inside(self._base_dir, destination)
 
         if dest_dir.exists():
             raise ArcRunnerError(f"Destination '{destination}' already exists", "RESOURCE_CONFLICT", 409)

@@ -12,10 +12,12 @@ import threading
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from arc_runner.core.exceptions import (
+    ArcRunnerError,
     ModelLoadError,
     ModelNotFoundError,
 )
 from arc_runner.core.logging import get_logger
+from arc_runner.core.path_policy import allowed_roots, ensure_path_allowed, resolve_inside
 from arc_runner.engine.base import BaseEngine
 from arc_runner.engine.embedding_engine import EmbeddingEngine
 from arc_runner.engine.lora_manager import LoRAManager
@@ -85,17 +87,19 @@ class ModelManager:
         """
         direct_path = Path(model_id).resolve()
         if direct_path.is_dir():
-            return direct_path
+            try:
+                return ensure_path_allowed(direct_path, allowed_roots(self._model_dirs))
+            except ArcRunnerError:
+                logger.warning("Refusing a model directory outside the allowed roots", extra={"path": str(direct_path)})
 
         for base_dir in self._model_dirs:
-            candidate = (base_dir / model_id).resolve()
-            if candidate.is_dir():
-                return candidate
-
-            clean_id = model_id.split(":")[0]
-            clean_candidate = (base_dir / clean_id).resolve()
-            if clean_candidate.is_dir():
-                return clean_candidate
+            for name in (model_id, model_id.split(":")[0]):
+                try:
+                    candidate = resolve_inside(base_dir, name)
+                except ArcRunnerError:
+                    continue
+                if candidate.is_dir():
+                    return candidate
 
         search_str = ", ".join(str(d) for d in self._model_dirs)
         raise ModelNotFoundError(model_id, search_str)

@@ -5,6 +5,8 @@ and hardware telemetry exposition.
 """
 
 from arc_runner._version import __version__
+import hmac
+import os
 from pathlib import Path
 import time
 from typing import Any, Callable, Dict, Optional
@@ -37,6 +39,44 @@ from arc_runner.server.routes_studio import router as studio_router
 from arc_runner.server.routes_ui import router as ui_router
 
 logger = get_logger("server.app")
+
+
+API_KEY_ENV = "ARC_API_KEY"
+CORS_ORIGINS_ENV = "ARC_CORS_ORIGINS"
+LOCAL_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
+_OPEN_PATHS = ("/", "/docs", "/openapi.json")
+
+
+class ApiKeyMiddleware(BaseHTTPMiddleware):
+    """Requires the configured API key (Authorization: Bearer or X-API-Key) on every route except the UI page and docs."""
+
+    def __init__(self, app: Any, api_key: str) -> None:
+        """Store the expected key.
+
+        Args:
+            app: Downstream ASGI application.
+            api_key: Expected key; compared in constant time.
+        """
+        super().__init__(app)
+        self._api_key = api_key.encode("utf-8")
+
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
+        """Reject requests without the right key.
+
+        Args:
+            request: Incoming request.
+            call_next: Downstream handler.
+
+        Returns:
+            Response: 401 JSON for a missing or wrong key, otherwise the downstream response.
+        """
+        if request.method == "OPTIONS" or request.url.path in _OPEN_PATHS or request.url.path.startswith("/static"):
+            return await call_next(request)
+        header = request.headers.get("authorization", "")
+        supplied = header[7:] if header.lower().startswith("bearer ") else request.headers.get("x-api-key", "")
+        if not hmac.compare_digest(supplied.encode("utf-8"), self._api_key):
+            return JSONResponse(status_code=401, content={"error": "missing or invalid API key", "code": "UNAUTHORIZED"})
+        return await call_next(request)
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
@@ -101,11 +141,16 @@ def create_app(
     pipeline = batch_pipeline or BatchExecutionPipeline()
     app.state.batch_pipeline = pipeline
 
+    api_key = os.environ.get(API_KEY_ENV, "").strip()
+    if api_key:
+        app.add_middleware(ApiKeyMiddleware, api_key=api_key)
     app.add_middleware(LoggingMiddleware)
+    extra_origins = [item.strip() for item in os.environ.get(CORS_ORIGINS_ENV, "").split(",") if item.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=extra_origins,
+        allow_origin_regex=LOCAL_ORIGIN_REGEX,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
