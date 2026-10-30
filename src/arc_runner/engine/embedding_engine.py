@@ -244,6 +244,14 @@ class EmbeddingEngine:
         divisor = float(mask_sum) + eps
         return [val / divisor for val in pooled]
 
+    def unload(self) -> None:
+        """Release the OpenVINO pipeline and free associated device memory.
+
+        Safe to call on an already-unloaded engine; the call is idempotent.
+        """
+        self._pipeline = None
+        logger.debug("EmbeddingEngine unloaded", extra={"model_path": str(self._model_path)})
+
     @classmethod
     def compute_similarity(cls, vec_a: Sequence[float], vec_b: Sequence[float]) -> float:
         """Compute cosine similarity between two vectors (Proofs M1, M14).

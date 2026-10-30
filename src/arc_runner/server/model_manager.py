@@ -50,6 +50,7 @@ class ModelManager:
         """
         parse_context_window_env()
         self._lock = threading.Lock()
+        self._meta_lock = threading.Lock()
         self._max_loaded_models = max_loaded_models
         self._model_dirs: List[Path] = [Path(d).resolve() for d in (model_dirs or [Path("models")])]
         self._cache: OrderedDict[str, BaseEngine] = OrderedDict()
@@ -58,6 +59,28 @@ class ModelManager:
         self.lora_manager: LoRAManager = LoRAManager()
         self._total_requests_served: int = 0
         self._total_tokens_generated: int = 0
+
+    @staticmethod
+    def engine_key(
+        model_id: str,
+        device: str,
+        draft_model_id: Optional[str] = None,
+        draft_device: str = "NPU",
+        gamma: int = 4,
+    ) -> str:
+        """Return the canonical cache key for a given engine configuration.
+
+        Args:
+            model_id: Primary model identifier or path.
+            device: Target accelerator device string.
+            draft_model_id: Optional draft model identifier for speculative decoding.
+            draft_device: Draft model accelerator device string.
+            gamma: Speculative lookahead token count.
+
+        Returns:
+            Deterministic colon-separated cache key string.
+        """
+        return f"{model_id}:{device}:{draft_model_id or 'none'}:{draft_device}:{gamma}"
 
     @property
     def model_dirs(self) -> List[Path]:
@@ -221,8 +244,12 @@ class ModelManager:
             target_path = self.resolve_model_path(model_id)
 
             if len(self._embedding_cache) >= self._max_loaded_models:
-                evicted_key, _ = self._embedding_cache.popitem(last=False)
+                evicted_key, evicted_emb = self._embedding_cache.popitem(last=False)
                 logger.info(f"Evicting least recently used embedding engine: {evicted_key}")
+                try:
+                    evicted_emb.unload()
+                except Exception as exc:
+                    logger.warning(f"Error unloading evicted embedding engine {evicted_key}: {exc}")
 
             logger.info(f"Constructing EmbeddingEngine (Target: {target_path} on {device})")
             engine = EmbeddingEngine(str(target_path), device=device)
@@ -258,8 +285,12 @@ class ModelManager:
             target_path = self.resolve_model_path(model_id)
 
             if len(self._vision_cache) >= self._max_loaded_models:
-                evicted_key, _ = self._vision_cache.popitem(last=False)
+                evicted_key, evicted_vis = self._vision_cache.popitem(last=False)
                 logger.info(f"Evicting least recently used vision engine: {evicted_key}")
+                try:
+                    evicted_vis.unload()
+                except Exception as exc:
+                    logger.warning(f"Error unloading evicted vision engine {evicted_key}: {exc}")
 
             logger.info(f"Constructing VisionEngine (Target: {target_path} on {device})")
             engine = VisionEngine(str(target_path), device=device)
@@ -329,35 +360,61 @@ class ModelManager:
         }
 
     def unload_model(self, model_id: str) -> bool:
-        """Unload and remove engine instances associated with model_id from cache.
+        """Unload and remove engine instances associated with model_id from all caches.
 
         Args:
-            model_id: Model identifier to evict.
+            model_id: Model identifier to evict from LLM, embedding, and vision caches.
 
         Returns:
             True if any engine instance was evicted, False otherwise.
         """
         evicted = False
+        prefix = f"{model_id}:"
         with self._lock:
-            keys_to_remove = [k for k in self._cache if k.startswith(f"{model_id}:")]
-            for k in keys_to_remove:
+            for k in [k for k in self._cache if k.startswith(prefix)]:
                 engine = self._cache.pop(k)
                 try:
                     engine.unload()
                 except Exception as exc:
                     logger.warning(f"Error unloading engine {k}: {exc}")
                 evicted = True
+            for k in [k for k in self._embedding_cache if k.startswith(prefix)]:
+                engine = self._embedding_cache.pop(k)
+                try:
+                    engine.unload()
+                except Exception as exc:
+                    logger.warning(f"Error unloading embedding engine {k}: {exc}")
+                evicted = True
+            for k in [k for k in self._vision_cache if k.startswith(prefix)]:
+                engine = self._vision_cache.pop(k)
+                try:
+                    engine.unload()
+                except Exception as exc:
+                    logger.warning(f"Error unloading vision engine {k}: {exc}")
+                evicted = True
         return evicted
 
     def unload_all(self) -> None:
-        """Unload and release all compiled engine instances in registry."""
+        """Unload and release all compiled engine instances across all caches."""
         with self._lock:
-            for key, engine in self._cache.items():
+            for key, engine in list(self._cache.items()):
                 try:
                     engine.unload()
                 except Exception as exc:
                     logger.warning(f"Error during unload_all for {key}: {exc}")
             self._cache.clear()
+            for key, engine in list(self._embedding_cache.items()):
+                try:
+                    engine.unload()
+                except Exception as exc:
+                    logger.warning(f"Error during unload_all (embedding) for {key}: {exc}")
+            self._embedding_cache.clear()
+            for key, engine in list(self._vision_cache.items()):
+                try:
+                    engine.unload()
+                except Exception as exc:
+                    logger.warning(f"Error during unload_all (vision) for {key}: {exc}")
+            self._vision_cache.clear()
 
     def record_generation_metrics(self, tokens_generated: int) -> None:
         """Atomically increment server request and token counters.
@@ -365,7 +422,7 @@ class ModelManager:
         Args:
             tokens_generated: Output tokens count produced in completion.
         """
-        with self._lock:
+        with self._meta_lock:
             self._total_requests_served += 1
             self._total_tokens_generated += tokens_generated
 
@@ -376,9 +433,12 @@ class ModelManager:
             Dictionary containing active loaded models count and cumulative stats.
         """
         with self._lock:
+            loaded = len(self._cache)
+            keys = list(self._cache.keys())
+        with self._meta_lock:
             return {
-                "loaded_models_count": len(self._cache),
-                "loaded_keys": list(self._cache.keys()),
+                "loaded_models_count": loaded,
+                "loaded_keys": keys,
                 "total_requests_served": self._total_requests_served,
                 "total_tokens_generated": self._total_tokens_generated,
             }
