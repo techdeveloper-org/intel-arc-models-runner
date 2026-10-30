@@ -2,10 +2,10 @@
 doc_id: DOC-INDEX
 title: Delivery document index
 stage: all
-version: 1.13.0
+version: 1.14.0
 status: draft
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-10-30
 authors: [main session]
 reviewers: [user]
 ---
@@ -16,8 +16,8 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 
 | doc_id | Title | Version | Status | Stage | Path |
 |:--|:--|:--|:--|:--|:--|
-| DOC-DECISION-LOG | Decision log | 1.10.0 | draft | all | DECISION_LOG.md |
-| DOC-RESUME | Resume checkpoint | 1.10.0 | draft | all | RESUME.md |
+| DOC-DECISION-LOG | Decision log | 1.11.0 | draft | all | DECISION_LOG.md |
+| DOC-RESUME | Resume checkpoint | 1.11.0 | draft | all | RESUME.md |
 | DOC-TRACEABILITY | Finding to requirement to code to test traceability | 1.1.0 | draft | all | TRACEABILITY.md |
 | DOC-SA-STAGE | Slice S-A - remove fabricated values | 1.0.0 | draft | S-A | stages/S-A-honesty/STAGE.md |
 | DOC-SB-STAGE | Slice S-B - native memory safety | 1.0.0 | draft | S-B | stages/S-B-memory-safety/STAGE.md |
@@ -36,7 +36,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-R09-REVIEW | R09 - Level Zero / Sysman / OpenVINO device handling: second opinion | 1.0.0 | draft | S-G | reviews/R09_gpu_driver_second_opinion.md |
 | DOC-R10-REVIEW | R10 Release-readiness review for v0.2.0 (nothing tagged, published or pushed) | 1.0.0 | draft | S-G | reviews/R10_release_readiness.md |
 | DOC-R07-REVIEW | R07 Faithfulness audit of repository claims | 1.0.0 | draft | S-G | reviews/R07_faithfulness_audit.md |
-| DOC-INDEX | Delivery document index | 1.13.0 | draft | all | INDEX.md |
+| DOC-INDEX | Delivery document index | 1.14.0 | draft | all | INDEX.md |
 
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
@@ -54,4 +54,5 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | 1.10.0 | 2026-10-29 | main session | decision log and resume to 1.7.0 | plan section 23 v9.2, round-5 review resolution (fix only) | f4db269 |
 | 1.11.0 | 2026-10-29 | main session | decision log and resume to 1.8.0 | plan section 23 v9.3, round-6 review resolution (simplify and fix) | 3d95ee0 |
 | 1.12.0 | 2026-10-29 | main session | decision log and resume to 1.9.0 | plan section 23 v9.4, round-7 review resolution (fix only) | 8cdf045 |
-| 1.13.0 | 2026-10-29 | main session | decision log and resume to 1.10.0 | plan section 23 v9.5, round-8 review resolution (fix only) | next revision |
+| 1.13.0 | 2026-10-29 | main session | decision log and resume to 1.10.0 | plan section 23 v9.5, round-8 review resolution (fix only) | a312ee1 |
+| 1.14.0 | 2026-10-30 | main session | decision log and resume to 1.11.0 | plan section 23 v9.6, round-9 review resolution (fix only) | next revision |
