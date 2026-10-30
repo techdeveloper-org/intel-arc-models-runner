@@ -2,7 +2,7 @@
 doc_id: DOC-SG-STAGE
 title: Slice S-G - remaining technical items
 stage: S-G
-version: 1.11.0
+version: 1.12.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -64,3 +64,4 @@ Clean-venv run of the CI Linux steps (`pip install -e ".[dev]"`, native build, 8
 | 1.9.0 | 2026-10-30 | CLI session | WP-07: classify_device_error() pure function in engine/device_errors.py; DEVICE_LOST/OOM raise ModelLoadError in all four fallback handlers (image, video, vision, embedding); DRIVER_ERROR/UNKNOWN fall back as before; 23 new tests | unrecoverable GPU/NPU error gate | pending |
 | 1.10.0 | 2026-10-30 | CLI session | WP-06 H-11: AudioEngine._normalize_audio_input raises InvalidAudioFormatError for sampwidth==3 (24-bit WAV) and sampwidth==0 (zero frames); H-10: VisionEngine.generate uses inner daemon thread + unbounded queue, yields first chunk before pipeline returns, joins with TIMEOUT_GRACEFUL_SHUTDOWN_S, raises ENGINE_WEDGED on join expiry; 13 new tests | media correctness | pending |
 | 1.11.0 | 2026-10-31 | CLI session | WP-14: ModelConfigError (HTTP 400, MODEL_CONFIG_ERROR); stop_strings Pydantic validator rejects empty/whitespace; cross-chunk stop string accumulator; worker_target captures pipeline result; perf_metrics.get_num_generated_tokens() replaces re-tokenization (is_estimate=False when available); is_estimate param added to telemetry_from_stream(); 16 new tests | engine-side token accounting | c5d5235 |
+| 1.12.0 | 2026-10-31 | CLI session | WP-15: PEP 562 __getattr__ in arc_runner/__init__.py defers all engine.*, quant.*, hub.*, server.*, benchmark.* imports until first attribute access; __dir__ returns complete __all__; unknown names raise AttributeError; 16 new tests | lazy imports -- version cold-start fix | pending |
