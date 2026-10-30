@@ -20,6 +20,7 @@ from arc_runner.core.constants import DEFAULT_MAX_NEW_TOKENS
 from arc_runner.core.exceptions import ModelNotFoundError
 from arc_runner.core.logging import get_logger
 from arc_runner.engine.models import GenerationConfig, TokenChunk
+from arc_runner.server.errors import hidden_error, model_not_found_detail
 from arc_runner.server.model_manager import ModelManager
 from arc_runner.server.schemas import (
     OpenAIChatCompletionChoice,
@@ -94,7 +95,7 @@ async def get_model(
         mtime = int(resolved.stat().st_mtime) if resolved.exists() else int(time.time())
         return OpenAIModelCard(id=resolved.name, created=mtime, owned_by="intel-arc-models-runner")
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(model)) from exc
 
 
 def measured_usage(telemetry: Any) -> Optional[Dict[str, int]]:
@@ -190,9 +191,9 @@ async def chat_completions(
     try:
         engine = manager.get_or_load_engine(request.model, device="GPU")
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(request.model)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to load engine: {exc}") from exc
+        raise hidden_error("engine load failed", exc, "Failed to load engine", model=request.model) from exc
 
     formatted_lines: List[str] = []
     for msg in request.messages:

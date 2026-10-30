@@ -87,7 +87,7 @@ async def test_stream_client_disconnect_while_silent_releases_the_engine_lock(tm
     await asyncio.wait_for(call.task, 10)
     gate.set()
     assert await asyncio.to_thread(engine.stream_closed.wait, 10)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost") as client:
         assert (await client.post(MSG, json=body())).status_code == 200
 
 
@@ -100,7 +100,7 @@ async def test_concurrent_requests_do_not_cross_talk(tmp_path: Path) -> None:
     """Twenty mixed stream and blocking requests each receive only their own answer."""
     engine = ScriptedEngine(reply_fn=_marker_reply)
     app = make_app(tmp_path, engine)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t", timeout=30) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost", timeout=30) as client:
         async def one(i: int) -> Tuple[int, str]:
             payload = body(messages=[{"role": "user", "content": f"<<id{i}>>"}], stream=bool(i % 2))
             response = await client.post(MSG, json=payload)

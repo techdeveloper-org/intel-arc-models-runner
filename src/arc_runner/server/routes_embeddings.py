@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 
 from arc_runner.core.exceptions import ModelNotFoundError
 from arc_runner.core.logging import get_logger, get_request_id
+from arc_runner.server.errors import hidden_error
 from arc_runner.server.schemas import (
     OllamaEmbeddingRequest,
     OllamaEmbeddingResponse,
@@ -59,11 +60,7 @@ async def api_embeddings(req: OllamaEmbeddingRequest, request: Request) -> Ollam
             detail=f"Embedding model '{req.model}' not found in registered directories.",
         ) from exc
     except Exception as exc:
-        logger.error(f"Failed to generate embedding for {req.model}: {exc} [request_id={req_id}]")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Embedding generation failed: {exc}",
-        ) from exc
+        raise hidden_error("embedding request failed", exc, "Embedding generation failed", model=req.model, request_id=req_id) from exc
 
 
 def _reported_tokens(engine: object) -> Optional[int]:
@@ -130,11 +127,7 @@ async def api_embed(req: OllamaEmbedRequest, request: Request) -> OllamaEmbedRes
             detail=f"Embedding model '{req.model}' not found in registered directories.",
         ) from exc
     except Exception as exc:
-        logger.error(f"Batch embedding generation failed for {req.model}: {exc} [request_id={req_id}]")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Batch embedding generation failed: {exc}",
-        ) from exc
+        raise hidden_error("embedding request failed", exc, "Batch embedding generation failed", model=req.model, request_id=req_id) from exc
 
 
 @embeddings_router.post(
@@ -195,8 +188,4 @@ async def v1_embeddings(req: OpenAIEmbeddingRequest, request: Request) -> OpenAI
             detail=f"Model '{req.model}' not found.",
         ) from exc
     except Exception as exc:
-        logger.error(f"OpenAI embedding generation failed for {req.model}: {exc} [request_id={req_id}]")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Embedding generation failed: {exc}",
-        ) from exc
+        raise hidden_error("embedding request failed", exc, "Embedding generation failed", model=req.model, request_id=req_id) from exc

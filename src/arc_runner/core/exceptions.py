@@ -67,9 +67,9 @@ class ModelNotFoundError(ArcRunnerError):
 
         Args:
             model_id: Model name or identifier requested.
-            search_path: File system location searched.
+            search_path: File system location searched; kept for logs and never put in the message.
         """
-        super().__init__(f"Model '{model_id}' was not found at '{search_path}'", "MODEL_NOT_FOUND", 404)
+        super().__init__(f"Model '{model_id}' was not found", "MODEL_NOT_FOUND", 404)
         self.model_id = model_id
         self.search_path = search_path
 

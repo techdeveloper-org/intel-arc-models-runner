@@ -641,10 +641,10 @@ def test_api_key_comparison_is_constant_time_for_both_headers(secured: TestClien
     assert len(calls) == 2
 
 
-def test_api_key_health_path_is_exempt_and_probe_is_not(secured: TestClient) -> None:
-    """/health is never answered with 401 (it is exempt; no route exists yet so it is a 404); /api/hello is protected."""
-    assert secured.get("/health").status_code != 401
-    assert secured.head("/api/hello").status_code == 401
+def test_api_key_health_path_and_the_claude_code_probe_are_exempt(secured: TestClient) -> None:
+    """/health and GET/HEAD /api/hello need no key (deliberate change: the startup probe carries no body and no secret); other routes do."""
+    assert secured.get("/health").status_code == 200
+    assert secured.head("/api/hello").status_code == 200
     assert secured.head("/api/hello", headers={"x-api-key": KEY}).status_code == 200
     assert secured.get("/api/tags").status_code == 401
 
