@@ -28,8 +28,11 @@ from arc_runner.core.logging import (
 )
 from arc_runner.devices.detector import DeviceDetector
 from arc_runner.devices.models import DeviceType
+from arc_runner.server.anthropic_schemas import error_envelope, new_request_id
 from arc_runner.server.batch_pipeline import BatchExecutionPipeline
 from arc_runner.server.model_manager import ModelManager
+from arc_runner.server.routes_anthropic import probe_router as anthropic_probe_router
+from arc_runner.server.routes_anthropic import router as anthropic_router
 from arc_runner.server.routes_batch import router as batch_router
 from arc_runner.server.routes_embeddings import embeddings_router
 from arc_runner.server.routes_lora import router as lora_router
@@ -44,11 +47,16 @@ logger = get_logger("server.app")
 API_KEY_ENV = "ARC_API_KEY"
 CORS_ORIGINS_ENV = "ARC_CORS_ORIGINS"
 LOCAL_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
-_OPEN_PATHS = ("/", "/docs", "/openapi.json")
+_OPEN_PATHS = ("/", "/docs", "/openapi.json", "/health")
+_ANTHROPIC_PATH_PREFIX = "/v1/messages"
 
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
-    """Requires the configured API key (Authorization: Bearer or X-API-Key) on every route except the UI page and docs."""
+    """Requires the configured API key (Authorization: Bearer or X-API-Key) on every route except the UI page, docs and /health.
+
+    Either header may carry the key, because Claude Code sends the token in Authorization (ANTHROPIC_AUTH_TOKEN)
+    or in x-api-key (ANTHROPIC_API_KEY). Both are always compared, in constant time.
+    """
 
     def __init__(self, app: Any, api_key: str) -> None:
         """Store the expected key.
@@ -73,8 +81,17 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS" or request.url.path in _OPEN_PATHS or request.url.path.startswith("/static"):
             return await call_next(request)
         header = request.headers.get("authorization", "")
-        supplied = header[7:] if header.lower().startswith("bearer ") else request.headers.get("x-api-key", "")
-        if not hmac.compare_digest(supplied.encode("utf-8"), self._api_key):
+        bearer = header[7:] if header.lower().startswith("bearer ") else ""
+        header_key = request.headers.get("x-api-key", "")
+        matches = [hmac.compare_digest(supplied.encode("utf-8"), self._api_key) for supplied in (bearer, header_key)]
+        if not any(matches):
+            if request.url.path.startswith(_ANTHROPIC_PATH_PREFIX):
+                request_id = new_request_id()
+                return JSONResponse(
+                    status_code=401,
+                    content=error_envelope("authentication_error", "missing or invalid API key", request_id),
+                    headers={"request-id": request_id},
+                )
             return JSONResponse(status_code=401, content={"error": "missing or invalid API key", "code": "UNAUTHORIZED"})
         return await call_next(request)
 
@@ -205,6 +222,8 @@ def create_app(
     app.include_router(batch_router)
     app.include_router(ollama_router)
     app.include_router(openai_router)
+    app.include_router(anthropic_router)
+    app.include_router(anthropic_probe_router)
     app.include_router(studio_router)
 
     return app

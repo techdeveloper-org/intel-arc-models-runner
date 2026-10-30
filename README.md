@@ -25,6 +25,7 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 | ↳ [**Mathematical Proofs (M59–M134)**](docs/benchmarks/mathematical_proofs.md) | Formal Theorems & Invariants | 70 formal mathematical proofs covering Audio AI, Diffusion, Video AI, and Flash-Stream Heterogeneous Zero-RAM Execution (Proofs M121–M134). |
 | ↳ [**Empirical Silicon Proofs**](docs/benchmarks/empirical_silicon.md) | Real Silicon Hardware Telemetry | UNVERIFIED legacy document (see its banner): the 30.8× GPU-vs-CPU TTFT figure is not reproduced (measured CPU/GPU TTFT ratios on Qwen2.5-1.5B are 2.3× to 17.7×, and the speed-up claim gate fails), live sequential reclaim runs, 21-test hardware suite, GPU vs NPU breakdown, a Flash-Stream memory trace taken on a synthetic container (mapped bytes, not resident memory), and an Ollama comparison whose Ollama baseline was not run. |
 | ↳ [**Ollama Showdown & 30-Case Audit**](docs/benchmarks/ollama_showdown.md) | Head-to-Head Comparison vs Ollama | Ollama "Silent CPU Fallback" anatomy (Proof M56), output coherence (M57/M58), 30-case Triad Audit matrix, and a heavy-model Ollama OOM comparison whose Ollama run was never executed (UNVERIFIED). |
+| [**🤖 Claude Code**](docs/claude-code.md) | Use Claude Code against `arc-runner serve` | Anthropic `/v1/messages` (stream and tool use), env vars for Bash and PowerShell, what works, limits and troubleshooting; Claude Code itself was not run, see its UNVERIFIED list. |
 | [**🚀 Deployment & Packaging Guide**](docs/deployment.md) | Standalone PyPI Wheel & Docker Deployment | Production guide for `pip install arc-runner`, Ubuntu 24.04 Docker image, `/dev/dri` pass-through, and Kubernetes Helm specs. |
 | [**🧪 Complete Test Coverage**](docs/testing.md) | Full Test Suite Roadmap & Execution | Non-hardware suite counts measured with `pytest` (the guide gives the collected, passed, skipped and hardware-deselected numbers and their date); hardware-marked tests are reported as not run, Triad testing patterns, C sanitizer harnesses. |
 | [**🗺️ Roadmap & Multi-Modal Evolution**](docs/roadmap.md) | Delivered Milestones & Packaging Horizon | 15 core milestones + full Packaging Horizon delivered, 7 next-gen orchestration hurdles scorecard, PyPI & Docker targets. |
@@ -186,6 +187,10 @@ Invoke-RestMethod -Method Post `
 ```
 
 Use port `11434` in the URL if that is the port you selected for `arc-runner`.
+
+#### Claude Code (Anthropic Messages API)
+
+The server also answers `POST /v1/messages` and `POST /v1/messages/count_tokens`, so Claude Code can be pointed at it with `ANTHROPIC_BASE_URL=http://127.0.0.1:11434` and `ANTHROPIC_AUTH_TOKEN=local`. Streaming, tool-call parsing and the error envelope are tested with fake engines only; Claude Code itself was not run, and the engines' 4096-token context window is smaller than Claude Code's own prompt. Read [docs/claude-code.md](docs/claude-code.md) for the exact steps, the limits and what is UNVERIFIED.
 
 ### 3. Core CLI Quick Reference
 
