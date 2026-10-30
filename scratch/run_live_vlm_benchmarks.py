@@ -25,7 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from arc_runner.benchmark.harness_common import (  # noqa: E402
-    HarnessConfig, add_harness_args, begin_run, config_from_args, default_result_path, directory_size_bytes, download_snapshot,
+    HarnessConfig, add_harness_args, add_keep_args, reclaim_model_dir, begin_run, config_from_args, default_result_path, directory_size_bytes, download_snapshot,
     finish_run, optional_sysman, target_device,
 )
 from arc_runner.benchmark.nonllm import vlm_samples, vlm_samples_interleaved  # noqa: E402
@@ -161,7 +161,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--runs", type=int, default=10)
     parser.add_argument("--models-root", default="models")
     parser.add_argument("--no-cpu-baseline", action="store_true")
-    parser.add_argument("--keep", action="store_true", help="keep the model files on disk")
+    add_keep_args(parser)
     parser.add_argument("--out", type=Path)
     add_harness_args(parser)
     args = parser.parse_args(argv)
@@ -180,8 +180,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         samples = collect_samples(args.model, spec, lambda dev: VisionEngine(str(model_dir), device=dev), device, fallback, not args.no_cpu_baseline, args.warmups, args.runs, optional_sysman(), harness=harness)
     finally:
-        if not args.keep:
-            shutil.rmtree(model_dir, ignore_errors=True)
+        reclaim_model_dir(args.delete_after, model_dir, Path(args.models_root).resolve())
     samples, protocol_extra, environment_extra = finish_run(samples, harness, report)
     out = args.out or default_result_path(REPO_ROOT, "vlm", args.model)
     labels = {"arc-runner": f"OpenVINO on {device} ({spec['precision']})", "cpu-baseline": "OpenVINO on CPU"}

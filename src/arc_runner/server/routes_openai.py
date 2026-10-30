@@ -97,6 +97,30 @@ async def get_model(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+def measured_usage(telemetry: Any) -> Optional[Dict[str, int]]:
+    """Build an OpenAI usage object from engine-measured counts only.
+
+    Args:
+        telemetry: EngineTelemetry of the finished request.
+
+    Returns:
+        Optional[Dict[str, int]]: prompt/completion/total tokens, or None when the engine measured neither.
+        A prompt count of 0 means unmeasured; completion counts are valid when metrics_source is not unavailable.
+    """
+    prompt = telemetry.prompt_tokens if telemetry.prompt_tokens > 0 else None
+    completion = telemetry.total_tokens if telemetry.metrics_source != "unavailable" else None
+    if prompt is None and completion is None:
+        return None
+    usage: Dict[str, int] = {}
+    if prompt is not None:
+        usage["prompt_tokens"] = prompt
+    if completion is not None:
+        usage["completion_tokens"] = completion
+    if prompt is not None and completion is not None:
+        usage["total_tokens"] = prompt + completion
+    return usage
+
+
 async def _stream_token_chunks(
     engine: Any,
     prompt: str,
@@ -141,7 +165,7 @@ async def _stream_token_chunks(
         yield item
 
 
-@router.post("/chat/completions")
+@router.post("/chat/completions", response_model_exclude_none=True)
 async def chat_completions(
     request: OpenAIChatCompletionRequest,
     raw_request: Request,
@@ -263,9 +287,10 @@ async def chat_completions(
         return StreamingResponse(sse_generator(), media_type="text/event-stream")
 
     text = engine.generate(chat_prompt, gen_config)
-    prompt_tokens = len(chat_prompt.split())
-    completion_tokens = len(text.split())
-    manager.record_generation_metrics(completion_tokens)
+    telemetry = engine.get_telemetry()
+    usage = measured_usage(telemetry)
+    if telemetry.metrics_source != "unavailable":
+        manager.record_generation_metrics(telemetry.total_tokens)
 
     return OpenAIChatCompletionResponse(
         id=completion_id,
@@ -278,9 +303,5 @@ async def chat_completions(
                 finish_reason="stop",
             )
         ],
-        usage={
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-        },
+        usage=usage,
     )

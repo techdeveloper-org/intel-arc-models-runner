@@ -227,3 +227,15 @@ class VoiceNotFoundError(AudioEngineError):
         super().__init__(f"Voice embedding '{voice_name}' not found.{avail_str}", "VOICE_NOT_FOUND", 404)
         self.voice_name = voice_name
         self.available_voices = available_voices or []
+
+
+class ConfigurationError(ArcRunnerError):
+    """Raised when a configuration or request parameter is invalid or unsafe."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize the configuration failure exception.
+
+        Args:
+            message: Description of the invalid setting.
+        """
+        super().__init__(message, "INVALID_CONFIGURATION", 400)

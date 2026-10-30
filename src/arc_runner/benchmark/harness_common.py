@@ -9,6 +9,7 @@ import argparse
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
+import shutil
 import sys
 import time
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
@@ -16,6 +17,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from arc_runner.benchmark.stats import (
     MAX_WARMUPS, MIN_WARMUPS, WARMUP_CV, BenchSample, coefficient_of_variation, non_normal_flag, warmup_converged,
 )
+from arc_runner.core.exceptions import ConfigurationError
 from arc_runner.devices.sysman import LevelZeroSysman
 
 IDLE_CPU_MAX_PCT = 10.0
@@ -443,6 +445,43 @@ def add_harness_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--cooldown-s", type=float, default=COOLDOWN_S, help="pause between backend/tier switches; 0 disables")
     parser.add_argument("--idle-window-s", type=float, default=IDLE_WINDOW_S, help="idle-CPU observation window")
     parser.add_argument("--skip-preconditions", action="store_true", help="skip the AC-power, idle-CPU and memory checks (recorded as skipped)")
+
+
+def add_keep_args(parser: argparse.ArgumentParser) -> None:
+    """Add the model-retention options: keep is the default, --delete-after opts into deletion.
+
+    Args:
+        parser: Parser to extend.
+    """
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--keep", action="store_true", help="keep the model files on disk (default; accepted for compatibility)")
+    group.add_argument("--delete-after", action="store_true", help="delete the model directory after the run")
+
+
+def reclaim_model_dir(delete_after: bool, model_dir: Path, models_root: Path) -> bool:
+    """Delete a model directory only when requested and only when it lies inside the models root.
+
+    Args:
+        delete_after: True when the user passed --delete-after.
+        model_dir: Directory of the model alias.
+        models_root: Directory that holds all model aliases.
+
+    Returns:
+        bool: True if a directory was removed; False if deletion was not requested or it did not exist.
+
+    Raises:
+        ConfigurationError: If model_dir is the models root or is not inside it.
+    """
+    if not delete_after:
+        return False
+    root = Path(models_root).resolve()
+    target = Path(model_dir).resolve()
+    if target == root or root not in target.parents:
+        raise ConfigurationError(f"refusing to delete '{target}': not a directory inside the models root '{root}'")
+    if not target.is_dir():
+        return False
+    shutil.rmtree(target)
+    return True
 
 
 def config_from_args(args: argparse.Namespace) -> HarnessConfig:

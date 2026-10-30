@@ -236,3 +236,12 @@ def test_every_live_script_exposes_the_shared_protocol_options_and_records_preco
     source = (REPO_ROOT / "scratch" / f"{name}.py").read_text(encoding="utf-8")
     for needle in ("add_harness_args(parser)", "config_from_args(args)", "begin_run(", "finish_run("):
         assert needle in source, f"{name} lacks {needle}"
+
+
+@pytest.mark.parametrize("script", ["run_live_audio_benchmarks", "run_live_image_benchmarks", "run_live_sequential_model_benchmarks", "run_live_video_benchmarks", "run_live_vlm_benchmarks"])
+def test_live_scripts_expose_delete_after_and_keep_flags(script: str) -> None:
+    """Every live runner imports the shared retention helpers and no longer deletes unconditionally."""
+    text = (REPO_ROOT / "scratch" / f"{script}.py").read_text(encoding="utf-8")
+    assert "add_keep_args(parser)" in text
+    assert "reclaim_model_dir(args.delete_after" in text
+    assert "shutil.rmtree(model_dir" not in text

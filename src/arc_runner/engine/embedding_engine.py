@@ -67,6 +67,11 @@ class EmbeddingEngine:
         return self._device
 
     @property
+    def last_prompt_tokens(self) -> Optional[int]:
+        """Tokenizer-counted prompt tokens of the last request; None because this engine does not measure them."""
+        return None
+
+    @property
     def dimension(self) -> int:
         """Return the vector dimensionality."""
         return self._dimension

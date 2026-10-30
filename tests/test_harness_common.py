@@ -56,3 +56,65 @@ def test_download_snapshot_skips_when_marker_present_and_otherwise_calls_hub(tmp
     other = tmp_path / "n"
     assert harness_common.download_snapshot("repo/y", other, ("openvino_model.xml",)) >= 0.0
     assert calls and calls[0]["repo_id"] == "repo/y"
+
+
+def _keep_parser() -> Any:
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    harness_common.add_keep_args(parser)
+    return parser
+
+
+def test_add_keep_args_default_keeps_model_directory(tmp_path: Path) -> None:
+    """Without flags the parsed namespace does not request deletion."""
+    args = _keep_parser().parse_args([])
+    model_dir = tmp_path / "alias"
+    model_dir.mkdir()
+    assert harness_common.reclaim_model_dir(args.delete_after, model_dir, tmp_path) is False
+    assert model_dir.exists()
+
+
+def test_add_keep_args_keep_flag_is_accepted_as_noop(tmp_path: Path) -> None:
+    """The legacy --keep flag still parses and does not request deletion."""
+    args = _keep_parser().parse_args(["--keep"])
+    assert args.delete_after is False
+
+
+def test_add_keep_args_keep_and_delete_after_together_is_argparse_error() -> None:
+    """The two flags are mutually exclusive."""
+    with pytest.raises(SystemExit):
+        _keep_parser().parse_args(["--keep", "--delete-after"])
+
+
+def test_reclaim_model_dir_delete_after_removes_only_alias_dir(tmp_path: Path) -> None:
+    """Opting in deletes the alias directory and leaves siblings and the root alone."""
+    models = tmp_path / "models"
+    (models / "a").mkdir(parents=True)
+    (models / "a" / "w.bin").write_bytes(b"x")
+    (models / "b").mkdir()
+    assert harness_common.reclaim_model_dir(True, models / "a", models) is True
+    assert not (models / "a").exists()
+    assert (models / "b").exists() and models.exists()
+
+
+def test_reclaim_model_dir_outside_models_root_raises_and_keeps_files(tmp_path: Path) -> None:
+    """A directory outside the models root, or the root itself, is refused."""
+    from arc_runner.core.exceptions import ConfigurationError
+
+    models = tmp_path / "models"
+    models.mkdir()
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    with pytest.raises(ConfigurationError):
+        harness_common.reclaim_model_dir(True, outside, models)
+    with pytest.raises(ConfigurationError):
+        harness_common.reclaim_model_dir(True, models, models)
+    with pytest.raises(ConfigurationError):
+        harness_common.reclaim_model_dir(True, models / ".." / "elsewhere", models)
+    assert outside.exists() and models.exists()
+
+
+def test_reclaim_model_dir_missing_directory_is_not_an_error(tmp_path: Path) -> None:
+    """Deleting a directory that is already gone returns False."""
+    assert harness_common.reclaim_model_dir(True, tmp_path / "models" / "gone", tmp_path / "models") is False
