@@ -4,14 +4,25 @@
 
 **Status of this guide.** The server side is covered by automated tests that use fake engines and by a run of the real app under uvicorn with raw sockets. Claude Code itself was **not run** while this was written, and no real model was involved. Everything that depends on Claude Code's behaviour or on a real model is marked UNVERIFIED. Anthropic does not support routing Claude Code to non-Claude models; this works only as far as the wire protocol matches.
 
-## Read this first: the context window
+## The context window
 
-The engines in this repository enforce a context window of 4096 tokens (`DEFAULT_CONTEXT_WINDOW` in `src/arc_runner/core/constants.py`); no setting or environment variable changes it. A request fails when `prompt tokens + max_tokens` exceeds it. Claude Code sends its own system prompt plus the schemas of all its tools with every request, and by default asks for `max_tokens` 32000 for an unknown model. Two consequences, both read from the code and neither tried against Claude Code:
+The engines enforce a context window as a software budget: a request fails when `prompt tokens + max_tokens` exceeds it. The window is no longer fixed. It is resolved once per loaded model, in this order:
 
-- Every request is expected to answer `400 invalid_request_error` with a message beginning `prompt is too long`, until the window is made configurable in the engine. That change is outside this API layer.
-- Lowering `CLAUDE_CODE_MAX_OUTPUT_TOKENS` helps only the `max_tokens` half of the check.
+1. `ARC_CONTEXT_WINDOW`, a positive integer written with ASCII digits only (no sign, spaces, separators or exponent), at most 2097152 (2**21). Anything else, including `0`, `-1`, `8 `, `1e3`, non-ASCII digits and values above the cap, stops the server at start with a `ConfigurationError` before any model is loaded. Empty means unset.
+2. `max_position_embeddings` in `<model_dir>/config.json`. The file is treated as untrusted: size cap 1 MiB, must be a JSON object, the value must be a real positive integer (booleans, floats and strings are rejected). A value above 2097152 is clamped to it with a WARNING in the log. Rope scaling keys are ignored: only the number the config states is used.
+3. 4096 (the old default), with an INFO log line that says why (no `config.json`, unreadable, or no valid key).
 
-The exact message text Claude Code keys its automatic compaction on is UNVERIFIED; the runner uses Anthropic's style, `prompt is too long: N tokens (prompt plus max_tokens) > M maximum context window`. If Claude Code does not compact by itself, run `/compact` or `/clear`.
+The window used is written to the server log at INFO when the model loads. For a speculative pair (draft model) the target model's config decides; the draft's is not consulted.
+
+```bash
+ARC_CONTEXT_WINDOW=32768 arc-runner serve --default-model llama-3.2-3b
+```
+
+When a request exceeds the window the answer is still `400 invalid_request_error` beginning `prompt is too long: N tokens (prompt plus max_tokens) > M maximum context window`, now with the new `M`. Lower `CLAUDE_CODE_MAX_OUTPUT_TOKENS` or run `/compact` / `/clear` if you hit it.
+
+**Memory warning.** The window is only a limit; nothing is preallocated for it, and the KV cache grows with the tokens actually used. A large window therefore lets a long prompt allocate a large KV cache, and on a laptop whose GPU shares 15 GB with the system this can run out of memory. This has **not been measured on the target laptop**; no safe window size is claimed. If you see out-of-memory errors, set `ARC_CONTEXT_WINDOW` lower, or `ARC_KV_CACHE_PRECISION=u8` (a quality trade-off, off by default). The KV footprint estimate uses `num_hidden_layers`, `num_key_value_heads` (or `num_attention_heads`) and `head_dim` (or `hidden_size / num_attention_heads`) from `config.json` and the element width of the KV precision setting; when the config lacks them the old 28 / 8 / 128 assumption is used, flagged as an assumption and logged at WARNING.
+
+Still UNVERIFIED: that a model's `max_position_embeddings` is a length it handles well on this hardware, and the exact message text Claude Code keys its automatic compaction on (the runner uses Anthropic's style). `CLAUDE_CODE_AUTO_COMPACT_WINDOW` cannot match a small local window, so `/compact` remains the recovery.
 
 ## 1. Start the server
 
@@ -67,7 +78,7 @@ claude
 | `ANTHROPIC_AUTH_TOKEN` | Sent as `Authorization: Bearer`. Any value works unless `ARC_API_KEY` is set (below). Preferred over `ANTHROPIC_API_KEY`, which makes interactive Claude Code ask once to approve the key. |
 | `ANTHROPIC_MODEL` | The local model name from `/v1/models`. Claude Code does not validate it at start; a typo fails on the first request. |
 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Background tasks may use the "haiku" alias; pin it to the local model. `ANTHROPIC_SMALL_FAST_MODEL` is deprecated. |
-| `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Claude Code assumes 32000 for unknown models. Set it below the engine's context window. The runner rejects `max_tokens` above 32768 with a 400. |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Claude Code assumes 32000 for unknown models. Set it below the engine's context window. Keep it below the context window (see above). The runner rejects `max_tokens` above 32768 with a 400. |
 | `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | Claude Code assumes a 200K context for unknown model names and cannot learn a smaller one from the server. The documented minimum is 100000, so it cannot match a smaller local window; `/compact` is the recovery. |
 | `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` | Strips beta fields. The runner ignores them anyway; this only avoids sending them. |
 | `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | No telemetry or update checks while working locally. |
@@ -153,7 +164,7 @@ Small models often ignore the format or produce bad arguments (UNVERIFIED for th
 |:---|:---|
 | `404 not_found_error: model: X (not found; available local models: ...)` | `ANTHROPIC_MODEL` is not a name from `/v1/models`. Fix the variable; also set `ANTHROPIC_DEFAULT_HAIKU_MODEL`. |
 | `401 authentication_error` | `ARC_API_KEY` is set on the server. Set `ANTHROPIC_AUTH_TOKEN` (or `ANTHROPIC_API_KEY`) to the same value in the shell that starts `claude`; `~/.claude/settings.json` `env` overrides the shell. |
-| `400 prompt is too long: ...` | The prompt plus `max_tokens` does not fit the engine's context window (see the top of this page). Lower `CLAUDE_CODE_MAX_OUTPUT_TOKENS`, run `/compact` or `/clear`. A 4096-token window cannot hold Claude Code's own prompt. |
+| `400 prompt is too long: ...` | The prompt plus `max_tokens` does not fit the engine's context window (see "The context window"). Lower `CLAUDE_CODE_MAX_OUTPUT_TOKENS`, run `/compact` or `/clear`, or raise `ARC_CONTEXT_WINDOW`. A model without a usable `config.json` falls back to 4096 tokens, which cannot hold Claude Code's own prompt. |
 | `400 max_tokens: ... exceeds the maximum of 32768` | Lower `CLAUDE_CODE_MAX_OUTPUT_TOKENS`. |
 | `400 ... content is not supported by this runner` | An image or document is in the request. `/clear` or `/compact`. |
 | Tool calls are ignored, or code is printed instead of edited | The model did not answer in the `<tool_call>` format, so the answer was returned as text. Try a larger or tool-tuned model; check `curl` with a `tools` array to see the raw text. |
