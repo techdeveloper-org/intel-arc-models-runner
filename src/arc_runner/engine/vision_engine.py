@@ -70,6 +70,14 @@ class VisionEngine:
         """Return the spatial patch dimension."""
         return self._patch_size
 
+    def unload(self) -> None:
+        """Release the OpenVINO VLM pipeline and free associated device memory.
+
+        Safe to call on an already-unloaded engine; the call is idempotent.
+        """
+        self._pipeline = None
+        logger.debug("VisionEngine unloaded", extra={"model_path": str(self._model_path)})
+
     def _initialize_pipeline(self) -> None:
         """Construct the OpenVINO VLMPipeline instance.
 
