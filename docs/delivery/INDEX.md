@@ -2,7 +2,7 @@
 doc_id: DOC-INDEX
 title: Delivery document index
 stage: all
-version: 1.24.0
+version: 1.25.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-30
@@ -25,7 +25,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-SD-STAGE | Slice S-D - engine context window and Level Zero bridge | 1.0.0 | draft | S-D | stages/S-D-engine-and-level-zero/STAGE.md |
 | DOC-SE-STAGE | Slice S-E - benchmark protocol, statistics, and provenance | 1.0.0 | draft | S-E | stages/S-E-benchmarks/STAGE.md |
 | DOC-SF-STAGE | Slice S-F - documentation, version, CI, and checks | 1.0.0 | draft | S-F | stages/S-F-docs-and-release-prep/STAGE.md |
-| DOC-SG-STAGE | Slice S-G - remaining technical items | 1.9.0 | draft | S-G | stages/S-G-remaining-items/STAGE.md |
+| DOC-SG-STAGE | Slice S-G - remaining technical items | 1.10.0 | draft | S-G | stages/S-G-remaining-items/STAGE.md |
 | DOC-R01-REVIEW | R01 - Independent review of the native C layer and ctypes bridge | 1.0.0 | draft | S-G | reviews/R01_c_native_review.md |
 | DOC-R02-REVIEW | R02 - STRIDE threat model with attack trees | 1.0.0 | draft | S-G | reviews/R02_threat_model.md |
 | DOC-R03-REVIEW | R03 SAST review: src/arc_runner (Python) and src/arc_runner/native (C) | 1.0.0 | draft | S-G | reviews/R03_sast.md |
@@ -36,7 +36,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-R09-REVIEW | R09 - Level Zero / Sysman / OpenVINO device handling: second opinion | 1.0.0 | draft | S-G | reviews/R09_gpu_driver_second_opinion.md |
 | DOC-R10-REVIEW | R10 Release-readiness review for v0.2.0 (nothing tagged, published or pushed) | 1.0.0 | draft | S-G | reviews/R10_release_readiness.md |
 | DOC-R07-REVIEW | R07 Faithfulness audit of repository claims | 1.0.0 | draft | S-G | reviews/R07_faithfulness_audit.md |
-| DOC-INDEX | Delivery document index | 1.24.0 | draft | all | INDEX.md |
+| DOC-INDEX | Delivery document index | 1.25.0 | draft | all | INDEX.md |
 
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
@@ -66,3 +66,4 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | 1.22.0 | 2026-10-30 | CLI session | S-G stage to 1.7.0 | WP-17 17b PromptCapExceededError NPU prompt cap enforcement | pending |
 | 1.23.0 | 2026-10-30 | CLI session | S-G stage to 1.8.0 | WP-05 engine_key, unload all engine kinds, _meta_lock | pending |
 | 1.24.0 | 2026-10-30 | CLI session | S-G stage to 1.9.0 | WP-07 classify_device_error, DEVICE_LOST/OOM raise ModelLoadError | pending |
+| 1.25.0 | 2026-10-30 | CLI session | S-G stage to 1.10.0 | WP-06 H-11 24-bit WAV rejection, H-10 VLM true streaming with inner thread | pending |
