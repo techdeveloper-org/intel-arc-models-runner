@@ -279,9 +279,11 @@ class LevelZeroSysman:
                 self._loader_key = lib_name
                 self._configure_signatures()
                 self._initialized = True
+                self._unavailable_reasons.pop("library", None)
                 return
-            except (OSError, Exception):
-                continue
+            except OSError as exc:
+                self._unavailable_reasons["library"] = f"could not load {lib_name}: {exc}"
+                logger.warning("Level Zero loader could not be loaded", extra={"library": lib_name, "error": str(exc)})
 
         self._lib = None
         self._initialized = False
