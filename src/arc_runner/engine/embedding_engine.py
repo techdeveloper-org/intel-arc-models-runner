@@ -101,14 +101,13 @@ class EmbeddingEngine:
                 )
                 logger.info(
                     "Initialized TextEmbeddingPipeline",
-                    device=self._device,
-                    model_path=str(self._model_path),
+                    extra={"device": self._device, "model_path": str(self._model_path)},
                 )
             except Exception as device_exc:
                 if self._device == "NPU":
                     logger.warning(
                         "NPU embedding initialization failed, falling back to GPU",
-                        error=str(device_exc),
+                        extra={"error": str(device_exc)},
                     )
                     self._device = "GPU"
                     self._pipeline = genai.TextEmbeddingPipeline(

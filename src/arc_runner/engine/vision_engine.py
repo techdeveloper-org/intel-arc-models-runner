@@ -86,14 +86,13 @@ class VisionEngine:
                 self._pipeline = genai.VLMPipeline(str(self._model_path), self._device)
                 logger.info(
                     "Initialized VLMPipeline",
-                    device=self._device,
-                    model_path=str(self._model_path),
+                    extra={"device": self._device, "model_path": str(self._model_path)},
                 )
             except Exception as device_exc:
                 if self._device == "GPU":
                     logger.warning(
                         "Arc GPU VLM initialization failed, falling back to CPU",
-                        error=str(device_exc),
+                        extra={"error": str(device_exc)},
                     )
                     self._device = "CPU"
                     self._pipeline = genai.VLMPipeline(str(self._model_path), self._device)
@@ -103,9 +102,7 @@ class VisionEngine:
         except Exception as exc:
             logger.error(
                 "Failed to construct OpenVINO VLMPipeline",
-                model_path=str(self._model_path),
-                device=self._device,
-                error=str(exc),
+                extra={"model_path": str(self._model_path), "device": self._device, "error": str(exc)},
             )
             raise ModelLoadError(
                 f"Failed to load VLM model at '{self._model_path}' on device '{self._device}': {exc}"
@@ -228,5 +225,5 @@ class VisionEngine:
                 )
 
         except Exception as exc:
-            logger.error("VLM generation failed", error=str(exc))
+            logger.error("VLM generation failed", extra={"error": str(exc)})
             raise VisionEngineError(f"VLM generation execution failed: {exc}") from exc
