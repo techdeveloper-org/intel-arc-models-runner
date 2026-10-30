@@ -58,13 +58,22 @@ def _package_version(name: str) -> Optional[str]:
         return None
 
 
-def capture_environment(repo_dir: Path, ollama_version: Optional[str] = None, on_ac_power: Optional[bool] = None) -> Dict[str, Any]:
+def capture_environment(
+    repo_dir: Path,
+    ollama_version: Optional[str] = None,
+    on_ac_power: Optional[bool] = None,
+    power_mode: Optional[str] = None,
+    external_artifacts: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     """Record the facts a reader needs to interpret a benchmark run.
 
     Args:
         repo_dir: Repository directory for the git SHA.
         ollama_version: Version string of the Ollama server, if one was used.
         on_ac_power: True/False if known, None if unknown.
+        power_mode: Power source string: ``"ac"``, ``"battery"``, ``"unknown"``, or None.
+        external_artifacts: List of artifact records ``{path, sha256, tool, version}``
+            describing the model IR files and the tool chain used to produce them.
 
     Returns:
         Dict[str, Any]: The environment block of a result file.
@@ -78,7 +87,36 @@ def capture_environment(repo_dir: Path, ollama_version: Optional[str] = None, on
         "ollama_version": ollama_version,
         "driver_versions": {},
         "on_ac_power": on_ac_power,
+        "power_mode": power_mode,
+        "external_artifacts": external_artifacts if external_artifacts is not None else [],
     }
+
+
+def validate_model_dir(model_dir: Any) -> None:
+    """Raise ModelNotFoundError when the model directory is absent or contains no IR files.
+
+    Callers must invoke this before loading any engine or starting any benchmark run so
+    that a missing or mis-specified path fails early with a clear error rather than an
+    opaque OpenVINO exception.
+
+    Args:
+        model_dir: Path (or string) to the model directory to validate.
+
+    Raises:
+        ModelNotFoundError: When the path does not exist, is not a directory, or
+            contains no ``.xml`` or ``.bin`` files.
+    """
+    from arc_runner.core.exceptions import ModelNotFoundError
+
+    path = Path(model_dir)
+    if not path.exists() or not path.is_dir():
+        raise ModelNotFoundError(str(model_dir), search_path=str(path.parent))
+    has_ir = any(path.glob("*.xml")) or any(path.glob("*.bin"))
+    if not has_ir:
+        raise ModelNotFoundError(
+            str(model_dir),
+            search_path=str(path),
+        )
 
 
 def build_result(

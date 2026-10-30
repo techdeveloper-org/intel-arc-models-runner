@@ -217,11 +217,22 @@ def perf_metrics_api() -> Any:
 
 
 def main() -> int:
-    """Run every probe and print one JSON document.
+    """Run every probe, print one JSON document, and optionally write it to a file.
 
     Returns:
         int: Always 0; unavailable facts are reported, not fatal.
     """
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Probe hardware facts for arc-runner benchmarks")
+    parser.add_argument(
+        "--out",
+        metavar="FILE",
+        default=None,
+        help="Write the JSON report to FILE in addition to stdout",
+    )
+    args = parser.parse_args()
+
     report = {
         "schema": "probe_hardware.v1",
         "platform": platform.platform(),
@@ -235,7 +246,12 @@ def main() -> int:
         "openvino_devices": fact(openvino_devices),
         "openvino_genai": fact(perf_metrics_api),
     }
-    print(json.dumps(report, indent=2))
+    text = json.dumps(report, indent=2)
+    print(text)
+    if args.out is not None:
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(text, encoding="utf-8")
     return 0
 
 
