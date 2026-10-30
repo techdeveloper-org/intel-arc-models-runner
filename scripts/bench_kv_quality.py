@@ -59,7 +59,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         argv: Arguments without the program name, or None for sys.argv.
 
     Returns:
-        int: 0 if the gate passes, 1 if it fails, 2 if the model directory is missing.
+        int: 0 if the gate passes, 1 if it fails, 2 if the model directory is missing, 3 if the runtime refused the
+        reduced KV precision (recorded in the report, nothing was compared).
     """
     parser = argparse.ArgumentParser(description="u8 KV-cache quality gate.")
     parser.add_argument("--model-dir", type=Path, required=True)
@@ -76,6 +77,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     report = compare_kv_precision(build_factory(OpenVINOGenAIEngine, args.model_dir, args.device), DEFAULT_PROMPTS, args.max_new_tokens)
     out = args.out or REPO_ROOT / "docs" / "benchmarks" / "quality" / f"kv_u8_{args.model_dir.name}.json"
     write_report(out, report, args.model_dir.name, args.device)
+    if report.candidate_error is not None:
+        print(f"CANDIDATE NOT RUN: the runtime refused the reduced KV precision ({report.candidate_error[:200]}); wrote {out}")
+        return 3
     print(f"{'PASS' if report.passed else 'FAIL'}: {report.pass_count}/{len(report.prompts)} prompts agree for >= {report.min_prefix_tokens} tokens; wrote {out}")
     return 0 if report.passed else 1
 
