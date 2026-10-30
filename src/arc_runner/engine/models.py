@@ -6,7 +6,7 @@ hardware telemetry, and key-value memory allocations.
 
 from enum import Enum
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from arc_runner.core.constants import (
     DEFAULT_MAX_NEW_TOKENS,
@@ -44,6 +44,25 @@ class GenerationConfig(BaseModel):
     repetition_penalty: float = Field(default=DEFAULT_REPETITION_PENALTY, ge=1.0, le=2.0, description="Logit penalty for repeated tokens")
     stop_strings: List[str] = Field(default_factory=list, description="Sequences that immediately halt generation")
     stop_token_ids: List[int] = Field(default_factory=list, description="Token IDs that halt generation")
+
+    @field_validator("stop_strings")
+    @classmethod
+    def stop_strings_must_be_nonempty(cls, v: List[str]) -> List[str]:
+        """Reject stop_strings containing empty or whitespace-only elements.
+
+        Args:
+            v: The stop_strings value to validate.
+
+        Returns:
+            The validated list.
+
+        Raises:
+            ValueError: If any element is empty or whitespace-only.
+        """
+        for s in v:
+            if not s or not s.strip():
+                raise ValueError("stop_strings elements must be non-empty and not whitespace-only")
+        return v
     stream: bool = Field(default=False, description="Whether to stream tokens incrementally")
     adapters: Optional[List[LoRAAdapterSpec]] = Field(default=None, description="Active LoRA adapters to compose during generation")
 

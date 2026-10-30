@@ -264,6 +264,18 @@ class ConfigurationError(ArcRunnerError):
         super().__init__(message, "INVALID_CONFIGURATION", 400)
 
 
+class ModelConfigError(ArcRunnerError):
+    """Raised when a model config.json is missing required fields or contains invalid values."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize the model configuration error.
+
+        Args:
+            message: Description of the missing or invalid configuration field.
+        """
+        super().__init__(message, "MODEL_CONFIG_ERROR", 400)
+
+
 class PromptCapExceededError(ArcRunnerError):
     """Raised when a prompt exceeds the NPU hardware maximum prompt length cap.
 

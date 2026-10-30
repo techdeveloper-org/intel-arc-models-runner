@@ -140,9 +140,10 @@ def telemetry_from_stream(
     first_token_time: Optional[float],
     chunk_count: int,
     token_count: Optional[int] = None,
+    is_estimate: bool = True,
     **extra: Any,
 ) -> EngineTelemetry:
-    """Build wall-clock telemetry for a streamed generation, labelled as an estimate.
+    """Build wall-clock telemetry for a streamed generation.
 
     Args:
         model_id: Identifier of the executed model.
@@ -151,12 +152,14 @@ def telemetry_from_stream(
         end_time: time.monotonic() value when generation ended.
         first_token_time: time.monotonic() value of the first emitted chunk, or None.
         chunk_count: Number of streamer callbacks observed (chunks, not tokenizer tokens).
-        token_count: Tokenizer count of the emitted text, if it could be computed; replaces chunk_count and
+        token_count: Token count of the emitted text; replaces chunk_count and
             makes the rate (tokens - 1) / time after the first chunk.
+        is_estimate: False when token_count came from perf_metrics (measured); True
+            when derived from re-tokenization or chunk count (approximated).
         **extra: Additional non-timing fields such as is_speculative.
 
     Returns:
-        EngineTelemetry: Stream timings flagged as estimates, or unavailable if no chunk arrived.
+        EngineTelemetry: Stream timings, or unavailable if no chunk arrived.
     """
     total_sec = max(end_time - start_time, 1e-6)
     if first_token_time is None:
@@ -175,7 +178,7 @@ def telemetry_from_stream(
         total_tokens=tokens,
         total_latency_ms=round(total_sec * 1000.0, 2),
         metrics_source="wallclock_stream",
-        is_estimate=True,
+        is_estimate=is_estimate,
         is_ttft_valid=True,
         is_tps_valid=tokens > 1,
         **extra,

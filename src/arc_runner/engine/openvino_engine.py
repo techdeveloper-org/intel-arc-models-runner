@@ -439,11 +439,13 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
         chunk_queue: queue.Queue[Optional[TokenChunk]] = queue.Queue(maxsize=STREAM_BUFFER_SIZE)
         cancel_event = threading.Event()
         stop_sequences = cfg.stop_strings
+        max_stop_len = max((len(s) for s in stop_sequences), default=0)
 
         start_time = time.monotonic()
         first_token_time: Optional[float] = None
         generated_count = 0
         emitted: List[str] = []
+        _cross_chunk_buf: List[str] = []
 
         def streamer_callback(chunk_text: str) -> bool:
             nonlocal first_token_time, generated_count
@@ -453,14 +455,19 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
             if first_token_time is None:
                 first_token_time = time.monotonic()
 
+            _cross_chunk_buf.append(chunk_text)
+            window = "".join(_cross_chunk_buf[-(max_stop_len + 1):]) if max_stop_len else chunk_text
+
             for stop_str in stop_sequences:
-                if stop_str in chunk_text:
-                    truncated = chunk_text.split(stop_str)[0]
+                if stop_str in window:
+                    prefix = window.split(stop_str)[0]
+                    already_emitted = "".join(_cross_chunk_buf[:-1])
+                    to_emit = prefix[len(already_emitted):]
                     cancel_event.set()
-                    if truncated:
-                        emitted.append(truncated)
+                    if to_emit:
+                        emitted.append(to_emit)
                         generated_count += 1
-                        chunk_queue.put(TokenChunk(text=truncated, is_finished=False, completion_tokens=generated_count))
+                        chunk_queue.put(TokenChunk(text=to_emit, is_finished=False, completion_tokens=generated_count))
                     return True
 
             emitted.append(chunk_text)
@@ -473,13 +480,15 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
         self._check_npu_prompt_cap(prompt, prompt_tokens)
 
         worker_error: List[Exception] = []
+        pipeline_result: List[Any] = []
 
         def worker_target() -> None:
             try:
                 if ov_config:
-                    self._pipeline.generate(prompt, ov_config, streamer=streamer_callback)
+                    result = self._pipeline.generate(prompt, ov_config, streamer=streamer_callback)
                 else:
-                    self._pipeline.generate(prompt, streamer=streamer_callback)
+                    result = self._pipeline.generate(prompt, streamer=streamer_callback)
+                pipeline_result.append(result)
             except Exception as exc:
                 worker_error.append(exc)
             finally:
@@ -512,9 +521,20 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
             raise exc
 
         end_time = time.monotonic()
-        token_count = self._count_prompt_tokens("".join(emitted)) if emitted else None
+        token_count: Optional[int] = None
+        is_estimate = True
+        if pipeline_result:
+            result_obj = pipeline_result[0]
+            pm = getattr(result_obj, "perf_metrics", None)
+            if pm is not None:
+                try:
+                    token_count = int(pm.get_num_generated_tokens())
+                    is_estimate = False
+                except Exception:
+                    pass
         self._telemetry = telemetry_from_stream(
-            self._model_path, self._device, start_time, end_time, first_token_time, generated_count, token_count=token_count
+            self._model_path, self._device, start_time, end_time, first_token_time,
+            generated_count, token_count=token_count, is_estimate=is_estimate,
         )
         self._telemetry.prompt_tokens = prompt_tokens or 0
         self._telemetry.kv_cache_precision = self._kv_cache_precision
