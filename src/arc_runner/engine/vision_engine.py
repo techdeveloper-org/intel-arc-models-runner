@@ -7,6 +7,8 @@ and zero-copy image patch tensorization on Intel Arc Xe-LPG matrix engines.
 import base64
 import io
 import math
+import queue
+import threading
 from pathlib import Path
 import time
 from typing import Any, Generator, List, Optional, Sequence, Union
@@ -14,7 +16,8 @@ from typing import Any, Generator, List, Optional, Sequence, Union
 import numpy as np
 from PIL import Image
 
-from arc_runner.core.exceptions import ArcRunnerError, ModelLoadError
+from arc_runner.core.constants import TIMEOUT_GRACEFUL_SHUTDOWN_S
+from arc_runner.core.exceptions import ArcRunnerError, EngineUnavailableError, ModelLoadError
 from arc_runner.core.logging import get_logger
 from arc_runner.engine.device_errors import classify_device_error
 from arc_runner.engine.models import GenerationConfig, TokenChunk
@@ -214,31 +217,56 @@ class VisionEngine:
         ov_cfg.temperature = gen_cfg.temperature
         ov_cfg.top_p = gen_cfg.top_p
 
-        accumulated_tokens: List[str] = []
-        token_index = 0
+        _DONE = object()
+        chunk_queue: queue.Queue = queue.Queue()
 
         def streamer(chunk_text: str) -> bool:
-            nonlocal token_index
-            accumulated_tokens.append(chunk_text)
-            token_index += 1
+            chunk_queue.put(chunk_text)
             return False
 
-        try:
-            res = self._pipeline.generate(
-                prompt=prompt,
-                images=image_tensors,
-                generation_config=ov_cfg,
-                streamer=streamer,
-            )
-
-            for idx, text_token in enumerate(accumulated_tokens):
-                is_last = idx == (len(accumulated_tokens) - 1)
-                yield TokenChunk(
-                    text=text_token,
-                    is_finished=is_last,
-                    finish_reason="stop" if is_last else None,
+        def _run_pipeline() -> None:
+            try:
+                self._pipeline.generate(
+                    prompt=prompt,
+                    images=image_tensors,
+                    generation_config=ov_cfg,
+                    streamer=streamer,
                 )
+            except Exception as exc:
+                chunk_queue.put(exc)
+            finally:
+                chunk_queue.put(_DONE)
 
-        except Exception as exc:
-            logger.error("VLM generation failed", extra={"error": str(exc)})
-            raise VisionEngineError(f"VLM generation execution failed: {exc}") from exc
+        worker = threading.Thread(target=_run_pipeline, daemon=True)
+        worker.start()
+        last_text: Optional[str] = None
+        try:
+            while True:
+                item = chunk_queue.get()
+                if item is _DONE:
+                    if last_text is not None:
+                        yield TokenChunk(
+                            text=last_text,
+                            is_finished=True,
+                            finish_reason="stop",
+                        )
+                    break
+                if isinstance(item, BaseException):
+                    logger.error("VLM generation failed", extra={"error": str(item)})
+                    raise VisionEngineError(
+                        f"VLM generation execution failed: {item}"
+                    ) from item
+                if last_text is not None:
+                    yield TokenChunk(
+                        text=last_text,
+                        is_finished=False,
+                        finish_reason=None,
+                    )
+                last_text = item
+        finally:
+            worker.join(timeout=TIMEOUT_GRACEFUL_SHUTDOWN_S)
+            if worker.is_alive():
+                raise EngineUnavailableError(
+                    f"VLM pipeline thread did not stop within {TIMEOUT_GRACEFUL_SHUTDOWN_S}s",
+                    error_code="ENGINE_WEDGED",
+                )

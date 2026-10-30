@@ -439,6 +439,11 @@ class AudioEngine:
                     n_frames = wf.getnframes()
                     raw_bytes = wf.readframes(n_frames)
 
+                    if sampwidth == 3:
+                        raise InvalidAudioFormatError(
+                            f"24-bit WAV (3 bytes per sample) is not supported at"
+                            f" '{wav_path}'; re-encode to 16-bit or 32-bit PCM."
+                        )
                     if sampwidth == 2:
                         samples = np.frombuffer(raw_bytes, dtype=np.int16).astype(np.float32) / 32768.0
                     elif sampwidth == 4:
@@ -446,7 +451,14 @@ class AudioEngine:
                     elif sampwidth == 1:
                         samples = (np.frombuffer(raw_bytes, dtype=np.uint8).astype(np.float32) - 128.0) / 128.0
                     else:
-                        samples = np.frombuffer(raw_bytes, dtype=np.float32)
+                        raise InvalidAudioFormatError(
+                            f"Unsupported WAV sample width {sampwidth} bytes per sample at '{wav_path}'."
+                        )
+
+                    if samples.size == 0:
+                        raise InvalidAudioFormatError(
+                            f"WAV file '{wav_path}' contains zero audio frames."
+                        )
 
                     if n_channels > 1:
                         samples = samples.reshape(-1, n_channels).mean(axis=1)
