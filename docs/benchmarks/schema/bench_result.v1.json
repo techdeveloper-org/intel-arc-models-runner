@@ -21,6 +21,21 @@
         "ollama_version": {"type": ["string", "null"]},
         "driver_versions": {"type": "object"},
         "on_ac_power": {"type": ["boolean", "null"]},
+        "power_mode": {"type": ["string", "null"], "description": "Optional. Power source at run time: 'ac', 'battery', or 'unknown'."},
+        "external_artifacts": {
+          "type": "array",
+          "description": "Optional. IR files and the toolchain used to produce them.",
+          "items": {
+            "type": "object",
+            "required": ["path", "sha256", "tool", "version"],
+            "properties": {
+              "path": {"type": "string", "description": "Absolute or repo-relative path to the artifact file."},
+              "sha256": {"type": "string", "description": "Hex SHA-256 of the file at measurement time."},
+              "tool": {"type": "string", "description": "Tool that produced the artifact (e.g. 'optimum-intel', 'openvino')."},
+              "version": {"type": "string", "description": "Version of the tool."}
+            }
+          }
+        },
         "preconditions": {"type": "object", "description": "Optional. Results of the pre-run AC-power, idle-CPU and memory checks; each value is null with a reason when it could not be read."}
       }
     },
