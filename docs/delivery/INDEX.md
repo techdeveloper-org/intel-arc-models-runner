@@ -2,7 +2,7 @@
 doc_id: DOC-INDEX
 title: Delivery document index
 stage: all
-version: 1.20.0
+version: 1.21.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-30
@@ -25,7 +25,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-SD-STAGE | Slice S-D - engine context window and Level Zero bridge | 1.0.0 | draft | S-D | stages/S-D-engine-and-level-zero/STAGE.md |
 | DOC-SE-STAGE | Slice S-E - benchmark protocol, statistics, and provenance | 1.0.0 | draft | S-E | stages/S-E-benchmarks/STAGE.md |
 | DOC-SF-STAGE | Slice S-F - documentation, version, CI, and checks | 1.0.0 | draft | S-F | stages/S-F-docs-and-release-prep/STAGE.md |
-| DOC-SG-STAGE | Slice S-G - remaining technical items | 1.5.0 | draft | S-G | stages/S-G-remaining-items/STAGE.md |
+| DOC-SG-STAGE | Slice S-G - remaining technical items | 1.6.0 | draft | S-G | stages/S-G-remaining-items/STAGE.md |
 | DOC-R01-REVIEW | R01 - Independent review of the native C layer and ctypes bridge | 1.0.0 | draft | S-G | reviews/R01_c_native_review.md |
 | DOC-R02-REVIEW | R02 - STRIDE threat model with attack trees | 1.0.0 | draft | S-G | reviews/R02_threat_model.md |
 | DOC-R03-REVIEW | R03 SAST review: src/arc_runner (Python) and src/arc_runner/native (C) | 1.0.0 | draft | S-G | reviews/R03_sast.md |
@@ -62,3 +62,4 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | 1.18.0 | 2026-10-30 | CLI session | S-G stage to 1.3.0 | WP-02 02a/02e/02f measurement support items | pending |
 | 1.19.0 | 2026-10-30 | CLI session | S-G stage to 1.4.0 | WP-02 02b bench_arms.py paired gate runner | pending |
 | 1.20.0 | 2026-10-30 | CLI session | S-G stage to 1.5.0 | WP-02 02c bench_native_micro --warmup/--seed flags | pending |
+| 1.21.0 | 2026-10-30 | CLI session | S-G stage to 1.6.0 | WP-02 02d run_benchmark long_prompt parameter | pending |
