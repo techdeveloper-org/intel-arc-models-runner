@@ -68,4 +68,4 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | 1.24.0 | 2026-10-30 | CLI session | S-G stage to 1.9.0 | WP-07 classify_device_error, DEVICE_LOST/OOM raise ModelLoadError | pending |
 | 1.25.0 | 2026-10-30 | CLI session | S-G stage to 1.10.0 | WP-06 H-11 24-bit WAV rejection, H-10 VLM true streaming with inner thread | pending |
 | 1.26.0 | 2026-10-31 | CLI session | S-G stage to 1.11.0 | WP-14 engine-side token accounting | c5d5235 |
-| 1.27.0 | 2026-10-31 | CLI session | S-G stage to 1.12.0 | WP-15 lazy imports, version cold-start fix | pending |
+| 1.27.0 | 2026-10-31 | CLI session | S-G stage to 1.12.0 | WP-15 lazy imports, version cold-start fix | 545370c |
