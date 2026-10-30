@@ -1,0 +1,219 @@
+{
+  "created_utc": "2026-10-30T08:24:46.495558+00:00",
+  "environment": {
+    "driver_versions": {},
+    "git_sha": "21851290a9bd54f7ce8ae969befc7f3129cabc43",
+    "hardware": "Intel64 Family 6 Model 170 Stepping 4, GenuineIntel (18 logical CPUs)",
+    "ollama_version": null,
+    "on_ac_power": true,
+    "openvino_genai": "2026.4.1.0",
+    "os": "Windows-11-10.0.26220-SP0",
+    "preconditions": {
+      "ac_reason": "",
+      "cpu_busy_pct": 7.920391101854262,
+      "cpu_reason": "",
+      "cpu_window_s": 30.0,
+      "idle_cpu_max_pct": 10.0,
+      "memory_available_bytes": 6270414848,
+      "memory_ok": true,
+      "memory_reason": "",
+      "memory_required_bytes": 4025859070,
+      "on_ac_power": true,
+      "violations": []
+    },
+    "python": "3.13.16"
+  },
+  "protocol": {
+    "harness": {
+      "cooldown_s": 20.0,
+      "idle_window_s": 30.0,
+      "interleave_seed": 0,
+      "interleaved": false,
+      "max_warmups": 5,
+      "warmup_cv_threshold": 0.05
+    },
+    "labels": {
+      "arc-runner": "OpenVINO on GPU (FP16 IR)",
+      "cpu-baseline": "OpenVINO on CPU"
+    },
+    "series_quality": [
+      {
+        "backend": "arc-runner",
+        "cv": {
+          "latency_s": 0.05961163427189696
+        },
+        "model_id": "stable-diffusion-v1-5/low",
+        "non_normal": {
+          "latency_s": true
+        },
+        "timed_n": {
+          "latency_s": 3
+        },
+        "warmup_converged": true,
+        "warmup_metric": "latency_s",
+        "warmups_run": 4,
+        "workload": "image"
+      }
+    ],
+    "timed_runs": 3,
+    "warmup_runs": 1
+  },
+  "run_id": "image-stable-diffusion-v1-5",
+  "samples": [
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 0,
+      "decode_tps": null,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 0,
+      "metrics": {
+        "iteration_rate_it_s": 9.94,
+        "latency_s": 12.41357999999991,
+        "megapixels_per_s": 0.02111751807294929,
+        "package_energy_j": null,
+        "package_power_w": null,
+        "step_latency_ms": 100.57
+      },
+      "model_id": "stable-diffusion-v1-5/low",
+      "noisy": false,
+      "prompt_tokens": 0,
+      "source": "measured",
+      "ttft_ms": null,
+      "workload": "image"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 0,
+      "decode_tps": null,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 1,
+      "metrics": {
+        "iteration_rate_it_s": 11.78,
+        "latency_s": 10.148676700000124,
+        "megapixels_per_s": 0.02583036269152182,
+        "package_energy_j": null,
+        "package_power_w": null,
+        "step_latency_ms": 84.91
+      },
+      "model_id": "stable-diffusion-v1-5/low",
+      "noisy": false,
+      "prompt_tokens": 0,
+      "source": "measured",
+      "ttft_ms": null,
+      "workload": "image"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 0,
+      "decode_tps": null,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 2,
+      "metrics": {
+        "iteration_rate_it_s": 11.51,
+        "latency_s": 10.357787599999938,
+        "megapixels_per_s": 0.02530887966847298,
+        "package_energy_j": null,
+        "package_power_w": null,
+        "step_latency_ms": 86.86
+      },
+      "model_id": "stable-diffusion-v1-5/low",
+      "noisy": false,
+      "prompt_tokens": 0,
+      "source": "measured",
+      "ttft_ms": null,
+      "workload": "image"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 0,
+      "decode_tps": null,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 3,
+      "metrics": {
+        "iteration_rate_it_s": 11.29,
+        "latency_s": 10.57785240000021,
+        "megapixels_per_s": 0.024782346178322055,
+        "package_energy_j": null,
+        "package_power_w": null,
+        "step_latency_ms": 88.55
+      },
+      "model_id": "stable-diffusion-v1-5/low",
+      "noisy": false,
+      "prompt_tokens": 0,
+      "source": "measured",
+      "ttft_ms": null,
+      "workload": "image"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 0,
+      "decode_tps": null,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 4,
+      "metrics": {
+        "iteration_rate_it_s": 11.24,
+        "latency_s": 10.63930449999998,
+        "megapixels_per_s": 0.024639204564546532,
+        "package_energy_j": null,
+        "package_power_w": null,
+        "step_latency_ms": 88.99
+      },
+      "model_id": "stable-diffusion-v1-5/low",
+      "noisy": false,
+      "prompt_tokens": 0,
+      "source": "measured",
+      "ttft_ms": null,
+      "workload": "image"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 0,
+      "decode_tps": null,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 5,
+      "metrics": {
+        "iteration_rate_it_s": 10.63,
+        "latency_s": 11.259909500000049,
+        "megapixels_per_s": 0.023281181789249625,
+        "package_energy_j": null,
+        "package_power_w": null,
+        "step_latency_ms": 94.05
+      },
+      "model_id": "stable-diffusion-v1-5/low",
+      "noisy": false,
+      "prompt_tokens": 0,
+      "source": "measured",
+      "ttft_ms": null,
+      "workload": "image"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 0,
+      "decode_tps": null,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 6,
+      "metrics": {
+        "iteration_rate_it_s": 10.51,
+        "latency_s": 11.984541800000443,
+        "megapixels_per_s": 0.02187351042490338,
+        "package_energy_j": null,
+        "package_power_w": null,
+        "step_latency_ms": 95.1
+      },
+      "model_id": "stable-diffusion-v1-5/low",
+      "noisy": false,
+      "prompt_tokens": 0,
+      "source": "measured",
+      "ttft_ms": null,
+      "workload": "image"
+    }
+  ],
+  "schema_version": 1
+}

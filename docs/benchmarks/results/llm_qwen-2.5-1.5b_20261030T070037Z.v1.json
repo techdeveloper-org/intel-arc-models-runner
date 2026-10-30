@@ -1,0 +1,6216 @@
+{
+  "created_utc": "2026-10-30T07:00:37.972349+00:00",
+  "environment": {
+    "driver_versions": {},
+    "git_sha": "21851290a9bd54f7ce8ae969befc7f3129cabc43",
+    "hardware": "Intel64 Family 6 Model 170 Stepping 4, GenuineIntel (18 logical CPUs)",
+    "ollama_version": null,
+    "on_ac_power": true,
+    "openvino_genai": "2026.4.1.0",
+    "os": "Windows-11-10.0.26220-SP0",
+    "preconditions": {
+      "ac_reason": "",
+      "cpu_busy_pct": 5.822887181560858,
+      "cpu_reason": "",
+      "cpu_window_s": 30.0,
+      "idle_cpu_max_pct": 10.0,
+      "memory_available_bytes": 3495161856,
+      "memory_ok": true,
+      "memory_reason": "",
+      "memory_required_bytes": 3369604456,
+      "on_ac_power": true,
+      "violations": []
+    },
+    "python": "3.13.16"
+  },
+  "protocol": {
+    "harness": {
+      "cooldown_s": 20.0,
+      "idle_window_s": 30.0,
+      "interleave_seed": 0,
+      "interleaved": true,
+      "max_warmups": 5,
+      "warmup_cv_threshold": 0.05
+    },
+    "labels": {
+      "arc-runner": "OpenVINO on GPU",
+      "cpu-baseline": "OpenVINO on CPU",
+      "npu": "OpenVINO on NPU"
+    },
+    "max_new_tokens": 300,
+    "series_quality": [
+      {
+        "backend": "arc-runner",
+        "cv": {
+          "decode_tps": 0.17601885664066783,
+          "ttft_ms": 0.4331701236319143
+        },
+        "model_id": "qwen-2.5-1.5b/low",
+        "non_normal": {
+          "decode_tps": false,
+          "ttft_ms": false
+        },
+        "timed_n": {
+          "decode_tps": 30,
+          "ttft_ms": 30
+        },
+        "warmup_converged": false,
+        "warmup_metric": "ttft_ms",
+        "warmups_run": 5,
+        "workload": "llm"
+      },
+      {
+        "backend": "npu",
+        "cv": {
+          "decode_tps": 0.06243316154305138,
+          "ttft_ms": 0.021413020790120172
+        },
+        "model_id": "qwen-2.5-1.5b/low",
+        "non_normal": {
+          "decode_tps": false,
+          "ttft_ms": false
+        },
+        "timed_n": {
+          "decode_tps": 30,
+          "ttft_ms": 30
+        },
+        "warmup_converged": true,
+        "warmup_metric": "ttft_ms",
+        "warmups_run": 5,
+        "workload": "llm"
+      },
+      {
+        "backend": "cpu-baseline",
+        "cv": {
+          "decode_tps": 0.2502820444371544,
+          "ttft_ms": 0.21001577260993232
+        },
+        "model_id": "qwen-2.5-1.5b/low",
+        "non_normal": {
+          "decode_tps": false,
+          "ttft_ms": false
+        },
+        "timed_n": {
+          "decode_tps": 30,
+          "ttft_ms": 30
+        },
+        "warmup_converged": false,
+        "warmup_metric": "ttft_ms",
+        "warmups_run": 5,
+        "workload": "llm"
+      },
+      {
+        "backend": "arc-runner",
+        "cv": {
+          "decode_tps": 0.16006073397538487,
+          "ttft_ms": 0.847600685710113
+        },
+        "model_id": "qwen-2.5-1.5b/medium",
+        "non_normal": {
+          "decode_tps": false,
+          "ttft_ms": true
+        },
+        "timed_n": {
+          "decode_tps": 30,
+          "ttft_ms": 30
+        },
+        "warmup_converged": false,
+        "warmup_metric": "ttft_ms",
+        "warmups_run": 5,
+        "workload": "llm"
+      },
+      {
+        "backend": "npu",
+        "cv": {
+          "decode_tps": 0.08222824551938154,
+          "ttft_ms": 0.04015881841089382
+        },
+        "model_id": "qwen-2.5-1.5b/medium",
+        "non_normal": {
+          "decode_tps": false,
+          "ttft_ms": false
+        },
+        "timed_n": {
+          "decode_tps": 30,
+          "ttft_ms": 30
+        },
+        "warmup_converged": true,
+        "warmup_metric": "ttft_ms",
+        "warmups_run": 5,
+        "workload": "llm"
+      },
+      {
+        "backend": "cpu-baseline",
+        "cv": {
+          "decode_tps": 0.20890495198411121,
+          "ttft_ms": 0.5052217620557965
+        },
+        "model_id": "qwen-2.5-1.5b/medium",
+        "non_normal": {
+          "decode_tps": false,
+          "ttft_ms": false
+        },
+        "timed_n": {
+          "decode_tps": 30,
+          "ttft_ms": 30
+        },
+        "warmup_converged": false,
+        "warmup_metric": "ttft_ms",
+        "warmups_run": 5,
+        "workload": "llm"
+      },
+      {
+        "backend": "arc-runner",
+        "cv": {
+          "decode_tps": 0.1233221818376584,
+          "ttft_ms": 0.9932491266395118
+        },
+        "model_id": "qwen-2.5-1.5b/hard",
+        "non_normal": {
+          "decode_tps": false,
+          "ttft_ms": true
+        },
+        "timed_n": {
+          "decode_tps": 30,
+          "ttft_ms": 30
+        },
+        "warmup_converged": false,
+        "warmup_metric": "ttft_ms",
+        "warmups_run": 5,
+        "workload": "llm"
+      },
+      {
+        "backend": "npu",
+        "cv": {
+          "decode_tps": 0.15945078376180108,
+          "ttft_ms": 0.20315672786593184
+        },
+        "model_id": "qwen-2.5-1.5b/hard",
+        "non_normal": {
+          "decode_tps": false,
+          "ttft_ms": false
+        },
+        "timed_n": {
+          "decode_tps": 30,
+          "ttft_ms": 30
+        },
+        "warmup_converged": true,
+        "warmup_metric": "ttft_ms",
+        "warmups_run": 5,
+        "workload": "llm"
+      },
+      {
+        "backend": "cpu-baseline",
+        "cv": {
+          "decode_tps": 0.22718364916106024,
+          "ttft_ms": 0.5060930707927488
+        },
+        "model_id": "qwen-2.5-1.5b/hard",
+        "non_normal": {
+          "decode_tps": false,
+          "ttft_ms": false
+        },
+        "timed_n": {
+          "decode_tps": 30,
+          "ttft_ms": 30
+        },
+        "warmup_converged": false,
+        "warmup_metric": "ttft_ms",
+        "warmups_run": 5,
+        "workload": "llm"
+      }
+    ],
+    "temperature": 0.0,
+    "timed_runs": 30,
+    "warmup_runs": 3
+  },
+  "run_id": "llm-qwen-2.5-1.5b",
+  "samples": [
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 20.68,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 0,
+      "metrics": {
+        "latency_s": 1.468938599980902,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 622.43,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 47.88,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 1,
+      "metrics": {
+        "latency_s": 0.38851650001015514,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 31.88,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 49.49,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 2,
+      "metrics": {
+        "latency_s": 0.36864719999721274,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 23.59,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 49.84,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 3,
+      "metrics": {
+        "latency_s": 0.3629104999708943,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 20.99,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 47.37,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 4,
+      "metrics": {
+        "latency_s": 0.3832272000145167,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 22.74,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 50.07,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 5,
+      "metrics": {
+        "latency_s": 0.36557949997950345,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 25.27,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 47.57,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 6,
+      "metrics": {
+        "latency_s": 0.3828617999679409,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 24.0,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 48.22,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 7,
+      "metrics": {
+        "latency_s": 0.3762665000394918,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 22.57,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 46.46,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 8,
+      "metrics": {
+        "latency_s": 0.38854359998367727,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 21.8,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 36.99,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 9,
+      "metrics": {
+        "latency_s": 0.4961815999704413,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 35.55,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 38.63,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 10,
+      "metrics": {
+        "latency_s": 0.4628584999591112,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 21.66,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 37.82,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 11,
+      "metrics": {
+        "latency_s": 0.4718621000065468,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 21.2,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 37.98,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 12,
+      "metrics": {
+        "latency_s": 0.47829890000866726,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 29.55,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 34.44,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 13,
+      "metrics": {
+        "latency_s": 0.5786091000190936,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 83.94,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 45.89,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 14,
+      "metrics": {
+        "latency_s": 0.3928749999613501,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 21.64,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 48.98,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 15,
+      "metrics": {
+        "latency_s": 0.3737447999883443,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 24.98,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 46.02,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 16,
+      "metrics": {
+        "latency_s": 0.39096489996882156,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 20.3,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 40.95,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 17,
+      "metrics": {
+        "latency_s": 0.4399545000051148,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 23.52,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 26.06,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 18,
+      "metrics": {
+        "latency_s": 0.6804828000022098,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 26.74,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 40.38,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 19,
+      "metrics": {
+        "latency_s": 0.44738050003070384,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 24.75,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 41.42,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 20,
+      "metrics": {
+        "latency_s": 0.440485900035128,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 26.36,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 24.33,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 21,
+      "metrics": {
+        "latency_s": 0.7299758999724872,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 29.5,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 40.42,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 22,
+      "metrics": {
+        "latency_s": 0.4613538000266999,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 38.65,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 29.69,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 23,
+      "metrics": {
+        "latency_s": 0.606837600003928,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 32.66,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 50.8,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 24,
+      "metrics": {
+        "latency_s": 0.35661360004451126,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 21.14,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 51.1,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 25,
+      "metrics": {
+        "latency_s": 0.35529849998420104,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 21.77,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 50.74,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 26,
+      "metrics": {
+        "latency_s": 0.36164109996752813,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 25.17,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 49.95,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 27,
+      "metrics": {
+        "latency_s": 0.3621341999969445,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 20.98,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 49.85,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 28,
+      "metrics": {
+        "latency_s": 0.3632748000090942,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 21.15,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 50.69,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 29,
+      "metrics": {
+        "latency_s": 0.35798059997614473,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 21.79,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 50.02,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 30,
+      "metrics": {
+        "latency_s": 0.36516459996346384,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 23.69,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 49.25,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 31,
+      "metrics": {
+        "latency_s": 0.37006520002614707,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 24.04,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 50.35,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 32,
+      "metrics": {
+        "latency_s": 0.36136009998153895,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 22.48,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 51.23,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 33,
+      "metrics": {
+        "latency_s": 0.3541809999733232,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 21.49,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 18,
+      "decode_tps": 45.46,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 34,
+      "metrics": {
+        "latency_s": 0.40728459996171296,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 32.17,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 9.21,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 0,
+      "metrics": {
+        "latency_s": 5.133400399994571,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2984.37,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.4,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 1,
+      "metrics": {
+        "latency_s": 3.6354799999971874,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2336.89,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.27,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 2,
+      "metrics": {
+        "latency_s": 3.5783341000205837,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2333.16,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.09,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 3,
+      "metrics": {
+        "latency_s": 3.5789199999999255,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2318.69,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.77,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 4,
+      "metrics": {
+        "latency_s": 3.516289599996526,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2311.09,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.12,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 5,
+      "metrics": {
+        "latency_s": 3.589232300000731,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2331.22,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.43,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 6,
+      "metrics": {
+        "latency_s": 3.5513986000441946,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2319.42,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.04,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 7,
+      "metrics": {
+        "latency_s": 3.6290449999505654,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2364.37,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 12.87,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 8,
+      "metrics": {
+        "latency_s": 3.9311779999989085,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2452.77,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.08,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 9,
+      "metrics": {
+        "latency_s": 3.6177832999965176,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2356.61,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 12.7,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 10,
+      "metrics": {
+        "latency_s": 3.8357950000208803,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2338.62,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 14.8,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 11,
+      "metrics": {
+        "latency_s": 3.6721149999648333,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2387.38,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 13.06,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 12,
+      "metrics": {
+        "latency_s": 3.88944120000815,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2432.7,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 13.26,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 13,
+      "metrics": {
+        "latency_s": 3.796875,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2363.44,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 14.52,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 14,
+      "metrics": {
+        "latency_s": 3.6507196000311524,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2340.04,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 14.94,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 15,
+      "metrics": {
+        "latency_s": 3.626809899986256,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2354.41,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.01,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 16,
+      "metrics": {
+        "latency_s": 3.599770399974659,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2332.01,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.3,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 17,
+      "metrics": {
+        "latency_s": 3.5507335999864154,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2308.2,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 12.73,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 18,
+      "metrics": {
+        "latency_s": 3.875313600001391,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2381.37,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.02,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 19,
+      "metrics": {
+        "latency_s": 3.7230522999889217,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2456.11,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 13.21,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 20,
+      "metrics": {
+        "latency_s": 3.807245399977546,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2367.32,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 13.9,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 21,
+      "metrics": {
+        "latency_s": 3.7074387000175193,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2339.51,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 14.84,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 22,
+      "metrics": {
+        "latency_s": 3.7720634999568574,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2489.97,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 14.59,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 23,
+      "metrics": {
+        "latency_s": 3.743612599966582,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2440.44,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.06,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 24,
+      "metrics": {
+        "latency_s": 3.580524899996817,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2318.1,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.32,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 25,
+      "metrics": {
+        "latency_s": 3.5528784000198357,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2312.14,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 14.84,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 26,
+      "metrics": {
+        "latency_s": 3.6343743999605067,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2352.84,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.38,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 27,
+      "metrics": {
+        "latency_s": 3.555246699950658,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2318.65,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.33,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 28,
+      "metrics": {
+        "latency_s": 3.5582527999649756,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2318.17,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.24,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 29,
+      "metrics": {
+        "latency_s": 3.572991600027308,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2325.69,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.14,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 30,
+      "metrics": {
+        "latency_s": 3.5750706999679096,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2318.53,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.44,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 31,
+      "metrics": {
+        "latency_s": 3.5586482000071555,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2326.96,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.64,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 32,
+      "metrics": {
+        "latency_s": 3.517944300023373,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2301.44,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 15.42,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 33,
+      "metrics": {
+        "latency_s": 3.541704799979925,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2308.56,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 20,
+      "decode_tps": 14.71,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 34,
+      "metrics": {
+        "latency_s": 3.612079899990931,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 2319.42,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 14.92,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 0,
+      "metrics": {
+        "latency_s": 9.362781000032555,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 8087.36,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 25.57,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 1,
+      "metrics": {
+        "latency_s": 0.9728096000035293,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 228.82,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 30.99,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 2,
+      "metrics": {
+        "latency_s": 0.851513999979943,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 237.71,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 24.36,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 3,
+      "metrics": {
+        "latency_s": 0.9896264999988489,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 208.27,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 24.62,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 4,
+      "metrics": {
+        "latency_s": 0.9681190000264905,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 195.63,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 19.46,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 5,
+      "metrics": {
+        "latency_s": 1.1994927999912761,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 220.13,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 23.33,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 6,
+      "metrics": {
+        "latency_s": 1.1606600999948569,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 343.66,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 19.75,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 7,
+      "metrics": {
+        "latency_s": 1.3138575000339188,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 350.59,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 13.85,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 8,
+      "metrics": {
+        "latency_s": 1.6888046000385657,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 316.23,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 11.47,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 9,
+      "metrics": {
+        "latency_s": 1.9654472999973223,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 307.72,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 15.22,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 10,
+      "metrics": {
+        "latency_s": 1.5900840999674983,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 340.07,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 14.01,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 11,
+      "metrics": {
+        "latency_s": 1.710834999976214,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 351.6,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 13.19,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 12,
+      "metrics": {
+        "latency_s": 1.7324830999714322,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 291.2,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 13.45,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 13,
+      "metrics": {
+        "latency_s": 1.776710500009358,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 363.34,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 16.77,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 14,
+      "metrics": {
+        "latency_s": 1.422858499980066,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 276.03,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 19.15,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 15,
+      "metrics": {
+        "latency_s": 1.2071856000111438,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 214.42,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 23.67,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 16,
+      "metrics": {
+        "latency_s": 0.9956615000264719,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 191.06,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 11.89,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 17,
+      "metrics": {
+        "latency_s": 1.9301112999673933,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 330.46,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 20.96,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 18,
+      "metrics": {
+        "latency_s": 1.1818947999854572,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 274.02,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 17.58,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 19,
+      "metrics": {
+        "latency_s": 1.3346308000036515,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 251.91,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 12.79,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 20,
+      "metrics": {
+        "latency_s": 1.7794195999740623,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 293.22,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 11.33,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 21,
+      "metrics": {
+        "latency_s": 2.0049707999569364,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 325.72,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 16.5,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 22,
+      "metrics": {
+        "latency_s": 1.4168477999628522,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 263.62,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 18.22,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 23,
+      "metrics": {
+        "latency_s": 1.2594534999807365,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 213.69,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 26.77,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 24,
+      "metrics": {
+        "latency_s": 0.9067351000267081,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 196.09,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 18.19,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 25,
+      "metrics": {
+        "latency_s": 1.2590091000311077,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 213.85,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 19.28,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 26,
+      "metrics": {
+        "latency_s": 1.28153709997423,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 294.96,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 25.05,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 27,
+      "metrics": {
+        "latency_s": 0.9556469999952242,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 196.44,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 23.1,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 28,
+      "metrics": {
+        "latency_s": 1.0532362999510951,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 229.21,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 25.21,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 29,
+      "metrics": {
+        "latency_s": 0.9764500000164844,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 220.87,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 16.45,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 30,
+      "metrics": {
+        "latency_s": 1.3852817000006326,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 228.88,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 17.45,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 31,
+      "metrics": {
+        "latency_s": 1.2695408999570645,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 180.12,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 25.44,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 32,
+      "metrics": {
+        "latency_s": 0.9738054999615997,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 225.97,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 23.01,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 33,
+      "metrics": {
+        "latency_s": 1.0844598999829032,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 257.52,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 20,
+      "decode_tps": 23.06,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 34,
+      "metrics": {
+        "latency_s": 1.0546963999513537,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/low",
+      "noisy": false,
+      "prompt_tokens": 20,
+      "source": "measured",
+      "ttft_ms": 229.23,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 42.95,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 0,
+      "metrics": {
+        "latency_s": 4.757503999979235,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 123.56,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 38.79,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 1,
+      "metrics": {
+        "latency_s": 5.152622199966572,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 20.9,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 51.35,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 2,
+      "metrics": {
+        "latency_s": 3.8959840000024997,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 19.98,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 34.89,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 3,
+      "metrics": {
+        "latency_s": 5.730070899997372,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 24.67,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 40.19,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 4,
+      "metrics": {
+        "latency_s": 4.9838139999774285,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 31.07,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 40.1,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 5,
+      "metrics": {
+        "latency_s": 5.090563700010534,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 126.95,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 40.28,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 6,
+      "metrics": {
+        "latency_s": 4.992345799983013,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 50.86,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 35.27,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 7,
+      "metrics": {
+        "latency_s": 5.669855099986307,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 21.82,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 42.53,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 8,
+      "metrics": {
+        "latency_s": 4.717588800005615,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 35.62,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 42.9,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 9,
+      "metrics": {
+        "latency_s": 4.660630800004583,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 21.26,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 41.83,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 10,
+      "metrics": {
+        "latency_s": 4.793000999954529,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 35.2,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 37.29,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 11,
+      "metrics": {
+        "latency_s": 5.3818558000493795,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 28.34,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 38.57,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 12,
+      "metrics": {
+        "latency_s": 5.18319369998062,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 22.46,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 50.0,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 13,
+      "metrics": {
+        "latency_s": 4.01106129999971,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 29.96,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 51.47,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 14,
+      "metrics": {
+        "latency_s": 3.8899634999688715,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 22.85,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 51.3,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 15,
+      "metrics": {
+        "latency_s": 3.902964900014922,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 22.34,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 51.48,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 16,
+      "metrics": {
+        "latency_s": 3.8888122999924235,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 21.56,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 49.71,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 17,
+      "metrics": {
+        "latency_s": 4.03904230002081,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 35.0,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 45.44,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 18,
+      "metrics": {
+        "latency_s": 4.401302799989935,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 20.73,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 43.69,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 19,
+      "metrics": {
+        "latency_s": 4.581774500024039,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 22.57,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 46.58,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 20,
+      "metrics": {
+        "latency_s": 4.4213359000277705,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 146.62,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 41.07,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 21,
+      "metrics": {
+        "latency_s": 4.868781300028786,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 22.78,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 41.7,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 22,
+      "metrics": {
+        "latency_s": 4.7986655999557115,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 25.35,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 40.67,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 23,
+      "metrics": {
+        "latency_s": 4.919439000019338,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 24.67,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 40.71,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 24,
+      "metrics": {
+        "latency_s": 4.909666999999899,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 20.67,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 22.1,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 25,
+      "metrics": {
+        "latency_s": 9.090177599980962,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 82.86,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 36.05,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 26,
+      "metrics": {
+        "latency_s": 5.569296500005294,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 48.19,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 27.23,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 27,
+      "metrics": {
+        "latency_s": 7.365467499999795,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 56.04,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 33.06,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 28,
+      "metrics": {
+        "latency_s": 6.0452340000192635,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 25.32,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 42.6,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 29,
+      "metrics": {
+        "latency_s": 4.693675099988468,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 21.9,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 44.5,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 30,
+      "metrics": {
+        "latency_s": 4.49495779996505,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 22.35,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 41.08,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 31,
+      "metrics": {
+        "latency_s": 4.881621000007726,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 30.93,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 38.8,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 32,
+      "metrics": {
+        "latency_s": 5.1530140999821015,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 21.07,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 42.93,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 33,
+      "metrics": {
+        "latency_s": 4.7607080999878235,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 124.66,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 200,
+      "decode_tps": 37.84,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 34,
+      "metrics": {
+        "latency_s": 5.281457800010685,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 21.63,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 13.6,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 0,
+      "metrics": {
+        "latency_s": 17.652163700025994,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 3017.93,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.7,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 1,
+      "metrics": {
+        "latency_s": 15.854295400029514,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2314.53,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 15.23,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 2,
+      "metrics": {
+        "latency_s": 15.456472999998368,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2383.71,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.13,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 3,
+      "metrics": {
+        "latency_s": 16.421489599975757,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2334.24,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.67,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 4,
+      "metrics": {
+        "latency_s": 15.935820999962743,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2366.99,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.66,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 5,
+      "metrics": {
+        "latency_s": 15.89021139999386,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2318.93,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 13.2,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 6,
+      "metrics": {
+        "latency_s": 17.397135599981993,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2317.45,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 15.15,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 7,
+      "metrics": {
+        "latency_s": 15.47365020000143,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2334.88,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 13.52,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 8,
+      "metrics": {
+        "latency_s": 17.038784199976362,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2318.93,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.12,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 9,
+      "metrics": {
+        "latency_s": 16.413653999974485,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2319.85,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 13.98,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 10,
+      "metrics": {
+        "latency_s": 16.645373700011987,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2412.17,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 13.98,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 11,
+      "metrics": {
+        "latency_s": 16.633472300018184,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2397.89,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.71,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 12,
+      "metrics": {
+        "latency_s": 15.843465399986599,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2311.27,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 13.76,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 13,
+      "metrics": {
+        "latency_s": 16.761135699984152,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2301.29,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 15.62,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 14,
+      "metrics": {
+        "latency_s": 15.045509100018535,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2298.75,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.57,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 15,
+      "metrics": {
+        "latency_s": 16.005003199970815,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2343.79,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 15.73,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 16,
+      "metrics": {
+        "latency_s": 14.937366599973757,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2283.65,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 15.69,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 17,
+      "metrics": {
+        "latency_s": 14.981658099975903,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2299.75,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.89,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 18,
+      "metrics": {
+        "latency_s": 15.67994840000756,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2307.18,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 12.42,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 19,
+      "metrics": {
+        "latency_s": 18.344349200022407,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2322.23,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.09,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 20,
+      "metrics": {
+        "latency_s": 16.432610800024122,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2308.42,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.69,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 21,
+      "metrics": {
+        "latency_s": 15.847101999970619,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2299.64,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.86,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 22,
+      "metrics": {
+        "latency_s": 15.722607200033963,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2331.15,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.9,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 23,
+      "metrics": {
+        "latency_s": 15.687050600012299,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2333.2,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 12.56,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 24,
+      "metrics": {
+        "latency_s": 18.175024199998006,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2325.58,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 12.14,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 25,
+      "metrics": {
+        "latency_s": 19.16766460001236,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2777.99,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 10.66,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 26,
+      "metrics": {
+        "latency_s": 21.19512739998754,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2513.49,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 15.33,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 27,
+      "metrics": {
+        "latency_s": 15.33973970002262,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2357.71,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 15.52,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 28,
+      "metrics": {
+        "latency_s": 15.106435199966654,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2279.5,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 15.17,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 29,
+      "metrics": {
+        "latency_s": 15.447653800016269,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2330.49,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 15.54,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 30,
+      "metrics": {
+        "latency_s": 15.095532900013495,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2284.72,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.46,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 31,
+      "metrics": {
+        "latency_s": 16.17924770002719,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2415.36,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.86,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 32,
+      "metrics": {
+        "latency_s": 15.70073370001046,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2307.63,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.42,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 33,
+      "metrics": {
+        "latency_s": 16.161388300010003,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2357.85,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 200,
+      "decode_tps": 14.82,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 34,
+      "metrics": {
+        "latency_s": 15.763155699998606,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 2329.87,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 18.38,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 0,
+      "metrics": {
+        "latency_s": 15.730286299949512,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 4899.52,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 14.23,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 1,
+      "metrics": {
+        "latency_s": 14.162942500028294,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 181.7,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 28.57,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 2,
+      "metrics": {
+        "latency_s": 7.006374399992637,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 40.9,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 13.45,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 3,
+      "metrics": {
+        "latency_s": 15.037409599986859,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 234.86,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 12.34,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 4,
+      "metrics": {
+        "latency_s": 16.33559100003913,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 204.83,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 12.97,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 5,
+      "metrics": {
+        "latency_s": 15.483277499966789,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 135.09,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 13.3,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 6,
+      "metrics": {
+        "latency_s": 15.178937999997288,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 215.18,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 15.07,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 7,
+      "metrics": {
+        "latency_s": 13.335577199992258,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 128.2,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 14.47,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 8,
+      "metrics": {
+        "latency_s": 14.009407400037162,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 250.43,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 15.13,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 9,
+      "metrics": {
+        "latency_s": 13.227913299982902,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 74.49,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 11.71,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 10,
+      "metrics": {
+        "latency_s": 17.223650700005237,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 226.23,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 11.84,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 11,
+      "metrics": {
+        "latency_s": 17.04929599998286,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 231.54,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 17.07,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 12,
+      "metrics": {
+        "latency_s": 11.737207399972249,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 81.71,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 19.74,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 13,
+      "metrics": {
+        "latency_s": 10.136308999964967,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 54.48,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 17.33,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 14,
+      "metrics": {
+        "latency_s": 11.617620900040492,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 133.58,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 16.62,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 15,
+      "metrics": {
+        "latency_s": 12.020223699975759,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 45.65,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 20.68,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 16,
+      "metrics": {
+        "latency_s": 9.731876200006809,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 105.92,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 21.07,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 17,
+      "metrics": {
+        "latency_s": 9.52908920001937,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 83.67,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 11.79,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 18,
+      "metrics": {
+        "latency_s": 16.963855399983004,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 87.16,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 12.11,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 19,
+      "metrics": {
+        "latency_s": 16.687734800041653,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 247.95,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 12.13,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 20,
+      "metrics": {
+        "latency_s": 16.550770199974068,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 138.41,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 18.94,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 21,
+      "metrics": {
+        "latency_s": 10.613164199981838,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 106.55,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 17.9,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 22,
+      "metrics": {
+        "latency_s": 11.189540199993644,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 72.22,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 19.16,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 23,
+      "metrics": {
+        "latency_s": 10.471723900001962,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 85.1,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 12.52,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 24,
+      "metrics": {
+        "latency_s": 16.075938699999824,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 179.76,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 11.58,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 25,
+      "metrics": {
+        "latency_s": 17.4862412000075,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 303.23,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 11.79,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 26,
+      "metrics": {
+        "latency_s": 16.9714986999752,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 91.02,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 11.73,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 27,
+      "metrics": {
+        "latency_s": 17.06557239999529,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 99.01,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 13.29,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 28,
+      "metrics": {
+        "latency_s": 15.102708699996583,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 101.0,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 17.71,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 29,
+      "metrics": {
+        "latency_s": 11.316819999949075,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 76.66,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 12.05,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 30,
+      "metrics": {
+        "latency_s": 16.721297499956563,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 182.6,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 17.1,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 31,
+      "metrics": {
+        "latency_s": 11.748637199983932,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 105.54,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 12.46,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 32,
+      "metrics": {
+        "latency_s": 16.11429479997605,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 140.72,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 12.25,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 33,
+      "metrics": {
+        "latency_s": 16.378082100010943,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 134.74,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 200,
+      "decode_tps": 13.34,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 34,
+      "metrics": {
+        "latency_s": 14.98804799997015,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/medium",
+      "noisy": false,
+      "prompt_tokens": 35,
+      "source": "measured",
+      "ttft_ms": 63.68,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 38.56,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 0,
+      "metrics": {
+        "latency_s": 7.888011300005019,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 132.68,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 41.11,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 1,
+      "metrics": {
+        "latency_s": 7.355470500013325,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 78.3,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 40.42,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 2,
+      "metrics": {
+        "latency_s": 7.496218000014778,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 97.04,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 39.4,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 3,
+      "metrics": {
+        "latency_s": 7.668444800016005,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 72.78,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 37.62,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 4,
+      "metrics": {
+        "latency_s": 7.996403199969791,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 48.36,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 38.39,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 5,
+      "metrics": {
+        "latency_s": 7.838596499990672,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 48.49,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 34.02,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 6,
+      "metrics": {
+        "latency_s": 8.900671600014903,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 108.63,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 36.56,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 7,
+      "metrics": {
+        "latency_s": 8.276515200035647,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 94.29,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 31.18,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 8,
+      "metrics": {
+        "latency_s": 9.702127499971539,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 101.96,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 39.17,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 9,
+      "metrics": {
+        "latency_s": 7.702711499994621,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 67.48,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 47.5,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 10,
+      "metrics": {
+        "latency_s": 6.3513645000057295,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 53.44,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 44.47,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 11,
+      "metrics": {
+        "latency_s": 6.778997999965213,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 54.71,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 43.73,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 12,
+      "metrics": {
+        "latency_s": 6.898273000027984,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 58.79,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 34.97,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 13,
+      "metrics": {
+        "latency_s": 8.63663980003912,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 83.79,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 34.4,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 14,
+      "metrics": {
+        "latency_s": 8.79884130001301,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 72.36,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 31.22,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 15,
+      "metrics": {
+        "latency_s": 10.148251999984495,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 543.51,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 34.79,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 16,
+      "metrics": {
+        "latency_s": 8.74221509997733,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 128.3,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 36.68,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 17,
+      "metrics": {
+        "latency_s": 8.21914529998321,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 65.59,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 38.54,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 18,
+      "metrics": {
+        "latency_s": 7.824013200006448,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 56.85,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 36.1,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 19,
+      "metrics": {
+        "latency_s": 8.35203760000877,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 64.6,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 34.22,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 20,
+      "metrics": {
+        "latency_s": 8.798208000021987,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 60.8,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 34.25,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 21,
+      "metrics": {
+        "latency_s": 8.784869299968705,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 53.58,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 37.26,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 22,
+      "metrics": {
+        "latency_s": 8.132265500025824,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 106.14,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 33.27,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 23,
+      "metrics": {
+        "latency_s": 9.090788000030443,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 100.33,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 30.71,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 24,
+      "metrics": {
+        "latency_s": 9.804019599978346,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 55.45,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 39.29,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 25,
+      "metrics": {
+        "latency_s": 7.683648100006394,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 70.43,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 38.17,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 26,
+      "metrics": {
+        "latency_s": 7.951123699953314,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 111.81,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 37.95,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 27,
+      "metrics": {
+        "latency_s": 7.9790591999772005,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 98.16,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 37.8,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 28,
+      "metrics": {
+        "latency_s": 7.986755799967796,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 70.4,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 41.08,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 29,
+      "metrics": {
+        "latency_s": 7.356393299996853,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 76.12,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 32.26,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 30,
+      "metrics": {
+        "latency_s": 9.324299499974586,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 52.96,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 39.67,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 31,
+      "metrics": {
+        "latency_s": 7.59621970000444,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 55.08,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 30.12,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 32,
+      "metrics": {
+        "latency_s": 10.279872700048145,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 346.75,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 34.07,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 33,
+      "metrics": {
+        "latency_s": 8.85538359999191,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 73.28,
+      "workload": "llm"
+    },
+    {
+      "backend": "arc-runner",
+      "completion_tokens": 300,
+      "decode_tps": 26.83,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 34,
+      "metrics": {
+        "latency_s": 11.219907400023658,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 72.4,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.35,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 0,
+      "metrics": {
+        "latency_s": 24.008947399968747,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 3163.68,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 13.92,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 1,
+      "metrics": {
+        "latency_s": 23.841972800029907,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2349.54,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 12.91,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 2,
+      "metrics": {
+        "latency_s": 25.483810300007463,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2325.95,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.69,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 3,
+      "metrics": {
+        "latency_s": 22.64218120003352,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2285.17,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.59,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 4,
+      "metrics": {
+        "latency_s": 22.80402719997801,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2306.67,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.64,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 5,
+      "metrics": {
+        "latency_s": 22.772322699951474,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2338.16,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.64,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 6,
+      "metrics": {
+        "latency_s": 22.75279739999678,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2329.46,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 12.44,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 7,
+      "metrics": {
+        "latency_s": 27.92475820000982,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 3887.76,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.75,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 8,
+      "metrics": {
+        "latency_s": 22.654204999969807,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2365.06,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 12.39,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 9,
+      "metrics": {
+        "latency_s": 27.45382100000279,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 3316.93,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 16.11,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 10,
+      "metrics": {
+        "latency_s": 20.86148999998113,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2303.15,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 15.22,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 11,
+      "metrics": {
+        "latency_s": 21.899261100043077,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2254.2,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 15.21,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 12,
+      "metrics": {
+        "latency_s": 22.07051519997185,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2396.16,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.62,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 13,
+      "metrics": {
+        "latency_s": 22.87026260001585,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2423.4,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 9.71,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 14,
+      "metrics": {
+        "latency_s": 33.54709720000392,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2729.01,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 8.11,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 15,
+      "metrics": {
+        "latency_s": 39.59025400003884,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2715.06,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 10.8,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 16,
+      "metrics": {
+        "latency_s": 32.05822429998079,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 4371.89,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 13.52,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 17,
+      "metrics": {
+        "latency_s": 24.515917999960948,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2399.15,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 13.82,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 18,
+      "metrics": {
+        "latency_s": 23.9495537999901,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2308.81,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 11.42,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 19,
+      "metrics": {
+        "latency_s": 29.0874896000023,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2894.03,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 10.92,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 20,
+      "metrics": {
+        "latency_s": 30.153960500028916,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2756.78,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 13.53,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 21,
+      "metrics": {
+        "latency_s": 24.491598699998576,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2389.21,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 12.61,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 22,
+      "metrics": {
+        "latency_s": 27.414294699963648,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 3706.16,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 10.26,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 23,
+      "metrics": {
+        "latency_s": 31.440026200027205,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2300.04,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 12.1,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 24,
+      "metrics": {
+        "latency_s": 27.668363799981307,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2964.1,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.48,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 25,
+      "metrics": {
+        "latency_s": 22.94627410004614,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2292.55,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.54,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 26,
+      "metrics": {
+        "latency_s": 22.896263500035275,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2326.3,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.33,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 27,
+      "metrics": {
+        "latency_s": 23.182351299969014,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2314.21,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 13.32,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 28,
+      "metrics": {
+        "latency_s": 24.75155360001372,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2301.53,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.59,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 29,
+      "metrics": {
+        "latency_s": 22.945549299998675,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2450.25,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.07,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 30,
+      "metrics": {
+        "latency_s": 23.568975700007286,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2312.47,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 14.05,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 31,
+      "metrics": {
+        "latency_s": 23.622649700031616,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2343.99,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 8.7,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 32,
+      "metrics": {
+        "latency_s": 36.689887499960605,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2333.15,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 12.54,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 33,
+      "metrics": {
+        "latency_s": 26.20719939999981,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 2352.81,
+      "workload": "llm"
+    },
+    {
+      "backend": "npu",
+      "completion_tokens": 300,
+      "decode_tps": 10.51,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 34,
+      "metrics": {
+        "latency_s": 31.51789529999951,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 3059.6,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 17.54,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 0,
+      "metrics": {
+        "latency_s": 22.215910399972927,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 5166.56,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 12.47,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 1,
+      "metrics": {
+        "latency_s": 24.17512330005411,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 201.6,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 11.66,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 2,
+      "metrics": {
+        "latency_s": 25.74806020001415,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 107.77,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 17.99,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 3,
+      "metrics": {
+        "latency_s": 16.79132690001279,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 166.5,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 18.41,
+      "fallback_used": false,
+      "is_warmup": true,
+      "iteration": 4,
+      "metrics": {
+        "latency_s": 16.438317899999674,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 194.29,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 13.66,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 5,
+      "metrics": {
+        "latency_s": 22.056946800032165,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 162.83,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 10.61,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 6,
+      "metrics": {
+        "latency_s": 28.459506700048223,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 274.65,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 13.55,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 7,
+      "metrics": {
+        "latency_s": 22.33977680001408,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 197.1,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 11.58,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 8,
+      "metrics": {
+        "latency_s": 26.306186899950262,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 479.9,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 14.19,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 9,
+      "metrics": {
+        "latency_s": 21.30640649999259,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 211.51,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 25.35,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 10,
+      "metrics": {
+        "latency_s": 11.998199999972712,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 203.09,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 15.37,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 11,
+      "metrics": {
+        "latency_s": 19.6422907000524,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 192.49,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 18.89,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 12,
+      "metrics": {
+        "latency_s": 15.976434400014114,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 134.57,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 17.43,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 13,
+      "metrics": {
+        "latency_s": 17.374375399958808,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 208.1,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 13.96,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 14,
+      "metrics": {
+        "latency_s": 21.73482009995496,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 316.74,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 10.75,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 15,
+      "metrics": {
+        "latency_s": 28.308477199985646,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 490.77,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 15.05,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 16,
+      "metrics": {
+        "latency_s": 20.22117159998743,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 344.04,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 15.06,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 17,
+      "metrics": {
+        "latency_s": 20.14085620001424,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 285.21,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 15.31,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 18,
+      "metrics": {
+        "latency_s": 19.71444030001294,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 181.89,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 11.19,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 19,
+      "metrics": {
+        "latency_s": 27.174572000047192,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 438.98,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 11.36,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 20,
+      "metrics": {
+        "latency_s": 26.4651338000549,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 153.83,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 11.5,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 21,
+      "metrics": {
+        "latency_s": 26.41727410000749,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 425.03,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 11.05,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 22,
+      "metrics": {
+        "latency_s": 27.347425999992993,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 279.83,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 14.07,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 23,
+      "metrics": {
+        "latency_s": 21.549725299992133,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 289.94,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 12.55,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 24,
+      "metrics": {
+        "latency_s": 24.271435700007714,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 446.28,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 13.92,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 25,
+      "metrics": {
+        "latency_s": 21.727636700030416,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 241.05,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 14.04,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 26,
+      "metrics": {
+        "latency_s": 21.569785200001206,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 276.42,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 11.24,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 27,
+      "metrics": {
+        "latency_s": 26.75022899999749,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 157.17,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 13.33,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 28,
+      "metrics": {
+        "latency_s": 22.7222000999609,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 284.47,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 11.92,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 29,
+      "metrics": {
+        "latency_s": 25.318145199969877,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 223.71,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 12.87,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 30,
+      "metrics": {
+        "latency_s": 23.566887900000438,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 340.48,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 11.61,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 31,
+      "metrics": {
+        "latency_s": 25.883031100034714,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 117.51,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 12.22,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 32,
+      "metrics": {
+        "latency_s": 25.28819019999355,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 816.98,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 11.68,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 33,
+      "metrics": {
+        "latency_s": 25.92043579998426,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 329.63,
+      "workload": "llm"
+    },
+    {
+      "backend": "cpu-baseline",
+      "completion_tokens": 300,
+      "decode_tps": 9.34,
+      "fallback_used": false,
+      "is_warmup": false,
+      "iteration": 34,
+      "metrics": {
+        "latency_s": 32.13898310001241,
+        "package_energy_j": null,
+        "package_power_w": null
+      },
+      "model_id": "qwen-2.5-1.5b/hard",
+      "noisy": false,
+      "prompt_tokens": 42,
+      "source": "measured",
+      "ttft_ms": 131.67,
+      "workload": "llm"
+    }
+  ],
+  "schema_version": 1
+}
