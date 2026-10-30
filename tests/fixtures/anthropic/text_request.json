@@ -1,0 +1,1 @@
+{"model": "llama-3.2-3b-int4", "max_tokens": 64, "system": "Be brief.", "messages": [{"role": "user", "content": "Say hi"}]}
