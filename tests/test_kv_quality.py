@@ -156,3 +156,76 @@ def test_script_missing_model_dir_exits_2_without_writing(tmp_path: Path, capsys
     out = tmp_path / "r.json"
     assert _script().main(["--model-dir", str(tmp_path / "nope"), "--out", str(out)]) == 2
     assert not out.exists()
+
+
+class _RejectingEngine(_Engine):
+    """Engine whose runtime refuses the reduced KV precision when generating (as the Arc GPU paged-attention kernel does)."""
+
+    def generate(self, prompt: str, config: Any = None) -> str:
+        raise RuntimeError("[GPU] Incorrect block size for Paged Attention operation for key cache quant mode BY_CHANNEL. Expected 20, but got 12")
+
+
+def _rejecting_factory(by_precision: Dict[str, Dict[str, str]]) -> Any:
+    def make(precision: str) -> _Engine:
+        return _RejectingEngine({}) if precision else _Engine(by_precision[""])
+
+    return make
+
+
+def test_candidate_precision_rejected_by_runtime_records_the_error_and_fails_the_gate_ok() -> None:
+    """A runtime that cannot run the reduced precision yields a failed report that carries the error, not an exception."""
+    report = compare_kv_precision(_rejecting_factory({"": {"p": "a b c"}}), ["p"], max_new_tokens=8)
+    assert report.passed is False
+    assert report.pass_count == 0
+    assert report.prompts == []
+    assert report.candidate_error is not None
+    assert "Incorrect block size" in report.candidate_error
+
+
+def test_candidate_load_failure_is_recorded_like_a_generate_failure_ok() -> None:
+    """A load-time rejection of the reduced precision is also recorded as the candidate error."""
+
+    def make(precision: str) -> _Engine:
+        if precision:
+            raise RuntimeError("cannot compile with KV_CACHE_PRECISION=" + precision)
+        return _Engine({"p": "a b c"})
+
+    report = compare_kv_precision(make, ["p"], max_new_tokens=8)
+    assert report.candidate_error is not None
+    assert "KV_CACHE_PRECISION=u8" in report.candidate_error
+
+
+def test_reference_precision_failure_still_raises_ok() -> None:
+    """A failure at the runtime-default precision is not a finding about the candidate and must not be hidden."""
+
+    def make(precision: str) -> _Engine:
+        raise RuntimeError("model does not load at all")
+
+    with pytest.raises(RuntimeError):
+        compare_kv_precision(make, ["p"], max_new_tokens=8)
+
+
+def test_candidate_error_text_is_bounded_ok() -> None:
+    """A huge error message is truncated so the report file stays small."""
+
+    class _Huge(_Engine):
+        def generate(self, prompt: str, config: Any = None) -> str:
+            raise RuntimeError("x" * 100000)
+
+    def make(precision: str) -> _Engine:
+        return _Huge({}) if precision else _Engine({"p": "a"})
+
+    report = compare_kv_precision(make, ["p"], max_new_tokens=4)
+    assert report.candidate_error is not None
+    assert len(report.candidate_error) <= 2000
+
+
+def test_write_report_includes_candidate_error_ok(tmp_path: Path) -> None:
+    """The JSON record names the failure so the result is a measured finding."""
+    report = compare_kv_precision(_rejecting_factory({"": {"p": "a b c"}}), ["p"], max_new_tokens=8)
+    path = tmp_path / "kv.json"
+    write_report(path, report, "m", "GPU")
+    document = json.loads(path.read_text(encoding="utf-8"))
+    assert document["passed"] is False
+    assert "Incorrect block size" in document["candidate_error"]
+    assert document["prompts"] == []

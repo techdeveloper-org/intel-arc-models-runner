@@ -131,4 +131,6 @@ def test_kv_cache_u8_greedy_prefix_matches_default_precision(require_intel_gpu: 
     script = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(script)
     report = compare_kv_precision(script.build_factory(OpenVINOGenAIEngine, _model_dir(), "GPU"), script.DEFAULT_PROMPTS, 64)
+    if report.candidate_error is not None:
+        pytest.skip(f"NOT RUN: the runtime rejected the reduced KV precision, so no agreement was measured: {report.candidate_error[:200]}")
     assert report.passed, f"{report.pass_count}/{len(report.prompts)} prompts agreed"

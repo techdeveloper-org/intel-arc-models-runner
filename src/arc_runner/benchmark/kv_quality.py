@@ -10,12 +10,14 @@ perplexity, which need logits the pipeline does not expose. Passing does not cha
 from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
-from typing import Any, Callable, List, Sequence
+from typing import Any, Callable, List, Optional, Sequence
 
+from arc_runner.core.exceptions import ArcRunnerError
 from arc_runner.engine.models import GenerationConfig
 
 DEFAULT_MIN_PREFIX_TOKENS = 32
 DEFAULT_REQUIRED_PASS_FRACTION = 0.9
+MAX_CANDIDATE_ERROR_CHARS = 2000
 
 
 @dataclass(frozen=True)
@@ -50,6 +52,8 @@ class KvQualityReport:
         pass_count: Prompts that passed.
         exact_matches: Prompts with identical outputs.
         passed: Gate verdict.
+        candidate_error: Set when the runtime refused to load or run the reduced precision (the gate
+            then fails and no agreement was measured); None otherwise.
     """
 
     prompts: List[PromptComparison]
@@ -58,6 +62,7 @@ class KvQualityReport:
     pass_count: int
     exact_matches: int
     passed: bool
+    candidate_error: Optional[str] = None
 
 
 def common_prefix_length(first: Sequence[int], second: Sequence[int]) -> int:
@@ -127,12 +132,16 @@ def compare_kv_precision(
 
     Raises:
         ValueError: If prompts is empty.
-        RuntimeError: If an engine cannot tokenize its output.
+        RuntimeError: If the reference engine fails or cannot tokenize its output. A failure of the
+            reduced-precision engine is not raised: it is recorded in KvQualityReport.candidate_error.
     """
     if not prompts:
         raise ValueError("the KV quality gate needs at least one prompt")
     reference = _generate_tokens(engine_factory(""), prompts, max_new_tokens)
-    candidate = _generate_tokens(engine_factory(candidate_precision), prompts, max_new_tokens)
+    try:
+        candidate = _generate_tokens(engine_factory(candidate_precision), prompts, max_new_tokens)
+    except (RuntimeError, ArcRunnerError) as exc:
+        return KvQualityReport([], min_prefix_tokens, required_pass_fraction, 0, 0, False, str(exc)[:MAX_CANDIDATE_ERROR_CHARS])
     comparisons: List[PromptComparison] = []
     for prompt, ref, cand in zip(prompts, reference, candidate):
         prefix = common_prefix_length(ref, cand)
@@ -163,6 +172,7 @@ def write_report(path: Path, report: KvQualityReport, model: str, device: str) -
         "required_pass_fraction": report.required_pass_fraction,
         "pass_count": report.pass_count,
         "exact_matches": report.exact_matches,
+        "candidate_error": report.candidate_error,
         "prompts": [asdict(c) for c in report.prompts],
         "note": "Prefix agreement of greedy generations only (no KL/perplexity). A pass does not change the default KV precision; that is a separate decision.",
     }
