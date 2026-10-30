@@ -1,0 +1,1 @@
+{"model": "llama-3.2-3b-int4", "max_tokens": 128, "messages": [{"role": "user", "content": "Weather in Pune?"}], "tools": [{"name": "get_weather", "description": "Get weather", "input_schema": {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}}]}
