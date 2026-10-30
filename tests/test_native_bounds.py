@@ -332,6 +332,7 @@ def test_library_name_matches_target_platform() -> None:
 
 
 @pytest.mark.skipif(shutil.which("gcc") is None, reason="gcc not available")
+@pytest.mark.skipif(sys.platform == "win32", reason="builds the POSIX .so (needs -ldl); the Windows DLL is built by build_native.py itself")
 def test_compile_library_produces_loadable_abi2_library_with_matching_sidecar(tmp_path: Path) -> None:
     """The build script emits a -Werror-clean library whose sidecar hash matches and ABI is 3."""
     output = tmp_path / "libarc_native_sys.so"
@@ -372,7 +373,7 @@ def test_c_sanitizer_harness_passes_under_asan_and_ubsan(tmp_path: Path) -> None
         "-o", str(harness),
     ]
     built = subprocess.run(compile_cmd, capture_output=True, text=True)
-    if built.returncode != 0 and "sanitize" in built.stderr:
+    if built.returncode != 0 and any(token in built.stderr for token in ("sanitize", "-lasan", "-lubsan")):
         pytest.skip("sanitizers unavailable on this toolchain")
     assert built.returncode == 0, built.stderr
     ran = subprocess.run([str(harness), str(tmp_path)], capture_output=True, text=True, timeout=120)
