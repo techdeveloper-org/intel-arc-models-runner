@@ -43,16 +43,19 @@ def summarize(values: List[float], unit: str) -> Dict[str, Any]:
     return {"n": len(values), "median": round(median(values), 4), "iqr": round(iqr(values), 4), "ci95_half_width": round(half, 4), "unit": unit}
 
 
-def repeat(fn: Callable[[], float], runs: int) -> List[float]:
-    """Call a measurement function repeatedly.
+def repeat(fn: Callable[[], float], runs: int, warmup: int = 0) -> List[float]:
+    """Call a measurement function repeatedly, discarding warmup invocations.
 
     Args:
         fn: Function returning one measurement.
-        runs: Number of repetitions.
+        runs: Number of timed repetitions to return.
+        warmup: Number of initial calls to discard before timing starts.
 
     Returns:
-        List[float]: Measurements.
+        List[float]: Timed measurements (warmup calls excluded).
     """
+    for _ in range(warmup):
+        fn()
     return [fn() for _ in range(runs)]
 
 
@@ -133,21 +136,23 @@ def main(argv: List[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--smoke", action="store_true", help="tiny sizes, only to prove the harness runs")
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--warmup", type=int, default=2, help="warmup iterations discarded before timing (default 2)")
+    parser.add_argument("--seed", type=int, default=0, help="RNG seed for deterministic blob content (default 0)")
     args = parser.parse_args(argv)
     runs, calls, size_mb, per_thread = (3, 200, 8, 200) if args.smoke else (15, 20000, 256, 20000)
 
     report: Dict[str, Any] = {"schema": "native_micro.v1", "smoke": args.smoke, "environment": capture_environment(REPO_ROOT)}
     with tempfile.TemporaryDirectory() as tmp:
         blob = Path(tmp) / "blob.bin"
-        blob.write_bytes(np.random.default_rng(0).integers(0, 255, size_mb * 1024 * 1024, dtype=np.uint8).tobytes())
+        blob.write_bytes(np.random.default_rng(args.seed).integers(0, 255, size_mb * 1024 * 1024, dtype=np.uint8).tobytes())
         engine = NativeMemoryEngine(blob)
         if not engine.is_open:
             report["native"] = {"status": "unavailable", "reason": "native library not loadable"}
         else:
             engine.register_layer(0, [{"name": "w", "tensor_type": 0, "dimensions": [size_mb * 1024 * 1024], "offset": 0, "size_bytes": size_mb * 1024 * 1024}])
             report["native"] = {
-                "lookup_latency_us": summarize(repeat(lambda: lookup_latency_us(engine, calls), runs), "us/call"),
-                "mapped_read_warm_gbs": summarize(repeat(lambda: read_bandwidth_gbs(lambda: touch_mapped_tensor(engine)), runs), "GB/s"),
+                "lookup_latency_us": summarize(repeat(lambda: lookup_latency_us(engine, calls), runs, warmup=args.warmup), "us/call"),
+                "mapped_read_warm_gbs": summarize(repeat(lambda: read_bandwidth_gbs(lambda: touch_mapped_tensor(engine)), runs, warmup=args.warmup), "GB/s"),
             }
             engine.close()
 
@@ -155,7 +160,7 @@ def main(argv: List[str]) -> int:
             with open(blob, "rb") as handle:
                 return len(handle.read())
 
-        report["python_file_read_gbs"] = summarize(repeat(lambda: read_bandwidth_gbs(file_read), runs), "GB/s")
+        report["python_file_read_gbs"] = summarize(repeat(lambda: read_bandwidth_gbs(file_read), runs, warmup=args.warmup), "GB/s")
 
         sys.path.insert(0, str(REPO_ROOT))
         from tests.test_flash_stream_triad import build_synthetic_flash_gguf
@@ -164,7 +169,7 @@ def main(argv: List[str]) -> int:
         report["ring_acquire_latency_us"] = {}
         for threads in (1, 4, 8):
             with FlashStreamWeightManager(model, ring_buffer_slots=3) as manager:
-                report["ring_acquire_latency_us"][str(threads)] = summarize(repeat(lambda: acquire_latency_us(manager, threads, per_thread), runs), "us/acquire")
+                report["ring_acquire_latency_us"][str(threads)] = summarize(repeat(lambda: acquire_latency_us(manager, threads, per_thread), runs, warmup=args.warmup), "us/acquire")
 
     text = json.dumps(report, indent=2)
     if args.out:

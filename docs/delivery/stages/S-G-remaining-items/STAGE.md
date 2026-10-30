@@ -2,11 +2,11 @@
 doc_id: DOC-SG-STAGE
 title: Slice S-G - remaining technical items
 stage: S-G
-version: 1.4.0
+version: 1.5.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-30
-authors: [main session]
+authors: [main session, CLI session]
 reviewers: [user]
 inputs: [docs/delivery/RESUME.md open technical items, docs/plans/MASTER_PLAN_v4.md sections 21, 22]
 ---
@@ -57,3 +57,4 @@ Clean-venv run of the CI Linux steps (`pip install -e ".[dev]"`, native build, 8
 | 1.2.0 | 2026-10-30 | main session | WP-03: SerialWorker, EngineUnavailableError, TIMEOUT_GRACEFUL_SHUTDOWN_S, /health worker state | fix event-loop stall and stream token loss | pending |
 | 1.3.0 | 2026-10-30 | main session | WP-02 02a/02e/02f: power_mode + external_artifacts in schema + capture_environment; validate_model_dir; probe_hardware --out flag | measurement support items | pending |
 | 1.4.0 | 2026-10-30 | CLI session | WP-02 02b: bench_arms.py paired gate runner, bootstrap_paired_ratio_ci, evaluate_paired_gate, decide_adoption (AD-1..AD-6), 32 new tests | measurement support item 02b | pending |
+| 1.5.0 | 2026-10-30 | CLI session | WP-02 02c: bench_native_micro.py --warmup N (default 2) and --seed S (default 0) flags; repeat() warmup kwarg; default_rng uses args.seed; 8 new tests | measurement support item 02c | pending |
