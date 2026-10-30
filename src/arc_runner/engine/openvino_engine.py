@@ -5,14 +5,18 @@ Intel AI Boost NPUs (stateful MCDM arrays), and host CPUs, with a thread-safe
 Producer-Consumer streaming bridge.
 """
 
+import errno
+import hashlib
 import os
 import queue
+import re
 import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 from arc_runner.core.constants import (
+    DEFAULT_CACHE_DIR,
     DEFAULT_CONTEXT_WINDOW,
     DEFAULT_MAX_NEW_TOKENS,
     DEFAULT_TEMPERATURE,
@@ -41,6 +45,34 @@ from arc_runner.utils.dll_loader import initialize_windows_dll_environment
 logger = get_logger("engine.openvino")
 
 KV_PRECISION_ENV = "ARC_KV_CACHE_PRECISION"
+CACHE_DIR_ENV = "ARC_CACHE_DIR"
+WARMUP_ENV = "ARC_WARMUP_ON_LOAD"
+DEVICE_KEY_MAX_LEN = 64
+WARMUP_PROMPT = "Hello."
+WARMUP_MAX_NEW_TOKENS = 4
+_RESERVED_DEVICE_NAMES = frozenset({"CON", "PRN", "AUX", "NUL"} | {f"COM{i}" for i in range(1, 10)} | {f"LPT{i}" for i in range(1, 10)})
+_INVALID_KEY_CHARS = re.compile(r"[^A-Za-z0-9._-]")
+
+
+def device_key(device: str, max_len: int = DEVICE_KEY_MAX_LEN) -> str:
+    """Turn a device string into a stable, Windows-safe directory name.
+
+    Args:
+        device: Device string such as 'GPU.0' or 'AUTO:GPU,CPU'.
+        max_len: Maximum key length; longer keys are truncated with a hash suffix.
+
+    Returns:
+        str: Non-empty upper-case key made of letters, digits, dot, underscore and hyphen.
+    """
+    digest = hashlib.sha256(device.encode("utf-8")).hexdigest()[:8].upper()
+    key = _INVALID_KEY_CHARS.sub("_", device.upper()).strip("._ ")
+    if not key:
+        key = f"DEVICE_{digest}"
+    if key.split(".", 1)[0] in _RESERVED_DEVICE_NAMES:
+        key = "_" + key
+    if len(key) > max_len:
+        key = f"{key[: max_len - 9]}_{hashlib.sha256(key.encode('utf-8')).hexdigest()[:8].upper()}"
+    return key
 
 
 class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
@@ -124,20 +156,85 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
 
         device_props = self._build_ov_properties(normalized_device, dict(kwargs))
 
+        cache_dir = device_props.get("CACHE_DIR")
+        if cache_dir:
+            logger.info("Compile cache in use", extra={"cache_dir": str(cache_dir), "device": normalized_device})
+        warmup_on = self._warmup_on_load_enabled()
         try:
             import openvino_genai as ov_genai
             self._pipeline = ov_genai.LLMPipeline(str(resolved_path), normalized_device, **device_props)
             self._is_loaded = True
             self._model_path = str(resolved_path)
             self._device = normalized_device
+            if warmup_on:
+                logger.warning("warmup_on_load=on", extra={"device": normalized_device})
+                self.warmup()
         except DeviceNotFoundError:
             raise
         except ModelNotFoundError:
             raise
         except Exception as exc:
-            self._is_loaded = False
-            self._pipeline = None
-            raise ModelLoadError(str(exc), str(resolved_path), normalized_device) from exc
+            self.unload()
+            detail = f"{exc} (compile cache: {cache_dir})" if cache_dir else str(exc)
+            raise ModelLoadError(detail, str(resolved_path), normalized_device) from exc
+
+    @staticmethod
+    def _warmup_on_load_enabled() -> bool:
+        """Read ARC_WARMUP_ON_LOAD; only 'on', 'off' and empty are valid (case-insensitive).
+
+        Returns:
+            bool: True only for 'on'. An invalid value is logged at WARNING and treated as off.
+        """
+        value = os.environ.get(WARMUP_ENV, "").strip().lower()
+        if value in ("", "off"):
+            return False
+        if value == "on":
+            return True
+        logger.warning(
+            "ARC_WARMUP_ON_LOAD value is not on, off or empty; warm-up stays off",
+            extra={"env_var": WARMUP_ENV},
+        )
+        return False
+
+    def warmup(self) -> None:
+        """Run one short fixed generation to compile and touch the pipeline; telemetry is left unchanged.
+
+        Raises:
+            ArcRunnerError: If no model is loaded.
+        """
+        if not self.is_loaded:
+            raise ArcRunnerError("Model not loaded. Call load_model() first.", "MODEL_NOT_LOADED", 400)
+        saved = self._telemetry
+        try:
+            ov_config = self._build_ov_generation_config(GenerationConfig(max_new_tokens=WARMUP_MAX_NEW_TOKENS))
+            self._invoke_pipeline(WARMUP_PROMPT, ov_config)
+        finally:
+            self._telemetry = saved
+
+    @staticmethod
+    def _resolve_cache_dir(device: str) -> Optional[Path]:
+        """Create and return the absolute device-keyed compile cache directory.
+
+        Args:
+            device: Normalized device string.
+
+        Returns:
+            Optional[Path]: The directory, or None (after a WARNING) if it cannot be created or written.
+        """
+        raw = os.environ.get(CACHE_DIR_ENV, "").strip()
+        root = Path(os.path.abspath(os.path.expanduser(raw))) if raw else Path(os.path.abspath(DEFAULT_CACHE_DIR / "ov_cache"))
+        target = root / device_key(device)
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+            if not os.access(target, os.W_OK):
+                raise PermissionError(errno.EACCES, "cache directory is not writable")
+        except OSError as exc:
+            logger.warning(
+                "Compile cache disabled: directory unusable",
+                extra={"cache_dir": str(target), "device": device, "reason": str(exc), "errno": str(exc.errno)},
+            )
+            return None
+        return target
 
     def _build_ov_properties(self, device: str, overrides: Dict[str, Any]) -> Dict[str, Any]:
         """Build OpenVINO pipeline properties for a device.
@@ -153,10 +250,11 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
             Dict[str, Any]: Properties passed to openvino_genai.LLMPipeline.
         """
         props = dict(overrides)
+        if "CACHE_DIR" not in props:
+            cache_dir = self._resolve_cache_dir(device)
+            if cache_dir is not None:
+                props["CACHE_DIR"] = str(cache_dir)
         if device.startswith("GPU"):
-            cache_dir = Path(".cache/ov_cache").resolve()
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            props.setdefault("CACHE_DIR", str(cache_dir))
             props.setdefault("PERFORMANCE_HINT", "LATENCY")
             props.setdefault("GPU_ENABLE_SDPA_OPTIMIZATION", True)
         requested_precision = os.environ.get(KV_PRECISION_ENV, "").strip()
