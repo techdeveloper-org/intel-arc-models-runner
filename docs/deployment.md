@@ -104,7 +104,17 @@ The package works without the native library (pure-Python path). To use it, buil
 python src/arc_runner/native/build_native.py
 ```
 
-The build writes `libarc_native_sys.<dll|so>` and a `.build.json` sidecar (sha256, compiler, flags, ABI version). The Python bridge refuses a library with another ABI version or a different hash and falls back to the Python path. The Linux container image and the published wheel contain no Linux `.so`, so they run the Python path unless one is built into the image. Related variables: `ARC_NATIVE_DISABLE=1` forces the fallback, `ARC_ZE_LOADER_PATH` overrides the Level Zero loader, `ARC_ZE_SYNC_TIMEOUT_MS` sets the GPU wait limit (clamped to 1900), `ARC_PIN_RING=1` enables best-effort layer pinning, `ARC_KV_CACHE_PRECISION=u8` opts in to the u8 KV cache.
+The build writes `libarc_native_sys.<dll|so>` and a `.build.json` sidecar (sha256, compiler, flags, ABI version). The Python bridge refuses a library with another ABI version or a different hash and falls back to the Python path. The Linux container image and the published wheel contain no Linux `.so`, so they run the Python path unless one is built into the image. Related variables: `ARC_NATIVE_DISABLE=1` forces the fallback, `ARC_ZE_LOADER_PATH` overrides the Level Zero loader, `ARC_ZE_SYNC_TIMEOUT_MS` sets the GPU wait limit (clamped to 1900), `ARC_PIN_RING=1` enables best-effort layer pinning, `ARC_KV_CACHE_PRECISION=u8` opts in to the u8 KV cache (not recommended: on the Arc GPU with default settings the one committed quality run, `docs/benchmarks/quality/kv_u8_qwen-2.5-1.5b.json`, failed with a paged-attention block-size error and 0 passing prompts).
+
+Further variables, as the code reads them:
+
+| Variable | Effect |
+|:---|:---|
+| `ARC_CONTEXT_WINDOW` | Fixes the context window for every loaded model. Only ASCII digits, at most 7 characters (leading zeros count, so `00000008` is rejected), value 1 to 2097152. Unset or empty: `max_position_embeddings` from the model's `config.json`, then 4096. An invalid value makes `arc-runner serve` print one line on stderr and exit with code 2 before any model is loaded. See docs/claude-code.md. |
+| `ARC_CACHE_DIR` | Root of the OpenVINO compile cache; a sub-folder per device is created below it. Unset or empty: `~/.arc-runner/cache/ov_cache`. If the folder cannot be created or written, the cache is switched off with a WARNING and the model still loads. |
+| `ARC_WARMUP_ON_LOAD` | `on` runs one short fixed generation (4 new tokens) right after a model loads; `off` or empty (default) skips it. Case-insensitive; any other value is logged at WARNING and treated as off. |
+| `ARC_NATIVE_ALLOW_MISSING_SIDECAR` | Exactly `1` lets the native library load when its `.build.json` sidecar is missing (a WARNING is logged and integrity is not checked). It never excuses a sidecar that is present but has a wrong hash. |
+| `ARC_ZE_LOADER_ALLOW_ANY` | Exactly `1` lets `ARC_ZE_LOADER_PATH` point at a file whose name does not look like a Level Zero loader (`ze_loader`, `libze_loader.so*`). Without it, an override must be an existing regular file with such a name, and a refused override yields no loader (the default names are not tried instead). The override is code loaded into the process; use only for a file you trust. |
 
 ---
 
@@ -171,7 +181,7 @@ spec:
             claimName: arc-runner-models-pvc
 ```
 
-The probe path `/` stays open when `ARC_API_KEY` is set; every other route then needs the key. The memory and CPU figures are placeholders to adjust, not measured requirements.
+The probe path `/` (and `/health`) stays open when `ARC_API_KEY` is set; every other route then needs the key. The memory and CPU figures are placeholders to adjust, not measured requirements.
 
 ---
 
@@ -179,7 +189,7 @@ The probe path `/` stays open when `ARC_API_KEY` is set; every other route then 
 
 | Variable | Effect |
 |:---|:---|
-| `ARC_API_KEY` | When set and non-empty, every route except `/`, `/docs`, `/openapi.json` and `/static/*` requires the key, sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`. Missing or wrong key returns HTTP 401. Unset means no authentication. |
+| `ARC_API_KEY` | When set and non-empty, every route except `/`, `/health`, `/docs`, `/openapi.json` and `/static/*` requires the key, sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`. Missing or wrong key returns HTTP 401; `/v1/messages*` answer 401 in the Anthropic error envelope (`authentication_error`); `HEAD /api/hello` also needs the key. `GET /health` (200, `{"status": "ok"}`, no model access) is exempt from the key too. Unset means no authentication. |
 | `ARC_CORS_ORIGINS` | Comma-separated extra origins allowed by CORS. Local origins (`localhost`, `127.0.0.1`, `[::1]`, any port) are always allowed. Credentials are not allowed. |
 | `ARC_ALLOWED_PATHS` | Extra directories (separated by the OS path separator: `:` on Linux, `;` on Windows) that request-supplied paths may point into. Model names and paths outside the models directories and this list are refused with HTTP 403 `PATH_NOT_ALLOWED`. |
 
