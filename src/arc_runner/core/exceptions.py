@@ -262,3 +262,32 @@ class ConfigurationError(ArcRunnerError):
             message: Description of the invalid setting.
         """
         super().__init__(message, "INVALID_CONFIGURATION", 400)
+
+
+class PromptCapExceededError(ArcRunnerError):
+    """Raised when a prompt exceeds the NPU hardware maximum prompt length cap.
+
+    The NPU plugin enforces a fixed MAX_PROMPT_LEN at load time.  Passing a longer
+    prompt either triggers a library RuntimeError or is detected by the pre-flight
+    token count check.  The prompt is never silently truncated.
+
+    Args:
+        prompt_tokens: Estimated or measured token count of the prompt.
+        cap: The configured or default NPU_MAX_PROMPT_LEN cap in tokens.
+    """
+
+    def __init__(self, prompt_tokens: int, cap: int) -> None:
+        """Initialize the NPU prompt cap exceeded exception.
+
+        Args:
+            prompt_tokens: Estimated or measured token count of the rejected prompt.
+            cap: Maximum prompt token length enforced by the NPU plugin.
+        """
+        super().__init__(
+            f"Prompt length ({prompt_tokens} tokens) exceeds the NPU cap ({cap} tokens); "
+            f"shorten the prompt or set MAX_PROMPT_LEN to a larger value",
+            "PROMPT_CAP_EXCEEDED",
+            400,
+        )
+        self.prompt_tokens = prompt_tokens
+        self.cap = cap

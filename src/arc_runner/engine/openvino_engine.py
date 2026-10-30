@@ -22,6 +22,8 @@ from arc_runner.core.constants import (
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_K,
     DEFAULT_TOP_P,
+    NPU_MAX_PROMPT_LEN,
+    NPU_MIN_RESPONSE_LEN,
     STREAM_BUFFER_SIZE,
 )
 from arc_runner.core.exceptions import (
@@ -31,6 +33,7 @@ from arc_runner.core.exceptions import (
     DeviceNotFoundError,
     ModelLoadError,
     ModelNotFoundError,
+    PromptCapExceededError,
 )
 from arc_runner.core.logging import get_logger
 from arc_runner.engine.base import BaseEngine
@@ -52,6 +55,7 @@ WARMUP_PROMPT = "Hello."
 WARMUP_MAX_NEW_TOKENS = 4
 _RESERVED_DEVICE_NAMES = frozenset({"CON", "PRN", "AUX", "NUL"} | {f"COM{i}" for i in range(1, 10)} | {f"LPT{i}" for i in range(1, 10)})
 _INVALID_KEY_CHARS = re.compile(r"[^A-Za-z0-9._-]")
+_NPU_OVER_CAP_LIBRARY_MSG = 'Set the "MAX_PROMPT_LEN" config option to increase the limit.'
 
 
 def device_key(device: str, max_len: int = DEVICE_KEY_MAX_LEN) -> str:
@@ -257,6 +261,9 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
         if device.startswith("GPU"):
             props.setdefault("PERFORMANCE_HINT", "LATENCY")
             props.setdefault("GPU_ENABLE_SDPA_OPTIMIZATION", True)
+        if device.startswith("NPU"):
+            props.setdefault("MAX_PROMPT_LEN", NPU_MAX_PROMPT_LEN)
+            props.setdefault("MIN_RESPONSE_LEN", NPU_MIN_RESPONSE_LEN)
         requested_precision = os.environ.get(KV_PRECISION_ENV, "").strip()
         if requested_precision:
             props.setdefault("KV_CACHE_PRECISION", requested_precision)
@@ -280,6 +287,26 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
         except Exception as exc:
             logger.warning("Tokenization unavailable", extra={"reason": str(exc)})
             return None
+
+    def _check_npu_prompt_cap(self, prompt: str, prompt_tokens: Optional[int]) -> None:
+        """Raise PromptCapExceededError when the device is NPU and the prompt exceeds NPU_MAX_PROMPT_LEN.
+
+        Called before the pipeline is invoked so the error is deterministic and never
+        depends on which library error message happens to surface at runtime.  The prompt
+        is never silently truncated.
+
+        Args:
+            prompt: Prompt text; word count used as a fallback when token count is unavailable.
+            prompt_tokens: Measured token count from _check_request_fits_context, or None.
+
+        Raises:
+            PromptCapExceededError: If device is NPU and the estimated token count exceeds the cap.
+        """
+        if not self._device.startswith("NPU"):
+            return
+        count = prompt_tokens if prompt_tokens is not None else len(prompt.split())
+        if count > NPU_MAX_PROMPT_LEN:
+            raise PromptCapExceededError(count, NPU_MAX_PROMPT_LEN)
 
     def _invoke_pipeline(self, prompt: str, ov_config: Any) -> Any:
         """Run one synchronous generation using a single call form that returns DecodedResults.
@@ -355,9 +382,15 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
         ov_config = self._build_ov_generation_config(cfg)
 
         prompt_tokens = self._check_request_fits_context(prompt, cfg.max_new_tokens)
+        self._check_npu_prompt_cap(prompt, prompt_tokens)
 
         start_time = time.monotonic()
-        raw_result = self._invoke_pipeline(prompt, ov_config)
+        try:
+            raw_result = self._invoke_pipeline(prompt, ov_config)
+        except Exception as exc:
+            if self._device.startswith("NPU") and _NPU_OVER_CAP_LIBRARY_MSG in str(exc):
+                raise PromptCapExceededError(prompt_tokens or len(prompt.split()), NPU_MAX_PROMPT_LEN) from exc
+            raise
         elapsed_sec = max(time.monotonic() - start_time, 1e-6)
 
         if hasattr(raw_result, "texts") and hasattr(raw_result, "perf_metrics"):
@@ -437,6 +470,7 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
 
         ov_config = self._build_ov_generation_config(cfg)
         prompt_tokens = self._check_request_fits_context(prompt, cfg.max_new_tokens)
+        self._check_npu_prompt_cap(prompt, prompt_tokens)
 
         worker_error: List[Exception] = []
 
@@ -472,7 +506,10 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
             cancel_event.set()
 
         if worker_error:
-            raise worker_error[0]
+            exc = worker_error[0]
+            if self._device.startswith("NPU") and _NPU_OVER_CAP_LIBRARY_MSG in str(exc):
+                raise PromptCapExceededError(prompt_tokens or len(prompt.split()), NPU_MAX_PROMPT_LEN) from exc
+            raise exc
 
         end_time = time.monotonic()
         token_count = self._count_prompt_tokens("".join(emitted)) if emitted else None
