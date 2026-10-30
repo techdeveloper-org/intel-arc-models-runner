@@ -21,6 +21,11 @@ requires_native = pytest.mark.skipif(not bridge._load_native_library(), reason="
 requires_gcc = pytest.mark.skipif(shutil.which("gcc") is None, reason="gcc not available")
 
 
+def _sanitizers_unavailable(stderr: str) -> bool:
+    """Return True if a compiler or linker error says the sanitizer runtime is missing (for example mingw without libasan)."""
+    return any(token in stderr for token in ("sanitize", "-lasan", "-lubsan"))
+
+
 @pytest.fixture(scope="module")
 def fake_loader(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Compile the fake Level Zero loader once per module."""
@@ -182,7 +187,7 @@ def test_c_level_zero_harness_passes_under_asan_and_ubsan(tmp_path: Path) -> Non
          str(REPO_ROOT / "tests" / "native_c" / "fake_ze_loader.c"), "-o", str(fake)],
         capture_output=True, text=True,
     )
-    if built_fake.returncode != 0 and "sanitize" in built_fake.stderr:
+    if built_fake.returncode != 0 and _sanitizers_unavailable(built_fake.stderr):
         pytest.skip("sanitizers unavailable on this toolchain")
     assert built_fake.returncode == 0, built_fake.stderr
     built = subprocess.run(
@@ -212,7 +217,7 @@ def test_windows_level_zero_branch_compiles_clean_with_werror(tmp_path: Path) ->
 def test_sysman_keeps_only_gpu_devices_and_reports_total_memory_with_correct_stype(fake_env: pytest.MonkeyPatch) -> None:
     """L3/L4: Sysman skips the NPU, uses stype 0x7 for memory properties, and still reports no free memory."""
     sysman = LevelZeroSysman()
-    assert sysman.is_available
+    assert sysman.is_available, (LevelZeroSysman._sysman_failure, sysman.get_unavailable_reason("devices"))
     assert len(sysman._devices) == 1
     total_mb, free_mb = sysman.query_gpu_memory(0)
     assert total_mb == 8 * 1024

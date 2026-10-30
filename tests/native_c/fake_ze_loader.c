@@ -237,14 +237,14 @@ FAKE_EXPORT ze_result_t zeCommandQueueSynchronize(void* queue, uint64_t timeout_
     }
     unsigned long long slice_ms = timeout_ns / 1000000u;
     struct timespec nap = {0, 5 * 1000000L};
-    unsigned long long waited = 0;
+    const unsigned long long wait_started_ms = now_ms();
     unsigned long long finish_after = strncmp(mode, "slow:", 5) == 0 ? strtoull(mode + 5, NULL, 10) : ~0ull;
-    while (waited < slice_ms) {
+    /* Count elapsed wall time, not naps: nanosleep(5 ms) sleeps about 15.6 ms on Windows. */
+    while (now_ms() - wait_started_ms < slice_ms) {
         if (now_ms() - g_sync_started_ms >= finish_after) {
             return ZE_RESULT_SUCCESS;
         }
         nanosleep(&nap, NULL);
-        waited += 5;
     }
     return ZE_RESULT_NOT_READY;
 }
