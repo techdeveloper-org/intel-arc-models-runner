@@ -2,7 +2,7 @@
 doc_id: DOC-SG-STAGE
 title: Slice S-G - remaining technical items
 stage: S-G
-version: 1.9.0
+version: 1.10.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-30
@@ -62,3 +62,4 @@ Clean-venv run of the CI Linux steps (`pip install -e ".[dev]"`, native build, 8
 | 1.7.0 | 2026-10-30 | CLI session | WP-17 17b: PromptCapExceededError (HTTP 400/PROMPT_CAP_EXCEEDED), NPU_MAX_PROMPT_LEN=1024, NPU_MIN_RESPONSE_LEN=128, NPU props in _build_ov_properties, _check_npu_prompt_cap, library-error wrapping in generate/generate_stream; 15 new tests | NPU prompt cap enforcement | pending |
 | 1.8.0 | 2026-10-30 | CLI session | WP-05: ModelManager.engine_key() static method, EmbeddingEngine.unload() + VisionEngine.unload(), unload() called on eviction from embedding/vision caches, unload_all() clears all three caches, unload_model() evicts from embedding/vision caches, _meta_lock separate from _lock; 12 new tests | engine lifecycle and lock isolation | pending |
 | 1.9.0 | 2026-10-30 | CLI session | WP-07: classify_device_error() pure function in engine/device_errors.py; DEVICE_LOST/OOM raise ModelLoadError in all four fallback handlers (image, video, vision, embedding); DRIVER_ERROR/UNKNOWN fall back as before; 23 new tests | unrecoverable GPU/NPU error gate | pending |
+| 1.10.0 | 2026-10-30 | CLI session | WP-06 H-11: AudioEngine._normalize_audio_input raises InvalidAudioFormatError for sampwidth==3 (24-bit WAV) and sampwidth==0 (zero frames); H-10: VisionEngine.generate uses inner daemon thread + unbounded queue, yields first chunk before pipeline returns, joins with TIMEOUT_GRACEFUL_SHUTDOWN_S, raises ENGINE_WEDGED on join expiry; 13 new tests | media correctness | pending |
