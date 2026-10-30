@@ -190,7 +190,7 @@ Use port `11434` in the URL if that is the port you selected for `arc-runner`.
 
 #### Claude Code (Anthropic Messages API)
 
-The server also answers `POST /v1/messages` and `POST /v1/messages/count_tokens`, so Claude Code can be pointed at it with `ANTHROPIC_BASE_URL=http://127.0.0.1:11434` and `ANTHROPIC_AUTH_TOKEN=local`. Streaming, tool-call parsing and the error envelope are tested with fake engines only; Claude Code itself was not run, and the engines' 4096-token context window is smaller than Claude Code's own prompt. Read [docs/claude-code.md](docs/claude-code.md) for the exact steps, the limits and what is UNVERIFIED.
+The server also answers `POST /v1/messages` and `POST /v1/messages/count_tokens`, so Claude Code can be pointed at it with `ANTHROPIC_BASE_URL=http://127.0.0.1:11434` and `ANTHROPIC_AUTH_TOKEN=local`. Streaming, tool-call parsing and the error envelope are tested with fake engines only; Claude Code itself was not run, and the context window is resolved per model (`ARC_CONTEXT_WINDOW`, then `max_position_embeddings` in the model's `config.json`, then 4096); a window of 4096 is smaller than Claude Code's own prompt. Read [docs/claude-code.md](docs/claude-code.md) for the exact steps, the limits and what is UNVERIFIED.
 
 ### 3. Core CLI Quick Reference
 

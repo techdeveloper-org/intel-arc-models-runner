@@ -18,6 +18,7 @@ from arc_runner import __version__
 from arc_runner.benchmark.multimodal_runner import MultiModelCoBenchmarker
 from arc_runner.benchmark.runner import BenchmarkRunner
 from arc_runner.core.constants import DEFAULT_HOST, DEFAULT_PORT
+from arc_runner.core.exceptions import ConfigurationError
 from arc_runner.core.logging import get_logger, setup_logging
 from arc_runner.devices.detector import DeviceDetector
 from arc_runner.devices.models import DeviceType, SystemTopology
@@ -137,14 +138,20 @@ def run_server(
         log_file: Optional path to rotating JSON file appender.
 
     Returns:
-        int: Process exit code.
+        int: Process exit code; 2 when the configuration (for example ARC_CONTEXT_WINDOW) is invalid,
+        reported on stderr before any model is loaded.
     """
     import uvicorn
 
     setup_logging(debug=debug, log_file=Path(log_file) if log_file else None)
     logger = get_logger("cli.server")
 
-    manager = ModelManager(model_dirs=[Path(d) for d in model_dirs] if model_dirs else None)
+    try:
+        manager = ModelManager(model_dirs=[Path(d) for d in model_dirs] if model_dirs else None)
+    except ConfigurationError as exc:
+        text = " ".join(str(exc.message).split())[:300]
+        print(f"arc-runner serve: configuration error: {text}", file=sys.stderr)
+        return 2
     app = create_app(model_manager=manager, debug=debug)
 
     console = Console()

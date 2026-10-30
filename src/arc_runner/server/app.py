@@ -196,6 +196,15 @@ def create_app(
             content={"error": "Request validation failed", "details": jsonable_encoder(exc.errors())},
         )
 
+    @app.api_route("/health", methods=["GET", "HEAD"], include_in_schema=False)
+    async def health() -> Dict[str, str]:
+        """Liveness probe that touches no model, engine or lock.
+
+        Returns:
+            Dict[str, str]: The constant body ``{"status": "ok"}``.
+        """
+        return {"status": "ok"}
+
     @app.get("/api/devices")
     async def get_devices() -> Dict[str, Any]:
         """Hardware topology telemetry endpoint returning live silicon states.

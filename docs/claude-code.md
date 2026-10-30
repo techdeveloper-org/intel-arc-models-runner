@@ -2,15 +2,17 @@
 
 `arc-runner serve` answers the Anthropic Messages API (`POST /v1/messages`), so Claude Code can be pointed at it the way people point it at Ollama. The model is a local OpenVINO model, not a Claude model.
 
-**Status of this guide.** The server side is covered by automated tests that use fake engines and by a run of the real app under uvicorn with raw sockets. Claude Code itself was **not run** while this was written, and no real model was involved. Everything that depends on Claude Code's behaviour or on a real model is marked UNVERIFIED. Anthropic does not support routing Claude Code to non-Claude models; this works only as far as the wire protocol matches.
+**Status of this guide.** The server side is covered by automated tests that use fake engines and by a run of the real app under uvicorn with raw sockets. Claude Code itself was **not run** while this was written, and no real model was involved. Everything that depends on Claude Code's behaviour or on a real model is marked UNVERIFIED. Anthropic does not support routing Claude Code to non-Claude models; this works only as far as the wire protocol matches. The PowerShell commands in this guide were written for Windows PowerShell but were not executed on Windows (UNVERIFIED); the bash equivalents were run against the real app with a fake engine.
 
 ## The context window
 
 The engines enforce a context window as a software budget: a request fails when `prompt tokens + max_tokens` exceeds it. The window is no longer fixed. It is resolved once per loaded model, in this order:
 
-1. `ARC_CONTEXT_WINDOW`, a positive integer written with ASCII digits only (no sign, spaces, separators or exponent), at most 2097152 (2**21). Anything else, including `0`, `-1`, `8 `, `1e3`, non-ASCII digits and values above the cap, stops the server at start with a `ConfigurationError` before any model is loaded. Empty means unset.
+1. `ARC_CONTEXT_WINDOW`, a positive integer written with ASCII digits only (no sign, spaces, separators or exponent), at most 2097152 (2**21). Anything else, including `0`, `-1`, `8 `, `1e3`, non-ASCII digits and values above the cap, stops the server at start with a `ConfigurationError` before any model is loaded. At most 7 digits are allowed, leading zeros included (`08` is accepted, `00000008` is rejected). Empty means unset. `arc-runner serve` reports an invalid value as one line on stderr naming the variable and the range (the value is not echoed) and exits with code 2.
 2. `max_position_embeddings` in `<model_dir>/config.json`. The file is treated as untrusted: size cap 1 MiB, must be a JSON object, the value must be a real positive integer (booleans, floats and strings are rejected). A value above 2097152 is clamped to it with a WARNING in the log. Rope scaling keys are ignored: only the number the config states is used.
 3. 4096 (the old default), with an INFO log line that says why (no `config.json`, unreadable, or no valid key).
+
+A pulled `llama-3.2-3b` may therefore get a very large window by default (the registry lists 131072 for it; UNVERIFIED: its `config.json` was not inspected on a real download). Set `ARC_CONTEXT_WINDOW` explicitly if memory is tight.
 
 The window used is written to the server log at INFO when the model loads. For a speculative pair (draft model) the target model's config decides; the draft's is not consulted.
 
@@ -20,13 +22,18 @@ ARC_CONTEXT_WINDOW=32768 arc-runner serve --default-model llama-3.2-3b
 
 When a request exceeds the window the answer is still `400 invalid_request_error` beginning `prompt is too long: N tokens (prompt plus max_tokens) > M maximum context window`, now with the new `M`. Lower `CLAUDE_CODE_MAX_OUTPUT_TOKENS` or run `/compact` / `/clear` if you hit it.
 
-**Memory warning.** The window is only a limit; nothing is preallocated for it, and the KV cache grows with the tokens actually used. A large window therefore lets a long prompt allocate a large KV cache, and on a laptop whose GPU shares 15 GB with the system this can run out of memory. This has **not been measured on the target laptop**; no safe window size is claimed. If you see out-of-memory errors, set `ARC_CONTEXT_WINDOW` lower, or `ARC_KV_CACHE_PRECISION=u8` (a quality trade-off, off by default). The KV footprint estimate uses `num_hidden_layers`, `num_key_value_heads` (or `num_attention_heads`) and `head_dim` (or `hidden_size / num_attention_heads`) from `config.json` and the element width of the KV precision setting; when the config lacks them the old 28 / 8 / 128 assumption is used, flagged as an assumption and logged at WARNING.
+**Memory warning.** The window is only a limit; nothing is preallocated for it, and the KV cache grows with the tokens actually used. A large window therefore lets a long prompt allocate a large KV cache, and on a laptop whose GPU shares 15 GB with the system this can run out of memory. This has **not been measured on the target laptop**; no safe window size is claimed. If you see out-of-memory errors, set `ARC_CONTEXT_WINDOW` lower, or consider `ARC_KV_CACHE_PRECISION=u8` only with caution: the one committed quality run on the Arc GPU with default settings (`docs/benchmarks/quality/kv_u8_qwen-2.5-1.5b.json`) was rejected by the GPU plugin (paged-attention block-size error, 0 passing prompts), so u8 is not recommended here. The KV footprint estimate uses `num_hidden_layers`, `num_key_value_heads` (or `num_attention_heads`) and `head_dim` (or `hidden_size / num_attention_heads`) from `config.json` and the element width of the KV precision setting; when the config lacks them the old 28 / 8 / 128 assumption is used, flagged as an assumption and logged at WARNING.
 
 Still UNVERIFIED: that a model's `max_position_embeddings` is a length it handles well on this hardware, and the exact message text Claude Code keys its automatic compaction on (the runner uses Anthropic's style). `CLAUDE_CODE_AUTO_COMPACT_WINDOW` cannot match a small local window, so `/compact` remains the recovery.
 
+## 0. Prerequisites (Windows, first time)
+
+1. Install the runner. No release is published yet, so `pip install arc-runner` does not work; follow the README section "Option 3: Windows Native Setup" (`.\install.bat` from a checkout), then open a NEW terminal. If `arc-runner` is not found, use `python -m arc_runner.cli.main --version`.
+2. Install Claude Code separately (see Anthropic's setup page); this repository does not install it and no install command is given here. Check with `claude --version`.
+
 ## 1. Start the server
 
-Pull a model once, then serve it (see the README for model names):
+Pull a model once, then serve it (see the README for model names). `arc-runner pull` downloads from Hugging Face (internet needed) into `.\models` relative to the CURRENT directory, in a folder named after the alias. `arc-runner serve` also reads `.\models` of its current directory, so run both from the same folder, or pass `--dir D` to `pull` and `--model-dir D` to `serve`. `arc-runner models` lists what is installed.
 
 ```bash
 arc-runner pull llama-3.2-3b
@@ -40,7 +47,9 @@ If Ollama already listens on 11434, use another port such as 11435 and change th
 curl http://127.0.0.1:11434/v1/models
 ```
 
-Use a value of `data[].id`; an unknown name returns `404 not_found_error` listing the local models. There is no silent fallback to another model.
+Use a value of `data[].id`: copy it into `ANTHROPIC_MODEL` and `ANTHROPIC_DEFAULT_HAIKU_MODEL` (PowerShell: `curl.exe http://127.0.0.1:11434/v1/models`, UNVERIFIED, not run on Windows). After `arc-runner pull llama-3.2-3b` the id is `llama-3.2-3b`; a folder copied by hand is listed under its folder name if it contains a `*.xml` file. An unknown name returns `404 not_found_error` listing the local models. There is no silent fallback to another model.
+
+Up-check: `curl http://127.0.0.1:11434/health` answers `{"status":"ok"}` (HTTP 200, no key needed, touches no model); `GET /` answers `Ollama is running`, also without a key. Neither proves a model is visible: `/v1/models` does (it needs the key when `ARC_API_KEY` is set).
 
 ## 2. Point Claude Code at it
 
@@ -78,17 +87,32 @@ claude
 | `ANTHROPIC_AUTH_TOKEN` | Sent as `Authorization: Bearer`. Any value works unless `ARC_API_KEY` is set (below). Preferred over `ANTHROPIC_API_KEY`, which makes interactive Claude Code ask once to approve the key. |
 | `ANTHROPIC_MODEL` | The local model name from `/v1/models`. Claude Code does not validate it at start; a typo fails on the first request. |
 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Background tasks may use the "haiku" alias; pin it to the local model. `ANTHROPIC_SMALL_FAST_MODEL` is deprecated. |
-| `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Claude Code assumes 32000 for unknown models. Set it below the engine's context window. Keep it below the context window (see above). The runner rejects `max_tokens` above 32768 with a 400. |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Claude Code assumes 32000 for unknown models. Set it well below the context window in use (see above). The runner rejects `max_tokens` above 32768 with a 400. |
 | `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | Claude Code assumes a 200K context for unknown model names and cannot learn a smaller one from the server. The documented minimum is 100000, so it cannot match a smaller local window; `/compact` is the recovery. |
 | `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` | Strips beta fields. The runner ignores them anyway; this only avoids sending them. |
 | `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | No telemetry or update checks while working locally. |
-| `CLAUDE_CODE_ATTRIBUTION_HEADER=0` | Omits a changing attribution block at the start of the system prompt, which would defeat any prefix reuse. |
+| `CLAUDE_CODE_ATTRIBUTION_HEADER=0` | Omits a per-request attribution block at the start of the system prompt. Anthropic's docs recommend 0 when prefix caching matters; whether this runner's prefix reuse benefits was not measured. |
+| `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` (optional) | Makes Claude Code call `GET /v1/models`, which the runner serves. Off by default; not tested here. |
 
 Settings in `~/.claude/settings.json` (`env` block) override shell exports.
 
+`$env:` values last one PowerShell window and must be set in the window that runs `claude`. To avoid retyping, put the same names in the `env` block of `~/.claude/settings.json` (`%USERPROFILE%\.claude\settings.json`):
+
+```json
+{"env": {"ANTHROPIC_BASE_URL": "http://127.0.0.1:11434", "ANTHROPIC_AUTH_TOKEN": "local", "ANTHROPIC_MODEL": "llama-3.2-3b", "ANTHROPIC_DEFAULT_HAIKU_MODEL": "llama-3.2-3b"}}
+```
+
+A project `.claude/settings.json` env block applies only after Claude Code's trust prompt. `setx` is not suggested (not verified).
+
+### If Claude Code asks you to log in or for an API key
+
+- `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_API_KEY` take precedence over a saved claude.ai login. `ANTHROPIC_AUTH_TOKEN` takes effect without an approval prompt; `ANTHROPIC_API_KEY` makes interactive Claude Code ask once to approve the key (declining ignores the key silently).
+- UNVERIFIED: whether `ANTHROPIC_AUTH_TOKEN` alone suppresses the first-run onboarding or login screen on a fresh Claude Code install. Set the variables BEFORE the first `claude` launch. If a login screen still appears, do not log in with a real Anthropic account (traffic would then go to Anthropic, not the local server); report it. Inside Claude Code, `/status` shows an "Anthropic base URL" line when the variable is set.
+- Precaution (interaction with `ANTHROPIC_AUTH_TOKEN` UNVERIFIED): clear a stale key before launching. PowerShell: `Remove-Item Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue`; bash: `unset ANTHROPIC_API_KEY`. PowerShell lines are UNVERIFIED (not run).
+
 ### With `ARC_API_KEY`
 
-When the server runs with `ARC_API_KEY` set, every route except `/`, `/docs`, `/openapi.json`, `/health` and `/static` needs the key. For `/v1/messages` the key may arrive in `Authorization: Bearer <key>` or in `x-api-key: <key>`; a match in either header is accepted (both are always compared, in constant time). Set `ANTHROPIC_AUTH_TOKEN` (or `ANTHROPIC_API_KEY`) to the same value. A wrong or missing key returns `401 authentication_error`. The `HEAD /api/hello` startup probe also needs the key; Claude Code tolerates a rejected probe (UNVERIFIED for 401 specifically).
+When the server runs with `ARC_API_KEY` set, every route except `/`, `/health`, `/docs`, `/openapi.json` and `/static/*` needs the key. For `/v1/messages` the key may arrive in `Authorization: Bearer <key>` or in `x-api-key: <key>`; a match in either header is accepted (both are always compared, in constant time). Set `ANTHROPIC_AUTH_TOKEN` (or `ANTHROPIC_API_KEY`) to the same value. A wrong or missing key returns `401 authentication_error`. The `HEAD /api/hello` startup probe also needs the key; Claude Code tolerates a rejected probe (UNVERIFIED for 401 specifically).
 
 ## 3. Smoke tests with curl
 
@@ -99,6 +123,8 @@ curl -s "http://127.0.0.1:11434/v1/messages?beta=true" \
   -H "content-type: application/json" -H "anthropic-version: 2023-06-01" -H "authorization: Bearer local" \
   -d '{"model":"llama-3.2-3b","max_tokens":64,"messages":[{"role":"user","content":"Say hi"}]}'
 ```
+
+Expected shape (verified with a fake engine only; real-engine text and usage UNVERIFIED): `{"id":"msg_...","type":"message","role":"assistant","model":"<name>","content":[{"type":"text","text":"..."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}}`; `usage` is `{}` unless the engine measured counts.
 
 Bash, streaming (`-N` turns off curl's buffering; you should see `event: message_start`, then deltas, then `event: message_stop`):
 
@@ -116,7 +142,16 @@ curl -s http://127.0.0.1:11434/v1/messages/count_tokens \
   -d '{"model":"llama-3.2-3b","messages":[{"role":"user","content":"Say hi"}]}'
 ```
 
-PowerShell (write the body to a file to avoid quoting problems; use `curl.exe`, not the `curl` alias):
+Expected: `{"input_tokens":N}`.
+
+Tools smoke test (bash). Expect a `text` block, then a `tool_use` block (`"id":"toolu_..."`, `"name":"get_weather"`, an `input` object) and `"stop_reason":"tool_use"`; that shape was seen with a fake engine, with a real model it is UNVERIFIED:
+
+```bash
+curl -s http://127.0.0.1:11434/v1/messages -H "content-type: application/json" \
+  -d '{"model":"llama-3.2-3b","max_tokens":64,"tools":[{"name":"get_weather","description":"Get weather","input_schema":{"type":"object","properties":{"city":{"type":"string"}}}}],"messages":[{"role":"user","content":"Weather in Pune?"}]}'
+```
+
+PowerShell (UNVERIFIED, not run on Windows; write the body to a file to avoid quoting problems; use `curl.exe`, not the `curl` alias):
 
 ```powershell
 Set-Content -Path body.json -Encoding ascii -Value '{"model":"llama-3.2-3b","max_tokens":64,"messages":[{"role":"user","content":"Say hi"}]}'
@@ -124,6 +159,9 @@ curl.exe -s http://127.0.0.1:11434/v1/messages -H "content-type: application/jso
 
 Set-Content -Path stream.json -Encoding ascii -Value '{"model":"llama-3.2-3b","max_tokens":64,"stream":true,"messages":[{"role":"user","content":"Say hi"}]}'
 curl.exe -sN http://127.0.0.1:11434/v1/messages -H "content-type: application/json" -H "authorization: Bearer local" --data-binary "@stream.json"
+
+# tools: put the tools body above into tools.json the same way
+curl.exe -s http://127.0.0.1:11434/v1/messages -H "content-type: application/json" --data-binary "@tools.json"
 ```
 
 ## 4. What is implemented
@@ -133,7 +171,7 @@ curl.exe -sN http://127.0.0.1:11434/v1/messages -H "content-type: application/js
 - Unknown fields are never rejected: `thinking` (including `adaptive`), `output_config`, `context_management`, `metadata`, `cache_control` anywhere, beta tool fields. `anthropic-beta` and other `anthropic-*` headers are ignored. Replayed `thinking` blocks in history are dropped.
 - Streaming events in this order: `message_start`, per block `content_block_start`, `content_block_delta`, `content_block_stop`, then `message_delta` (stop reason and usage), `message_stop`. `ping` events are sent every 10 seconds while the engine is silent (slow prefill) so Claude Code's idle watchdog does not abort. No `thinking` blocks are ever produced. A failure after the stream started is sent as `event: error` and the stream ends without `message_stop`.
 - Errors use `{"type":"error","error":{"type","message"},"request_id"}` with 400 `invalid_request_error`, 401 `authentication_error`, 404 `not_found_error`, 413 `request_too_large` (body above 64 MiB), 429, 500 `api_error`, 504 `timeout_error`, 529 `overloaded_error`. A prompt that does not fit the context window returns HTTP 400 before any stream bytes are sent.
-- `HEAD` and `GET /api/hello` return 200 (Claude Code's connection probe).
+- `HEAD` and `GET /api/hello` return 200 (Claude Code's connection probe). `GET`/`HEAD /health` return 200 `{"status":"ok"}` (liveness only).
 - `POST /v1/messages/count_tokens` returns `{"input_tokens": N}` measured by the engine tokenizer. If the loaded engine has no tokenizer it returns `404 not_found_error` ("token counting is unavailable") and no number; Claude Code falls back to its own estimate (documented behaviour for a missing endpoint).
 - Usage: `usage.input_tokens` and `usage.output_tokens` appear only when the engine measured them. When it did not, the `usage` object is empty rather than zero-filled. Whether Claude Code accepts an empty `usage` is UNVERIFIED.
 - Engine access per model is serialised: a second request waits for the first. When the client disconnects the engine stream is closed at the next token; work already inside a prefill cannot be interrupted.
