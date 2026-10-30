@@ -22,6 +22,7 @@ from arc_runner.core.constants import (
 )
 from arc_runner.core.exceptions import (
     ArcRunnerError,
+    ConfigurationError,
     ContextWindowExceededError,
     DeviceNotFoundError,
     ModelLoadError,
@@ -32,7 +33,7 @@ from arc_runner.engine.base import BaseEngine
 from arc_runner.engine.context_budget import ContextBudgetMixin
 from arc_runner.engine.kv_cache import KVCacheManager
 from arc_runner.engine.lora_manager import LoRAManager
-from arc_runner.engine.models import EngineTelemetry, GenerationConfig, TokenChunk
+from arc_runner.engine.models import EngineTelemetry, GenerationConfig, TokenChunk, validate_generation_config
 from arc_runner.engine.telemetry import telemetry_from_perf_metrics, telemetry_from_stream, telemetry_unavailable
 from arc_runner.utils.dll_loader import initialize_windows_dll_environment
 
@@ -202,9 +203,13 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
 
         Returns:
             openvino_genai.GenerationConfig: Populated native config object.
+
+        Raises:
+            ConfigurationError: If a sampling value is out of range or the native binding rejects it.
         """
+        validate_generation_config(config)
+        import openvino_genai as ov_genai
         try:
-            import openvino_genai as ov_genai
             ov_config = ov_genai.GenerationConfig()
             ov_config.max_new_tokens = config.max_new_tokens
             ov_config.temperature = config.temperature
@@ -220,8 +225,12 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
                 if ov_adapter_cfg is not None:
                     ov_config.adapters = ov_adapter_cfg
             return ov_config
-        except Exception:
-            return None
+        except (TypeError, ValueError, RuntimeError, AttributeError) as exc:
+            logger.warning(
+                "Generation config rejected by native binding",
+                extra={"error_type": type(exc).__name__, "max_new_tokens": str(config.max_new_tokens), "reason": str(exc)},
+            )
+            raise ConfigurationError(f"native generation config rejected: {exc}") from exc
 
     def generate(self, prompt: str, config: Optional[GenerationConfig] = None) -> str:
         """Execute synchronous autoregressive generation and return completed text.

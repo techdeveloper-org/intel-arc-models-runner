@@ -14,6 +14,7 @@ from typing import Any, Iterator, List, Optional
 from arc_runner.core.constants import STREAM_BUFFER_SIZE
 from arc_runner.core.exceptions import (
     ArcRunnerError,
+    ConfigurationError,
     ContextWindowExceededError,
     DeviceNotFoundError,
     ModelLoadError,
@@ -28,6 +29,7 @@ from arc_runner.engine.models import (
     GenerationConfig,
     SpeculativeConfig,
     TokenChunk,
+    validate_generation_config,
 )
 
 logger = logging.getLogger(__name__)
@@ -245,10 +247,14 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
 
         Returns:
             Any: Populated openvino_genai.GenerationConfig instance.
-        """
-        try:
-            import openvino_genai as ov_genai
 
+        Raises:
+            ConfigurationError: If a sampling value is out of range or the native binding rejects it.
+        """
+        validate_generation_config(config)
+        import openvino_genai as ov_genai
+
+        try:
             ov_cfg = ov_genai.GenerationConfig()
             ov_cfg.max_new_tokens = config.max_new_tokens
             ov_cfg.temperature = config.temperature
@@ -267,8 +273,12 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
             if config.stop_token_ids:
                 ov_cfg.stop_token_ids = set(config.stop_token_ids)
             return ov_cfg
-        except Exception:
-            return None
+        except (TypeError, ValueError, RuntimeError, AttributeError) as exc:
+            logger.warning(
+                "Generation config rejected by native binding",
+                extra={"error_type": type(exc).__name__, "max_new_tokens": str(config.max_new_tokens), "reason": str(exc)},
+            )
+            raise ConfigurationError(f"native generation config rejected: {exc}") from exc
 
     def _adapt_gamma(self, accepted_count: int, draft_count: int) -> None:
         """Update active lookahead horizon gamma based on empirical acceptance rate.

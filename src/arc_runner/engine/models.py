@@ -112,3 +112,22 @@ class KVAllocation(BaseModel):
     total_tokens: int = Field(..., description="Combined sequence length reserved")
     memory_footprint_mb: float = Field(..., description="Estimated memory footprint in megabytes")
     is_active: bool = Field(default=True, description="True if buffer is currently allocated")
+
+
+def validate_generation_config(config: GenerationConfig) -> None:
+    """Re-check sampling bounds for configs that bypassed pydantic validation (for example model_construct).
+
+    Args:
+        config: Engine sampling configuration.
+
+    Raises:
+        ConfigurationError: If max_new_tokens, temperature or top_p is outside its valid range.
+    """
+    from arc_runner.core.exceptions import ConfigurationError
+
+    if not isinstance(config.max_new_tokens, int) or config.max_new_tokens < 1:
+        raise ConfigurationError(f"invalid max_new_tokens {config.max_new_tokens!r}: must be an integer >= 1")
+    if not isinstance(config.temperature, (int, float)) or not 0.0 <= config.temperature <= 2.0:
+        raise ConfigurationError(f"invalid temperature {config.temperature!r}: must be within [0, 2]")
+    if not isinstance(config.top_p, (int, float)) or not 0.0 < config.top_p <= 1.0:
+        raise ConfigurationError(f"invalid top_p {config.top_p!r}: must be within (0, 1]")

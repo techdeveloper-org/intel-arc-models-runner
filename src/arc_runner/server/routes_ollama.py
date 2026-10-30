@@ -14,7 +14,7 @@ import time
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 
 from arc_runner.server.prefix_probe import match_prefix_with_real_tokens
 from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError
@@ -256,6 +256,36 @@ def _eval_timing_ns(engine: Any, duration_ns: int) -> Dict[str, int]:
     return {"prompt_eval_duration": prompt_ns, "eval_duration": max(duration_ns - prompt_ns, 0)}
 
 
+def _measured_prompt_count(engine: Any) -> Optional[int]:
+    """Return the engine-measured prompt token count, or None when it was not measured.
+
+    Args:
+        engine: Engine that served the request.
+
+    Returns:
+        Optional[int]: Telemetry prompt_tokens when positive, else None (0 means not measured).
+    """
+    count = engine.get_telemetry().prompt_tokens
+    return count if count > 0 else None
+
+
+def _without_unmeasured(response: Any, *fields: str) -> JSONResponse:
+    """Serialize a response model, dropping the named fields when they are None.
+
+    Args:
+        response: Pydantic response model.
+        *fields: Field names omitted from the wire payload when unmeasured.
+
+    Returns:
+        JSONResponse: JSON payload without the unmeasured fields.
+    """
+    payload = response.model_dump(mode="json")
+    for name in fields:
+        if payload.get(name) is None:
+            payload.pop(name, None)
+    return JSONResponse(content=payload)
+
+
 @router.post("/api/generate")
 async def generate(
     request: OllamaGenerateRequest,
@@ -327,7 +357,7 @@ async def generate(
                         "done": True,
                         "total_duration": duration_ns,
                         "load_duration": 0,
-                        "prompt_eval_count": chunk.prompt_tokens or 0,
+                        **({} if chunk.prompt_tokens is None else {"prompt_eval_count": chunk.prompt_tokens}),
                         "eval_count": tokens_generated,
                         **_eval_timing_ns(engine, duration_ns),
                         "context": [],
@@ -341,17 +371,20 @@ async def generate(
     tokens_count = engine.get_telemetry().total_tokens
     manager.record_generation_metrics(tokens_count)
 
-    return OllamaGenerateResponse(
-        model=request.model,
-        created_at=datetime.now(timezone.utc).isoformat(),
-        response=text,
-        done=True,
-        total_duration=duration_ns,
-        load_duration=0,
-        prompt_eval_count=0,
-        eval_count=tokens_count,
-        **_eval_timing_ns(engine, duration_ns),
-        context=[],
+    return _without_unmeasured(
+        OllamaGenerateResponse(
+            model=request.model,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            response=text,
+            done=True,
+            total_duration=duration_ns,
+            load_duration=0,
+            prompt_eval_count=_measured_prompt_count(engine),
+            eval_count=tokens_count,
+            **_eval_timing_ns(engine, duration_ns),
+            context=[],
+        ),
+        "prompt_eval_count",
     )
 
 
@@ -438,7 +471,7 @@ async def chat(
                         "done": True,
                         "total_duration": duration_ns,
                         "load_duration": 0,
-                        "prompt_eval_count": chunk.prompt_tokens or 0,
+                        **({} if chunk.prompt_tokens is None else {"prompt_eval_count": chunk.prompt_tokens}),
                         "eval_count": tokens_generated,
                         **_eval_timing_ns(engine, duration_ns),
                     }
@@ -451,16 +484,19 @@ async def chat(
     tokens_count = engine.get_telemetry().total_tokens
     manager.record_generation_metrics(tokens_count)
 
-    return OllamaChatResponse(
-        model=request.model,
-        created_at=datetime.now(timezone.utc).isoformat(),
-        message=OllamaChatMessage(role="assistant", content=text),
-        done=True,
-        total_duration=duration_ns,
-        load_duration=0,
-        prompt_eval_count=0,
-        eval_count=tokens_count,
-        **_eval_timing_ns(engine, duration_ns),
+    return _without_unmeasured(
+        OllamaChatResponse(
+            model=request.model,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            message=OllamaChatMessage(role="assistant", content=text),
+            done=True,
+            total_duration=duration_ns,
+            load_duration=0,
+            prompt_eval_count=_measured_prompt_count(engine),
+            eval_count=tokens_count,
+            **_eval_timing_ns(engine, duration_ns),
+        ),
+        "prompt_eval_count",
     )
 
 
