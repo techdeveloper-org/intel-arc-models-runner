@@ -115,17 +115,22 @@ def test_telemetry_from_stream_without_tokenizer_count_keeps_chunk_count() -> No
 
 
 def test_generate_stream_counts_tokens_with_the_pipeline_tokenizer() -> None:
-    """E6: streamed total_tokens comes from tokenizing the emitted text, not from callback chunks."""
+    """E6: streamed total_tokens comes from perf_metrics when available, not re-tokenization.
+
+    When the pipeline result carries perf_metrics.get_num_generated_tokens(), that value is
+    used and is_estimate is set to False.  When absent, chunk_count is used as the fallback.
+    """
     from types import SimpleNamespace
-    from unittest import mock
 
     from arc_runner.engine.models import GenerationConfig
     from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
 
     class _Pipe:
-        def generate(self, *_a: Any, streamer: Any = None, **_k: Any) -> None:
+        def generate(self, *_a: Any, streamer: Any = None, **_k: Any) -> Any:
             for piece in ("ab", "cd", "ef"):
                 streamer(piece)
+            pm = SimpleNamespace(get_num_generated_tokens=lambda: 9)
+            return SimpleNamespace(texts=["abcdef"], perf_metrics=pm)
 
         def get_tokenizer(self) -> Any:
             return SimpleNamespace(encode=lambda text: SimpleNamespace(
@@ -138,4 +143,5 @@ def test_generate_stream_counts_tokens_with_the_pipeline_tokenizer() -> None:
     engine._model_path = "m"
     engine._device = "CPU"
     list(engine.generate_stream("prompt", GenerationConfig(max_new_tokens=8)))
-    assert engine.get_telemetry().total_tokens == 6
+    assert engine.get_telemetry().total_tokens == 9
+    assert engine.get_telemetry().is_estimate is False
