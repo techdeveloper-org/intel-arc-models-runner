@@ -112,6 +112,10 @@ class KVAllocation(BaseModel):
     total_tokens: int = Field(..., description="Combined sequence length reserved")
     memory_footprint_mb: float = Field(..., description="Estimated memory footprint in megabytes")
     is_active: bool = Field(default=True, description="True if buffer is currently allocated")
+    footprint_from_model_config: bool = Field(
+        default=False,
+        description="True when the footprint used layers, KV heads and head dim read from the model config; False when the legacy 28/8/128 assumption was used",
+    )
 
 
 def validate_generation_config(config: GenerationConfig) -> None:

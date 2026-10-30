@@ -5,6 +5,7 @@ Provides centralized model compilation, lifetime management, heterogeneous devic
 """
 
 from collections import OrderedDict
+import os
 from datetime import datetime, timezone
 import hashlib
 from pathlib import Path
@@ -21,7 +22,9 @@ from arc_runner.core.path_policy import allowed_roots, ensure_path_allowed, reso
 from arc_runner.engine.base import BaseEngine
 from arc_runner.engine.embedding_engine import EmbeddingEngine
 from arc_runner.engine.lora_manager import LoRAManager
-from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
+from arc_runner.engine.kv_cache import KVCacheManager
+from arc_runner.engine.model_config import parse_context_window_env, read_kv_geometry, resolve_context_window
+from arc_runner.engine.openvino_engine import KV_PRECISION_ENV, OpenVINOGenAIEngine
 from arc_runner.engine.speculative_engine import HybridSpeculativeEngine, SpeculativeConfig
 from arc_runner.engine.vision_engine import VisionEngine
 
@@ -41,7 +44,11 @@ class ModelManager:
         Args:
             model_dirs: List of directory paths searched for OpenVINO IR models.
             max_loaded_models: Maximum number of compiled engines concurrently kept in memory.
+
+        Raises:
+            ConfigurationError: If ARC_CONTEXT_WINDOW is set to an invalid value (checked before any model load).
         """
+        parse_context_window_env()
         self._lock = threading.Lock()
         self._max_loaded_models = max_loaded_models
         self._model_dirs: List[Path] = [Path(d).resolve() for d in (model_dirs or [Path("models")])]
@@ -104,6 +111,25 @@ class ModelManager:
         search_str = ", ".join(str(d) for d in self._model_dirs)
         raise ModelNotFoundError(model_id, search_str)
 
+    @staticmethod
+    def _build_kv_manager(model_path: Path) -> KVCacheManager:
+        """Build the KV manager for one model with its resolved context window; nothing is preallocated.
+
+        Args:
+            model_path: Resolved target model directory.
+
+        Returns:
+            KVCacheManager: Manager sized from ARC_CONTEXT_WINDOW, config.json or the default.
+
+        Raises:
+            ConfigurationError: If ARC_CONTEXT_WINDOW is invalid.
+        """
+        return KVCacheManager(
+            max_context_length=resolve_context_window(model_path),
+            geometry=read_kv_geometry(model_path),
+            kv_precision=os.environ.get(KV_PRECISION_ENV, "").strip(),
+        )
+
     def get_or_load_engine(
         self,
         model_id: str,
@@ -149,7 +175,7 @@ class ModelManager:
             if draft_model_id:
                 draft_path = self.resolve_model_path(draft_model_id)
                 logger.info(f"Compiling HybridSpeculativeEngine (Target: {target_path} on {device}, Draft: {draft_path} on {draft_device})")
-                spec_engine = HybridSpeculativeEngine()
+                spec_engine = HybridSpeculativeEngine(kv_cache_manager=self._build_kv_manager(target_path))
                 spec_config = SpeculativeConfig(
                     draft_model_path=str(draft_path),
                     target_device=device,
@@ -161,7 +187,7 @@ class ModelManager:
                 return spec_engine
             else:
                 logger.info(f"Compiling OpenVINOGenAIEngine (Target: {target_path} on {device})")
-                engine = OpenVINOGenAIEngine(lora_manager=self.lora_manager)
+                engine = OpenVINOGenAIEngine(lora_manager=self.lora_manager, kv_manager=self._build_kv_manager(target_path))
                 engine.load_model(target_path, device=device)
                 self._cache[cache_key] = engine
                 return engine
