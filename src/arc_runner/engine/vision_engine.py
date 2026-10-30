@@ -16,6 +16,7 @@ from PIL import Image
 
 from arc_runner.core.exceptions import ArcRunnerError, ModelLoadError
 from arc_runner.core.logging import get_logger
+from arc_runner.engine.device_errors import classify_device_error
 from arc_runner.engine.models import GenerationConfig, TokenChunk
 
 logger = get_logger("arc_runner.engine.vision")
@@ -98,6 +99,12 @@ class VisionEngine:
                 )
             except Exception as device_exc:
                 if self._device == "GPU":
+                    error_class = classify_device_error(device_exc)
+                    if error_class in ("DEVICE_LOST", "OOM"):
+                        raise ModelLoadError(
+                            f"Unrecoverable GPU error ({error_class}) loading VLM model"
+                            f" at '{self._model_path}': {device_exc}"
+                        ) from device_exc
                     logger.warning(
                         "Arc GPU VLM initialization failed, falling back to CPU",
                         extra={"error": str(device_exc)},
