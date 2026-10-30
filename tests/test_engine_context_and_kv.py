@@ -117,7 +117,7 @@ def test_build_ov_properties_cpu_gets_no_gpu_only_options(tmp_path: Path, monkey
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv(KV_PRECISION_ENV, raising=False)
     props = OpenVINOGenAIEngine()._build_ov_properties("CPU", {})
-    assert props == {}
+    assert set(props) == {"CACHE_DIR"}
 
 
 def _speculative_engine(prompt_tokens: int, max_context: int = 100) -> tuple:
