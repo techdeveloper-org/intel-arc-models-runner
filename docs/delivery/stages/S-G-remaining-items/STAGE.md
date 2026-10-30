@@ -2,7 +2,7 @@
 doc_id: DOC-SG-STAGE
 title: Slice S-G - remaining technical items
 stage: S-G
-version: 1.6.0
+version: 1.7.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-30
@@ -59,3 +59,4 @@ Clean-venv run of the CI Linux steps (`pip install -e ".[dev]"`, native build, 8
 | 1.4.0 | 2026-10-30 | CLI session | WP-02 02b: bench_arms.py paired gate runner, bootstrap_paired_ratio_ci, evaluate_paired_gate, decide_adoption (AD-1..AD-6), 32 new tests | measurement support item 02b | pending |
 | 1.5.0 | 2026-10-30 | CLI session | WP-02 02c: bench_native_micro.py --warmup N (default 2) and --seed S (default 0) flags; repeat() warmup kwarg; default_rng uses args.seed; 8 new tests | measurement support item 02c | pending |
 | 1.6.0 | 2026-10-30 | CLI session | WP-02 02d: run_benchmark long_prompt parameter; generate_stream uses long_prompt when provided; 9 new tests | measurement support item 02d | pending |
+| 1.7.0 | 2026-10-30 | CLI session | WP-17 17b: PromptCapExceededError (HTTP 400/PROMPT_CAP_EXCEEDED), NPU_MAX_PROMPT_LEN=1024, NPU_MIN_RESPONSE_LEN=128, NPU props in _build_ov_properties, _check_npu_prompt_cap, library-error wrapping in generate/generate_stream; 15 new tests | NPU prompt cap enforcement | pending |
