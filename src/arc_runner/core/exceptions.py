@@ -229,6 +229,29 @@ class VoiceNotFoundError(AudioEngineError):
         self.available_voices = available_voices or []
 
 
+class EngineUnavailableError(ArcRunnerError):
+    """Raised when the inference worker cannot accept a new request.
+
+    Two variants share this class: ENGINE_WEDGED (worker thread did not join within the
+    graceful-shutdown timeout and is presumed hung) and SERVER_STOPPING (the lifespan
+    shutdown has begun and no new jobs will be accepted). Both map to HTTP 503 so clients
+    can retry on a different instance or after a restart.
+
+    Args:
+        message: Human-readable reason the engine is unavailable.
+        error_code: Either ``ENGINE_WEDGED`` (default) or ``SERVER_STOPPING``.
+    """
+
+    def __init__(self, message: str, error_code: str = "ENGINE_WEDGED") -> None:
+        """Initialize the engine unavailable exception.
+
+        Args:
+            message: Human-readable reason the engine is unavailable.
+            error_code: Machine-readable token; ``ENGINE_WEDGED`` or ``SERVER_STOPPING``.
+        """
+        super().__init__(message, error_code, 503)
+
+
 class ConfigurationError(ArcRunnerError):
     """Raised when a configuration or request parameter is invalid or unsafe."""
 

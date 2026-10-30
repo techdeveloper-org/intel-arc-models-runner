@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from arc_runner.core.exceptions import ArcRunnerError, ModelLoadError, ModelNotFoundError
+from arc_runner.core.exceptions import ArcRunnerError, EngineUnavailableError, ModelLoadError, ModelNotFoundError
 from arc_runner.core.logging import (
     clear_request_context,
     get_logger,
@@ -201,6 +201,14 @@ def create_app(
             content={"error": exc.message, "code": exc.error_code},
         )
 
+    @app.exception_handler(EngineUnavailableError)
+    async def engine_unavailable_handler(request: Request, exc: EngineUnavailableError) -> JSONResponse:
+        """Map EngineUnavailableError to 503 so clients know to retry later."""
+        return JSONResponse(
+            status_code=503,
+            content={"error": exc.message, "code": exc.error_code},
+        )
+
     @app.exception_handler(ArcRunnerError)
     async def arc_runner_error_handler(request: Request, exc: ArcRunnerError) -> JSONResponse:
         """Handle typed domain exceptions with matching HTTP status codes.
@@ -230,12 +238,22 @@ def create_app(
         )
 
     @app.api_route("/health", methods=["GET", "HEAD"], include_in_schema=False)
-    async def health() -> Dict[str, str]:
+    async def health(request: Request) -> Dict[str, str]:
         """Liveness probe that touches no model, engine or lock.
 
+        Reports the inference worker's state when one is attached to app.state. The route
+        is always open (no API key required) and never blocks the event loop.
+
         Returns:
-            Dict[str, str]: The constant body ``{"status": "ok"}``.
+            Dict[str, str]: ``{"status": "ok"|"busy"|"wedged"}``.
         """
+        worker = getattr(request.app.state, "worker", None)
+        if worker is None:
+            return {"status": "ok"}
+        if getattr(worker, "is_stopping", False):
+            return {"status": "wedged"}
+        if getattr(worker, "is_busy", False):
+            return {"status": "busy"}
         return {"status": "ok"}
 
     @app.get("/api/devices")

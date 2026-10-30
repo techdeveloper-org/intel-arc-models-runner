@@ -2,10 +2,10 @@
 doc_id: DOC-SG-STAGE
 title: Slice S-G - remaining technical items
 stage: S-G
-version: 1.1.0
+version: 1.2.0
 status: draft
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-10-30
 authors: [main session]
 reviewers: [user]
 inputs: [docs/delivery/RESUME.md open technical items, docs/plans/MASTER_PLAN_v4.md sections 21, 22]
@@ -54,3 +54,4 @@ Clean-venv run of the CI Linux steps (`pip install -e ".[dev]"`, native build, 8
 |:--|:--|:--|:--|:--|:--|
 | 1.0.0 | 2026-10-29 | main session | first version | S-G implementation | pending |
 | 1.1.0 | 2026-10-29 | main session | E5, E6, test-list audit, provenance worklist | close plan open items | pending |
+| 1.2.0 | 2026-10-30 | main session | WP-03: SerialWorker, EngineUnavailableError, TIMEOUT_GRACEFUL_SHUTDOWN_S, /health worker state | fix event-loop stall and stream token loss | pending |
