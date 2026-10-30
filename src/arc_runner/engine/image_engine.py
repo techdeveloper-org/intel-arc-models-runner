@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from arc_runner.core.exceptions import ArcRunnerError, ModelLoadError
 from arc_runner.core.logging import get_logger
+from arc_runner.engine.device_errors import classify_device_error
 
 logger = get_logger("arc_runner.engine.image")
 
@@ -175,6 +176,12 @@ class ImageEngine:
                 )
             except Exception as dev_exc:
                 if target_device == "GPU":
+                    error_class = classify_device_error(dev_exc)
+                    if error_class in ("DEVICE_LOST", "OOM"):
+                        raise ModelLoadError(
+                            f"Unrecoverable GPU error ({error_class}) loading image model"
+                            f" at '{self._model_path}': {dev_exc}"
+                        ) from dev_exc
                     logger.warning(
                         "Intel Arc GPU compilation failed, falling back to Host CPU: %s",
                         dev_exc,

@@ -10,6 +10,7 @@ from typing import Any, List, Optional, Sequence
 
 from arc_runner.core.exceptions import ArcRunnerError, ModelLoadError
 from arc_runner.core.logging import get_logger
+from arc_runner.engine.device_errors import classify_device_error
 
 logger = get_logger("arc_runner.engine.embedding")
 
@@ -105,6 +106,12 @@ class EmbeddingEngine:
                 )
             except Exception as device_exc:
                 if self._device == "NPU":
+                    error_class = classify_device_error(device_exc)
+                    if error_class in ("DEVICE_LOST", "OOM"):
+                        raise ModelLoadError(
+                            f"Unrecoverable NPU error ({error_class}) loading embedding model"
+                            f" at '{self._model_path}': {device_exc}"
+                        ) from device_exc
                     logger.warning(
                         "NPU embedding initialization failed, falling back to GPU",
                         extra={"error": str(device_exc)},
