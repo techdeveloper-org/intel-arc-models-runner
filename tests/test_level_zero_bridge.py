@@ -4,6 +4,7 @@ import ctypes
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import time
 from typing import Iterator
 
@@ -20,6 +21,9 @@ GIB = 1024**3
 requires_native = pytest.mark.skipif(not bridge._load_native_library(), reason="native library not built or not loadable")
 requires_gcc = pytest.mark.skipif(shutil.which("gcc") is None, reason="gcc not available")
 
+# mingw DLLs depend on libwinpthread/libgcc DLLs that Python's ctypes.CDLL does not search for; link them in.
+_WINDOWS_STATIC_FLAGS = ["-static"] if sys.platform == "win32" else []
+
 
 def _sanitizers_unavailable(stderr: str) -> bool:
     """Return True if a compiler or linker error says the sanitizer runtime is missing (for example mingw without libasan)."""
@@ -33,7 +37,7 @@ def fake_loader(tmp_path_factory: pytest.TempPathFactory) -> Path:
         pytest.skip("gcc not available")
     output = tmp_path_factory.mktemp("fakeze") / "libze_fake.so"
     subprocess.run(
-        ["gcc", "-std=c17", "-O1", "-fPIC", "-shared", str(REPO_ROOT / "tests" / "native_c" / "fake_ze_loader.c"), "-o", str(output)],
+        ["gcc", "-std=c17", "-O1", "-fPIC", "-shared", *_WINDOWS_STATIC_FLAGS, str(REPO_ROOT / "tests" / "native_c" / "fake_ze_loader.c"), "-o", str(output)],
         check=True,
         capture_output=True,
     )
@@ -323,3 +327,15 @@ def test_native_bridge_accepts_loader_named_override_without_opt_in(fake_loader:
         assert ze.is_available is True
     finally:
         ze.destroy()
+
+
+def test_sysman_unloadable_library_records_the_load_error_as_reason_ok(tmp_path: Path, fake_env: pytest.MonkeyPatch) -> None:
+    """A loader file that cannot be loaded is reported with the path and the OS error, not swallowed."""
+    bogus = tmp_path / "libze_bogus.so"
+    bogus.write_bytes(b"not a shared library")
+    fake_env.setenv("ARC_ZE_LOADER_PATH", str(bogus))
+    sysman = LevelZeroSysman()
+    assert sysman.is_available is False
+    reason = sysman.get_unavailable_reason("library")
+    assert reason is not None
+    assert str(bogus) in reason
