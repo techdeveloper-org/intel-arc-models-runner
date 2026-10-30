@@ -282,6 +282,18 @@ classDiagram
         +n_ref
         +is_suspect
     }
+    class PairedGateResult {
+        +verdict
+        +harmful
+        +point_ratio
+        +ratio_lo
+        +ratio_hi
+        +n_rounds
+        +half_width
+        +reason
+        +arm
+        +metric
+    }
     class ContextBudgetMixin {
         +_pipeline
         +kv_manager

@@ -461,6 +461,216 @@ def evaluate_workload_gate(
     return evaluate_speedup_gate(arc, ref, metric=chosen, min_n=min_n, max_cv=max_cv, seed=seed)
 
 
+@dataclass(frozen=True)
+class PairedGateResult:
+    """Outcome of a paired Bonferroni gate for one arm against the control on one metric."""
+
+    verdict: str
+    harmful: bool
+    point_ratio: float
+    ratio_lo: float
+    ratio_hi: float
+    n_rounds: int
+    half_width: float
+    reason: str
+    arm: str
+    metric: str
+
+
+def bootstrap_paired_ratio_ci(
+    arm_values: Sequence[float],
+    control_values: Sequence[float],
+    alpha: float = 0.05,
+    n_resamples: int = 20000,
+    seed: int = 0,
+) -> Tuple[float, float]:
+    """Percentile bootstrap interval of mean(arm) / mean(control) with paired round resampling.
+
+    Round indices are resampled jointly so common-mode drift between rounds cancels.
+    For lower-is-better metrics (TTFT) the caller passes (control_values, arm_values)
+    to obtain the control-over-arm ratio whose lower bound is compared to the adoption threshold.
+
+    Args:
+        arm_values: Per-round measurements of the arm (same ordering as control_values).
+        control_values: Per-round measurements of the control arm.
+        alpha: Total tail probability; quantiles are at alpha/2 and 1 - alpha/2.
+        n_resamples: Bootstrap resamples; use at least 20000 when K > 2.
+        seed: Seed of the private random generator.
+
+    Returns:
+        Tuple[float, float]: (lower, upper) percentile bounds of the ratio.
+
+    Raises:
+        ValueError: When sequences differ in length, are empty, or control mean is not positive.
+    """
+    n = len(arm_values)
+    if n != len(control_values):
+        raise ValueError("arm_values and control_values must have the same number of rounds")
+    if n == 0:
+        raise ValueError("bootstrap_paired_ratio_ci needs at least one round")
+    if mean(list(control_values)) <= 0:
+        raise ValueError("control mean must be positive")
+    rng = random.Random(seed)
+    arm_list = list(arm_values)
+    ctrl_list = list(control_values)
+    ratios: List[float] = []
+    for _ in range(n_resamples):
+        indices = [rng.randrange(n) for _ in range(n)]
+        arm_mean = sum(arm_list[i] for i in indices) / n
+        ctrl_mean = sum(ctrl_list[i] for i in indices) / n
+        if ctrl_mean > 0:
+            ratios.append(arm_mean / ctrl_mean)
+    if not ratios:
+        raise ValueError("no valid bootstrap resamples; all control draws had zero mean")
+    ratios.sort()
+    return _quantile(ratios, alpha / 2.0), _quantile(ratios, 1.0 - alpha / 2.0)
+
+
+def evaluate_paired_gate(
+    arm_rounds: Sequence[float],
+    control_rounds: Sequence[float],
+    metric: str = "decode_tps",
+    k: int = 1,
+    margin: float = DEFAULT_NONINFERIORITY_MARGIN,
+    n_resamples: int = 20000,
+    seed: int = 0,
+    arm_name: str = "",
+) -> "PairedGateResult":
+    """Evaluate the paired Bonferroni gate for one arm against the control.
+
+    Uses bootstrap_paired_ratio_ci with Bonferroni-corrected tail alpha = 0.05 / K.
+    For ttft_ms (lower is better) the ratio is computed as control / arm so a faster
+    arm still yields a ratio above 1.
+
+    Args:
+        arm_rounds: Per-round measurements of the arm, in timed order.
+        control_rounds: Per-round measurements of the control arm (same rounds).
+        metric: Metric name; ttft_ms uses the inverted ratio convention.
+        k: Total candidate (arm, metric) cells in this sweep (Bonferroni K).
+        margin: Adoption threshold; lower bound must exceed 1 + margin to adopt.
+        n_resamples: Bootstrap resamples.
+        seed: RNG seed.
+        arm_name: Name tag stored in the returned result.
+
+    Returns:
+        PairedGateResult: Verdict, harmful flag, point ratio, interval, and round count.
+
+    Raises:
+        ValueError: When sequences differ in length, are empty, or control mean is zero.
+    """
+    alpha = 0.05 / k
+    lower_is_better = metric in LOWER_IS_BETTER
+    arm_list = list(arm_rounds)
+    ctrl_list = list(control_rounds)
+    if lower_is_better:
+        lo, hi = bootstrap_paired_ratio_ci(ctrl_list, arm_list, alpha=alpha, n_resamples=n_resamples, seed=seed)
+        arm_mean_val = mean(arm_list)
+        ctrl_mean_val = mean(ctrl_list)
+        point_ratio = ctrl_mean_val / arm_mean_val if arm_mean_val > 0 else 0.0
+    else:
+        lo, hi = bootstrap_paired_ratio_ci(arm_list, ctrl_list, alpha=alpha, n_resamples=n_resamples, seed=seed)
+        arm_mean_val = mean(arm_list)
+        ctrl_mean_val = mean(ctrl_list)
+        point_ratio = arm_mean_val / ctrl_mean_val if ctrl_mean_val > 0 else 0.0
+
+    harmful = hi < 1.0 - margin
+    if lo > 1.0 + margin:
+        verdict = "adopt"
+        reason = f"lower bound {lo:.3f} above {1.0 + margin:.3f}"
+    elif hi < 1.0 + margin:
+        verdict = "reject"
+        reason = f"upper bound {hi:.3f} below {1.0 + margin:.3f}"
+    else:
+        verdict = "inconclusive"
+        reason = f"interval ({lo:.3f}, {hi:.3f}) straddles {1.0 + margin:.3f}"
+
+    return PairedGateResult(
+        verdict=verdict,
+        harmful=harmful,
+        point_ratio=point_ratio,
+        ratio_lo=lo,
+        ratio_hi=hi,
+        n_rounds=len(arm_rounds),
+        half_width=(hi - lo) / 2.0,
+        reason=reason,
+        arm=arm_name,
+        metric=metric,
+    )
+
+
+def decide_adoption(
+    gates: Sequence["PairedGateResult"],
+    arm_keys: Optional[Dict[str, List[str]]] = None,
+    device: str = "GPU",
+) -> Dict[str, str]:
+    """Apply AD-1..AD-6 adoption rules to a set of paired gate results.
+
+    Excludes the 'control' backend and any 'aa_*' (A/A calibration) backends.
+
+    AD-1: Any harmful cell -> 'harmful'.
+    AD-2: No adopt cell and at least one inconclusive -> 'rescreen'.
+    AD-3: All-reject with no harmful -> 'no_adopt_cell'.
+    AD-4: Among confirmed arms, walk highest point-ratio first; an arm that
+          shares a property key with an already-taken arm -> 'lost_key'.
+    AD-5: For CPU or NPU, only the first (highest ratio) adopted arm wins;
+          remaining -> 'one_per_device'.  GPU: no one-per-device cap.
+    AD-6: Final code for every arm in exactly one of:
+          adopted | rescreen | harmful | no_adopt_cell | lost_key |
+          bracket_failed | one_per_device.
+
+    Args:
+        gates: Paired gate results (one entry per arm per metric).
+        arm_keys: Optional map of arm name -> list of property keys it sets.
+        device: Device string ('GPU', 'CPU', 'NPU') for AD-5.
+
+    Returns:
+        Dict[str, str]: arm name -> outcome code (control and aa_* excluded).
+    """
+    by_arm: Dict[str, List["PairedGateResult"]] = {}
+    for g in gates:
+        if g.arm == "control" or g.arm.startswith("aa_"):
+            continue
+        by_arm.setdefault(g.arm, []).append(g)
+
+    outcomes: Dict[str, str] = {}
+    candidates: List[Tuple[float, str]] = []
+
+    for arm_name, arm_gates in by_arm.items():
+        if any(g.harmful for g in arm_gates):
+            outcomes[arm_name] = "harmful"
+            continue
+        in_force = [g for g in arm_gates if g.verdict == "adopt"]
+        if not in_force:
+            has_inconclusive = any(g.verdict == "inconclusive" for g in arm_gates)
+            outcomes[arm_name] = "rescreen" if has_inconclusive else "no_adopt_cell"
+            continue
+        min_point_ratio = min(g.point_ratio for g in in_force)
+        candidates.append((min_point_ratio, arm_name))
+
+    candidates.sort(reverse=True)
+    taken_keys: set = set()
+    device_slots: Dict[str, int] = {}
+
+    for _ratio, arm_name in candidates:
+        keys = (arm_keys or {}).get(arm_name, [])
+        key_conflict = any(k in taken_keys for k in keys)
+        if key_conflict:
+            outcomes[arm_name] = "lost_key"
+            continue
+        dev_upper = device.upper()
+        if dev_upper in ("CPU", "NPU"):
+            if device_slots.get(dev_upper, 0) > 0:
+                outcomes[arm_name] = "one_per_device"
+                continue
+        outcomes[arm_name] = "adopted"
+        for k in keys:
+            taken_keys.add(k)
+        if dev_upper in ("CPU", "NPU"):
+            device_slots[dev_upper] = device_slots.get(dev_upper, 0) + 1
+
+    return outcomes
+
+
 def evaluate_noninferiority_gate(
     new: Sequence[BenchSample],
     old: Sequence[BenchSample],
