@@ -2,10 +2,10 @@
 doc_id: DOC-SG-STAGE
 title: Slice S-G - remaining technical items
 stage: S-G
-version: 1.10.0
+version: 1.11.0
 status: draft
 created: 2026-10-29
-updated: 2026-10-30
+updated: 2026-10-31
 authors: [main session, CLI session]
 reviewers: [user]
 inputs: [docs/delivery/RESUME.md open technical items, docs/plans/MASTER_PLAN_v4.md sections 21, 22]
@@ -27,7 +27,7 @@ Gate status: `cloud-green`. Everything that needs Intel silicon, model weights o
 | u8 KV gate | `benchmark/kv_quality`, `scripts/bench_kv_quality.py`, hypothesis H-D; default stays opt-in |
 | Mermaid | all 55 blocks in `uml/`, architecture, diagrams and research docs render with mermaid-cli 10.9.1; four old diagrams and the state-diagram generator fixed; `scripts/check_mermaid.py` and a CI job added |
 | E5 | OpenVINO GenAI 2026.4.1 source read (`perf_metrics.cpp`): `get_throughput` = 1000 / mean TPOT, TPOT excludes the first token, so it is decode-only; `telemetry.py` and METHOD.md state this |
-| E6 | streamed `total_tokens` now comes from tokenizing the emitted text (`token_count`); timing remains a wall-clock estimate; re-tokenizing decoded text can differ slightly from the generated ids |
+| E6 | streamed `total_tokens` now comes from `perf_metrics.get_num_generated_tokens()` when the pipeline result carries it (`is_estimate=False`); chunk_count used as fallback when absent (`is_estimate=True`) |
 | Plan test list | all 24 named plan tests mapped to repository tests in `TRACEABILITY.md`; added boundary (4 KiB / 64 KiB), 80-layer, lock-refusal, byte-identical-fallback tests and two `@hardware` tests (`ARC_TEST_MODEL_DIR`) |
 | Provenance worklist | `scripts/list_unverified_numbers.py` lists documents with UNVERIFIED banners and their numeric table rows (6 files, ~170 rows) |
 | Library use | `llm-benchmark-analyst` read: its rules target accuracy benchmarks (Wilson CI, McNemar, contamination); nothing in them changed the speed protocol except confirming that evaluation configuration, CI reporting and "no unverified vendor numbers" are already rules here. Other plan agents (`model-capability-profiler`, `gpu-driver-engineer`, `kernel-driver-engineer`, `supply-chain-engineer`, `release-engineering-specialist`, `technical-writer-agent`) were not read |
@@ -63,3 +63,4 @@ Clean-venv run of the CI Linux steps (`pip install -e ".[dev]"`, native build, 8
 | 1.8.0 | 2026-10-30 | CLI session | WP-05: ModelManager.engine_key() static method, EmbeddingEngine.unload() + VisionEngine.unload(), unload() called on eviction from embedding/vision caches, unload_all() clears all three caches, unload_model() evicts from embedding/vision caches, _meta_lock separate from _lock; 12 new tests | engine lifecycle and lock isolation | pending |
 | 1.9.0 | 2026-10-30 | CLI session | WP-07: classify_device_error() pure function in engine/device_errors.py; DEVICE_LOST/OOM raise ModelLoadError in all four fallback handlers (image, video, vision, embedding); DRIVER_ERROR/UNKNOWN fall back as before; 23 new tests | unrecoverable GPU/NPU error gate | pending |
 | 1.10.0 | 2026-10-30 | CLI session | WP-06 H-11: AudioEngine._normalize_audio_input raises InvalidAudioFormatError for sampwidth==3 (24-bit WAV) and sampwidth==0 (zero frames); H-10: VisionEngine.generate uses inner daemon thread + unbounded queue, yields first chunk before pipeline returns, joins with TIMEOUT_GRACEFUL_SHUTDOWN_S, raises ENGINE_WEDGED on join expiry; 13 new tests | media correctness | pending |
+| 1.11.0 | 2026-10-31 | CLI session | WP-14: ModelConfigError (HTTP 400, MODEL_CONFIG_ERROR); stop_strings Pydantic validator rejects empty/whitespace; cross-chunk stop string accumulator; worker_target captures pipeline result; perf_metrics.get_num_generated_tokens() replaces re-tokenization (is_estimate=False when available); is_estimate param added to telemetry_from_stream(); 16 new tests | engine-side token accounting | c5d5235 |
