@@ -22,6 +22,7 @@ from arc_runner.core.logging import get_logger, set_request_context
 from arc_runner.engine.models import GenerationConfig, LoRAAdapterSpec, TokenChunk
 from arc_runner.hub.downloader import DownloadProgress
 from arc_runner.hub.manager import HubManager
+from arc_runner.server.errors import hidden_error, model_not_found_detail
 from arc_runner.server.model_manager import ModelManager
 from arc_runner.server.schemas import (
     OllamaChatMessage,
@@ -138,7 +139,7 @@ async def show_model(
         details_dict = manager.get_model_details(target)
         return OllamaShowResponse(**details_dict)
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(target)) from exc
 
 
 def _build_generation_config(
@@ -315,9 +316,9 @@ async def generate(
     try:
         engine = manager.get_or_load_engine(request.model, device=device)
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(request.model)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to load engine: {exc}") from exc
+        raise hidden_error("engine load failed", exc, "Failed to load engine", model=request.model) from exc
 
     batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
     if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
@@ -417,9 +418,9 @@ async def chat(
     try:
         engine = manager.get_or_load_engine(request.model, device=device)
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(request.model)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to load engine: {exc}") from exc
+        raise hidden_error("engine load failed", exc, "Failed to load engine", model=request.model) from exc
 
     formatted_lines: List[str] = []
     for msg in request.messages:
@@ -519,6 +520,7 @@ async def pull_model(
     """
     if not request.name or not request.name.strip():
         raise HTTPException(status_code=422, detail="Model name must not be empty")
+    hub.prepare_pull(request.name)
 
     if request.stream:
         async def ndjson_pull_generator() -> AsyncIterator[str]:
@@ -547,7 +549,7 @@ async def pull_model(
                 if item is None:
                     break
                 if isinstance(item, Exception):
-                    raise HTTPException(status_code=500, detail=str(item))
+                    raise hidden_error("model pull failed", item, "Model pull failed", model=request.name)
                 yield json.dumps(item.model_dump(exclude_none=True)) + "\n"
 
             yield json.dumps({"status": "success"}) + "\n"
@@ -558,7 +560,7 @@ async def pull_model(
         hub.pull(request.name, stream=False)
         return OllamaStatusResponse(status="success")
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise hidden_error("model pull failed", exc, "Model pull failed", model=request.name) from exc
 
 
 @router.delete("/api/delete", response_model=OllamaStatusResponse)
@@ -586,9 +588,9 @@ async def delete_model(
         hub.delete(target)
         return OllamaStatusResponse(status="success")
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(target)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise hidden_error("model delete failed", exc, "Model delete failed", model=target) from exc
 
 
 @router.post("/api/copy", response_model=OllamaStatusResponse)
@@ -612,7 +614,9 @@ async def copy_model(
         hub.copy(request.source, request.destination)
         return OllamaStatusResponse(status="success")
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(request.source)) from exc
+    except ArcRunnerError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     except Exception as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise hidden_error("model copy failed", exc, "Model copy failed", 409, source=request.source) from exc
 

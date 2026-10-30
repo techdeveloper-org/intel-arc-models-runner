@@ -20,6 +20,7 @@ from arc_runner.core.path_policy import allowed_roots, ensure_path_allowed
 from arc_runner.engine.aot_cache import AOTCompilationManager
 from arc_runner.engine.embedding_engine import EmbeddingEngine
 from arc_runner.hub.ollama_importer import OllamaImporter
+from arc_runner.server.errors import hidden_error
 from arc_runner.quant.gguf_parser import GGUFParser
 from arc_runner.quant.transpiler import (
     GGUFTranspiler,
@@ -233,8 +234,7 @@ async def compile_aot(payload: AOTCompileRequest, request: Request) -> dict[str,
             "speedup_multiplier": res.speedup_multiplier,
         }
     except Exception as e:
-        logger.error(f"AOT compilation endpoint error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise hidden_error("aot compilation failed", e, "AOT compilation failed", model=payload.model_id) from e
 
 
 @router.post("/api/gguf/convert")
@@ -266,8 +266,7 @@ async def convert_gguf(payload: ConvertRequest, request: Request) -> dict[str, A
             "duration_ms": res.duration_ms,
         }
     except Exception as e:
-        logger.error(f"GGUF transpilation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise hidden_error("gguf transpilation failed", e, "GGUF conversion failed") from e
 
 
 @router.get("/api/gguf/convert/stream")
@@ -315,8 +314,11 @@ async def convert_gguf_stream(
                 ):
                     loop.call_soon_threadsafe(queue.put_nowait, ("progress", progress))
                 loop.call_soon_threadsafe(queue.put_nowait, ("complete", transpiler.last_result))
+            except UnsupportedBitWidthError:
+                loop.call_soon_threadsafe(queue.put_nowait, ("error", "Unsupported target precision. Must be int4, int8, or fp16."))
             except Exception as exc:
-                loop.call_soon_threadsafe(queue.put_nowait, ("error", str(exc)))
+                logger.error("gguf stream transpilation failed", extra={"error_class": type(exc).__name__, "error_detail": str(exc)[:1000]}, exc_info=exc)
+                loop.call_soon_threadsafe(queue.put_nowait, ("error", "GGUF conversion failed"))
             finally:
                 loop.call_soon_threadsafe(queue.put_nowait, ("done", None))
 
@@ -403,5 +405,4 @@ async def test_embeddings(payload: EmbeddingTestRequest, request: Request) -> di
             "sample_vec_b": vec_b[:5],
         }
     except Exception as e:
-        logger.error(f"Embedding test bench failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise hidden_error("embedding test failed", e, "Embedding test failed", model=payload.model) from e

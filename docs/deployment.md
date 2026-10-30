@@ -181,7 +181,7 @@ spec:
             claimName: arc-runner-models-pvc
 ```
 
-The probe path `/` (and `/health`) stays open when `ARC_API_KEY` is set; every other route then needs the key. The memory and CPU figures are placeholders to adjust, not measured requirements.
+The probe path `/` (and `/health`) stays open when `ARC_API_KEY` is set; every other route then needs the key. Kubelet probes address the pod by IP, which the `Host` check accepts; a probe or client that uses a name needs it in `ARC_ALLOWED_HOSTS`. The memory and CPU figures are placeholders to adjust, not measured requirements.
 
 ---
 
@@ -189,9 +189,17 @@ The probe path `/` (and `/health`) stays open when `ARC_API_KEY` is set; every o
 
 | Variable | Effect |
 |:---|:---|
-| `ARC_API_KEY` | When set and non-empty, every route except `/`, `/health`, `/docs`, `/openapi.json` and `/static/*` requires the key, sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`. Missing or wrong key returns HTTP 401; `/v1/messages*` answer 401 in the Anthropic error envelope (`authentication_error`); `HEAD /api/hello` also needs the key. `GET /health` (200, `{"status": "ok"}`, no model access) is exempt from the key too. Unset means no authentication. |
-| `ARC_CORS_ORIGINS` | Comma-separated extra origins allowed by CORS. Local origins (`localhost`, `127.0.0.1`, `[::1]`, any port) are always allowed. Credentials are not allowed. |
+| `ARC_API_KEY` | When set and non-empty, every route except `/`, `/health`, `/docs`, `/openapi.json`, paths below `/static/` and `GET`/`HEAD /api/hello` (the Claude Code startup probe) requires the key, sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`; `OPTIONS` preflights are never refused for a missing key. The `/ui` page needs the key. Missing or wrong key returns HTTP 401; `/v1/messages*` answer 401 in the Anthropic error envelope (`authentication_error`). Unset means no authentication; `arc-runner serve` then logs a WARNING when `--host` is not a loopback address. |
+| `ARC_ALLOWED_HOSTS` | Comma-separated extra host names accepted in the `Host` header (names only, case-insensitive, port ignored; whitespace is trimmed; entries with a port, scheme, wildcard or slash are ignored with a warning). Always accepted: `localhost`, `127.0.0.1`, `[::1]` and any other IP literal. Any other `Host` (or a missing, empty or repeated one) gets HTTP 421 `HOST_NOT_ALLOWED`, on every route including `/health`. This blocks DNS rebinding. Set it when clients reach the server by a name, for example `ARC_ALLOWED_HOSTS=arc-runner,arc.example.lan` for a Kubernetes service name or a reverse proxy that forwards the original `Host`. |
+| `ARC_CORS_ORIGINS` | Comma-separated extra origins allowed by CORS and by the cross-origin check below. Local origins (`localhost`, `127.0.0.1`, `[::1]`, any port) are always allowed. Credentials are not allowed. |
 | `ARC_ALLOWED_PATHS` | Extra directories (separated by the OS path separator: `:` on Linux, `;` on Windows) that request-supplied paths may point into. Model names and paths outside the models directories and this list are refused with HTTP 403 `PATH_NOT_ALLOWED`. |
+
+Browser-facing checks (always on, no setting):
+
+- A request that carries an `Origin` header must come from an allowed origin (the local origins, `ARC_CORS_ORIGINS`, or the server's own origin as given in `Host`); otherwise HTTP 403 `ORIGIN_NOT_ALLOWED` (`permission_error` on `/v1/messages*`). Requests without `Origin` (curl, SDKs, Claude Code) are not affected. A state-changing request that a browser marks `Sec-Fetch-Site: cross-site` without an `Origin` is refused too.
+- `POST`, `PUT`, `PATCH` and `DELETE` requests that carry a body must declare `Content-Type: application/json` (parameters such as `charset` and any letter case are fine); otherwise HTTP 415. `curl -d` without `-H 'Content-Type: application/json'` sends a form content type and is now refused.
+- `/api/pull` accepts only a curated alias or a plain repository name that is a safe directory name (letters, digits, `.`, `_`, `+`, `-`, at most 128 characters, optional `:tag`); names with separators such as `org/model`, `..` or absolute paths get HTTP 400 `INVALID_MODEL_NAME` before anything is created.
+- Error responses carry the requested model name or a stable message, not filesystem paths or raw exception text; the detail is in the server log.
 
 In the container, `./models` is mounted at `/models`. To let the server read models there, start it with `--model-dir /models` or add `/models` to `ARC_ALLOWED_PATHS`.
 

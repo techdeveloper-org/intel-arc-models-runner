@@ -112,7 +112,9 @@ A project `.claude/settings.json` env block applies only after Claude Code's tru
 
 ### With `ARC_API_KEY`
 
-When the server runs with `ARC_API_KEY` set, every route except `/`, `/health`, `/docs`, `/openapi.json` and `/static/*` needs the key. For `/v1/messages` the key may arrive in `Authorization: Bearer <key>` or in `x-api-key: <key>`; a match in either header is accepted (both are always compared, in constant time). Set `ANTHROPIC_AUTH_TOKEN` (or `ANTHROPIC_API_KEY`) to the same value. A wrong or missing key returns `401 authentication_error`. The `HEAD /api/hello` startup probe also needs the key; Claude Code tolerates a rejected probe (UNVERIFIED for 401 specifically).
+When the server runs with `ARC_API_KEY` set, every route except `/`, `/health`, `/docs`, `/openapi.json`, `/static/*` and the `GET`/`HEAD /api/hello` probe needs the key. For `/v1/messages` the key may arrive in `Authorization: Bearer <key>` or in `x-api-key: <key>`; a match in either header is accepted (both are always compared, in constant time). Set `ANTHROPIC_AUTH_TOKEN` (or `ANTHROPIC_API_KEY`) to the same value. A wrong or missing key returns `401 authentication_error`. The `HEAD /api/hello` startup probe is answered without the key.
+
+The server also checks the `Host` header (see `ARC_ALLOWED_HOSTS` in `docs/deployment.md`): `127.0.0.1`, `localhost` and any IP address are accepted, so `ANTHROPIC_BASE_URL=http://127.0.0.1:11434` or `http://localhost:11434` needs no change. If you point `ANTHROPIC_BASE_URL` at a host name (for example a machine name on your LAN), add that name to `ARC_ALLOWED_HOSTS` on the server or the request gets `421`. Claude Code and the Anthropic SDK send `Content-Type: application/json` and no `Origin` header, so the content-type and origin checks do not affect them.
 
 ## 3. Smoke tests with curl
 

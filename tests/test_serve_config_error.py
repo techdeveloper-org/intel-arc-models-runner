@@ -66,3 +66,29 @@ def test_serve_valid_or_empty_context_window_starts_server(
     assert code == 0
     assert serve_spy == ["run"]
     assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize(
+    ("host", "key", "expect_warning"),
+    [("0.0.0.0", None, True), ("192.168.1.5", "", True), ("::", None, True), ("myhost.lan", None, True), ("0.0.0.0", "k", False), ("127.0.0.1", None, False), ("localhost", None, False), ("::1", None, False)],
+)
+def test_serve_warns_loudly_when_bound_beyond_loopback_without_an_api_key(
+    host: str, key: Any, expect_warning: bool, serve_spy: List[str], monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A non-loopback bind with ARC_API_KEY unset logs a WARNING naming the variable; nothing else changes."""
+    import logging
+
+    if key is None:
+        monkeypatch.delenv("ARC_API_KEY", raising=False)
+    else:
+        monkeypatch.setenv("ARC_API_KEY", key)
+    target = logging.getLogger("arc_runner.cli.server")
+    target.addHandler(caplog.handler)
+    caplog.set_level(logging.WARNING, logger="arc_runner.cli.server")
+    try:
+        code = cli_main.main(["serve", "--host", host])
+    finally:
+        target.removeHandler(caplog.handler)
+    warned = [r for r in caplog.records if r.levelno == logging.WARNING and "ARC_API_KEY" in r.getMessage()]
+    assert code == 0 and serve_spy == ["run"]
+    assert bool(warned) is expect_warning

@@ -207,7 +207,7 @@ def _load_call(body: str, names: Set[str]) -> Optional[Tuple[str, Dict[str, Any]
     """
     try:
         data = json.loads(body.strip(), parse_constant=_reject_constant)
-    except ValueError:
+    except (ValueError, RecursionError, OverflowError):
         return None
     if not isinstance(data, dict) or set(data) != {"name", "arguments"}:
         return None

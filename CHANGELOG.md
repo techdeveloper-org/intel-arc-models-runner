@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file. The format foll
 
 Work on the branch after the `0.2.0` entry below. The version files stay at `0.2.0`; whether this work ships in `0.2.0` or in a later release is a maintainer decision (nothing is tagged or published).
 
+### Security
+- Host-header validation (HTTP 421, DNS rebinding; `ARC_ALLOWED_HOSTS`), cross-origin and content-type guards (403 for a foreign `Origin`, 415 for a non-JSON body on mutating methods), `/api/pull` names validated before any directory is created, client-visible errors no longer carry filesystem paths or raw exception text, tool-call parser handles `RecursionError`, API-key open paths match the documentation (`/api/hello` GET/HEAD now open; `/staticfoo` no longer exempt), `X-Request-ID` limited to 64 characters of `[A-Za-z0-9._-]`, startup WARNING for a non-loopback bind without `ARC_API_KEY`. See `docs/deployment.md` section 5.
+
 ### Added
 - Context-window enforcement in `HybridSpeculativeEngine` (shared `ContextBudgetMixin`).
 - Opt-in best-effort layer pinning (`pin_resident_layers`, `ARC_PIN_RING=1`) and opt-in Level Zero USM staging (`DeviceLayerStager`) in the flash-stream weight manager.

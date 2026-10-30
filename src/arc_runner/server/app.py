@@ -8,6 +8,7 @@ from arc_runner._version import __version__
 import hmac
 import os
 from pathlib import Path
+import re
 import time
 from typing import Any, Callable, Dict, Optional
 import uuid
@@ -20,7 +21,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError
+from arc_runner.core.exceptions import ArcRunnerError, ModelLoadError, ModelNotFoundError
 from arc_runner.core.logging import (
     clear_request_context,
     get_logger,
@@ -40,19 +41,30 @@ from arc_runner.server.routes_ollama import router as ollama_router
 from arc_runner.server.routes_openai import router as openai_router
 from arc_runner.server.routes_studio import router as studio_router
 from arc_runner.server.routes_ui import router as ui_router
+from arc_runner.server.security import (
+    CORS_ORIGINS_ENV,
+    LOCAL_ORIGIN_REGEX,
+    BrowserGuardMiddleware,
+    HostValidationMiddleware,
+)
 
 logger = get_logger("server.app")
 
 
 API_KEY_ENV = "ARC_API_KEY"
-CORS_ORIGINS_ENV = "ARC_CORS_ORIGINS"
-LOCAL_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
-_OPEN_PATHS = ("/", "/docs", "/openapi.json", "/health")
+_OPEN_PATHS = frozenset({"/", "/health", "/docs", "/openapi.json"})
+_OPEN_STATIC_PREFIX = "/static/"
+_PROBE_PATH = "/api/hello"
 _ANTHROPIC_PATH_PREFIX = "/v1/messages"
+_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
-    """Requires the configured API key (Authorization: Bearer or X-API-Key) on every route except the UI page, docs and /health.
+    """Requires the configured API key (Authorization: Bearer or X-API-Key) on every route except a fixed open list.
+
+    Open without a key: exactly "/", "/health", "/docs", "/openapi.json", paths below "/static/", GET and HEAD on
+    "/api/hello" (the Claude Code startup probe) and OPTIONS requests (CORS preflights cannot carry the key).
+    The "/ui" page is not exempt.
 
     Either header may carry the key, because Claude Code sends the token in Authorization (ANTHROPIC_AUTH_TOKEN)
     or in x-api-key (ANTHROPIC_API_KEY). Both are always compared, in constant time.
@@ -78,7 +90,13 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         Returns:
             Response: 401 JSON for a missing or wrong key, otherwise the downstream response.
         """
-        if request.method == "OPTIONS" or request.url.path in _OPEN_PATHS or request.url.path.startswith("/static"):
+        path = request.url.path
+        if (
+            request.method == "OPTIONS"
+            or path in _OPEN_PATHS
+            or path.startswith(_OPEN_STATIC_PREFIX)
+            or (path == _PROBE_PATH and request.method in ("GET", "HEAD"))
+        ):
             return await call_next(request)
         header = request.headers.get("authorization", "")
         bearer = header[7:] if header.lower().startswith("bearer ") else ""
@@ -109,7 +127,8 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         Returns:
             HTTP response with injected X-Request-ID header.
         """
-        req_id = request.headers.get("x-request-id") or f"req-{uuid.uuid4().hex[:8]}"
+        supplied = request.headers.get("x-request-id", "")
+        req_id = supplied if _REQUEST_ID.fullmatch(supplied) else f"req-{uuid.uuid4().hex[:8]}"
         client_ip = request.client.host if request.client else "-"
         set_request_context(request_id=req_id, client_ip=client_ip)
 
@@ -161,8 +180,9 @@ def create_app(
     api_key = os.environ.get(API_KEY_ENV, "").strip()
     if api_key:
         app.add_middleware(ApiKeyMiddleware, api_key=api_key)
-    app.add_middleware(LoggingMiddleware)
     extra_origins = [item.strip() for item in os.environ.get(CORS_ORIGINS_ENV, "").split(",") if item.strip()]
+    app.add_middleware(BrowserGuardMiddleware, extra_origins=extra_origins)
+    app.add_middleware(LoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=extra_origins,
@@ -171,6 +191,7 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(HostValidationMiddleware)
 
     @app.exception_handler(ModelNotFoundError)
     async def model_not_found_handler(request: Request, exc: ModelNotFoundError) -> JSONResponse:
@@ -182,10 +203,22 @@ def create_app(
 
     @app.exception_handler(ArcRunnerError)
     async def arc_runner_error_handler(request: Request, exc: ArcRunnerError) -> JSONResponse:
-        """Handle typed domain exceptions with matching HTTP status codes."""
+        """Handle typed domain exceptions with matching HTTP status codes.
+
+        The message of a 5xx can hold filesystem paths and library text, so it goes to the log and the client
+        gets a stable message (for a ModelLoadError, the failure and the device only).
+        """
+        message = exc.message
+        if exc.status_code >= 500:
+            logger.error(
+                "request failed",
+                extra={"error_class": type(exc).__name__, "error_detail": exc.message[:1000]},
+            )
+            if isinstance(exc, ModelLoadError):
+                message = f"Failed to load model on {exc.device}"
         return JSONResponse(
             status_code=exc.status_code,
-            content={"error": exc.message, "code": exc.error_code},
+            content={"error": message, "code": exc.error_code},
         )
 
     @app.exception_handler(RequestValidationError)

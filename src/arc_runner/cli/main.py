@@ -5,7 +5,9 @@ server management, model hub acquisition, and heterogeneous performance benchmar
 """
 
 import argparse
+import ipaddress
 import json
+import os
 from pathlib import Path
 import sys
 from typing import List, Optional
@@ -119,6 +121,23 @@ def render_devices_dashboard(topology: SystemTopology, console: Optional[Console
     c.print(Panel("\n".join(status_lines), title="System Readiness Status", border_style="green" if topology.has_intel_arc else "yellow"))
 
 
+def _is_loopback_host(host: str) -> bool:
+    """Tell whether a bind address only accepts connections from this machine.
+
+    Args:
+        host: Value of --host.
+
+    Returns:
+        bool: True for "localhost" and loopback IP literals; False for wildcard addresses, other IPs and names.
+    """
+    if host.strip().lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host.strip().strip("[]")).is_loopback
+    except ValueError:
+        return False
+
+
 def run_server(
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
@@ -153,6 +172,11 @@ def run_server(
         print(f"arc-runner serve: configuration error: {text}", file=sys.stderr)
         return 2
     app = create_app(model_manager=manager, debug=debug)
+    if not _is_loopback_host(host) and not os.environ.get("ARC_API_KEY", "").strip():
+        logger.warning(
+            "Listening beyond loopback with no ARC_API_KEY: anyone who can reach this port can run models, pull and delete models. Set ARC_API_KEY or bind to 127.0.0.1.",
+            extra={"bind_host": host, "port": port},
+        )
 
     console = Console()
     startup_banner = (
