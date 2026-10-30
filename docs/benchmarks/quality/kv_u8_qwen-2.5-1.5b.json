@@ -1,0 +1,12 @@
+{
+  "model": "qwen-2.5-1.5b",
+  "device": "GPU",
+  "passed": false,
+  "min_prefix_tokens": 32,
+  "required_pass_fraction": 0.9,
+  "pass_count": 0,
+  "exact_matches": 0,
+  "candidate_error": "Exception from src\\inference\\src\\cpp\\infer_request.cpp:224:\nCheck 'valid_block_size' failed at src\\plugins\\intel_gpu\\src\\graph\\paged_attention.cpp:73:\n[GPU] Incorrect block size for Paged Attention operation for key cache quant mode BY_CHANNEL. Expected 20, but got 12\n\n",
+  "prompts": [],
+  "note": "Prefix agreement of greedy generations only (no KL/perplexity). A pass does not change the default KV precision; that is a separate decision."
+}
