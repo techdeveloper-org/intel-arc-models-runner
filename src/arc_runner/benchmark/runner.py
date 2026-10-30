@@ -90,6 +90,7 @@ class BenchmarkRunner:
         warmup: int = 2,
         max_new_tokens: int = 64,
         prompt: Optional[str] = None,
+        long_prompt: Optional[str] = None,
     ) -> BenchmarkSummary:
         """Execute benchmark iterations with warmup rejection and statistical CI calculation.
 
@@ -99,7 +100,10 @@ class BenchmarkRunner:
             iterations: Number of timed benchmark measurement runs (minimum 1).
             warmup: Number of initial discarded runs to pre-warm kernels and caches.
             max_new_tokens: Number of completion tokens to generate per iteration.
-            prompt: Optional custom prompt text.
+            prompt: Optional custom prompt text used when long_prompt is not supplied.
+            long_prompt: Optional long-context prompt; when provided it is passed to
+                generate_stream instead of prompt so that TTFT measurements reflect
+                realistic prefill latency for long inputs.
 
         Returns:
             BenchmarkSummary containing computed metrics and per-run breakdown.
@@ -113,7 +117,8 @@ class BenchmarkRunner:
         if max_new_tokens <= 0:
             raise ArcRunnerError("Tokens must be greater than zero", "INVALID_ARGUMENT", 422)
 
-        test_prompt = prompt or "Explain how Intel Arc GPUs and Intel AI Boost NPUs accelerate local LLM inference."
+        _default = "Explain how Intel Arc GPUs and Intel AI Boost NPUs accelerate local LLM inference."
+        test_prompt = long_prompt or prompt or _default
         engine = self._manager.get_or_load_engine(model_id, device=device)
 
         gen_config = GenerationConfig(
