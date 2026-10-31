@@ -2,7 +2,7 @@
 doc_id: DOC-INDEX
 title: Delivery document index
 stage: all
-version: 1.27.0
+version: 1.29.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -17,7 +17,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | doc_id | Title | Version | Status | Stage | Path |
 |:--|:--|:--|:--|:--|:--|
 | DOC-DECISION-LOG | Decision log | 1.13.0 | draft | all | DECISION_LOG.md |
-| DOC-RESUME | Resume checkpoint | 1.14.0 | draft | all | RESUME.md |
+| DOC-RESUME | Resume checkpoint | 1.15.0 | draft | all | RESUME.md |
 | DOC-TRACEABILITY | Finding to requirement to code to test traceability | 1.1.0 | draft | all | TRACEABILITY.md |
 | DOC-SA-STAGE | Slice S-A - remove fabricated values | 1.0.0 | draft | S-A | stages/S-A-honesty/STAGE.md |
 | DOC-SB-STAGE | Slice S-B - native memory safety | 1.0.0 | draft | S-B | stages/S-B-memory-safety/STAGE.md |
@@ -25,7 +25,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-SD-STAGE | Slice S-D - engine context window and Level Zero bridge | 1.0.0 | draft | S-D | stages/S-D-engine-and-level-zero/STAGE.md |
 | DOC-SE-STAGE | Slice S-E - benchmark protocol, statistics, and provenance | 1.0.0 | draft | S-E | stages/S-E-benchmarks/STAGE.md |
 | DOC-SF-STAGE | Slice S-F - documentation, version, CI, and checks | 1.0.0 | draft | S-F | stages/S-F-docs-and-release-prep/STAGE.md |
-| DOC-SG-STAGE | Slice S-G - remaining technical items | 1.12.0 | draft | S-G | stages/S-G-remaining-items/STAGE.md |
+| DOC-SG-STAGE | Slice S-G - remaining technical items | 1.13.0 | draft | S-G | stages/S-G-remaining-items/STAGE.md |
 | DOC-R01-REVIEW | R01 - Independent review of the native C layer and ctypes bridge | 1.0.0 | draft | S-G | reviews/R01_c_native_review.md |
 | DOC-R02-REVIEW | R02 - STRIDE threat model with attack trees | 1.0.0 | draft | S-G | reviews/R02_threat_model.md |
 | DOC-R03-REVIEW | R03 SAST review: src/arc_runner (Python) and src/arc_runner/native (C) | 1.0.0 | draft | S-G | reviews/R03_sast.md |
@@ -36,7 +36,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-R09-REVIEW | R09 - Level Zero / Sysman / OpenVINO device handling: second opinion | 1.0.0 | draft | S-G | reviews/R09_gpu_driver_second_opinion.md |
 | DOC-R10-REVIEW | R10 Release-readiness review for v0.2.0 (nothing tagged, published or pushed) | 1.0.0 | draft | S-G | reviews/R10_release_readiness.md |
 | DOC-R07-REVIEW | R07 Faithfulness audit of repository claims | 1.0.0 | draft | S-G | reviews/R07_faithfulness_audit.md |
-| DOC-INDEX | Delivery document index | 1.27.0 | draft | all | INDEX.md |
+| DOC-INDEX | Delivery document index | 1.29.0 | draft | all | INDEX.md |
 
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
@@ -69,3 +69,5 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | 1.25.0 | 2026-10-30 | CLI session | S-G stage to 1.10.0 | WP-06 H-11 24-bit WAV rejection, H-10 VLM true streaming with inner thread | pending |
 | 1.26.0 | 2026-10-31 | CLI session | S-G stage to 1.11.0 | WP-14 engine-side token accounting | c5d5235 |
 | 1.27.0 | 2026-10-31 | CLI session | S-G stage to 1.12.0 | WP-15 lazy imports, version cold-start fix | 545370c |
+| 1.28.0 | 2026-10-31 | CLI session | Reflect DOC-SG-STAGE v1.13.0 (Windows test-infra fixes) | keep index current | 28101d6, e2730ce |
+| 1.29.0 | 2026-10-31 | CLI session | Reflect DOC-RESUME v1.15.0 (add commits 28101d6, e2730ce) | keep index current | 28101d6, e2730ce |

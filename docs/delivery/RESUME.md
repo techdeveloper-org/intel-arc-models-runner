@@ -2,10 +2,10 @@
 doc_id: DOC-RESUME
 title: Resume checkpoint
 stage: all
-version: 1.14.0
+version: 1.15.0
 status: draft
 created: 2026-10-29
-updated: 2026-10-30
+updated: 2026-10-31
 authors: [main session]
 reviewers: [user]
 ---
@@ -41,6 +41,8 @@ Version is 0.2.0 in the tree but nothing is tagged or published; tagging, mergin
 | `ebd5b6c`, `1d0eb64` | the KV gate records a runtime rejection as a result; measured: the Arc GPU rejects `KV_CACHE_PRECISION=u8` with default settings (`docs/benchmarks/quality/kv_u8_qwen-2.5-1.5b.json`) | M-15 and H-D |
 | `283064c`, `9d685a2` | real `GET /health`; clean `ARC_CONTEXT_WINDOW` error in `serve`; `VisionEngine` and `EmbeddingEngine` logging fixed (they hid the real load error), guarded by `tests/test_logging_call_contract.py` | docs and logging |
 | `0cc0d6d` | security: Host validation (DNS rebinding), browser CSRF guards (Origin, Content-Type, Sec-Fetch-Site), `/api/pull` path traversal, no filesystem paths in error bodies, tool-parser recursion, exact open paths, bounded `X-Request-ID`; new env `ARC_ALLOWED_HOSTS` | security review S1 |
+| `28101d6` | `fix(tests)`: add `ids=` to `@pytest.mark.parametrize` in `test_context_window` to avoid Windows 32,767-char env-var limit | fix |
+| `e2730ce` | `fix(scripts,hub)`: resolve 4 pre-existing test failures on Windows (UTF-8 encoding, `.as_posix()` paths, TYPE_CHECKING guard, resolve_model_dir call) | fix |
 
 The plan's WP-03 (serial worker, `to_thread`, stream bridge, bounded stop), WP-02, WP-17, WP-05, WP-06, WP-07, WP-14 and WP-15 are **not implemented**. After the security commit the full non-hardware suite exits 0 (2058 passed, 8 skipped, 24 deselected in the agent's run).
 
@@ -105,3 +107,4 @@ python scripts/validate_bench_json.py
 | 1.12.0 | 2026-10-30 | main session | PERF row: plan v9.7 (fix only), DL-095, the adoption rule across tiers and lengths (medium tier decides a GPU decode arm, both lengths decide an NPU arm, NPU decode no-harm cell), the M-09 bytes interval with the tie-embedding premise UNVERIFIED, `unload_path` and the hub delete call, `--evaluate` cell rule with confirmation calls and K, M-07 with `--out`, the bounded stop as run | round-10 reviews G1-G4 resolved | 2abe58f |
 | 1.13.0 | 2026-10-30 | main session | PERF row: plan v9.8 (fix only), DL-096, the adoption procedure AD-1..AD-6 (one adoption per device and key, a second GPU winner bracketed against the first, CPU and NPU one per device, one 30-round repeat), the code baseline 1a4ccfe versus c3b69cb..1d0eb64 with done items marked, the measured u8 KV rejection (`m17_e` blocked), the owner's new LLM and SD-1.5 result files | round-11 final checks G1 and G4 resolved | 35b2dc3 |
 | 1.14.0 | 2026-10-30 | main session | added 'Code since the plan', 'Measured on the maintainer's machine' and 'Handoff for the next (CLI) session'; PERF row says partly implemented; maintainer list updated | the maintainer continues in the CLI on real hardware | next revision |
+| 1.15.0 | 2026-10-31 | CLI session | Add commits 28101d6 + e2730ce; docs sync in progress | track Windows fix commits | 28101d6, e2730ce |

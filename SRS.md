@@ -45,6 +45,8 @@ Model files are untrusted input. The Intel GPU driver provides a Level Zero load
 | FR-005 | Published benchmark numbers shall come from schema-v1 result files with a source label; a speed claim shall pass the claim gates (measured, no fallback, at least 10 timed values, CV <= 10%, bootstrap ratio lower bound > 1). | #42 | `tests/test_benchmark_stats.py`, `tests/test_bench_results.py`, `python scripts/render_bench_docs.py --check` |
 | FR-006 | The ring buffer shall load a layer at most once concurrently per slot, shall not deadlock when layers collide on a slot, and shall shut down without leaving a loader running. | #42 | `tests/test_flash_stream_ring.py`, `scripts/check_ring_model.py`, `docs/formal/RingSlots.tla` |
 | FR-007 | A synchronize call on the Level Zero bridge shall return within the configured timeout (default 1.5 s, maximum 1.9 s) and shall mark the context dead on timeout or device loss. | #42 | `tests/test_level_zero_bridge.py`, `tests/native_c/ze_harness.c` |
+| FR-008 | The system SHALL measure token counts at the engine boundary using the OpenVINO tokenizer and set `is_estimate: False` in telemetry. When the tokenizer is unavailable, the system MAY emit an estimate with `is_estimate: True`. | GitHub Issue #45 (WP-14) | `tests/test_token_accounting.py` |
+| FR-009 | The `arc_runner` package SHALL defer all heavy imports (OpenVINO, numpy, torch) until first attribute access via PEP 562 `__getattr__`, reducing cold-start latency without breaking existing import paths. | GitHub Issue #45 (WP-15) | `tests/test_lazy_imports.py` |
 
 ### 3.2 Non-functional requirements
 
@@ -67,3 +69,7 @@ Findings and their mapping to requirements: `docs/delivery/TRACEABILITY.md`.
 | Date | Version | Change | Source |
 |:--|:--|:--|:--|
 | 2026-10-29 | 0.2.0 | initial requirements FR-001..FR-007, NFR-001..NFR-005 | #42 |
+| 2026-10-31 | 0.2.0 | WP-14 engine token accounting | Add FR-008: measured token counts with is_estimate flag | #45 |
+| 2026-10-31 | 0.2.0 | WP-15 lazy package import | Add FR-009: PEP 562 __getattr__ lazy imports | #45 |
+| 2026-10-31 | 0.2.0 | fix(tests): Windows parametrize ids | Change log row only (fix type per rule 44 §3) | #45 |
+| 2026-10-31 | 0.2.0 | fix(scripts,hub): Windows test failures | Change log row only (fix type per rule 44 §3) | #45 |

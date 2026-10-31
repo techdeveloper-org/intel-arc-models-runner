@@ -33,6 +33,8 @@ Work on the branch after the `0.2.0` entry below. The version files stay at `0.2
 
 ### Fixed
 - `cli/main.py` reused double quotes inside f-string fields, a `SyntaxError` on Python 3.11.
+- `fix(tests)`: add `ids=` parameter to `@pytest.mark.parametrize` in `test_context_window` to avoid Windows 32 767-char env-var limit on parametrize node IDs (`28101d6`)
+- `fix(scripts,hub)`: resolve 4 pre-existing test failures on Windows -- UTF-8 encoding in `check_delivery_docs.py`; `.as_posix()` paths in `check_docs_sync.py` and `list_unverified_numbers.py`; `TYPE_CHECKING` circular-import guard in `hub/manager.py`; `resolve_model_dir` call replacing broken dict-key loop in `server/routes_ui.py` (`e2730ce`)
 
 ### Removed
 - `scratch/run_full_catalog_benchmark_audit.py` (fixed timings and a constant PASS) and the legacy result JSONs holding formula-derived numbers.
