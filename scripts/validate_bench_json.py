@@ -24,7 +24,7 @@ def main(argv: List[str]) -> int:
     Returns:
         int: 0 if all files are valid, 1 otherwise.
     """
-    paths = [Path(a) for a in argv] or sorted((REPO_ROOT / "docs" / "benchmarks" / "results").glob("*.json"))
+    paths = [Path(a) for a in argv] or sorted((REPO_ROOT / "docs" / "benchmarks" / "results").glob("*.v1.json"))
     failures = 0
     for path in paths:
         try:

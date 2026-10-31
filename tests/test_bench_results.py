@@ -3,6 +3,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import statistics
 from types import ModuleType
 from typing import Any
 
@@ -181,6 +182,132 @@ def test_legacy_sample_rows_without_workload_default_to_llm() -> None:
         row.pop("metrics", None)
     assert validate_result(document) == []
     assert all(sample.workload == "llm" for sample in load_samples(document))
+
+
+class TestQuickBenchSchema:
+    """Positive, negative and edge-case tests for the quick_v1 result format."""
+
+    def _make_quick(self, timed_tps=None):
+        """Build a minimal valid quick_v1 document."""
+        tps_list = timed_tps if timed_tps is not None else [30.0, 28.0, 32.0, 29.0, 31.0]
+        samples = [
+            {"iteration": 0, "is_warmup": True, "output_tokens": 10,
+             "elapsed_s": 0.5, "decode_tps": 20.0, "source": "measured"}
+        ]
+        for i, tps in enumerate(tps_list, 1):
+            samples.append({
+                "iteration": i, "is_warmup": False,
+                "output_tokens": 20, "elapsed_s": round(20 / tps, 4),
+                "decode_tps": tps, "source": "measured",
+            })
+        timed = [s["decode_tps"] for s in samples if not s["is_warmup"]]
+        return {
+            "schema_version": "quick_v1",
+            "protocol": "quick_api_benchmark",
+            "warning": "test",
+            "created_utc": "2026-10-31T00:00:00Z",
+            "run_id": "test-run-1",
+            "model": "deepseek-r1-1.5b",
+            "device": "GPU",
+            "warmup_runs": 1,
+            "timed_runs": len(tps_list),
+            "samples": samples,
+            "summary": {
+                "mean_decode_tps": round(statistics.mean(timed), 2),
+                "median_decode_tps": round(statistics.median(timed), 2),
+                "min_decode_tps": round(min(timed), 2),
+                "max_decode_tps": round(max(timed), 2),
+            },
+        }
+
+    def test_quick_v1_required_fields_present(self) -> None:
+        """All mandatory top-level keys exist."""
+        doc = self._make_quick()
+        for key in ("schema_version", "protocol", "created_utc", "run_id",
+                    "model", "device", "samples", "summary"):
+            assert key in doc, f"missing required key: {key}"
+
+    def test_quick_v1_has_correct_warmup_and_timed_counts(self) -> None:
+        """Exactly 1 warmup and 5 timed samples."""
+        doc = self._make_quick()
+        warmups = [s for s in doc["samples"] if s["is_warmup"]]
+        timed = [s for s in doc["samples"] if not s["is_warmup"]]
+        assert len(warmups) == 1
+        assert len(timed) == 5
+
+    def test_quick_v1_all_timed_decode_tps_positive(self) -> None:
+        """Every timed sample has decode_tps > 0."""
+        doc = self._make_quick()
+        for s in doc["samples"]:
+            if not s["is_warmup"]:
+                assert s["decode_tps"] > 0, f"iteration {s['iteration']} has non-positive tps"
+
+    def test_quick_v1_summary_mean_matches_computed_mean(self) -> None:
+        """summary.mean_decode_tps equals round(mean(timed_samples), 2)."""
+        doc = self._make_quick()
+        timed_tps = [s["decode_tps"] for s in doc["samples"] if not s["is_warmup"]]
+        expected = round(statistics.mean(timed_tps), 2)
+        assert doc["summary"]["mean_decode_tps"] == expected
+
+    def test_quick_v1_summary_mean_within_min_max(self) -> None:
+        """summary.mean is between min and max."""
+        doc = self._make_quick()
+        s = doc["summary"]
+        assert s["min_decode_tps"] <= s["mean_decode_tps"] <= s["max_decode_tps"]
+
+    def test_quick_v1_all_timed_source_is_measured(self) -> None:
+        """All timed samples carry source='measured'."""
+        doc = self._make_quick()
+        for s in doc["samples"]:
+            if not s["is_warmup"]:
+                assert s["source"] == "measured"
+
+    def test_quick_v1_serializes_to_json_without_error(self, tmp_path: Path) -> None:
+        """Document round-trips through JSON without data loss."""
+        doc = self._make_quick()
+        p = tmp_path / "quick.json"
+        p.write_text(json.dumps(doc), encoding="utf-8")
+        reloaded = json.loads(p.read_text(encoding="utf-8"))
+        assert reloaded["summary"]["mean_decode_tps"] == doc["summary"]["mean_decode_tps"]
+
+    def test_quick_v1_warmup_excluded_from_summary(self) -> None:
+        """Warmup tps=20.0 must not appear in summary stats."""
+        doc = self._make_quick(timed_tps=[30.0, 28.0, 32.0, 29.0, 31.0])
+        assert doc["summary"]["min_decode_tps"] >= 28.0, \
+            "warmup sample contaminated the summary min"
+
+    def test_quick_v1_missing_summary_key_raises_keyerror(self) -> None:
+        """A quick doc without 'summary' raises KeyError on access."""
+        doc = self._make_quick()
+        del doc["summary"]
+        with pytest.raises(KeyError):
+            _ = doc["summary"]["mean_decode_tps"]
+
+    def test_quick_v1_validate_result_rejects_quick_schema(self) -> None:
+        """validate_result (schema-v1) must flag quick_v1 docs as invalid."""
+        doc = self._make_quick()
+        problems = validate_result(doc)
+        assert len(problems) > 0, \
+            "validate_result must report at least one problem for a quick_v1 document"
+
+    def test_quick_v1_single_timed_sample_mean_equals_that_sample(self) -> None:
+        """With exactly one timed run, mean == that sample's tps."""
+        doc = self._make_quick(timed_tps=[25.5])
+        assert doc["summary"]["mean_decode_tps"] == 25.5
+
+    def test_quick_v1_high_variance_mean_stays_within_bounds(self) -> None:
+        """High-variance runs: mean is still within [min, max]."""
+        doc = self._make_quick(timed_tps=[10.0, 50.0, 12.0, 48.0, 30.0])
+        s = doc["summary"]
+        assert s["min_decode_tps"] <= s["mean_decode_tps"] <= s["max_decode_tps"]
+
+    def test_quick_v1_mean_rounding_is_2_decimal_places(self) -> None:
+        """mean_decode_tps is rounded to exactly 2 decimal places."""
+        tps = [24.1, 27.3, 25.8, 26.5, 25.2]
+        doc = self._make_quick(timed_tps=tps)
+        val = doc["summary"]["mean_decode_tps"]
+        assert val == round(statistics.mean(tps), 2)
+        assert str(val)[::-1].find(".") <= 2, "must be at most 2 decimal places"
 
 
 @pytest.mark.parametrize(

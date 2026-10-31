@@ -230,6 +230,65 @@ arc-runner embed nomic-embed-text "What is Intel Arc GPU?" --device NPU
 
 ---
 
+## 🤖 Use with Claude Code
+
+`arc-runner serve` exposes `POST /v1/messages`, so you can point Claude Code at it the same way you would point it at Ollama or OpenCode — no Anthropic API key needed, inference runs locally on your Intel Arc GPU or NPU.
+
+### Step 1 — Start the server
+
+```bash
+arc-runner pull llama-3.2-3b
+arc-runner serve --host 127.0.0.1 --port 11434 --default-model llama-3.2-3b
+```
+
+If Ollama already occupies port `11434`, use `--port 11435` and adjust the URL below.
+
+### Step 2 — Set environment variables
+
+**Bash / Linux / macOS:**
+
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:11434
+export ANTHROPIC_AUTH_TOKEN=local
+export ANTHROPIC_MODEL=llama-3.2-3b
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=llama-3.2-3b
+export CLAUDE_CODE_MAX_OUTPUT_TOKENS=2048
+export CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+export CLAUDE_CODE_ATTRIBUTION_HEADER=0
+```
+
+**Windows PowerShell:**
+
+```powershell
+$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:11434"
+$env:ANTHROPIC_AUTH_TOKEN = "local"
+$env:ANTHROPIC_MODEL = "llama-3.2-3b"
+$env:ANTHROPIC_DEFAULT_HAIKU_MODEL = "llama-3.2-3b"
+$env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = "2048"
+$env:CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS = "1"
+$env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
+$env:CLAUDE_CODE_ATTRIBUTION_HEADER = "0"
+```
+
+### Step 3 — Launch Claude Code
+
+```bash
+claude
+```
+
+Or open a project directory directly:
+
+```bash
+claude /path/to/your/project
+```
+
+> **UNVERIFIED notice.** The server-side Anthropic Messages API is covered by automated tests with fake engines. Claude Code itself was not run while this was written, and no real model was loaded during testing. Anthropic does not support routing Claude Code to non-Claude models; this works only as far as the wire protocol matches. See [docs/claude-code.md](docs/claude-code.md) for the full list of what is UNVERIFIED, context-window tuning (`ARC_CONTEXT_WINDOW`), and troubleshooting.
+
+👉 *Full guide, context-window limits, and troubleshooting: [**docs/claude-code.md**](docs/claude-code.md)*
+
+---
+
 ## 🏗️ Architecture
 
 ```mermaid
@@ -341,8 +400,15 @@ Results are saved to `scratch/live_real_models_benchmark_results.json`.
 | Llama-3.2-3B INT4 | Low | not measured in this run | 14.7 tok/s, 2,238 ms TTFT |
 | Llama-3.2-3B INT4 | Medium | not measured in this run | 17.6 tok/s, 70 ms TTFT |
 | Llama-3.2-3B INT4 | Hard | not measured in this run | 17.4 tok/s, 959 ms TTFT |
-| Qwen-2.5-1.5B INT4 | All tiers | not measured | not measured |
-| TinyLlama-1.1B INT4 | All tiers | not measured | not measured |
+| Qwen-2.5-1.5B INT4 | All tiers | **40.44 tok/s** (mean, 30-run harness, 2026-10-30) ¹ | not measured |
+| DeepSeek-R1-1.5B | All tiers | **31.88 tok/s** (mean, 5-run quick, 2026-10-31) ² | not measured |
+
+> ¹ Qwen-2.5-1.5B GPU numbers from `docs/benchmarks/results/llm_qwen-2.5-1.5b_20261030T070037Z.v1.json`
+> (90 timed samples, arc-runner GPU, mean across non-warmup samples, all tiers).
+> git_sha: 21851290a9bd54f7ce8ae969befc7f3129cabc43 | OpenVINO GenAI 2026.4.1.0
+>
+> ² DeepSeek-R1-1.5B GPU numbers from `docs/benchmarks/results/llm_deepseek-r1-1.5b_20261031T041751Z.quick.json`
+> (5-run quick API benchmark, arc-runner GPU). Not the full 30-run harness protocol.
 
 > **Provenance notice:** earlier versions of this table showed arc-runner figures (for example 54.2 tok/s and
 > 165 ms TTFT for every tier) that came from a hard-coded reference row, not from a measurement, and Ollama
