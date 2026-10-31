@@ -8,6 +8,7 @@ import asyncio
 import json
 import math
 from pathlib import Path
+import re
 import time
 from typing import Any, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -106,7 +107,48 @@ async def get_ui_dashboard(request: Request) -> HTMLResponse:
     if not template_path.exists():
         raise HTTPException(status_code=404, detail="Studio template index.html not found")
     content = template_path.read_text(encoding="utf-8")
-    return HTMLResponse(content=content)
+    routes = {
+        "/": "tab-cockpit",
+        "/ui": "tab-cockpit",
+        "/cockpit": "tab-cockpit",
+        "/chat": "tab-chat",
+        "/models/ollama": "tab-ollama",
+        "/models/hub": "tab-hub",
+        "/benchmarks": "tab-benchmark",
+        "/embeddings": "tab-embeddings",
+        "/studio": "tab-studio",
+    }
+    titles = {
+        "tab-cockpit": "Heterogeneous Silicon Cockpit",
+        "tab-chat": "Dual-Silicon Chat Playground",
+        "tab-ollama": "Ollama & GGUF Quantization Studio",
+        "tab-hub": "OpenVINO Model Hub & Downloader",
+        "tab-benchmark": "Hardware Benchmarking Suite",
+        "tab-embeddings": "Intel® AI Boost Vector Embeddings Studio",
+        "tab-studio": "Intel® Arc™ Multi-Modal Autonomous Studio",
+    }
+    active_tab = routes.get(request.url.path, "tab-cockpit")
+
+    def set_nav_active(match: re.Match[str]) -> str:
+        prefix, current, suffix, tab_id = match.groups()
+        active = tab_id == active_tab
+        return f'{prefix}{" active" if active else ""}{suffix}'
+
+    content = re.sub(
+        r'(<a class="nav-item)( active)?("[^>]*data-tab="([^"]+)")',
+        set_nav_active,
+        content,
+    )
+    content = re.sub(
+        r'(<section id=")(tab-[^"]+)(" class="tab-pane)( active)?(")',
+        lambda match: f'{match.group(1)}{match.group(2)}{match.group(3)}{" active" if match.group(2) == active_tab else ""}{match.group(5)}',
+        content,
+    )
+    content = content.replace(
+        '<h1 id="page-title">Heterogeneous Silicon Cockpit</h1>',
+        f'<h1 id="page-title">{titles[active_tab]}</h1>',
+    )
+    return HTMLResponse(content=content, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/api/ollama/local")

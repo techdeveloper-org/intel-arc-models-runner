@@ -47,6 +47,7 @@ from arc_runner.server.security import (
     BrowserGuardMiddleware,
     HostValidationMiddleware,
 )
+from arc_runner.server.routes_ui import get_ui_dashboard, router as ui_router
 
 logger = get_logger("server.app")
 
@@ -285,5 +286,24 @@ def create_app(
     app.include_router(anthropic_router)
     app.include_router(anthropic_probe_router)
     app.include_router(studio_router)
+
+    # Explicit browser routes keep the single-page UI bookmarkable and make
+    # direct navigation/reload work without catching or shadowing API paths.
+    for ui_path in (
+        "/cockpit",
+        "/chat",
+        "/models/ollama",
+        "/models/hub",
+        "/benchmarks",
+        "/embeddings",
+        "/studio",
+    ):
+        app.add_api_route(
+            ui_path,
+            get_ui_dashboard,
+            methods=["GET"],
+            include_in_schema=False,
+            name=f"ui_{ui_path.strip('/').replace('/', '_')}",
+        )
 
     return app
