@@ -2,8 +2,6 @@
 
 > **⚠️ Cursor Subscription Required for Custom / Local Models.**
 > Cursor requires a **paid Pro subscription ($20/month)** to use any custom model via a custom API key — including local models served by arc-runner. On the **free plan**, all AI features (Chat, Edit, Agent, Tab autocomplete) show the error *"Agent and Edit rely on custom models that require a paid subscription"* and are **blocked**. The arc-runner server itself works correctly; this is a Cursor-side plan restriction.
->
-> **Free alternative:** [Continue.dev](https://www.continue.dev) is a free VS Code / JetBrains extension that supports Chat, Edit, and Agent with arc-runner's OpenAI-compatible endpoint — no subscription needed. See [section 2b](#2b-continue-dev-free-alternative-no-subscription) below for the setup.
 
 `arc-runner serve` exposes `POST /v1/chat/completions` (OpenAI-compatible endpoint). If you have a **Cursor Pro** subscription, Cursor can be pointed at it just like you would point it at a local Ollama or LM Studio server. The model is a local OpenVINO model running on your Intel Arc GPU or NPU — no OpenAI API key or internet connection is needed for inference.
 
@@ -61,7 +59,7 @@ Leave the server running in a separate terminal for the duration of your Cursor 
 
 ## 2. Configure Cursor to Use arc-runner
 
-> **Cursor Pro required.** The steps below require a paid Cursor subscription. Free plan users should skip to [section 2b](#2b-continue-dev-free-alternative-no-subscription).
+> **Cursor Pro required.** The steps below require a paid Cursor subscription.
 
 Cursor uses the OpenAI-compatible API. Configuration is done inside Cursor's **Settings → Models** (or **Preferences → Cursor Settings** depending on your version).
 
@@ -80,51 +78,6 @@ Cursor uses the OpenAI-compatible API. Configuration is done inside Cursor's **S
 4. In the Cursor chat panel (`Ctrl+L`), select the custom model from the model picker.
 
 > **Note:** Cursor appends `/chat/completions` to the base URL you provide. Make sure the base URL ends with `/v1` (not `/v1/`).
-
----
-
-## 2b. Continue.dev — Free Alternative (No Subscription)
-
-[Continue.dev](https://www.continue.dev) is a free, open-source VS Code extension that connects to any OpenAI-compatible local server. It supports **Chat, Edit (inline code), and Agent** modes with no subscription required.
-
-### Install Continue in VS Code
-
-1. Open VS Code → `Ctrl+Shift+X` (Extensions) → search **`Continue`** → **Install**.
-2. A Continue icon appears in the left sidebar. Click it.
-3. Open `~/.continue/config.json` (Continue creates this on first launch) and add:
-
-```json
-{
-  "models": [
-    {
-      "title": "Qwen 2.5 1.5B (Arc GPU)",
-      "provider": "openai",
-      "model": "qwen-2.5-1.5b",
-      "apiBase": "http://127.0.0.1:11434/v1",
-      "apiKey": "local"
-    },
-    {
-      "title": "DeepSeek R1 1.5B (Arc GPU)",
-      "provider": "openai",
-      "model": "deepseek-r1-1.5b",
-      "apiBase": "http://127.0.0.1:11434/v1",
-      "apiKey": "local"
-    }
-  ]
-}
-```
-
-4. Save the file. Continue will reload automatically.
-5. Make sure arc-runner is running (`arc-runner serve ...`), then use Continue's Chat, Edit, and Agent features freely.
-
-### Continue Feature Availability (all free)
-
-| Feature | How to use |
-|:---|:---|
-| **Chat** | Continue sidebar → type your question |
-| **Edit (inline)** | Select code → `Ctrl+I` → describe the change |
-| **Agent** | Continue sidebar → Agent tab → describe the task |
-| **Codebase indexing** | Continue indexes your project for context |
 
 ---
 
@@ -227,26 +180,6 @@ Cursor primarily uses `POST /v1/chat/completions`. The server also answers `GET 
 ### Cursor Plan Restriction — Agent and Edit Require Paid Plan
 
 > **Important:** Cursor's **Agent mode** and **Edit mode** (Composer) require a **paid Cursor subscription ($20/month)** even when using a custom local model via a custom API key. On the Cursor Free plan, only **Chat mode** (`Ctrl+L`) works with a custom OpenAI-compatible endpoint. If you see the error *"Agent and Edit rely on custom models that require a paid subscription"*, this is expected Cursor behaviour and is unrelated to arc-runner.
-
-**Workaround — use Continue.dev instead (fully free, Agent + Edit supported):**
-
-[Continue.dev](https://www.continue.dev) is a free VS Code / JetBrains extension that connects to any OpenAI-compatible local server with no subscription required. Add this to your `~/.continue/config.json`:
-
-```json
-{
-  "models": [
-    {
-      "title": "Qwen 2.5 1.5B (Arc GPU)",
-      "provider": "openai",
-      "model": "qwen-2.5-1.5b",
-      "apiBase": "http://127.0.0.1:11434/v1",
-      "apiKey": "local"
-    }
-  ]
-}
-```
-
-Then start arc-runner as usual and use Continue's Chat, Edit, and Agent features freely.
 
 ### Other Limitations
 

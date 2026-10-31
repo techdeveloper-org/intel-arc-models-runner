@@ -44,7 +44,7 @@ While mainstream local LLM tools like Ollama were designed with a CUDA-first and
 - **Bare-Metal Flash-Stream Heavy Model Engine**: Designed to stream 32B/72B-class weights through a fixed-size layer ring buffer (memory-mapped reads, optional prefetch, NPU attention / GPU SwiGLU split; Proofs M121–M134 are mathematical models, not measurements). No real 32B/72B model has been run: the only Flash-Stream run on record used a synthetic 8-layer, hidden-size-32 container on a host with about 1.24 GB free DRAM, so no model quality, tokens-per-second, or memory-saving claim is made for 32B/72B.
 - **Draft-model speculative decoding (NPU draft, GPU verify)**: wired through OpenVINO GenAI's draft-model support. Its speed-up, acceptance rate and power draw have not been measured with this repository's harness; earlier published figures for them were removed (see the [benchmark method](docs/benchmarks/METHOD.md)).
 - **Autonomous Multi-Modal Media Studio**: Orchestrates LLM Director, Kokoro Voiceover, and SDXL / LTX-Video Visuals with zero-copy memory handoff and closed-loop pacing convergence.
-- **Drop-in Ollama & OpenAI Compatibility**: Compatible with `/api/generate`, `/api/chat`, `/api/tags`, and `/v1/chat/completions` for instant use with Open WebUI, Continue.dev, Cursor, and LangChain.
+- **Drop-in Ollama & OpenAI Compatibility**: Compatible with `/api/generate`, `/api/chat`, `/api/tags`, and `/v1/chat/completions` for instant use with Open WebUI, Cursor, Claude Code, and LangChain.
 - **Zero-Bloat Standalone Runtime**: Built directly on OpenVINO GenAI C++ and Level Zero runtimes; no 5 GB oneAPI SDK installation or heavy PyTorch environments required.
 - **Accurate Token Accounting**: Measured token counts via the OpenVINO pipeline tokenizer; `is_estimate` flag in telemetry distinguishes measured from estimated values, with no invented numbers (WP-14).
 - **Fast Cold-Start**: PEP 562 lazy imports via `__getattr__` in `arc_runner/__init__.py` defer heavy OpenVINO/numpy loads to first use, reducing import latency without breaking existing import paths (WP-15).
@@ -176,7 +176,7 @@ arc-runner serve --host 127.0.0.1 --port 11435 --default-model llama-3.2-3b
 
 Then open `http://localhost:11435/`. To keep using both applications, leave
 Ollama on `11434` and use `11435` for `arc-runner`. For compatible clients such
-as Open WebUI, Continue.dev, or Cursor, set the base URL to the matching runner
+as Open WebUI, Cursor, or Claude Code, set the base URL to the matching runner
 address, for example `http://localhost:11435`.
 
 You can also send a one-off prompt using the Ollama-compatible generate API.
@@ -294,8 +294,6 @@ claude /path/to/your/project
 
 > **⚠️ Cursor Subscription Required for Custom Models.**
 > Cursor requires a **paid subscription (Pro, $20/month)** to use any custom or local model via a custom API key. On the **free plan**, Chat, Edit, and Agent modes all show the error *"Agent and Edit rely on custom models that require a paid subscription"* and **do not work** with a local server. The arc-runner server itself works correctly (the API responds normally — this is a Cursor-side plan restriction, not an arc-runner issue).
->
-> **Free alternative:** [Continue.dev](https://www.continue.dev) is a free VS Code extension that supports Chat, Edit, and Agent with arc-runner's OpenAI-compatible endpoint — no subscription needed. See [docs/cursor.md](docs/cursor.md) for the Continue.dev setup.
 
 `arc-runner serve` exposes `POST /v1/chat/completions` (OpenAI-compatible). If you have a **Cursor Pro** subscription, you can point Cursor at it as follows.
 
@@ -352,9 +350,7 @@ If the chat test returns a response with `choices` and `usage`, the server is wo
 | **Tab autocomplete** with custom model | ❌ Blocked | ✅ Works |
 | Cursor's own hosted AI (Claude/GPT) | ✅ Limited free credits | ✅ Included |
 
-> **Free alternative — Continue.dev:** Install the [Continue](https://marketplace.visualstudio.com/items?itemName=Continue.continue) extension in VS Code. It is completely free, supports Chat, Edit, and Agent modes, and connects to arc-runner's OpenAI-compatible endpoint with no subscription. See the full setup in [docs/cursor.md](docs/cursor.md).
-
-👉 *Full guide, Continue.dev setup, troubleshooting, and UNVERIFIED list: [**docs/cursor.md**](docs/cursor.md)*
+👉 *Full guide, troubleshooting, and UNVERIFIED list: [**docs/cursor.md**](docs/cursor.md)*
 
 ---
 
@@ -365,7 +361,7 @@ flowchart TD
     subgraph Client ["Client & Tooling Layer"]
         CLI["arc-runner CLI"]
         WebUI["Studio WebUI & Open WebUI (:11434)"]
-        IDE["Cursor / Continue.dev / LangChain"]
+        IDE["Cursor / Claude Code / LangChain"]
     end
 
     subgraph Daemon ["arc-runner Daemon (:11434)"]
