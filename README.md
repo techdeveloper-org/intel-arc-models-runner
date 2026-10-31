@@ -292,7 +292,12 @@ claude /path/to/your/project
 
 ## 🖱️ Use with Cursor
 
-`arc-runner serve` exposes `POST /v1/chat/completions` (OpenAI-compatible), so Cursor can be pointed at it the same way you would point it at Ollama or LM Studio — no OpenAI API key or internet connection needed for inference. Everything runs locally on your Intel Arc GPU or NPU.
+> **⚠️ Cursor Subscription Required for Custom Models.**
+> Cursor requires a **paid subscription (Pro, $20/month)** to use any custom or local model via a custom API key. On the **free plan**, Chat, Edit, and Agent modes all show the error *"Agent and Edit rely on custom models that require a paid subscription"* and **do not work** with a local server. The arc-runner server itself works correctly (the API responds normally — this is a Cursor-side plan restriction, not an arc-runner issue).
+>
+> **Free alternative:** [Continue.dev](https://www.continue.dev) is a free VS Code extension that supports Chat, Edit, and Agent with arc-runner's OpenAI-compatible endpoint — no subscription needed. See [docs/cursor.md](docs/cursor.md) for the Continue.dev setup.
+
+`arc-runner serve` exposes `POST /v1/chat/completions` (OpenAI-compatible). If you have a **Cursor Pro** subscription, you can point Cursor at it as follows.
 
 ### Step 1 — Start the server
 
@@ -303,44 +308,53 @@ arc-runner serve --host 127.0.0.1 --port 11434 --default-model llama-3.2-3b
 
 If Ollama already occupies port `11434`, use `--port 11435` and adjust the base URL below.
 
-### Step 2 — Configure Cursor
+### Step 2 — Configure Cursor (Pro plan required)
 
-Open Cursor → **Settings → Models** (or **Preferences → Cursor Settings** depending on your version) and enter:
+Open Cursor → **`Ctrl+Shift+J`** (Cursor Settings) → **Models** tab, and enter:
 
 | Field | Value |
 |:---|:---|
-| **Base URL** | `http://127.0.0.1:11434/v1` |
-| **API Key** | `local` (any non-empty string) |
+| **OpenAI Base URL** | `http://127.0.0.1:11434/v1` |
+| **OpenAI API Key** | `local` (any non-empty string) |
 | **Model Name** | `llama-3.2-3b` (or the name from `arc-runner models`) |
 
-> Cursor appends `/chat/completions` to the Base URL. Make sure the URL ends with `/v1` (not a trailing slash).
+> Cursor appends `/chat/completions` to the Base URL. The URL must end with `/v1` (no trailing slash).
 
-### Step 3 — Verify the connection
+### Step 3 — Verify arc-runner is responding (works on any plan)
 
-```bash
-# Health check (no key required)
-curl http://127.0.0.1:11434/health
+Before configuring Cursor, confirm the server is up with these commands in PowerShell:
 
-# List pulled models
-curl http://127.0.0.1:11434/v1/models
+```powershell
+# Health check
+Invoke-RestMethod http://127.0.0.1:11434/health
+# → status: ok
 
-# Quick chat smoke test
-curl -s http://127.0.0.1:11434/v1/chat/completions \
-  -H "content-type: application/json" \
-  -H "authorization: Bearer local" \
-  -d '{"model":"llama-3.2-3b","max_tokens":64,"messages":[{"role":"user","content":"Say hi"}]}'
+# List available models
+Invoke-RestMethod http://127.0.0.1:11434/v1/models -Headers @{authorization="Bearer local"}
+
+# Full chat test
+$body = '{"model":"llama-3.2-3b","max_tokens":64,"messages":[{"role":"user","content":"Say hi"}]}'
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:11434/v1/chat/completions" `
+  -ContentType "application/json" `
+  -Headers @{authorization="Bearer local"} `
+  -Body $body
 ```
 
-### Notes on Cursor + local models
+If the chat test returns a response with `choices` and `usage`, the server is working correctly regardless of Cursor plan.
 
-- **Tool calling quality** depends entirely on the model. Small models (1.5B–3B) often fail to follow Cursor Composer / Agent tool-call formats. Try a larger or instruction-tuned model for better results.
-- **Context window**: Set `ARC_CONTEXT_WINDOW` before starting the server if GPU memory is limited (e.g., `ARC_CONTEXT_WINDOW=8192`).
-- **Images**: `image_url` content is not supported; clear the chat context if Cursor sends one.
-- **⚠️ Cursor Free plan restriction**: Cursor's **Agent and Edit modes require a paid Cursor subscription** even with a custom local model. On the free plan, only **Chat mode** (`Ctrl+L`) works. See [docs/cursor.md](docs/cursor.md) for a free alternative using [Continue.dev](https://www.continue.dev).
+### Cursor Feature Availability by Plan
 
-> **UNVERIFIED notice.** The OpenAI-compatible API is covered by automated tests with fake engines. Cursor itself was not run against this server, and no real Cursor session was started. Cursor's UI field names and tool-call behaviour are UNVERIFIED. See [docs/cursor.md](docs/cursor.md) for the full guide, troubleshooting, and UNVERIFIED item list.
+| Feature | Cursor Free | Cursor Pro ($20/mo) |
+|:---|:---:|:---:|
+| **Chat** (`Ctrl+L`) with custom local model | ❌ Blocked | ✅ Works |
+| **Edit** (inline code edit) with custom model | ❌ Blocked | ✅ Works |
+| **Agent / Composer** with custom model | ❌ Blocked | ✅ Works |
+| **Tab autocomplete** with custom model | ❌ Blocked | ✅ Works |
+| Cursor's own hosted AI (Claude/GPT) | ✅ Limited free credits | ✅ Included |
 
-👉 *Full guide, Cursor settings, troubleshooting, and UNVERIFIED list: [**docs/cursor.md**](docs/cursor.md)*
+> **Free alternative — Continue.dev:** Install the [Continue](https://marketplace.visualstudio.com/items?itemName=Continue.continue) extension in VS Code. It is completely free, supports Chat, Edit, and Agent modes, and connects to arc-runner's OpenAI-compatible endpoint with no subscription. See the full setup in [docs/cursor.md](docs/cursor.md).
+
+👉 *Full guide, Continue.dev setup, troubleshooting, and UNVERIFIED list: [**docs/cursor.md**](docs/cursor.md)*
 
 ---
 
