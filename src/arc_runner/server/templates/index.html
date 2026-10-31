@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Intel® Arc™ Model Studio | Dual-Silicon Local LLM Runner</title>
-    <link rel="stylesheet" href="/static/css/tokens.css?v=20261031-1">
-    <link rel="stylesheet" href="/static/css/style.css?v=20261029-2">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=20261031-ultra">
+    <link rel="stylesheet" href="/static/css/style.css?v=20261031-ultra">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -42,6 +42,14 @@
                 <a class="nav-item" href="/chat" data-tab="tab-chat">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     <span>Chat Playground</span>
+                </a>
+                <a class="nav-item" href="/audio" data-tab="tab-audio">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                    <span>Audio & Voice</span>
+                </a>
+                <a class="nav-item" href="/vision" data-tab="tab-vision">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <span>Vision & Video</span>
                 </a>
                 <a class="nav-item" href="/models/ollama" data-tab="tab-ollama">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
@@ -112,26 +120,36 @@
                             </div>
                             <span class="status-indicator online">XMX READY</span>
                         </div>
-                        <div class="card-body">
-                            <div class="metric-row">
-                                <span class="metric-label">Architecture</span>
-                                <span class="metric-val" id="gpu-arch">Xe-LPG (Meteor Lake)</span>
+                        <div class="card-body card-body-split">
+                            <div class="gauge-column">
+                                <svg class="radial-gauge-svg" viewBox="0 0 140 140" width="130" height="130">
+                                    <circle cx="70" cy="70" r="54" fill="none" stroke="rgba(255, 255, 255, 0.08)" stroke-width="12"/>
+                                    <circle id="gpu-vram-radial" cx="70" cy="70" r="54" fill="none" stroke="var(--color-accent-arc)" stroke-width="12" stroke-linecap="round" stroke-dasharray="339.29" stroke-dashoffset="254.46" transform="rotate(-90 70 70)"/>
+                                    <text id="gpu-vram-radial-text" x="70" y="66" text-anchor="middle" font-size="20" font-weight="700" fill="var(--color-text-primary)">25%</text>
+                                    <text x="70" y="86" text-anchor="middle" font-size="10" fill="var(--color-text-muted)" letter-spacing="0.05em">VRAM ALLOC</text>
+                                </svg>
                             </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Memory Architecture</span>
-                                <span class="metric-val text-cyan" id="gpu-usm-badge">Unified Shared Memory (USM)</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Matrix Acceleration</span>
-                                <span class="metric-val">DPAS (Dot Product Accumulate Systolic)</span>
-                            </div>
-                            <div class="metric-progress-group">
-                                <div class="progress-labels">
-                                    <span>VRAM Allocation</span>
-                                    <span id="gpu-vram-text">System / Shared Memory</span>
+                            <div class="metrics-column">
+                                <div class="metric-row">
+                                    <span class="metric-label">Architecture</span>
+                                    <span class="metric-val" id="gpu-arch">Xe-LPG (Meteor Lake)</span>
                                 </div>
-                                <div class="progress-bar-bg">
-                                    <div class="progress-bar-fill fill-intel" id="gpu-vram-bar" style="width: 25%;"></div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Memory Architecture</span>
+                                    <span class="metric-val text-cyan" id="gpu-usm-badge">Unified Shared Memory (USM)</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Matrix Acceleration</span>
+                                    <span class="metric-val">DPAS (Dot Product Systolic)</span>
+                                </div>
+                                <div class="metric-progress-group">
+                                    <div class="progress-labels">
+                                        <span>Unified VRAM Buffer</span>
+                                        <span id="gpu-vram-text">System / Shared Memory</span>
+                                    </div>
+                                    <div class="progress-bar-bg">
+                                        <div class="progress-bar-fill fill-intel" id="gpu-vram-bar" style="width: 25%;"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -146,26 +164,36 @@
                             </div>
                             <span class="status-indicator online">MCDM ACTIVE</span>
                         </div>
-                        <div class="card-body">
-                            <div class="metric-row">
-                                <span class="metric-label">Hardware Generation</span>
-                                <span class="metric-val" id="npu-gen">Intel NPU 3720</span>
+                        <div class="card-body card-body-split">
+                            <div class="gauge-column">
+                                <svg class="radial-gauge-svg" viewBox="0 0 140 140" width="130" height="130">
+                                    <circle cx="70" cy="70" r="54" fill="none" stroke="rgba(255, 255, 255, 0.08)" stroke-width="12"/>
+                                    <circle id="npu-radial-gauge" cx="70" cy="70" r="54" fill="none" stroke="var(--color-accent-emerald)" stroke-width="12" stroke-linecap="round" stroke-dasharray="339.29" stroke-dashoffset="305.36" transform="rotate(-90 70 70)"/>
+                                    <text id="npu-radial-text" x="70" y="66" text-anchor="middle" font-size="20" font-weight="700" fill="var(--color-text-primary)">10%</text>
+                                    <text x="70" y="86" text-anchor="middle" font-size="10" fill="var(--color-text-muted)" letter-spacing="0.05em">NPU LOAD</text>
+                                </svg>
                             </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Power Consumption</span>
-                                <span class="metric-val text-emerald">5.2 Watts TDP</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Speculative Role</span>
-                                <span class="metric-val">Zero-VRAM Low-Power Draft Engine</span>
-                            </div>
-                            <div class="metric-progress-group">
-                                <div class="progress-labels">
-                                    <span>Systolic Compute Load</span>
-                                    <span id="npu-load-text">Idle / Ready for Drafting</span>
+                            <div class="metrics-column">
+                                <div class="metric-row">
+                                    <span class="metric-label">Hardware Generation</span>
+                                    <span class="metric-val" id="npu-gen">Intel NPU 3720</span>
                                 </div>
-                                <div class="progress-bar-bg">
-                                    <div class="progress-bar-fill fill-emerald" style="width: 10%;"></div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Power Consumption</span>
+                                    <span class="metric-val text-emerald">5.2 Watts TDP</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Speculative Role</span>
+                                    <span class="metric-val">Zero-VRAM Low-Power Draft</span>
+                                </div>
+                                <div class="metric-progress-group">
+                                    <div class="progress-labels">
+                                        <span>Systolic Compute Load</span>
+                                        <span id="npu-load-text">Idle / Ready for Drafting</span>
+                                    </div>
+                                    <div class="progress-bar-bg">
+                                        <div class="progress-bar-fill fill-emerald" id="npu-load-bar" style="width: 10%;"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -386,7 +414,381 @@
                 </div>
             </section>
 
-            <!-- TAB 3: OLLAMA & GGUF STUDIO -->
+            <!-- TAB 3: AUDIO & VOICE STUDIO -->
+            <section id="tab-audio" class="tab-pane">
+                <div class="studio-two-col">
+                    <!-- Left: Control Column (38.2%) -->
+                    <div class="control-column">
+                        <!-- Module Switcher -->
+                        <div class="glass-card mb-4">
+                            <div class="media-subnav">
+                                <button type="button" class="subnav-btn active" id="btn-subnav-stt" data-sub="sub-audio-stt">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+                                    <span>Speech-to-Text (Whisper)</span>
+                                </button>
+                                <button type="button" class="subnav-btn" id="btn-subnav-tts" data-sub="sub-audio-tts">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                                    <span>Voice Lab (Kokoro TTS)</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- STT Controls Panel -->
+                        <div id="sub-audio-stt" class="sub-modality-pane active">
+                            <div class="glass-card">
+                                <div class="card-header">
+                                    <div class="card-title-group">
+                                        <span class="badge badge-intel">Whisper Engine</span>
+                                        <h3>Transcribe Speech</h3>
+                                    </div>
+                                    <span class="status-indicator online">HIGH RTF</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">Audio File Source</label>
+                                        <div class="dropzone-box" id="audio-dropzone">
+                                            <input type="file" id="stt-file-input" accept="audio/wav,audio/mp3,audio/flac,audio/ogg" class="hidden">
+                                            <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" class="text-cyan mb-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                            <div class="dropzone-text" id="audio-file-label">Click or Drag & Drop audio (.wav, .mp3)</div>
+                                            <div class="dropzone-sub">Max file size 25 MB</div>
+                                        </div>
+                                    </div>
+                                    <div class="form-row mb-3">
+                                        <div class="form-group flex-1">
+                                            <label for="stt-device" class="form-label">Compute Device</label>
+                                            <select id="stt-device" class="input-select">
+                                                <option value="GPU">Intel Arc GPU (XMX)</option>
+                                                <option value="CPU">Host CPU</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group flex-1">
+                                            <label for="stt-language" class="form-label">Spoken Language</label>
+                                            <select id="stt-language" class="input-select">
+                                                <option value="">Auto-Detect</option>
+                                                <option value="en">English (en)</option>
+                                                <option value="hi">Hindi (hi)</option>
+                                                <option value="es">Spanish (es)</option>
+                                                <option value="fr">French (fr)</option>
+                                                <option value="de">German (de)</option>
+                                                <option value="ja">Japanese (ja)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button type="button" id="btn-transcribe-audio" class="btn btn-primary w-100">
+                                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/></svg>
+                                        <span>Start Transcription</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TTS Controls Panel -->
+                        <div id="sub-audio-tts" class="sub-modality-pane hidden">
+                            <div class="glass-card">
+                                <div class="card-header">
+                                    <div class="card-title-group">
+                                        <span class="badge badge-emerald">Kokoro-82M</span>
+                                        <h3>Synthesize Speech</h3>
+                                    </div>
+                                    <span class="status-indicator online">24 kHz PCM</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group mb-3">
+                                        <label for="tts-prompt-input" class="form-label">Text to Synthesize</label>
+                                        <textarea id="tts-prompt-input" class="chat-input" rows="4" placeholder="Enter text or creative dialogue to synthesize into natural human speech..."></textarea>
+                                    </div>
+                                    <div class="form-row mb-3">
+                                        <div class="form-group flex-1">
+                                            <label for="tts-voice-select" class="form-label">Voice Character</label>
+                                            <select id="tts-voice-select" class="input-select">
+                                                <option value="af_heart">af_heart (Warm Female)</option>
+                                                <option value="am_adam">am_adam (Authoritative Male)</option>
+                                                <option value="bf_alice">bf_alice (British Female)</option>
+                                                <option value="bm_george">bm_george (British Male)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group flex-1">
+                                            <label for="tts-speed-slider" class="form-label">Speed: <span id="tts-speed-val">1.0x</span></label>
+                                            <input type="range" id="tts-speed-slider" min="0.5" max="2.0" step="0.1" value="1.0" class="input-range">
+                                        </div>
+                                    </div>
+                                    <button type="button" id="btn-synthesize-tts" class="btn btn-primary w-100">
+                                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
+                                        <span>Synthesize Voice</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Stage & Canvas Column (61.8%) -->
+                    <div class="stage-column">
+                        <!-- STT Output Canvas -->
+                        <div id="stage-audio-stt" class="stage-pane active">
+                            <div class="glass-card mb-4">
+                                <div class="card-header">
+                                    <div class="card-title-group">
+                                        <span class="badge badge-intel">STT Output</span>
+                                        <h3>Transcription & Telemetry</h3>
+                                    </div>
+                                    <button type="button" id="btn-copy-stt" class="btn btn-secondary btn-sm" disabled>
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                        <span>Copy</span>
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    <div class="telemetry-pill-row mb-3">
+                                        <div class="telemetry-pill">
+                                            <span class="pill-label">Audio Duration</span>
+                                            <span id="stt-meta-duration" class="pill-val">—</span>
+                                        </div>
+                                        <div class="telemetry-pill">
+                                            <span class="pill-label">Inference Latency</span>
+                                            <span id="stt-meta-latency" class="pill-val text-cyan">—</span>
+                                        </div>
+                                        <div class="telemetry-pill">
+                                            <span class="pill-label">Real-Time Factor (RTF)</span>
+                                            <span id="stt-meta-rtf" class="pill-val text-emerald">—</span>
+                                        </div>
+                                    </div>
+                                    <div id="stt-output-box" class="content-output-box">
+                                        <div class="text-muted italic">Transcribed text will appear here with exact timestamp and speech alignment...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TTS Output Canvas -->
+                        <div id="stage-audio-tts" class="stage-pane hidden">
+                            <div class="glass-card mb-4">
+                                <div class="card-header">
+                                    <div class="card-title-group">
+                                        <span class="badge badge-emerald">Speech Playback</span>
+                                        <h3>Synthesized Audio Preview</h3>
+                                    </div>
+                                    <a id="btn-download-wav" class="btn btn-secondary btn-sm hidden" download="synthesized_speech.wav">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        <span>Download WAV</span>
+                                    </a>
+                                </div>
+                                <div class="card-body">
+                                    <div class="telemetry-pill-row mb-3">
+                                        <div class="telemetry-pill">
+                                            <span class="pill-label">Speech Duration</span>
+                                            <span id="tts-meta-duration" class="pill-val">—</span>
+                                        </div>
+                                        <div class="telemetry-pill">
+                                            <span class="pill-label">Synthesis Latency</span>
+                                            <span id="tts-meta-latency" class="pill-val text-cyan">—</span>
+                                        </div>
+                                        <div class="telemetry-pill">
+                                            <span class="pill-label">Speedup vs Realtime</span>
+                                            <span id="tts-meta-speedup" class="pill-val text-emerald">—</span>
+                                        </div>
+                                    </div>
+                                    <div class="audio-player-card">
+                                        <audio id="tts-audio-element" controls class="w-100 custom-audio-player"></audio>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: VISION & VIDEO STUDIO -->
+            <section id="tab-vision" class="tab-pane">
+                <div class="studio-two-col">
+                    <!-- Left: Control Column (38.2%) -->
+                    <div class="control-column">
+                        <!-- Module Switcher -->
+                        <div class="glass-card mb-4">
+                            <div class="media-subnav">
+                                <button type="button" class="subnav-btn active" id="btn-subnav-img" data-sub="sub-vision-img">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                    <span>Text2Image (GenAI)</span>
+                                </button>
+                                <button type="button" class="subnav-btn" id="btn-subnav-vid" data-sub="sub-vision-vid">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                                    <span>Text2Video (LTX)</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Image Generation Form -->
+                        <div id="sub-vision-img" class="sub-modality-pane active">
+                            <div class="glass-card">
+                                <div class="card-header">
+                                    <div class="card-title-group">
+                                        <span class="badge badge-intel">OpenVINO GenAI</span>
+                                        <h3>Text-to-Image Parameters</h3>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group mb-3">
+                                        <label for="img-prompt-input" class="form-label">Creative Prompt</label>
+                                        <textarea id="img-prompt-input" class="chat-input" rows="3" placeholder="A futuristic cyberpunk workstation on Intel Arc GPU, high detail, 8k resolution, volumetric lighting..."></textarea>
+                                    </div>
+                                    <div class="form-group mb-3">
+                                        <label for="img-negative-prompt" class="form-label">Negative Prompt</label>
+                                        <input type="text" id="img-negative-prompt" class="input-select" placeholder="blurry, distorted, low quality, artifacts">
+                                    </div>
+                                    <div class="form-row mb-3">
+                                        <div class="form-group flex-1">
+                                            <label for="img-steps-input" class="form-label">Steps: <span id="img-steps-val">20</span></label>
+                                            <input type="range" id="img-steps-input" min="10" max="50" step="1" value="20" class="input-range">
+                                        </div>
+                                        <div class="form-group flex-1">
+                                            <label for="img-cfg-input" class="form-label">CFG Scale: <span id="img-cfg-val">7.5</span></label>
+                                            <input type="range" id="img-cfg-input" min="1.0" max="15.0" step="0.5" value="7.5" class="input-range">
+                                        </div>
+                                    </div>
+                                    <div class="form-row mb-3">
+                                        <div class="form-group flex-1">
+                                            <label for="img-resolution-select" class="form-label">Resolution</label>
+                                            <select id="img-resolution-select" class="input-select">
+                                                <option value="512x512">1:1 Square (512x512)</option>
+                                                <option value="768x432">16:9 Landscape (768x432)</option>
+                                                <option value="432x768">9:16 Portrait (432x768)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group flex-1">
+                                            <label for="img-device-select" class="form-label">Target Device</label>
+                                            <select id="img-device-select" class="input-select">
+                                                <option value="GPU">Intel Arc GPU (XMX)</option>
+                                                <option value="CPU">Host CPU</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button type="button" id="btn-generate-image" class="btn btn-primary w-100">
+                                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+                                        <span>Synthesize Image (Arc XMX)</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Video Generation Form -->
+                        <div id="sub-vision-vid" class="sub-modality-pane hidden">
+                            <div class="glass-card">
+                                <div class="card-header">
+                                    <div class="card-title-group">
+                                        <span class="badge badge-purple">LTX-Video</span>
+                                        <h3>Motion Video Parameters</h3>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group mb-3">
+                                        <label for="vid-prompt-input" class="form-label">Scene Motion Prompt</label>
+                                        <textarea id="vid-prompt-input" class="chat-input" rows="3" placeholder="Drone cinematic sweep over glowing nebula stars, camera pan right, 4k ultra realistic..."></textarea>
+                                    </div>
+                                    <div class="form-row mb-3">
+                                        <div class="form-group flex-1">
+                                            <label for="vid-frames-select" class="form-label">Frames</label>
+                                            <select id="vid-frames-select" class="input-select">
+                                                <option value="16">16 Frames (Fast Preview)</option>
+                                                <option value="24">24 Frames (Smooth)</option>
+                                                <option value="32">32 Frames (Extended)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group flex-1">
+                                            <label for="vid-fps-select" class="form-label">Playback FPS</label>
+                                            <select id="vid-fps-select" class="input-select">
+                                                <option value="16">16 FPS</option>
+                                                <option value="24">24 FPS</option>
+                                                <option value="30">30 FPS</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button type="button" id="btn-generate-video" class="btn btn-primary w-100">
+                                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                                        <span>Render Video (Arc GPU)</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Stage & Canvas Column (61.8%) -->
+                    <div class="stage-column">
+                        <!-- Image Canvas Viewport -->
+                        <div id="stage-vision-img" class="stage-pane active">
+                            <div class="glass-card mb-4">
+                                <div class="card-header">
+                                    <div class="card-title-group">
+                                        <span class="badge badge-intel">Visual Canvas</span>
+                                        <h3>Rendered Image Output</h3>
+                                    </div>
+                                    <a id="btn-download-image" class="btn btn-secondary btn-sm hidden" download="intel_arc_image.png">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        <span>Download PNG</span>
+                                    </a>
+                                </div>
+                                <div class="card-body">
+                                    <div class="telemetry-pill-row mb-3">
+                                        <div class="telemetry-pill">
+                                            <span class="pill-label">Total Latency</span>
+                                            <span id="img-meta-latency" class="pill-val text-cyan">—</span>
+                                        </div>
+                                        <div class="telemetry-pill">
+                                            <span class="pill-label">Step Rate</span>
+                                            <span id="img-meta-steprate" class="pill-val text-emerald">—</span>
+                                        </div>
+                                        <div class="telemetry-pill">
+                                            <span class="pill-label">Raster Throughput</span>
+                                            <span id="img-meta-mpps" class="pill-val">—</span>
+                                        </div>
+                                    </div>
+                                    <div class="viewport-canvas-container" id="img-viewport-box">
+                                        <div class="viewport-placeholder" id="img-viewport-placeholder">
+                                            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" class="text-muted mb-2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                            <div class="text-muted">Generated image will render directly onto this high-res canvas</div>
+                                        </div>
+                                        <img id="img-output-preview" src="" alt="Synthesized image preview" class="viewport-rendered-image hidden">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Video Theater Viewport -->
+                        <div id="stage-vision-vid" class="stage-pane hidden">
+                            <div class="glass-card mb-4">
+                                <div class="card-header">
+                                    <div class="card-title-group">
+                                        <span class="badge badge-purple">Motion Theater</span>
+                                        <h3>Synthesized Video Player</h3>
+                                    </div>
+                                    <a id="btn-download-video" class="btn btn-secondary btn-sm hidden" download="intel_arc_video.mp4">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        <span>Download MP4</span>
+                                    </a>
+                                </div>
+                                <div class="card-body">
+                                    <div class="telemetry-pill-row mb-3">
+                                        <div class="telemetry-pill">
+                                            <span class="pill-label">Render Latency</span>
+                                            <span id="vid-meta-latency" class="pill-val text-cyan">—</span>
+                                        </div>
+                                        <div class="telemetry-pill">
+                                            <span class="pill-label">Frames / FPS</span>
+                                            <span id="vid-meta-frames" class="pill-val text-emerald">—</span>
+                                        </div>
+                                    </div>
+                                    <div class="viewport-canvas-container" id="vid-viewport-box">
+                                        <div class="viewport-placeholder" id="vid-viewport-placeholder">
+                                            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" class="text-muted mb-2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                                            <div class="text-muted">Video sequence will stream directly into hardware-accelerated theater</div>
+                                        </div>
+                                        <video id="vid-output-preview" controls loop class="viewport-rendered-video hidden"></video>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: OLLAMA & GGUF STUDIO -->
             <section id="tab-ollama" class="tab-pane">
                 <div class="glass-card">
                     <div class="card-header">
