@@ -281,21 +281,32 @@ def create_app(
         worker = getattr(request.app.state, "worker", None)
         cb_scheduler = getattr(request.app.state, "cb_scheduler", None)
         sched_st = cb_scheduler.status() if cb_scheduler is not None and hasattr(cb_scheduler, "status") else None
+        thermal_mon = getattr(request.app.state, "thermal_monitor", None)
+        t_data = thermal_mon.get_health_telemetry() if thermal_mon is not None and hasattr(thermal_mon, "get_health_telemetry") else None
 
         if worker is None:
             data: Dict[str, Any] = {"status": "ok", "busy": False, "busy_for_s": None}
             if sched_st is not None:
                 data["scheduler_status"] = sched_st
+            if t_data is not None:
+                data["thermal"] = t_data.get("thermal")
+                data["power"] = t_data.get("power")
             return data
         if getattr(worker, "_wedged", False):
             err_data: Dict[str, Any] = {"status": "wedged", "busy": False, "busy_for_s": None}
             if sched_st is not None:
                 err_data["scheduler_status"] = sched_st
+            if t_data is not None:
+                err_data["thermal"] = t_data.get("thermal")
+                err_data["power"] = t_data.get("power")
             return JSONResponse(status_code=503, content=err_data)
         busy_for_s = getattr(worker, "busy_for_s", None)
         resp_data: Dict[str, Any] = {"status": "ok", "busy": busy_for_s is not None, "busy_for_s": busy_for_s}
         if sched_st is not None:
             resp_data["scheduler_status"] = sched_st
+        if t_data is not None:
+            resp_data["thermal"] = t_data.get("thermal")
+            resp_data["power"] = t_data.get("power")
         return resp_data
 
     @app.get("/api/devices")

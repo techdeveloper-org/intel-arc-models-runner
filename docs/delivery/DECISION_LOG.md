@@ -2,7 +2,7 @@
 doc_id: DOC-DECISION-LOG
 title: Decision log
 stage: all
-version: 1.18.0
+version: 1.19.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -121,6 +121,7 @@ Append-only. A changed decision gets a new entry that names the one it supersede
 | DL-103 | ContinuousBatchingScheduler wrapping OpenVINO GenAI pipeline | thread-safe iteration batching with progress counter and dynamic concurrency cap | bare unbatched engine calls | PERF-WP04 |
 | DL-104 | pybind11 native binding ABI v4 with RAII ArcMmapContext | Replace manual ctypes struct marshalling with C++20 pybind11 module; deterministic RAII unmapping; high-performance tensor pointer map; strict ABI v4 enforcement | continue manual ctypes structs without RAII | PERF-WP06 |
 | DL-105 | SpeculativeDecodeEngine dual-silicon heterogeneous speculative decoding | Co-execute INT4 draft model on Intel AI Boost NPU with Arc GPU parallel matrix verification; Leviathan et al. (2023) AdjustedRejectionSampler; fallback on ARC_NPU_DISABLE=1 or accept rate < 0.6 | single-silicon GPU-only decode | PERF-WP05 |
+| DL-106 | ThermalMonitor daemon and ThrottlePolicy closed-loop governance | Polling Level Zero Sysman every 5.0s with 5.0°C hysteresis state machine (NORMAL, WARN, CRITICAL); dynamically throttle ContinuousBatchingScheduler concurrency cap to 4 at 80°C or 95% PL1, and to 1 at 90°C | unthrottled hardware thermal crash or driver stall | PERF-WP07 |
 
 ## ADR detail: performance programme (DL-061..DL-096)
 
@@ -507,6 +508,14 @@ Status: DL-061..DL-070 were proposed on 2026-10-29 as part of plan section 23 an
 - Reversibility: high.
 - Source: WP-05 CC-1..CC-5; src/arc_runner/engine/speculative.py, src/arc_runner/engine/npu_detector.py.
 
+### DL-106 ThermalMonitor daemon and ThrottlePolicy closed-loop governance
+- Date: 2026-10-31
+- Context: High-concurrency continuous batching can elevate GPU temperatures or power toward TDP ceilings, inducing non-deterministic driver-level clock stalls.
+- Decision: Introduce ThermalMonitor daemon thread ("arc-thermal-monitor") polling Level Zero Sysman every 5.0s, coupled with ThrottlePolicy implementing a 3-state hysteresis machine (NORMAL, WARN, CRITICAL) that dynamically throttles ContinuousBatchingScheduler sequence concurrency to 4 at 80°C or 95% PL1, and to 1 at 90°C.
+- Consequences: Prevents thermal throttling oscillations via 5.0°C hysteresis buffer; protects hardware integrity while preserving in-flight request completion.
+- Reversibility: high.
+- Source: WP-07 CC-1..CC-5; src/arc_runner/engine/thermal_monitor.py, src/arc_runner/devices/sysman.py.
+
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
 |:--|:--|:--|:--|:--|:--|
@@ -529,3 +538,4 @@ Status: DL-061..DL-070 were proposed on 2026-10-29 as part of plan section 23 an
 | 1.16.0 | 2026-10-31 | CLI session | DL-103 added for WP-04 continuous batching scheduler | Deliver WP-04 CC-1..CC-4 | pending |
 | 1.17.0 | 2026-10-31 | CLI session | DL-104 added for WP-06 pybind11 native binding ABI v4 | Deliver WP-06 CC-1..CC-5 | pending |
 | 1.18.0 | 2026-10-31 | CLI session | DL-105 added for WP-05 speculative decode engine | Deliver WP-05 CC-1..CC-5 | pending |
+| 1.19.0 | 2026-10-31 | CLI session | DL-106 added for WP-07 thermal monitor and throttle policy | Deliver WP-07 CC-1..CC-5 | pending |

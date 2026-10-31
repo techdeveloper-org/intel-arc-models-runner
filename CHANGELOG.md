@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-10-31
+
+### Added
+- feat(devices): WP-07 thermal monitor and throttle policy — Proactive closed-loop hardware surveillance with `ThermalMonitor` daemon thread (`arc-thermal-monitor`); 3-state hysteresis control machine (`ThrottlePolicy`) triggering concurrency throttling at 80°C (`T_WARN_C`) or 95% PL1 TDP ceiling, and single-sequence emergency mode at 90°C (`T_CRITICAL_C`); 5.0°C hysteresis window preventing rapid oscillation; Level Zero Sysman integration with `ThermalReading`, `PowerState`, and graceful handling of `ARC_SYSMAN_DISABLE=1`; live `thermal` and `power` telemetry in `/health`.
+
+
 ## [0.2.4] - 2026-10-31
 
 ### Added

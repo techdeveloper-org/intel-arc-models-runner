@@ -2,7 +2,7 @@
 doc_id: DOC-INDEX
 title: Delivery document index
 stage: all
-version: 1.37.0
+version: 1.38.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -16,9 +16,9 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 
 | doc_id | Title | Version | Status | Stage | Path |
 |:--|:--|:--|:--|:--|:--|
-| DOC-DECISION-LOG | Decision log | 1.18.0 | draft | all | DECISION_LOG.md |
-| DOC-RESUME | Resume checkpoint | 1.21.0 | draft | all | RESUME.md |
-| DOC-TRACEABILITY | Finding to requirement to code to test traceability | 1.6.0 | draft | all | TRACEABILITY.md |
+| DOC-DECISION-LOG | Decision log | 1.19.0 | draft | all | DECISION_LOG.md |
+| DOC-RESUME | Resume checkpoint | 1.22.0 | draft | all | RESUME.md |
+| DOC-TRACEABILITY | Finding to requirement to code to test traceability | 1.7.0 | draft | all | TRACEABILITY.md |
 | DOC-SA-STAGE | Slice S-A - remove fabricated values | 1.0.0 | draft | S-A | stages/S-A-honesty/STAGE.md |
 | DOC-SB-STAGE | Slice S-B - native memory safety | 1.0.0 | draft | S-B | stages/S-B-memory-safety/STAGE.md |
 | DOC-SC-STAGE | Slice S-C - ring buffer, dtype, and view lifetime | 1.0.0 | draft | S-C | stages/S-C-ring-and-lifetime/STAGE.md |
@@ -32,6 +32,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-PERF-WP04-STAGE | WP-04 continuous batching scheduler | 1.0.0 | draft | PERF-WP04 | stages/PERF-WP04/STAGE.md |
 | DOC-PERF-WP05-STAGE | WP-05 speculative decode engine | 1.0.0 | draft | PERF-WP05 | stages/PERF-WP05/STAGE.md |
 | DOC-PERF-WP06-STAGE | WP-06 pybind11 native binding (ABI v4) | 1.0.0 | draft | PERF-WP06 | stages/PERF-WP06/STAGE.md |
+| DOC-PERF-WP07-STAGE | WP-07 thermal monitor and throttle policy | 1.0.0 | draft | PERF-WP07 | stages/PERF-WP07/STAGE.md |
 | DOC-R01-REVIEW | R01 - Independent review of the native C layer and ctypes bridge | 1.0.0 | draft | S-G | reviews/R01_c_native_review.md |
 | DOC-R02-REVIEW | R02 - STRIDE threat model with attack trees | 1.0.0 | draft | S-G | reviews/R02_threat_model.md |
 | DOC-R03-REVIEW | R03 SAST review: src/arc_runner (Python) and src/arc_runner/native (C) | 1.0.0 | draft | S-G | reviews/R03_sast.md |
@@ -42,7 +43,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-R09-REVIEW | R09 - Level Zero / Sysman / OpenVINO device handling: second opinion | 1.0.0 | draft | S-G | reviews/R09_gpu_driver_second_opinion.md |
 | DOC-R10-REVIEW | R10 Release-readiness review for v0.2.0 (nothing tagged, published or pushed) | 1.0.0 | draft | S-G | reviews/R10_release_readiness.md |
 | DOC-R07-REVIEW | R07 Faithfulness audit of repository claims | 1.0.0 | draft | S-G | reviews/R07_faithfulness_audit.md |
-| DOC-INDEX | Delivery document index | 1.37.0 | draft | all | INDEX.md |
+| DOC-INDEX | Delivery document index | 1.38.0 | draft | all | INDEX.md |
 
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
@@ -85,3 +86,4 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | 1.35.0 | 2026-10-31 | CLI session | Add DOC-PERF-WP04-STAGE v1.0.0, update DOC-DECISION-LOG v1.16.0, DOC-RESUME v1.19.0, DOC-TRACEABILITY v1.4.0 | WP-04 continuous batching scheduler delivery | pending |
 | 1.36.0 | 2026-10-31 | CLI session | Add DOC-PERF-WP06-STAGE v1.0.0, update DOC-DECISION-LOG v1.17.0, DOC-RESUME v1.20.0, DOC-TRACEABILITY v1.5.0 | WP-06 pybind11 native binding delivery | pending |
 | 1.37.0 | 2026-10-31 | CLI session | Add DOC-PERF-WP05-STAGE v1.0.0, update DOC-DECISION-LOG v1.18.0, DOC-RESUME v1.21.0, DOC-TRACEABILITY v1.6.0 | WP-05 speculative decode engine delivery | pending |
+| 1.38.0 | 2026-10-31 | CLI session | Add DOC-PERF-WP07-STAGE v1.0.0, update DOC-DECISION-LOG v1.19.0, DOC-RESUME v1.22.0, DOC-TRACEABILITY v1.7.0 | WP-07 thermal monitor and throttle policy delivery | pending |

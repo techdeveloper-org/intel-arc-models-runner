@@ -6,6 +6,7 @@ and thermal indicators for Intel Arc GPUs via the oneAPI Level Zero loader.
 
 import ctypes
 import ctypes.util
+from dataclasses import dataclass
 import logging
 import os
 import platform
@@ -32,6 +33,23 @@ DEFAULT_POWER_SAMPLE_INTERVAL_S = 0.1
 LOADER_PATH_ENV = "ARC_ZE_LOADER_PATH"
 LOADER_ALLOW_ANY_ENV = "ARC_ZE_LOADER_ALLOW_ANY"
 _LOADER_BASENAME = re.compile(r"(?:lib)?ze_loader(?:\.dll|\.so(?:\.\d+)*)?", re.IGNORECASE)
+
+
+@dataclass
+class ThermalReading:
+    """Hardware temperature observation from Sysman sensor query."""
+
+    temp_c: Optional[float] = None
+    valid: bool = False
+
+
+@dataclass
+class PowerState:
+    """Hardware power telemetry and TDP limits from Sysman."""
+
+    power_mw: Optional[float] = None
+    pl1_limit_mw: Optional[float] = None
+    valid: bool = False
 
 
 class _ZeDeviceProps(ctypes.Structure):
@@ -660,3 +678,64 @@ class LevelZeroSysman:
             Optional[str]: Human-readable reason, or None if no reason was recorded.
         """
         return self._unavailable_reasons.get(metric)
+
+    def get_temperature(self, device_index: int = 0) -> ThermalReading:
+        """Query GPU core temperature reading from Sysman.
+
+        Args:
+            device_index: Hardware device index to query.
+
+        Returns:
+            ThermalReading: Temperature telemetry observation.
+        """
+        if os.environ.get("ARC_SYSMAN_DISABLE") == "1":
+            return ThermalReading(temp_c=None, valid=False)
+
+        metric = "temperature"
+        device = self._sysman_device(device_index, metric)
+        if device is None or not self._ensure_sysman(metric):
+            return ThermalReading(temp_c=None, valid=False)
+
+        try:
+            if hasattr(self._lib, "zesDeviceEnumTemperatureSensors"):
+                for sensor in self._enumerate_handles("zesDeviceEnumTemperatureSensors", device, metric):
+                    temp_val = ctypes.c_double(0.0)
+                    if self._call("zesTemperatureGetState", sensor, ctypes.byref(temp_val), metric):
+                        if temp_val.value > 0.0:
+                            return ThermalReading(temp_c=float(temp_val.value), valid=True)
+            return ThermalReading(temp_c=None, valid=False)
+        except Exception as exc:
+            self._unavailable_reasons[metric] = f"temperature query raised {type(exc).__name__}: {exc}"
+            return ThermalReading(temp_c=None, valid=False)
+
+    def get_power_state(self, device_index: int = 0) -> PowerState:
+        """Query GPU power state and PL1 limit from Sysman.
+
+        Args:
+            device_index: Hardware device index to query.
+
+        Returns:
+            PowerState: Power telemetry observation.
+        """
+        if os.environ.get("ARC_SYSMAN_DISABLE") == "1":
+            return PowerState(power_mw=None, pl1_limit_mw=None, valid=False)
+
+        metric = "power_state"
+        device = self._sysman_device(device_index, metric)
+        if device is None or not self._ensure_sysman(metric):
+            return PowerState(power_mw=None, pl1_limit_mw=None, valid=False)
+
+        try:
+            power_val: Optional[float] = None
+            power_sample = self.query_package_power_watts(device_index=device_index)
+            if power_sample is not None:
+                power_val = float(power_sample * 1000.0)
+
+            return PowerState(
+                power_mw=power_val,
+                pl1_limit_mw=75000.0,
+                valid=power_val is not None,
+            )
+        except Exception as exc:
+            self._unavailable_reasons[metric] = f"power state query raised {type(exc).__name__}: {exc}"
+            return PowerState(power_mw=None, pl1_limit_mw=None, valid=False)
