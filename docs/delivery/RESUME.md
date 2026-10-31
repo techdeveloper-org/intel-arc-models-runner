@@ -2,7 +2,7 @@
 doc_id: DOC-RESUME
 title: Resume checkpoint
 stage: all
-version: 1.15.0
+version: 1.16.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -13,6 +13,18 @@ reviewers: [user]
 # Resume checkpoint
 
 Read this first in a new session. Tracking issue: [#42](https://github.com/techdeveloper-org/intel-arc-models-runner/issues/42). Branch: `claude/nice-volta-bs7mnf`. Plan: `docs/plans/MASTER_PLAN_v4.md` (sections 17-23 are current; 23 is the performance programme).
+
+## Session 2026-10-31 — qwen-2.5-1.5b + deepseek-r1-1.5b benchmarks published
+
+Completed (commit `090e4ab`, issue #49):
+- Qwen-2.5-1.5B INT4 mean GPU decode throughput extracted from existing 30-run harness: **40.44 tok/s** (n=90).
+- DeepSeek-R1-1.5B quick benchmark result already saved (`quick_v1`, 5-run, 31.88 tok/s).
+- `validate_bench_json.py` glob fixed (`*.json` → `*.v1.json`) so quick_v1 files are excluded.
+- `TestQuickBenchSchema` (13 tests) appended to `tests/test_bench_results.py`; all pass.
+- README performance table updated with both measured values + source footnotes.
+- Also completed prior session's transpiler fix (#47, `bd5377e`): removed legacy `<meta_data><bin_file>` XML element that OpenVINO 2026.4.1.0 rejects; added per-tensor bin offset/size tracking.
+
+Next: WP-03 (serial inference worker) per plan 23.5.1, or hardware pre-merge block 23.4.0.
 
 ## State (2026-10-30)
 
@@ -43,6 +55,10 @@ Version is 0.2.0 in the tree but nothing is tagged or published; tagging, mergin
 | `0cc0d6d` | security: Host validation (DNS rebinding), browser CSRF guards (Origin, Content-Type, Sec-Fetch-Site), `/api/pull` path traversal, no filesystem paths in error bodies, tool-parser recursion, exact open paths, bounded `X-Request-ID`; new env `ARC_ALLOWED_HOSTS` | security review S1 |
 | `28101d6` | `fix(tests)`: add `ids=` to `@pytest.mark.parametrize` in `test_context_window` to avoid Windows 32,767-char env-var limit | fix |
 | `e2730ce` | `fix(scripts,hub)`: resolve 4 pre-existing test failures on Windows (UTF-8 encoding, `.as_posix()` paths, TYPE_CHECKING guard, resolve_model_dir call) | fix |
+| `2811ca8` | `fix(tests)`: rename 6 WP-prefixed/suffixed test files to domain-based names | fix |
+| `45e163b` | `docs(delivery)`: sync text docs after WP-14, WP-15 and bug fixes | docs |
+| `bd5377e` | `fix(transpiler)`: correct IR XML offset tracking and remove legacy `bin_file` element (#47); per-tensor bin offset/size in `transpile_stream`; `_GGML_TO_OV_ELEMENT_TYPE` mapping | transpiler |
+| `090e4ab` | `feat(benchmarks)`: publish qwen-2.5-1.5b GPU tok/s (40.44) and deepseek-r1-1.5b quick benchmark (31.88 tok/s); glob fix in validate_bench_json.py; TestQuickBenchSchema 13 tests (#49) | benchmarks |
 
 The plan's WP-03 (serial worker, `to_thread`, stream bridge, bounded stop), WP-02, WP-17, WP-05, WP-06, WP-07, WP-14 and WP-15 are **not implemented**. After the security commit the full non-hardware suite exits 0 (2058 passed, 8 skipped, 24 deselected in the agent's run).
 
