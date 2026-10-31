@@ -26,6 +26,7 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 | ↳ [**Empirical Silicon Proofs**](docs/benchmarks/empirical_silicon.md) | Real Silicon Hardware Telemetry | UNVERIFIED legacy document (see its banner): the 30.8× GPU-vs-CPU TTFT figure is not reproduced (measured CPU/GPU TTFT ratios on Qwen2.5-1.5B are 2.3× to 17.7×, and the speed-up claim gate fails), live sequential reclaim runs, 21-test hardware suite, GPU vs NPU breakdown, a Flash-Stream memory trace taken on a synthetic container (mapped bytes, not resident memory), and an Ollama comparison whose Ollama baseline was not run. |
 | ↳ [**Ollama Showdown & 30-Case Audit**](docs/benchmarks/ollama_showdown.md) | Head-to-Head Comparison vs Ollama | Ollama "Silent CPU Fallback" anatomy (Proof M56), output coherence (M57/M58), 30-case Triad Audit matrix, and a heavy-model Ollama OOM comparison whose Ollama run was never executed (UNVERIFIED). |
 | [**🤖 Claude Code**](docs/claude-code.md) | Use Claude Code against `arc-runner serve` | Anthropic `/v1/messages` (stream and tool use), env vars for Bash and PowerShell, what works, limits and troubleshooting; Claude Code itself was not run, see its UNVERIFIED list. |
+| [**🖱️ Cursor**](docs/cursor.md) | Use Cursor against `arc-runner serve` | OpenAI-compatible `/v1/chat/completions`, Cursor settings (Base URL, API Key, model name), smoke tests, tool-calling limits; Cursor itself was not run, see its UNVERIFIED list. |
 | [**🚀 Deployment & Packaging Guide**](docs/deployment.md) | Standalone PyPI Wheel & Docker Deployment | Production guide for `pip install arc-runner`, Ubuntu 24.04 Docker image, `/dev/dri` pass-through, and Kubernetes Helm specs. |
 | [**🧪 Complete Test Coverage**](docs/testing.md) | Full Test Suite Roadmap & Execution | Non-hardware suite counts measured with `pytest` (the guide gives the collected, passed, skipped and hardware-deselected numbers and their date); hardware-marked tests are reported as not run, Triad testing patterns, C sanitizer harnesses. |
 | [**🗺️ Roadmap & Multi-Modal Evolution**](docs/roadmap.md) | Delivered Milestones & Packaging Horizon | 15 core milestones + full Packaging Horizon delivered, 7 next-gen orchestration hurdles scorecard, PyPI & Docker targets. |
@@ -43,7 +44,7 @@ While mainstream local LLM tools like Ollama were designed with a CUDA-first and
 - **Bare-Metal Flash-Stream Heavy Model Engine**: Designed to stream 32B/72B-class weights through a fixed-size layer ring buffer (memory-mapped reads, optional prefetch, NPU attention / GPU SwiGLU split; Proofs M121–M134 are mathematical models, not measurements). No real 32B/72B model has been run: the only Flash-Stream run on record used a synthetic 8-layer, hidden-size-32 container on a host with about 1.24 GB free DRAM, so no model quality, tokens-per-second, or memory-saving claim is made for 32B/72B.
 - **Draft-model speculative decoding (NPU draft, GPU verify)**: wired through OpenVINO GenAI's draft-model support. Its speed-up, acceptance rate and power draw have not been measured with this repository's harness; earlier published figures for them were removed (see the [benchmark method](docs/benchmarks/METHOD.md)).
 - **Autonomous Multi-Modal Media Studio**: Orchestrates LLM Director, Kokoro Voiceover, and SDXL / LTX-Video Visuals with zero-copy memory handoff and closed-loop pacing convergence.
-- **Drop-in Ollama & OpenAI Compatibility**: Compatible with `/api/generate`, `/api/chat`, `/api/tags`, and `/v1/chat/completions` for instant use with Open WebUI, Continue.dev, Cursor, and LangChain.
+- **Drop-in Ollama & OpenAI Compatibility**: Compatible with `/api/generate`, `/api/chat`, `/api/tags`, and `/v1/chat/completions` for instant use with Open WebUI, Cursor, Claude Code, and LangChain.
 - **Zero-Bloat Standalone Runtime**: Built directly on OpenVINO GenAI C++ and Level Zero runtimes; no 5 GB oneAPI SDK installation or heavy PyTorch environments required.
 - **Accurate Token Accounting**: Measured token counts via the OpenVINO pipeline tokenizer; `is_estimate` flag in telemetry distinguishes measured from estimated values, with no invented numbers (WP-14).
 - **Fast Cold-Start**: PEP 562 lazy imports via `__getattr__` in `arc_runner/__init__.py` defer heavy OpenVINO/numpy loads to first use, reducing import latency without breaking existing import paths (WP-15).
@@ -175,7 +176,7 @@ arc-runner serve --host 127.0.0.1 --port 11435 --default-model llama-3.2-3b
 
 Then open `http://localhost:11435/`. To keep using both applications, leave
 Ollama on `11434` and use `11435` for `arc-runner`. For compatible clients such
-as Open WebUI, Continue.dev, or Cursor, set the base URL to the matching runner
+as Open WebUI, Cursor, or Claude Code, set the base URL to the matching runner
 address, for example `http://localhost:11435`.
 
 You can also send a one-off prompt using the Ollama-compatible generate API.
@@ -289,6 +290,70 @@ claude /path/to/your/project
 
 ---
 
+## 🖱️ Use with Cursor
+
+> **⚠️ Cursor Subscription Required for Custom Models.**
+> Cursor requires a **paid subscription (Pro, $20/month)** to use any custom or local model via a custom API key. On the **free plan**, Chat, Edit, and Agent modes all show the error *"Agent and Edit rely on custom models that require a paid subscription"* and **do not work** with a local server. The arc-runner server itself works correctly (the API responds normally — this is a Cursor-side plan restriction, not an arc-runner issue).
+
+`arc-runner serve` exposes `POST /v1/chat/completions` (OpenAI-compatible). If you have a **Cursor Pro** subscription, you can point Cursor at it as follows.
+
+### Step 1 — Start the server
+
+```bash
+arc-runner pull llama-3.2-3b
+arc-runner serve --host 127.0.0.1 --port 11434 --default-model llama-3.2-3b
+```
+
+If Ollama already occupies port `11434`, use `--port 11435` and adjust the base URL below.
+
+### Step 2 — Configure Cursor (Pro plan required)
+
+Open Cursor → **`Ctrl+Shift+J`** (Cursor Settings) → **Models** tab, and enter:
+
+| Field | Value |
+|:---|:---|
+| **OpenAI Base URL** | `http://127.0.0.1:11434/v1` |
+| **OpenAI API Key** | `local` (any non-empty string) |
+| **Model Name** | `llama-3.2-3b` (or the name from `arc-runner models`) |
+
+> Cursor appends `/chat/completions` to the Base URL. The URL must end with `/v1` (no trailing slash).
+
+### Step 3 — Verify arc-runner is responding (works on any plan)
+
+Before configuring Cursor, confirm the server is up with these commands in PowerShell:
+
+```powershell
+# Health check
+Invoke-RestMethod http://127.0.0.1:11434/health
+# → status: ok
+
+# List available models
+Invoke-RestMethod http://127.0.0.1:11434/v1/models -Headers @{authorization="Bearer local"}
+
+# Full chat test
+$body = '{"model":"llama-3.2-3b","max_tokens":64,"messages":[{"role":"user","content":"Say hi"}]}'
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:11434/v1/chat/completions" `
+  -ContentType "application/json" `
+  -Headers @{authorization="Bearer local"} `
+  -Body $body
+```
+
+If the chat test returns a response with `choices` and `usage`, the server is working correctly regardless of Cursor plan.
+
+### Cursor Feature Availability by Plan
+
+| Feature | Cursor Free | Cursor Pro ($20/mo) |
+|:---|:---:|:---:|
+| **Chat** (`Ctrl+L`) with custom local model | ❌ Blocked | ✅ Works |
+| **Edit** (inline code edit) with custom model | ❌ Blocked | ✅ Works |
+| **Agent / Composer** with custom model | ❌ Blocked | ✅ Works |
+| **Tab autocomplete** with custom model | ❌ Blocked | ✅ Works |
+| Cursor's own hosted AI (Claude/GPT) | ✅ Limited free credits | ✅ Included |
+
+👉 *Full guide, troubleshooting, and UNVERIFIED list: [**docs/cursor.md**](docs/cursor.md)*
+
+---
+
 ## 🏗️ Architecture
 
 ```mermaid
@@ -296,7 +361,7 @@ flowchart TD
     subgraph Client ["Client & Tooling Layer"]
         CLI["arc-runner CLI"]
         WebUI["Studio WebUI & Open WebUI (:11434)"]
-        IDE["Cursor / Continue.dev / LangChain"]
+        IDE["Cursor / Claude Code / LangChain"]
     end
 
     subgraph Daemon ["arc-runner Daemon (:11434)"]

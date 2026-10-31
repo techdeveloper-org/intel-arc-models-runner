@@ -74,7 +74,7 @@ arc-runner serve --host 127.0.0.1 --port 11434 --device GPU
 
 - **Ollama Parity**: `/api/generate`, `/api/chat`, `/api/tags`, `/api/show`, `/api/pull`, `/api/delete`, `/api/copy`, `/api/version`
 - **OpenAI Parity**: `/v1/chat/completions`, `/v1/models`
-- **WebUI Plug-and-Play**: Point Open WebUI, Continue.dev, or Cursor directly to `http://localhost:11434`.
+- **WebUI Plug-and-Play**: Point Open WebUI, Cursor, or Claude Code directly to `http://localhost:11434`.
 
 ---
 
