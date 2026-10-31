@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file. The format foll
 Work on the branch after the `0.2.0` entry below. The version files stay at `0.2.0`; whether this work ships in `0.2.0` or in a later release is a maintainer decision (nothing is tagged or published).
 
 ### Added
+- Automated mathematical testing suite (`test_stream_telemetry_math.py`, `test_ui_design_tokens.py`, `test_ui_proof_purge.py`) validating TTFT/TPOT/TPS formulas, 8pt grid tokens, OKLCH contrast, and zero lingering proof assertions (37/37 tests passing).
+- Testing stage record `docs/delivery/stages/TEST-01/STAGE.md`.
 - Mathematical UI/UX design token system (`tokens.css`) implementing an 8pt spatial grid, Major Third typography, OKLCH color space with APCA contrast, and damped harmonic oscillator motion physics.
 - Real-time client telemetry engine in `app.js` with `HardwareTelemetryPoller` bound to `/api/devices` and `StreamTelemetryTracker` for exact microsecond TTFT, TPOT, and live TPS accounting.
 - Stage record `docs/delivery/stages/UI-01/STAGE.md` and PlantUML telemetry architecture sequence diagram `uml/webui_telemetry_flow.puml`.
