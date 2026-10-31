@@ -2,11 +2,11 @@
 doc_id: DOC-INDEX
 title: Delivery document index
 stage: all
-version: 1.32.0
+version: 1.33.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
-authors: [main session, CLI session]
+authors: [main session, CLI session, Gemini 3.8 Flash]
 reviewers: [user]
 ---
 
@@ -26,6 +26,8 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-SE-STAGE | Slice S-E - benchmark protocol, statistics, and provenance | 1.0.0 | draft | S-E | stages/S-E-benchmarks/STAGE.md |
 | DOC-SF-STAGE | Slice S-F - documentation, version, CI, and checks | 1.0.0 | draft | S-F | stages/S-F-docs-and-release-prep/STAGE.md |
 | DOC-SG-STAGE | Slice S-G - remaining technical items | 1.13.0 | draft | S-G | stages/S-G-remaining-items/STAGE.md |
+| DOC-UI-01-STAGE | Modernization of Intel Arc Model Studio UI & Telemetry | 1.0.0 | draft | UI-01 | stages/UI-01/STAGE.md |
+| DOC-TEST-01-STAGE | Multi-Agent Automated Test Architecture & Invariant Verification | 1.0.0 | draft | TEST-01 | stages/TEST-01/STAGE.md |
 | DOC-R01-REVIEW | R01 - Independent review of the native C layer and ctypes bridge | 1.0.0 | draft | S-G | reviews/R01_c_native_review.md |
 | DOC-R02-REVIEW | R02 - STRIDE threat model with attack trees | 1.0.0 | draft | S-G | reviews/R02_threat_model.md |
 | DOC-R03-REVIEW | R03 SAST review: src/arc_runner (Python) and src/arc_runner/native (C) | 1.0.0 | draft | S-G | reviews/R03_sast.md |
@@ -36,7 +38,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-R09-REVIEW | R09 - Level Zero / Sysman / OpenVINO device handling: second opinion | 1.0.0 | draft | S-G | reviews/R09_gpu_driver_second_opinion.md |
 | DOC-R10-REVIEW | R10 Release-readiness review for v0.2.0 (nothing tagged, published or pushed) | 1.0.0 | draft | S-G | reviews/R10_release_readiness.md |
 | DOC-R07-REVIEW | R07 Faithfulness audit of repository claims | 1.0.0 | draft | S-G | reviews/R07_faithfulness_audit.md |
-| DOC-INDEX | Delivery document index | 1.32.0 | draft | all | INDEX.md |
+| DOC-INDEX | Delivery document index | 1.33.0 | draft | all | INDEX.md |
 
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
@@ -72,5 +74,6 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | 1.28.0 | 2026-10-31 | CLI session | Reflect DOC-SG-STAGE v1.13.0 (Windows test-infra fixes) | keep index current | 28101d6, e2730ce |
 | 1.29.0 | 2026-10-31 | CLI session | Reflect DOC-RESUME v1.15.0 (add commits 28101d6, e2730ce) | keep index current | 28101d6, e2730ce |
 | 1.30.0 | 2026-10-31 | CLI session | Reflect DOC-RESUME v1.16.0 (transpiler fix #47, benchmark publish #49) | feat(benchmarks) commit 090e4ab; issue #49 | 090e4ab |
+| 1.33.0 | 2026-10-31 | Gemini 3.8 Flash | Add DOC-UI-01-STAGE and DOC-TEST-01-STAGE | modern UI and test suites | pending |
 | 1.31.0 | 2026-10-31 | CLI session | DOC-DECISION-LOG to 1.14.0, DOC-TRACEABILITY to 1.2.0, DOC-RESUME to 1.16.0 | documentation sync after #49 (D1-D4 complete) | next revision |
 | 1.32.0 | 2026-10-31 | CLI session | DOC-RESUME to 1.17.0 — add Pending Items Tracker PT-01..PT-09 | surface benchmark inconsistencies and open test items for tracking | — |

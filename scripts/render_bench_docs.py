@@ -59,6 +59,8 @@ def render_tables() -> str:
     llm_rows: List[Tuple[str, str, str, int, str, str, str]] = []
     metric_rows: List[Tuple[str, str, str, str, int, str, str, str]] = []
     for path in sorted(RESULTS_DIR.glob("*.json")):
+        if path.name.endswith(".quick.json"):
+            continue
         document = json.loads(path.read_text(encoding="utf-8"))
         grouped: Dict[Tuple[str, str, str], List[BenchSample]] = {}
         for sample in load_samples(document):

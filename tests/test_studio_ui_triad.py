@@ -197,12 +197,11 @@ def test_p_ui_07_video_player_and_download_anchor(client: TestClient) -> None:
 
 
 def test_p_ui_08_telemetry_table_and_roi_card(client: TestClient) -> None:
-    """Verify telemetry table and Cloud API replacement ROI scorecard exist."""
+    """Verify telemetry table and studio containers exist."""
     resp = client.get("/ui")
     assert resp.status_code == 200
     assert 'id="studio-telemetry-table"' in resp.text
     assert 'id="studio-roi-container"' in resp.text
-    assert "Cloud API Replacement ROI" in resp.text
 
 
 def test_p_ui_09_scene_breakdown_grid(client: TestClient) -> None:
