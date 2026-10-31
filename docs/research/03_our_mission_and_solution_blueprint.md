@@ -11,7 +11,7 @@
 
 1. **Native Dual Silicon Support**: First-class execution pathways for both **Intel® Arc™ discrete/integrated GPUs** and **Intel® NPUs**.
 2. **Zero-Bloat Self-Contained Deployment**: A lightweight, standalone runtime (under 120 MB) that bundles pre-compiled Level Zero entry points and OpenVINO GenAI C++ binaries, completely eliminating the need for the multi-gigabyte Intel oneAPI Base Toolkit or heavy Python/PyTorch virtual environments.
-3. **Drop-in Drop-Out API Parity**: Strict, 100% specification parity with both the **Ollama REST API** (`/api/generate`, `/api/chat`, `/api/tags`, `/api/ps`) and the **OpenAI API** (`/v1/chat/completions`, `/v1/models`), ensuring seamless compatibility with Open WebUI, Continue.dev, Cursor, and LangChain.
+3. **Drop-in Drop-Out API Parity**: Strict, 100% specification parity with both the **Ollama REST API** (`/api/generate`, `/api/chat`, `/api/tags`, `/api/ps`) and the **OpenAI API** (`/v1/chat/completions`, `/v1/models`), ensuring seamless compatibility with Open WebUI, Cursor, Claude Code, and LangChain.
 4. **Heterogeneous Speculative Decoding**: The world's first client-side inference engine capable of running a 1B–2B draft model on the **Intel NPU** (zero GPU VRAM cost, 5W power draw) while verifying tokens in parallel on the **Intel Arc GPU** via XMX matrix engines.
 
 ---
@@ -23,7 +23,7 @@ flowchart TD
     subgraph ClientSubsystem ["Client & Tooling Layer"]
         CLI["arc-runner CLI (main.py / rich terminal)"]
         WebUI["Open WebUI / Third-Party Chat Frontends"]
-        IDE["Cursor / Continue.dev / LangChain"]
+        IDE["Cursor / Claude Code / LangChain"]
     end
 
     subgraph DaemonSubsystem ["arc-runner Daemon (:11434)"]

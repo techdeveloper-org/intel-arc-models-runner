@@ -562,7 +562,11 @@ async def chat(
         OllamaChatResponse(
             model=request.model,
             created_at=datetime.now(timezone.utc).isoformat(),
-            message=OllamaChatMessage(role="assistant", content=text),
+            message=OllamaChatMessage(
+                role="assistant",
+                content=parsed_text["content"],
+                thinking=parsed_text["thinking"] or None,
+            ),
             done=True,
             total_duration=duration_ns,
             load_duration=0,
@@ -571,20 +575,6 @@ async def chat(
             **_eval_timing_ns(engine, duration_ns),
         ),
         "prompt_eval_count",
-    tokens_count = len(parsed_text["content"].split())
-    manager.record_generation_metrics(tokens_count)
-
-    return OllamaChatResponse(
-        model=request.model,
-        created_at=datetime.now(timezone.utc).isoformat(),
-        message=OllamaChatMessage(role="assistant", content=parsed_text["content"], thinking=parsed_text["thinking"] or None),
-        done=True,
-        total_duration=duration_ns,
-        load_duration=0,
-        prompt_eval_count=len(chat_prompt.split()),
-        prompt_eval_duration=int(duration_ns * 0.2),
-        eval_count=tokens_count,
-        eval_duration=int(duration_ns * 0.8),
     )
 
 
