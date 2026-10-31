@@ -2,11 +2,11 @@
 doc_id: DOC-TRACEABILITY
 title: Finding to requirement to code to test traceability
 stage: all
-version: 1.1.0
+version: 1.2.0
 status: draft
 created: 2026-10-29
-updated: 2026-10-29
-authors: [main session]
+updated: 2026-10-31
+authors: [main session, CLI session]
 reviewers: [user]
 ---
 
@@ -63,6 +63,7 @@ Findings are defined in `docs/plans/MASTER_PLAN_v4.md` sections 2, 19.2 and 21.2
 | L12 USM/DMA unused | FR-001 | `DeviceLayerStager` | `tests/test_device_stager.py` | S-G | opt-in path done, no consumer |
 | C7 `try_pin` wiring | FR-001 | `FlashStreamWeightManager._pin_layer` | `tests/test_flash_stream_ring.py` (pin tests) | S-G | closed |
 | L1/L2 power and free memory | FR-002 | `LevelZeroSysman`, `PowerMeter` | `tests/test_sysman_telemetry.py`, `tests/test_power_meter.py` | S-G | measured when the driver exposes it |
+| H9 benchmark publication | FR-010 | `scripts/validate_bench_json.py` line 27, `tests/test_bench_results.py::TestQuickBenchSchema`, `docs/benchmarks/results/llm_*.json`, `README.md` benchmark table | `TestQuickBenchSchema` (13 tests); `scripts/validate_bench_json.py --check`; manual: README table matches result file values | S-G | closed |
 
 ## Plan test-list audit (S-G)
 Plan test names were replaced by `test_<function>_<scenario>_<expected>` names; every planned test maps to a repository test or is marked hardware:
@@ -93,3 +94,4 @@ Plan test names were replaced by `test_<function>_<scenario>_<expected>` names; 
 |:--|:--|:--|:--|:--|:--|
 | 1.0.0 | 2026-10-29 | main session | first version | traceability after slices S-A to S-E | pending |
 | 1.1.0 | 2026-10-29 | main session | S-G findings and plan test-list audit | map every planned test to a repository test | pending |
+| 1.2.0 | 2026-10-31 | CLI session | H9 benchmark publication row added (FR-010, issue #49) | traceability for quick_v1 benchmark protocol and TestQuickBenchSchema | next revision |

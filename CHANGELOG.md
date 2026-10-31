@@ -6,6 +6,18 @@ All notable changes to this project are documented in this file. The format foll
 
 Work on the branch after the `0.2.0` entry below. The version files stay at `0.2.0`; whether this work ships in `0.2.0` or in a later release is a maintainer decision (nothing is tagged or published).
 
+### Added
+- `quick_v1` benchmark result for DeepSeek-R1-1.5B (1 warmup + 5 timed runs via `/v1/messages` API);
+  result file: `docs/benchmarks/results/llm_deepseek-r1-1.5b_20261031T041751Z.quick.json`
+- Mean GPU decode throughput for Qwen-2.5-1.5B INT4 published in README table (40.44 tok/s),
+  sourced from existing 30-run harness file `llm_qwen-2.5-1.5b_20261030T070037Z.v1.json` (n=90).
+- `TestQuickBenchSchema` (13 tests) in `tests/test_bench_results.py` covering the `quick_v1`
+  result schema (7 positive, 3 negative, 3 edge cases).
+
+### Changed
+- `scripts/validate_bench_json.py`: glob changed from `*.json` to `*.v1.json` to exclude
+  `quick_v1` files from the schema-v1 validator.
+
 ### Security
 - Host-header validation (HTTP 421, DNS rebinding; `ARC_ALLOWED_HOSTS`), cross-origin and content-type guards (403 for a foreign `Origin`, 415 for a non-JSON body on mutating methods), `/api/pull` names validated before any directory is created, client-visible errors no longer carry filesystem paths or raw exception text, tool-call parser handles `RecursionError`, API-key open paths match the documentation (`/api/hello` GET/HEAD now open; `/staticfoo` no longer exempt), `X-Request-ID` limited to 64 characters of `[A-Za-z0-9._-]`, startup WARNING for a non-loopback bind without `ARC_API_KEY`. See `docs/deployment.md` section 5.
 

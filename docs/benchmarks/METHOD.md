@@ -67,6 +67,20 @@ A tier that raises (for example `CL_OUT_OF_RESOURCES` when an integrated GPU run
 
 These runs use the same protocol (environment capture, warmups discarded, timed runs one sample each, CPU baseline as a real second run, `fallback_used` when the wanted device is missing) and the schema-v1 `workload` and `metrics` fields. Metric keys carry their unit (`latency_s`, `rtf`, `frames_per_s`, `texts_per_s`, `megapixels_per_s`, `package_power_w`, `package_energy_j`). Latency and power are measured per run; rates and real-time factors are derived per sample from the measured latency and a workload constant stated in the metric name's formula (for example `rtf = latency_s / audio_duration_s`, `frames_per_s = num_frames / latency_s`) and stored with the measured sample. Stage timings (`step_latency_ms`, `iteration_rate_it_s`) are only the engine's own OpenVINO perf metrics and are `null` when OpenVINO reported none; they are never apportioned from total time. VLM requests report a streamer-callback chunk count (`output_chunk_count`), not tokens, and no TTFT, because `VisionEngine` yields only after generation completes. Speech-recognition input is a generated test tone, so timing is valid but transcript quality is not evaluated; image and video quality are not scored here.
 
+## Quick API Benchmark Protocol (`quick_v1`)
+
+A lightweight complement to the 30-run harness. Used when a quick directional reading is
+needed and the full harness is not practical.
+
+- **Runs:** 1 warmup (excluded from summary) + 5 timed runs
+- **Endpoint:** `POST /v1/messages` with `max_tokens=200, temperature=0`
+- **Metric:** `decode_tps = output_tokens / elapsed_s` per run (wall-clock)
+- **Summary:** `mean`, `median`, `min`, `max` of timed runs, rounded to 2 decimal places
+- **Result file extension:** `.quick.json` (`schema_version: "quick_v1"`)
+- **NOT validated by** `validate_bench_json.py` (which targets `schema_version=1` files via `*.v1.json` glob only)
+- **Warning:** Not statistically equivalent to the 30-run harness; no CI bounds, no paired
+  gate, single device only. Use for directional comparison only.
+
 ## Heavy models
 
 Results for 32B/72B-class models require the real weights. The streaming demonstrator in this repository emits canned tokens (`metrics_source = synthetic_pipeline`) and is never a throughput result.

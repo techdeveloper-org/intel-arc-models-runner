@@ -2,11 +2,11 @@
 doc_id: DOC-DECISION-LOG
 title: Decision log
 stage: all
-version: 1.13.0
+version: 1.14.0
 status: draft
 created: 2026-10-29
-updated: 2026-10-30
-authors: [main session]
+updated: 2026-10-31
+authors: [main session, CLI session]
 reviewers: [user]
 ---
 
@@ -426,6 +426,22 @@ Status: DL-061..DL-070 were proposed on 2026-10-29 as part of plan section 23 an
 - Reversibility: high. Documents only.
 - Source: round-11 final checks `perf/G1_final.md` and `perf/G4_final.md` (session scratchpad, not committed); plan 23.4.0-23.4.1, baseline paragraph, WP-01, WP-02, WP-17, CC-1, DF-10, 23.9.12; `docs/benchmarks/quality/kv_u8_qwen-2.5-1.5b.json`, `docs/benchmarks/results/llm_qwen-2.5-1.5b_20261030T070037Z.v1.json`, `image_stable-diffusion-v1-5_20261030T082445Z.v1.json`; scratch, not committed: `r11fix/` (`enum_adopt.py`, `enum_out.txt`, `edit_plan.py`, `edit_plan2.py`, `cites.py`, `cites_dl.py`).
 
+### DL-097 quick_v1 schema uses string schema_version, not int
+- Date: 2026-10-31
+- Context: The schema-v1 validator (`validate_bench_json.py`) requires `schema_version=1` (int). Quick API benchmark files use `"quick_v1"` (string) as their schema_version, so the validator would flag them as invalid.
+- Decision: Keep `schema_version` as the string `"quick_v1"` intentionally. Change the glob in `validate_bench_json.py` from `*.json` to `*.v1.json` so quick files are never scanned by the schema-v1 validator.
+- Consequences: `validate_bench_json.py` now only validates `*.v1.json` files. Quick benchmark files (`*.quick.json`) are excluded by filename convention and never produce false validation failures.
+- Reversibility: high — glob change is a 1-line revert.
+- Source: GitHub Issue #49; `scripts/validate_bench_json.py` line 27; `docs/benchmarks/results/llm_deepseek-r1-1.5b_20261031T041751Z.quick.json`.
+
+### DL-098 5 timed runs (not 30) for quick API benchmark
+- Date: 2026-10-31
+- Context: The standard harness protocol requires 30 timed runs with warmup convergence and 95% CI half-width checks. Running the full harness requires significant time and a tightly controlled environment.
+- Decision: Use 1 warmup + 5 timed runs via `POST /v1/messages` for quick directional readings. Result files carry a `warning` field stating the limitation. Not used for speed claims (no CI bounds, no paired gate).
+- Consequences: Quick results are directional only. The `schema_version="quick_v1"` and `*.quick.json` extension make the distinction explicit in the file system.
+- Reversibility: not applicable — different protocol, different file type.
+- Source: GitHub Issue #49; `docs/benchmarks/METHOD.md` (Quick API Benchmark Protocol section); `TestQuickBenchSchema` in `tests/test_bench_results.py`.
+
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
 |:--|:--|:--|:--|:--|:--|
@@ -442,4 +458,5 @@ Status: DL-061..DL-070 were proposed on 2026-10-29 as part of plan section 23 an
 | 1.10.0 | 2026-10-29 | main session | DL-093 added (round-8 corrections: refused queued streams, the stop limit as run, WP-07 embeddings bodies, `GRACEFUL_SHUTDOWN_S` home, test classes, pre-merge block and renumbered run list, N-04 and N-01 measurement fixes, record corrections); leading markers on DL-090 and DL-092 (rows and Status lines); ADR heading and Status paragraph updated; the 1.9.0 hash filled in | round-8 review resolution, plan section 23.9.9 (v9.5, fix only) | a312ee1 |
 | 1.11.0 | 2026-10-30 | main session | DL-094 added (round-9 corrections: serial worker ordering, `engine_key` and the tests it breaks, join constants, graceful-shutdown parsing, `--evaluate SPEC`, N-02, M-09, N-04 and N-01 measurement text, totals with `m18_a`, record corrections); leading marker on DL-093 (row and Status line); the header permits a Corrected marker; ADR heading and Status paragraph updated; the 1.10.0 hash filled in | round-9 review resolution, plan section 23.9.10 (v9.6, fix only) | 1a4ccfe |
 | 1.12.0 | 2026-10-30 | main session | DL-095 added (round-10 corrections: the adoption rule across tiers and lengths with the NPU decode no-harm cell, the M-09 bytes interval and the tie premise, the `--evaluate` cell rule and its confirmation calls, `unload_path` and the hub delete call, `engine_key` device normalisation, the late-submit outcome, the bounded stop as run, `perf_counter_ns`, N-04 and N-19, test classes, record corrections); leading markers on DL-081 and DL-094 (rows and Status lines); ADR heading and Status paragraph updated; the 1.11.0 hash filled in | round-10 review resolution, plan section 23.9.11 (v9.7, fix only) | 2abe58f |
-| 1.13.0 | 2026-10-30 | main session | DL-096 added (round-11 corrections: the adoption procedure AD-1..AD-6 with `decide_adoption`, one 30-round repeat, the code baseline 1a4ccfe versus c3b69cb..1d0eb64, the measured u8 KV rejection, the owner's new result files, G1 T1-T6); leading markers on DL-095 (row and Status line); ADR heading updated; the 1.12.0 hash filled in | round-11 final checks G1 and G4 resolved, plan section 23.9.12 (v9.8, fix only) | next revision |
+| 1.13.0 | 2026-10-30 | main session | DL-096 added (round-11 corrections: the adoption procedure AD-1..AD-6 with `decide_adoption`, one 30-round repeat, the code baseline 1a4ccfe versus c3b69cb..1d0eb64, the measured u8 KV rejection, the owner's new result files, G1 T1-T6); leading markers on DL-095 (row and Status line); ADR heading updated; the 1.12.0 hash filled in | round-11 final checks G1 and G4 resolved, plan section 23.9.12 (v9.8, fix only) | 35b2dc3 |
+| 1.14.0 | 2026-10-31 | CLI session | DL-097 and DL-098 added (quick_v1 schema string vs int decision; 5-run quick benchmark protocol decision) | feat(benchmarks): document decisions for issue #49 quick benchmark | next revision |
