@@ -757,6 +757,8 @@ function initChatPlayground() {
                 return;
             }
             requestSucceeded = true;
+            const tracker = new StreamTelemetryTracker();
+            tracker.start();
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
@@ -773,9 +775,9 @@ function initChatPlayground() {
                         const payload = JSON.parse(line);
                         const delta = payload.message || {};
                         if (!delta.content && !delta.thinking) continue;
-                        if (firstTokenTime === null) {
-                            firstTokenTime = performance.now();
-                            if (metricTtft) metricTtft.textContent = `${Math.round(firstTokenTime - startTime)} ms`;
+                        tracker.onTokenChunk(1);
+                        if (tracker.tokenCount === 1 && metricTtft) {
+                            metricTtft.textContent = `${Math.round(tracker.getTTFT())} ms`;
                         }
                         assistantMessage.content += delta.content || '';
                         assistantMessage.thinking += delta.thinking || '';
@@ -783,6 +785,12 @@ function initChatPlayground() {
                         if (delta.content) setChatStatus('busy', 'Answering');
                         renderAssistantBubble(assistantMsgElem.querySelector('.message-bubble'), assistantMessage);
                         chatMessages.scrollTop = chatMessages.scrollHeight;
+                        if (metricRate && tracker.tokenCount > 1) {
+                            metricRate.textContent = `${tracker.getTPS().toFixed(1)} t/s`;
+                        }
+                        if (metricTpot && tracker.tokenCount > 1) {
+                            metricTpot.textContent = `${tracker.getTPOT().toFixed(1)} ms/t`;
+                        }
                         if (performance.now() - lastSaveAt > 900) {
                             lastSaveAt = performance.now();
                             persistChat(chat);
@@ -790,12 +798,15 @@ function initChatPlayground() {
                     } catch (_) { /* Ignore incomplete or non-JSON transport lines. */ }
                 }
             }
-            const elapsed = Math.max((performance.now() - startTime) / 1000, 0.001);
-            if (metricRate) metricRate.textContent = `${(generatedChars / elapsed).toFixed(1)} chars/s`;
-            if (metricTpot) metricTpot.textContent = firstTokenTime && generatedChars > 0
-                ? `${((performance.now() - firstTokenTime) / generatedChars).toFixed(2)} ms/char`
-                : '—';
-            if (metricEngine) metricEngine.textContent = `${selectedDevice} ? ${selectedModel}`;
+            if (metricRate && tracker.tokenCount > 0) {
+                metricRate.textContent = `${tracker.getTPS().toFixed(1)} t/s`;
+            }
+            if (metricTpot && tracker.tokenCount > 1) {
+                metricTpot.textContent = `${tracker.getTPOT().toFixed(1)} ms/t`;
+            } else if (metricTpot && tracker.tokenCount <= 1) {
+                metricTpot.textContent = '—';
+            }
+            if (metricEngine) metricEngine.textContent = `${selectedDevice} • ${selectedModel}`;
             assistantMsgElem.classList.remove('is-streaming');
             if (!assistantMessage.content.trim() && assistantMessage.thinking.trim()) assistantMessage.noFinalAnswer = true;
             activeAssistantMessage = null;
