@@ -7,6 +7,14 @@ All notable changes to this project are documented in this file. The format foll
 Work on the branch after the `0.2.0` entry below. The version files stay at `0.2.0`; whether this work ships in `0.2.0` or in a later release is a maintainer decision (nothing is tagged or published).
 
 ### Added
+- Mathematical UI/UX design token system (`tokens.css`) implementing an 8pt spatial grid, Major Third typography, OKLCH color space with APCA contrast, and damped harmonic oscillator motion physics.
+- Real-time client telemetry engine in `app.js` with `HardwareTelemetryPoller` bound to `/api/devices` and `StreamTelemetryTracker` for exact microsecond TTFT, TPOT, and live TPS accounting.
+- Stage record `docs/delivery/stages/UI-01/STAGE.md` and PlantUML telemetry architecture sequence diagram `uml/webui_telemetry_flow.puml`.
+
+### Changed
+- WebUI template (`index.html`) overhauled: eradicated all unverified claims (`1.86x Active`, static `5W NPU`, `Proof M135 Cloud ROI`), replaced with dynamic header chips and live stage telemetry.
+
+### Added
 - `quick_v1` benchmark result for DeepSeek-R1-1.5B (1 warmup + 5 timed runs via `/v1/messages` API);
   result file: `docs/benchmarks/results/llm_deepseek-r1-1.5b_20261031T041751Z.quick.json`
 - Mean GPU decode throughput for Qwen-2.5-1.5B INT4 published in README table (40.44 tok/s),

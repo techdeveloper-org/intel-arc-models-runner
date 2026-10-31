@@ -1,0 +1,58 @@
+@startuml webui_telemetry_flow
+!theme plain
+autonumber
+skinparam backgroundColor #0E131F
+skinparam handwritten false
+skinparam sequenceMessageAlign center
+skinparam defaultFontColor #F8FAFC
+skinparam ArrowColor #00C7FD
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+box "Client Browser (Modern UI Engine)" #141B2D
+participant "Browser DOM" as DOM
+participant "HardwareTelemetryPoller" as Poller
+participant "StreamTelemetryTracker" as Tracker
+end box
+
+box "Intel Arc Models Runner Daemon (:11434)" #1A2238
+participant "FastAPI Gateway" as API
+participant "DeviceDetector / Sysman" as Sysman
+participant "Inference Worker" as Worker
+end box
+
+== 1. Asynchronous Silicon Heartbeat (Every 3000ms) ==
+Poller -> API: GET /api/devices
+activate API
+API -> Sysman: detect_topology()
+activate Sysman
+Sysman --> API: DeviceSummary (GPU Name, USM, NPU Boost)
+deactivate Sysman
+API --> Poller: 200 OK (JSON Topology)
+deactivate API
+Poller -> DOM: Update #header-device-chip, #gpu-arch, #npu-gen
+
+== 2. High-Resolution Streaming Chat Inference ==
+DOM -> Tracker: start() [record t_dispatch via performance.now()]
+DOM -> API: POST /api/chat (stream: true)
+activate API
+API -> Worker: dispatch inference
+activate Worker
+Worker --> API: SSE token stream chunk (first token)
+API --> DOM: Chunk 1 payload
+Tracker -> Tracker: onTokenChunk(1) [record t_first_token]
+Tracker -> DOM: Render TTFT = (t_first_token - t_dispatch) ms
+
+loop Token Generation
+    Worker --> API: Next token chunk
+    API --> DOM: Chunk N payload
+    Tracker -> Tracker: onTokenChunk(N)
+    Tracker -> DOM: Render Live TPS & Rolling TPOT (ms/t)
+end
+
+Worker --> API: Stream Finished (done: true)
+deactivate Worker
+API --> DOM: [DONE]
+deactivate API
+Tracker -> DOM: Finalize Generation Metrics & Update Engine Tag
+@enduml
