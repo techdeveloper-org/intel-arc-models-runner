@@ -1,5 +1,7 @@
 """System-wide default constants and execution limits for Intel Arc Models Runner."""
 
+import os
+import re
 from pathlib import Path
 
 DEFAULT_CONTEXT_WINDOW: int = 4096
@@ -32,3 +34,30 @@ LEVEL_ZERO_SUBMISSION_LATENCY_US: float = 2.1
 TIMEOUT_GRACEFUL_SHUTDOWN_S: float = 30.0
 NPU_MAX_PROMPT_LEN: int = 1024
 NPU_MIN_RESPONSE_LEN: int = 128
+CANCEL_JOIN_TIMEOUT_S: float = 30.0
+SHUTDOWN_JOIN_S: float = CANCEL_JOIN_TIMEOUT_S
+GRACEFUL_SHUTDOWN_S: float = 8.0
+GRACEFUL_SHUTDOWN_ENV: str = "ARC_GRACEFUL_SHUTDOWN_S"
+_GRACEFUL_SHUTDOWN_PATTERN = re.compile(r"[1-9][0-9]{0,8}", re.ASCII)
+
+
+def graceful_shutdown_s() -> float:
+    """Read the uvicorn graceful shutdown timeout from ARC_GRACEFUL_SHUTDOWN_S.
+
+    The default of 8 seconds stays below Docker's 10 second stop grace period. A set value
+    must be 1 to 9 ASCII digits with no leading zero, so it is at least 1.
+
+    Returns:
+        float: Timeout in seconds.
+
+    Raises:
+        ArcRunnerError: When the variable is set to anything other than 1-9 ASCII digits >= 1.
+    """
+    value = os.environ.get(GRACEFUL_SHUTDOWN_ENV, "").strip()
+    if not value:
+        return GRACEFUL_SHUTDOWN_S
+    if not _GRACEFUL_SHUTDOWN_PATTERN.fullmatch(value):
+        from arc_runner.core.exceptions import ArcRunnerError
+
+        raise ArcRunnerError(f"{GRACEFUL_SHUTDOWN_ENV} must be 1-9 ASCII digits >= 1, got {value!r}")
+    return float(value)

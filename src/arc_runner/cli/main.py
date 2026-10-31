@@ -19,7 +19,7 @@ from rich.table import Table
 from arc_runner import __version__
 from arc_runner.benchmark.multimodal_runner import MultiModelCoBenchmarker
 from arc_runner.benchmark.runner import BenchmarkRunner
-from arc_runner.core.constants import DEFAULT_HOST, DEFAULT_PORT
+from arc_runner.core.constants import DEFAULT_HOST, DEFAULT_PORT, graceful_shutdown_s
 from arc_runner.core.exceptions import ConfigurationError
 from arc_runner.core.logging import get_logger, setup_logging
 from arc_runner.devices.detector import DeviceDetector
@@ -202,6 +202,7 @@ def run_server(
         port=port,
         log_level="debug" if debug else "info",
         access_log=False,
+        timeout_graceful_shutdown=int(graceful_shutdown_s()),
     )
     server = uvicorn.Server(config)
     server.run()

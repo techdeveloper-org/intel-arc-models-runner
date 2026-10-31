@@ -1702,3 +1702,271 @@ body {
     font-style: italic;
     line-height: 1.4;
 }
+
+
+/* ==========================================================================
+   MODALITY EXTENSIONS: 10/10 ULTRA-DETAILED UI/UX COMPONENTS
+   Derived by ui-ux-mathematics-engineer, ui-ux-designer & dom-video-narrative-engineer
+   ========================================================================== */
+
+/* 1. Silicon Cockpit Circular SVG Gauges */
+.card-body-split {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.gauge-column {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.radial-gauge-svg {
+    filter: drop-shadow(0 0 12px rgba(0, 199, 253, 0.2));
+    transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.radial-gauge-svg circle {
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.metrics-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+/* 2. Studio Two-Column Layout (Golden Ratio Split 38.2% : 61.8%) */
+.studio-two-col {
+    display: flex;
+    gap: var(--space-4);
+    align-items: flex-start;
+}
+
+.control-column {
+    flex: 0 0 38.2%;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.stage-column {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+@media (max-width: 1024px) {
+    .studio-two-col {
+        flex-direction: column;
+    }
+    .control-column {
+        flex: 1 1 100%;
+        width: 100%;
+        min-width: 0;
+    }
+}
+
+/* 3. Media Sub-navigation Bar */
+.media-subnav {
+    display: flex;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-md);
+    padding: 4px;
+    gap: 4px;
+    border: 1px solid var(--border-glass);
+}
+
+.subnav-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.subnav-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.subnav-btn.active {
+    background: linear-gradient(135deg, rgba(0, 199, 253, 0.2) 0%, rgba(0, 113, 197, 0.3) 100%);
+    color: var(--color-accent-arc);
+    border: 1px solid var(--border-focus);
+    box-shadow: 0 0 16px -4px var(--color-accent-arc-glow);
+}
+
+/* 4. Dropzone & Form Controls */
+.dropzone-box {
+    border: 2px dashed var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    text-align: center;
+    background: rgba(255, 255, 255, 0.015);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.dropzone-box:hover {
+    border-color: var(--color-accent-arc);
+    background: rgba(0, 199, 253, 0.04);
+}
+
+.dropzone-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.dropzone-sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.form-row {
+    display: flex;
+    gap: var(--space-3);
+}
+
+.flex-1 {
+    flex: 1;
+}
+
+.w-100 {
+    width: 100%;
+}
+
+.mb-2 { margin-bottom: var(--space-2); }
+.mb-3 { margin-bottom: var(--space-3); }
+.mb-4 { margin-bottom: var(--space-4); }
+
+.input-select {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-family: var(--font-sans);
+}
+
+.input-range {
+    width: 100%;
+    accent-color: var(--color-accent-arc);
+    cursor: pointer;
+}
+
+/* 5. Telemetry Pill Rows */
+.telemetry-pill-row {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.telemetry-pill {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    font-size: 0.75rem;
+}
+
+.pill-label {
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.pill-val {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+/* 6. Viewport Canvas & Output Box */
+.content-output-box {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    min-height: 180px;
+    max-height: 400px;
+    overflow-y: auto;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+}
+
+.audio-player-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+}
+
+.custom-audio-player {
+    outline: none;
+    filter: invert(0.9) hue-rotate(180deg);
+}
+
+.viewport-canvas-container {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+}
+
+.viewport-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: var(--space-4);
+}
+
+.viewport-rendered-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 0 32px -8px rgba(0, 199, 253, 0.3);
+}
+
+.viewport-rendered-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+}
+
+.italic {
+    font-style: italic;
+}

@@ -5,12 +5,14 @@ and hardware telemetry exposition.
 """
 
 from arc_runner._version import __version__
+import asyncio
+from contextlib import asynccontextmanager
 import hmac
 import os
 from pathlib import Path
 import re
 import time
-from typing import Any, Callable, Dict, Optional
+from typing import Any, AsyncIterator, Callable, Dict, Optional
 import uuid
 
 from fastapi import FastAPI, Request, Response
@@ -21,6 +23,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from arc_runner.core.constants import SHUTDOWN_JOIN_S
 from arc_runner.core.exceptions import ArcRunnerError, EngineUnavailableError, ModelLoadError, ModelNotFoundError
 from arc_runner.core.logging import (
     clear_request_context,
@@ -37,10 +40,12 @@ from arc_runner.server.routes_anthropic import router as anthropic_router
 from arc_runner.server.routes_batch import router as batch_router
 from arc_runner.server.routes_embeddings import embeddings_router
 from arc_runner.server.routes_lora import router as lora_router
+from arc_runner.server.routes_media import router as media_router
 from arc_runner.server.routes_ollama import router as ollama_router
 from arc_runner.server.routes_openai import router as openai_router
 from arc_runner.server.routes_studio import router as studio_router
 from arc_runner.server.routes_ui import router as ui_router
+from arc_runner.server.worker import SerialWorker
 from arc_runner.server.security import (
     CORS_ORIGINS_ENV,
     LOCAL_ORIGIN_REGEX,
@@ -150,6 +155,30 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             clear_request_context()
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Own the SerialWorker lifecycle: start it on startup, stop it off the event loop on shutdown.
+
+    Models are unloaded only when the worker thread joined cleanly, so a wedged engine is
+    never touched from another thread.
+
+    Args:
+        app: The application whose state receives ``worker``.
+
+    Yields:
+        None: Control to the running application.
+    """
+    worker = SerialWorker()
+    worker.start()
+    app.state.worker = worker
+    try:
+        yield
+    finally:
+        joined = await asyncio.to_thread(worker.stop, SHUTDOWN_JOIN_S)
+        if joined:
+            app.state.model_manager.unload_all()
+
+
 def create_app(
     model_manager: Optional[ModelManager] = None,
     batch_pipeline: Optional[BatchExecutionPipeline] = None,
@@ -166,6 +195,7 @@ def create_app(
         Configured FastAPI application instance.
     """
     app = FastAPI(
+        lifespan=_lifespan,
         title="Intel Arc Models Runner Daemon",
         description="High-throughput local LLM runner optimized for Intel Arc GPUs and AI Boost NPUs",
         version=__version__,
@@ -239,23 +269,25 @@ def create_app(
         )
 
     @app.api_route("/health", methods=["GET", "HEAD"], include_in_schema=False)
-    async def health(request: Request) -> Dict[str, str]:
+    async def health(request: Request) -> Any:
         """Liveness probe that touches no model, engine or lock.
 
-        Reports the inference worker's state when one is attached to app.state. The route
-        is always open (no API key required) and never blocks the event loop.
+        The route is always open (no API key required) and never blocks the event loop.
+        A busy worker is still healthy; only a wedged worker returns HTTP 503.
 
         Returns:
-            Dict[str, str]: ``{"status": "ok"|"busy"|"wedged"}``.
+            Dict[str, Any]: ``{"status": "ok"|"wedged", "busy": bool, "busy_for_s": float|None}``.
         """
         worker = getattr(request.app.state, "worker", None)
         if worker is None:
-            return {"status": "ok"}
-        if getattr(worker, "is_stopping", False):
-            return {"status": "wedged"}
-        if getattr(worker, "is_busy", False):
-            return {"status": "busy"}
-        return {"status": "ok"}
+            return {"status": "ok", "busy": False, "busy_for_s": None}
+        if getattr(worker, "_wedged", False):
+            return JSONResponse(
+                status_code=503,
+                content={"status": "wedged", "busy": False, "busy_for_s": None},
+            )
+        busy_for_s = getattr(worker, "busy_for_s", None)
+        return {"status": "ok", "busy": busy_for_s is not None, "busy_for_s": busy_for_s}
 
     @app.get("/api/devices")
     async def get_devices() -> Dict[str, Any]:
@@ -278,6 +310,7 @@ def create_app(
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     app.include_router(ui_router)
+    app.include_router(media_router)
     app.include_router(embeddings_router)
     app.include_router(lora_router)
     app.include_router(batch_router)
@@ -292,6 +325,8 @@ def create_app(
     for ui_path in (
         "/cockpit",
         "/chat",
+        "/audio",
+        "/vision",
         "/models/ollama",
         "/models/hub",
         "/benchmarks",

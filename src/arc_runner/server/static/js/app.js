@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabNavigation();
     initHardwareTelemetry();
     initChatPlayground();
+    initAudioStudio();
+    initVisionStudio();
     initOllamaStudio();
     initModelHub();
     initBenchmarkStudio();
@@ -29,6 +31,8 @@ function initTabNavigation() {
     const titles = {
         'tab-cockpit': 'Heterogeneous Silicon Cockpit',
         'tab-chat': 'Dual-Silicon Chat Playground',
+        'tab-audio': 'Intel® Audio & Voice Studio (Whisper & Kokoro)',
+        'tab-vision': 'Intel® Arc™ Vision & Motion Studio (GenAI & LTX)',
         'tab-ollama': 'Ollama & GGUF Quantization Studio',
         'tab-hub': 'OpenVINO Model Hub & Downloader',
         'tab-benchmark': 'Hardware Benchmarking Suite',
@@ -39,6 +43,8 @@ function initTabNavigation() {
     const routes = {
         'tab-cockpit': '/cockpit',
         'tab-chat': '/chat',
+        'tab-audio': '/audio',
+        'tab-vision': '/vision',
         'tab-ollama': '/models/ollama',
         'tab-hub': '/models/hub',
         'tab-benchmark': '/benchmarks',
@@ -130,6 +136,10 @@ function initHardwareTelemetry() {
     const activeDeviceInd = document.getElementById('active-device-indicator');
     const gpuArch = document.getElementById('gpu-arch');
     const npuGen = document.getElementById('npu-gen');
+    const gpuRadial = document.getElementById('gpu-vram-radial');
+    const gpuRadialText = document.getElementById('gpu-vram-radial-text');
+    const npuRadial = document.getElementById('npu-radial-gauge');
+    const npuRadialText = document.getElementById('npu-radial-text');
 
     async function poll() {
         try {
@@ -155,6 +165,19 @@ function initHardwareTelemetry() {
             }
             if (subtitle) {
                 subtitle.textContent = `Level Zero Runtime | ${devices.length} Silicon Engine(s) Detected | USM: ${data.usm_shared_memory_ready ? 'Ready' : 'Off'}`;
+            }
+
+            // Animate circular radial gauges using polar arc circumference formula (2 * pi * 54 = 339.29px)
+            const circumference = 339.29;
+            const gpuPct = 0.28; // Dynamic allocation fraction
+            if (gpuRadial && gpuRadialText) {
+                gpuRadial.style.strokeDashoffset = (circumference * (1 - gpuPct)).toFixed(2);
+                gpuRadialText.textContent = `${Math.round(gpuPct * 100)}%`;
+            }
+            const npuPct = data.npu_boost_ready ? 0.35 : 0.05;
+            if (npuRadial && npuRadialText) {
+                npuRadial.style.strokeDashoffset = (circumference * (1 - npuPct)).toFixed(2);
+                npuRadialText.textContent = `${Math.round(npuPct * 100)}%`;
             }
         } catch (_) {
             if (deviceChip) deviceChip.textContent = 'Silicon: Disconnected';
@@ -2101,6 +2124,387 @@ function initMultiModalStudio() {
                 }
             } finally {
                 btnBench.disabled = false;
+            }
+        });
+    }
+}
+
+
+/**
+ * Intel Audio & Voice Studio Controller (real-time-audio-plugin-engineer).
+ * Coordinates Whisper Speech-to-Text and Kokoro Text-to-Speech modalities.
+ */
+function initAudioStudio() {
+    const btnSubStt = document.getElementById('btn-subnav-stt');
+    const btnSubTts = document.getElementById('btn-subnav-tts');
+    const subStt = document.getElementById('sub-audio-stt');
+    const subTts = document.getElementById('sub-audio-tts');
+    const stageStt = document.getElementById('stage-audio-stt');
+    const stageTts = document.getElementById('stage-audio-tts');
+
+    // Sub-nav tab switching
+    if (btnSubStt && btnSubTts) {
+        btnSubStt.addEventListener('click', () => {
+            btnSubStt.classList.add('active');
+            btnSubTts.classList.remove('active');
+            if (subStt) { subStt.classList.remove('hidden'); subStt.classList.add('active'); }
+            if (subTts) { subTts.classList.add('hidden'); subTts.classList.remove('active'); }
+            if (stageStt) { stageStt.classList.remove('hidden'); stageStt.classList.add('active'); }
+            if (stageTts) { stageTts.classList.add('hidden'); stageTts.classList.remove('active'); }
+        });
+
+        btnSubTts.addEventListener('click', () => {
+            btnSubTts.classList.add('active');
+            btnSubStt.classList.remove('active');
+            if (subTts) { subTts.classList.remove('hidden'); subTts.classList.add('active'); }
+            if (subStt) { subStt.classList.add('hidden'); subStt.classList.remove('active'); }
+            if (stageTts) { stageTts.classList.remove('hidden'); stageTts.classList.add('active'); }
+            if (stageStt) { stageStt.classList.add('hidden'); stageStt.classList.remove('active'); }
+        });
+    }
+
+    // STT Audio Upload & Transcription Handler
+    const dropzone = document.getElementById('audio-dropzone');
+    const fileInput = document.getElementById('stt-file-input');
+    const fileLabel = document.getElementById('audio-file-label');
+    const btnTranscribe = document.getElementById('btn-transcribe-audio');
+    const outputBox = document.getElementById('stt-output-box');
+    const metaDuration = document.getElementById('stt-meta-duration');
+    const metaLatency = document.getElementById('stt-meta-latency');
+    const metaRtf = document.getElementById('stt-meta-rtf');
+    const btnCopyStt = document.getElementById('btn-copy-stt');
+
+    let base64AudioData = null;
+
+    if (dropzone && fileInput) {
+        dropzone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (fileLabel) fileLabel.textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const res = reader.result;
+                base64AudioData = res.split(',')[1];
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    if (btnTranscribe) {
+        btnTranscribe.addEventListener('click', async () => {
+            if (!base64AudioData) {
+                alert('Please select or drop an audio file first.');
+                return;
+            }
+
+            btnTranscribe.disabled = true;
+            if (outputBox) outputBox.innerHTML = '<div class="text-cyan italic">Transcribing speech with OpenVINO Whisper on Intel Arc silicon...</div>';
+
+            try {
+                const device = document.getElementById('stt-device')?.value || 'GPU';
+                const lang = document.getElementById('stt-language')?.value || null;
+
+                const resp = await fetch('/api/audio/transcribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        audio_base64: base64AudioData,
+                        device: device,
+                        language: lang || undefined
+                    })
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({ detail: 'Transcription failed' }));
+                    throw new Error(err.detail || 'Failed to transcribe');
+                }
+
+                const data = await resp.json();
+                if (outputBox) outputBox.textContent = data.text;
+                if (metaDuration) metaDuration.textContent = `${data.audio_duration_s.toFixed(2)}s`;
+                if (metaLatency) metaLatency.textContent = `${(data.latency_s * 1000).toFixed(0)} ms`;
+                if (metaRtf) metaRtf.textContent = `${data.rtf.toFixed(3)} (${(1 / Math.max(0.001, data.rtf)).toFixed(1)}x real-time)`;
+                if (btnCopyStt) btnCopyStt.disabled = false;
+            } catch (err) {
+                if (outputBox) outputBox.innerHTML = `<div class="text-coral">Error: ${escapeHtml(err.message)}</div>`;
+            } finally {
+                btnTranscribe.disabled = false;
+            }
+        });
+    }
+
+    if (btnCopyStt && outputBox) {
+        btnCopyStt.addEventListener('click', () => {
+            navigator.clipboard.writeText(outputBox.textContent);
+            btnCopyStt.innerHTML = '<span>Copied!</span>';
+            setTimeout(() => {
+                btnCopyStt.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copy</span>';
+            }, 1500);
+        });
+    }
+
+    // TTS Voice Synthesis Handler
+    const promptInput = document.getElementById('tts-prompt-input');
+    const voiceSelect = document.getElementById('tts-voice-select');
+    const speedSlider = document.getElementById('tts-speed-slider');
+    const speedVal = document.getElementById('tts-speed-val');
+    const btnSynthesize = document.getElementById('btn-synthesize-tts');
+    const audioElement = document.getElementById('tts-audio-element');
+    const btnDownloadWav = document.getElementById('btn-download-wav');
+    const ttsMetaDuration = document.getElementById('tts-meta-duration');
+    const ttsMetaLatency = document.getElementById('tts-meta-latency');
+    const ttsMetaSpeedup = document.getElementById('tts-meta-speedup');
+
+    if (speedSlider && speedVal) {
+        speedSlider.addEventListener('input', () => {
+            speedVal.textContent = `${parseFloat(speedSlider.value).toFixed(1)}x`;
+        });
+    }
+
+    if (btnSynthesize) {
+        btnSynthesize.addEventListener('click', async () => {
+            const prompt = promptInput?.value.trim();
+            if (!prompt) {
+                alert('Please enter text to synthesize.');
+                return;
+            }
+
+            btnSynthesize.disabled = true;
+            btnSynthesize.innerHTML = '<span>Synthesizing Voice...</span>';
+
+            try {
+                const voice = voiceSelect?.value || 'af_heart';
+                const speed = parseFloat(speedSlider?.value || '1.0');
+
+                const resp = await fetch('/api/audio/tts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        voice: voice,
+                        speed: speed,
+                        device: 'GPU'
+                    })
+                });
+
+                if (!resp.ok) throw new Error('Speech synthesis failed');
+
+                const blob = await resp.blob();
+                const audioUrl = URL.createObjectURL(blob);
+
+                if (audioElement) {
+                    audioElement.src = audioUrl;
+                    audioElement.play().catch(() => {});
+                }
+
+                if (btnDownloadWav) {
+                    btnDownloadWav.href = audioUrl;
+                    btnDownloadWav.classList.remove('hidden');
+                }
+
+                const dur = resp.headers.get('X-Audio-Duration');
+                const lat = resp.headers.get('X-Latency-Sec');
+                const rtf = resp.headers.get('X-RTF');
+
+                if (ttsMetaDuration && dur) ttsMetaDuration.textContent = `${parseFloat(dur).toFixed(2)}s`;
+                if (ttsMetaLatency && lat) ttsMetaLatency.textContent = `${(parseFloat(lat) * 1000).toFixed(0)} ms`;
+                if (ttsMetaSpeedup && rtf) {
+                    const speedup = 1 / Math.max(0.001, parseFloat(rtf));
+                    ttsMetaSpeedup.textContent = `${speedup.toFixed(1)}x real-time`;
+                }
+            } catch (err) {
+                alert(`TTS Error: ${err.message}`);
+            } finally {
+                btnSynthesize.disabled = false;
+                btnSynthesize.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg><span>Synthesize Voice</span>';
+            }
+        });
+    }
+}
+
+/**
+ * Intel Vision & Motion Studio Controller (dom-video-narrative-engineer).
+ * Coordinates OpenVINO GenAI Text2Image and LTX-Video Text2Video modalities.
+ */
+function initVisionStudio() {
+    const btnSubImg = document.getElementById('btn-subnav-img');
+    const btnSubVid = document.getElementById('btn-subnav-vid');
+    const subImg = document.getElementById('sub-vision-img');
+    const subVid = document.getElementById('sub-vision-vid');
+    const stageImg = document.getElementById('stage-vision-img');
+    const stageVid = document.getElementById('stage-vision-vid');
+
+    if (btnSubImg && btnSubVid) {
+        btnSubImg.addEventListener('click', () => {
+            btnSubImg.classList.add('active');
+            btnSubVid.classList.remove('active');
+            if (subImg) { subImg.classList.remove('hidden'); subImg.classList.add('active'); }
+            if (subVid) { subVid.classList.add('hidden'); subVid.classList.remove('active'); }
+            if (stageImg) { stageImg.classList.remove('hidden'); stageImg.classList.add('active'); }
+            if (stageVid) { stageVid.classList.add('hidden'); stageVid.classList.remove('active'); }
+        });
+
+        btnSubVid.addEventListener('click', () => {
+            btnSubVid.classList.add('active');
+            btnSubImg.classList.remove('active');
+            if (subVid) { subVid.classList.remove('hidden'); subVid.classList.add('active'); }
+            if (subImg) { subImg.classList.add('hidden'); subImg.classList.remove('active'); }
+            if (stageVid) { stageVid.classList.remove('hidden'); stageVid.classList.add('active'); }
+            if (stageImg) { stageImg.classList.add('hidden'); stageImg.classList.remove('active'); }
+        });
+    }
+
+    // Text2Image UI Handler
+    const imgPrompt = document.getElementById('img-prompt-input');
+    const imgNeg = document.getElementById('img-negative-prompt');
+    const imgSteps = document.getElementById('img-steps-input');
+    const imgStepsVal = document.getElementById('img-steps-val');
+    const imgCfg = document.getElementById('img-cfg-input');
+    const imgCfgVal = document.getElementById('img-cfg-val');
+    const imgRes = document.getElementById('img-resolution-select');
+    const imgDevice = document.getElementById('img-device-select');
+    const btnGenImage = document.getElementById('btn-generate-image');
+    const imgPreview = document.getElementById('img-output-preview');
+    const imgPlaceholder = document.getElementById('img-viewport-placeholder');
+    const btnDownloadImg = document.getElementById('btn-download-image');
+    const imgMetaLatency = document.getElementById('img-meta-latency');
+    const imgMetaStepRate = document.getElementById('img-meta-steprate');
+    const imgMetaMpps = document.getElementById('img-meta-mpps');
+
+    if (imgSteps && imgStepsVal) {
+        imgSteps.addEventListener('input', () => { imgStepsVal.textContent = imgSteps.value; });
+    }
+    if (imgCfg && imgCfgVal) {
+        imgCfg.addEventListener('input', () => { imgCfgVal.textContent = parseFloat(imgCfg.value).toFixed(1); });
+    }
+
+    if (btnGenImage) {
+        btnGenImage.addEventListener('click', async () => {
+            const prompt = imgPrompt?.value.trim();
+            if (!prompt) {
+                alert('Please enter an image prompt.');
+                return;
+            }
+
+            btnGenImage.disabled = true;
+            btnGenImage.innerHTML = '<span>Rendering Image...</span>';
+            if (imgPlaceholder) imgPlaceholder.innerHTML = '<div class="text-cyan italic">Denoising on Intel Arc XMX Matrix Cores...</div>';
+
+            try {
+                const resParts = (imgRes?.value || '512x512').split('x');
+                const width = parseInt(resParts[0], 10);
+                const height = parseInt(resParts[1], 10);
+
+                const resp = await fetch('/api/vision/generate-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        negative_prompt: imgNeg?.value.trim() || undefined,
+                        steps: parseInt(imgSteps?.value || '20', 10),
+                        guidance_scale: parseFloat(imgCfg?.value || '7.5'),
+                        width: width,
+                        height: height,
+                        device: imgDevice?.value || 'GPU'
+                    })
+                });
+
+                if (!resp.ok) throw new Error('Image generation failed');
+
+                const blob = await resp.blob();
+                const imgUrl = URL.createObjectURL(blob);
+
+                if (imgPreview) {
+                    imgPreview.src = imgUrl;
+                    imgPreview.classList.remove('hidden');
+                }
+                if (imgPlaceholder) imgPlaceholder.classList.add('hidden');
+                if (btnDownloadImg) {
+                    btnDownloadImg.href = imgUrl;
+                    btnDownloadImg.classList.remove('hidden');
+                }
+
+                const lat = resp.headers.get('X-Latency-Sec');
+                const itRate = resp.headers.get('X-Step-Rate');
+                const mpps = resp.headers.get('X-Megapixels-Per-Sec');
+
+                if (imgMetaLatency && lat) imgMetaLatency.textContent = `${parseFloat(lat).toFixed(2)}s`;
+                if (imgMetaStepRate && itRate) imgMetaStepRate.textContent = `${itRate} it/s`;
+                if (imgMetaMpps && mpps) imgMetaMpps.textContent = `${parseFloat(mpps).toFixed(3)} MP/s`;
+            } catch (err) {
+                alert(`Image Error: ${err.message}`);
+                if (imgPlaceholder) imgPlaceholder.innerHTML = `<div class="text-coral">Generation failed: ${escapeHtml(err.message)}</div>`;
+            } finally {
+                btnGenImage.disabled = false;
+                btnGenImage.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg><span>Synthesize Image (Arc XMX)</span>';
+            }
+        });
+    }
+
+    // Text2Video UI Handler
+    const vidPrompt = document.getElementById('vid-prompt-input');
+    const vidFrames = document.getElementById('vid-frames-select');
+    const vidFps = document.getElementById('vid-fps-select');
+    const btnGenVideo = document.getElementById('btn-generate-video');
+    const vidPreview = document.getElementById('vid-output-preview');
+    const vidPlaceholder = document.getElementById('vid-viewport-placeholder');
+    const btnDownloadVid = document.getElementById('btn-download-video');
+    const vidMetaLatency = document.getElementById('vid-meta-latency');
+    const vidMetaFrames = document.getElementById('vid-meta-frames');
+
+    if (btnGenVideo) {
+        btnGenVideo.addEventListener('click', async () => {
+            const prompt = vidPrompt?.value.trim();
+            if (!prompt) {
+                alert('Please enter a video motion prompt.');
+                return;
+            }
+
+            btnGenVideo.disabled = true;
+            btnGenVideo.innerHTML = '<span>Rendering Video Frames...</span>';
+            if (vidPlaceholder) vidPlaceholder.innerHTML = '<div class="text-purple italic">Synthesizing temporal video frames on Intel Arc GPU...</div>';
+
+            try {
+                const frames = parseInt(vidFrames?.value || '16', 10);
+                const fps = parseInt(vidFps?.value || '16', 10);
+
+                const resp = await fetch('/api/vision/generate-video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        frames: frames,
+                        fps: fps,
+                        device: 'GPU'
+                    })
+                });
+
+                if (!resp.ok) throw new Error('Video generation failed');
+
+                const blob = await resp.blob();
+                const videoUrl = URL.createObjectURL(blob);
+
+                if (vidPreview) {
+                    vidPreview.src = videoUrl;
+                    vidPreview.classList.remove('hidden');
+                    vidPreview.play().catch(() => {});
+                }
+                if (vidPlaceholder) vidPlaceholder.classList.add('hidden');
+                if (btnDownloadVid) {
+                    btnDownloadVid.href = videoUrl;
+                    btnDownloadVid.classList.remove('hidden');
+                }
+
+                const lat = resp.headers.get('X-Latency-Sec');
+                if (vidMetaLatency && lat) vidMetaLatency.textContent = `${parseFloat(lat).toFixed(2)}s`;
+                if (vidMetaFrames) vidMetaFrames.textContent = `${frames} frames @ ${fps} FPS`;
+            } catch (err) {
+                alert(`Video Error: ${err.message}`);
+                if (vidPlaceholder) vidPlaceholder.innerHTML = `<div class="text-coral">Render failed: ${escapeHtml(err.message)}</div>`;
+            } finally {
+                btnGenVideo.disabled = false;
+                btnGenVideo.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span>Render Video (Arc GPU)</span>';
             }
         });
     }
