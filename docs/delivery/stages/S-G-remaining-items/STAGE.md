@@ -2,7 +2,7 @@
 doc_id: DOC-SG-STAGE
 title: Slice S-G - remaining technical items
 stage: S-G
-version: 1.12.0
+version: 1.13.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -31,6 +31,8 @@ Gate status: `cloud-green`. Everything that needs Intel silicon, model weights o
 | Plan test list | all 24 named plan tests mapped to repository tests in `TRACEABILITY.md`; added boundary (4 KiB / 64 KiB), 80-layer, lock-refusal, byte-identical-fallback tests and two `@hardware` tests (`ARC_TEST_MODEL_DIR`) |
 | Provenance worklist | `scripts/list_unverified_numbers.py` lists documents with UNVERIFIED banners and their numeric table rows (6 files, ~170 rows) |
 | Library use | `llm-benchmark-analyst` read: its rules target accuracy benchmarks (Wilson CI, McNemar, contamination); nothing in them changed the speed protocol except confirming that evaluation configuration, CI reporting and "no unverified vendor numbers" are already rules here. Other plan agents (`model-capability-profiler`, `gpu-driver-engineer`, `kernel-driver-engineer`, `supply-chain-engineer`, `release-engineering-specialist`, `technical-writer-agent`) were not read |
+| fix(tests) `28101d6` | `test_context_window.py:121` - `ids=[...]` in `@pytest.mark.parametrize`; prevents Windows 32,767-char env-var collection error |
+| fix(scripts,hub) `e2730ce` | 4 pre-existing failures on Windows: UTF-8 encoding in `check_delivery_docs.py` `committed_text()`; `.as_posix()` on all `path.relative_to(REPO_ROOT)` in `check_docs_sync.py` and `list_unverified_numbers.py`; `from __future__ import annotations` + `TYPE_CHECKING` guard in `hub/manager.py`; `hub_mgr.resolve_model_dir(payload.model_id)` replaces broken loop in `server/routes_ui.py` |
 
 ## 2. Results
 Clean-venv run of the CI Linux steps (`pip install -e ".[dev]"`, native build, 800+ non-hardware tests, ring model, docs sync, delivery docs, benchmark validators) passes. The Linux 3.10 job, the Windows job and the new diagrams job have not run on GitHub: the workflow triggers only on `main` pushes and pull requests, and no pull request exists.
@@ -65,3 +67,4 @@ Clean-venv run of the CI Linux steps (`pip install -e ".[dev]"`, native build, 8
 | 1.10.0 | 2026-10-30 | CLI session | WP-06 H-11: AudioEngine._normalize_audio_input raises InvalidAudioFormatError for sampwidth==3 (24-bit WAV) and sampwidth==0 (zero frames); H-10: VisionEngine.generate uses inner daemon thread + unbounded queue, yields first chunk before pipeline returns, joins with TIMEOUT_GRACEFUL_SHUTDOWN_S, raises ENGINE_WEDGED on join expiry; 13 new tests | media correctness | pending |
 | 1.11.0 | 2026-10-31 | CLI session | WP-14: ModelConfigError (HTTP 400, MODEL_CONFIG_ERROR); stop_strings Pydantic validator rejects empty/whitespace; cross-chunk stop string accumulator; worker_target captures pipeline result; perf_metrics.get_num_generated_tokens() replaces re-tokenization (is_estimate=False when available); is_estimate param added to telemetry_from_stream(); 16 new tests | engine-side token accounting | c5d5235 |
 | 1.12.0 | 2026-10-31 | CLI session | WP-15: PEP 562 __getattr__ in arc_runner/__init__.py defers all engine.*, quant.*, hub.*, server.*, benchmark.* imports until first attribute access; __dir__ returns complete __all__; unknown names raise AttributeError; 16 new tests | lazy imports -- version cold-start fix | 545370c |
+| 1.13.0 | 2026-10-31 | CLI session | Windows test-infrastructure fixes (28101d6, e2730ce) | fix env-var limit and 4 pre-existing test failures | 28101d6, e2730ce |

@@ -45,6 +45,8 @@ While mainstream local LLM tools like Ollama were designed with a CUDA-first and
 - **Autonomous Multi-Modal Media Studio**: Orchestrates LLM Director, Kokoro Voiceover, and SDXL / LTX-Video Visuals with zero-copy memory handoff and closed-loop pacing convergence.
 - **Drop-in Ollama & OpenAI Compatibility**: Compatible with `/api/generate`, `/api/chat`, `/api/tags`, and `/v1/chat/completions` for instant use with Open WebUI, Continue.dev, Cursor, and LangChain.
 - **Zero-Bloat Standalone Runtime**: Built directly on OpenVINO GenAI C++ and Level Zero runtimes; no 5 GB oneAPI SDK installation or heavy PyTorch environments required.
+- **Accurate Token Accounting**: Measured token counts via the OpenVINO pipeline tokenizer; `is_estimate` flag in telemetry distinguishes measured from estimated values, with no invented numbers (WP-14).
+- **Fast Cold-Start**: PEP 562 lazy imports via `__getattr__` in `arc_runner/__init__.py` defer heavy OpenVINO/numpy loads to first use, reducing import latency without breaking existing import paths (WP-15).
 
 ---
 
