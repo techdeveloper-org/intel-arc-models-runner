@@ -2,7 +2,7 @@
 doc_id: DOC-RESUME
 title: Resume checkpoint
 stage: all
-version: 1.19.0
+version: 1.20.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -24,7 +24,7 @@ Completed (commit `090e4ab`, issue #49):
 - README performance table updated with both measured values + source footnotes.
 - Also completed prior session's transpiler fix (#47, `bd5377e`): removed legacy `<meta_data><bin_file>` XML element that OpenVINO 2026.4.1.0 rejects; added per-tensor bin offset/size tracking.
 
-Next: WP-05 speculative decode engine (WP-03 serial worker and WP-04 continuous batching scheduler completed and verified).
+Next: WP-05 speculative decode engine (WP-03 serial worker, WP-04 continuous batching scheduler, and WP-06 pybind11 native binding ABI v4 completed and verified).
 
 ## State (2026-10-30)
 
@@ -143,3 +143,4 @@ python scripts/validate_bench_json.py
 | 1.17.0 | 2026-10-31 | CLI session | Add Pending Items Tracker (PT-01..PT-09): benchmark inconsistencies, missing hardware tests, unverified gates, WP-03 not implemented | surfaced during session review so future sessions can track without re-deriving | — |
 | 1.18.0 | 2026-10-31 | CLI session | Mark PT-01 (WP-03) done; link to stages/PERF-WP03/STAGE.md | WP-03 serial inference worker delivered | pending |
 | 1.19.0 | 2026-10-31 | CLI session | Mark WP-04 done; link to stages/PERF-WP04/STAGE.md | WP-04 continuous batching scheduler delivered | pending |
+| 1.20.0 | 2026-10-31 | CLI session | Mark WP-06 done; link to stages/PERF-WP06/STAGE.md | WP-06 pybind11 native binding ABI v4 delivered | pending |

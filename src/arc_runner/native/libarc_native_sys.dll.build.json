@@ -1,5 +1,5 @@
 {
-  "abi_version": 3,
+  "abi_version": 4,
   "compiler": "gcc.EXE (x86_64-posix-seh-rev0, Built by MinGW-Builds project) 15.2.0",
   "flags": {
     "arc_flash_stream_mmap.c": [

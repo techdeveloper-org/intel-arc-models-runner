@@ -16,7 +16,7 @@ import sys
 import tempfile
 from typing import Dict, List, Optional
 
-ABI_VERSION = 3
+ABI_VERSION = 4
 BUILD_INFO_SUFFIX = ".build.json"
 MMAP_SOURCE = "arc_flash_stream_mmap.c"
 LEVEL_ZERO_SOURCE = "arc_level_zero_bridge.c"

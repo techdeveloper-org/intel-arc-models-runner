@@ -32,8 +32,9 @@ uml/, drawio/      generated diagrams (13 types each)
 | SerialWorker | `src/arc_runner/server/worker.py` | FIFO daemon thread serialising engine calls [v0.2.1] <!-- Introduced in v0.2.1 --> |
 | AsyncTokenStream | `src/arc_runner/server/worker.py` | Ordered sync→async bridge for streaming tokens [v0.2.1] <!-- Introduced in v0.2.1 --> |
 | ContinuousBatchingScheduler | `src/arc_runner/engine/cb_scheduler.py` | Dynamic iteration-level batching wrapping ContinuousBatchingPipeline [v0.2.2] <!-- Introduced in v0.2.2 --> |
+| ArcMmapContext | `src/arc_runner/native/bridge.py` | RAII memory-mapped file context manager with pybind11 C++ binding [v0.2.3] <!-- Introduced in v0.2.3 --> |
 
-Native layer: Python `NativeMemoryEngine` -> ctypes -> `libarc_native_sys` (ABI version 3, sidecar hash checked on load) -> OS mapping. Missing, disabled (`ARC_NATIVE_DISABLE=1`) or stale libraries fall back to the Python read path. Level Zero is loaded at run time and always selects a GPU device, never the NPU.
+Native layer: Modern C++20 pybind11 module `arc_native_sys` (ABI version 4, sidecar hash checked on load) exposing `ArcMmapContext` and `TensorPtrMap`, with fallback to ctypes/Python path. Missing, disabled (`ARC_NATIVE_DISABLE=1`) or stale libraries fall back to the Python read path. Level Zero is loaded at run time and always selects a GPU device, never the NPU.
 
 Delivery records: `docs/delivery/` (RESUME.md is the session entry point; INDEX.md, DECISION_LOG.md, TRACEABILITY.md, stages/). The long-range plan is `docs/plans/MASTER_PLAN_v4.md`.
 

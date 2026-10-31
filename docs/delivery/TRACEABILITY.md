@@ -2,7 +2,7 @@
 doc_id: DOC-TRACEABILITY
 title: Finding to requirement to code to test traceability
 stage: all
-version: 1.4.0
+version: 1.5.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -66,6 +66,7 @@ Findings are defined in `docs/plans/MASTER_PLAN_v4.md` sections 2, 19.2 and 21.2
 | H9 benchmark publication | FR-010 | `scripts/validate_bench_json.py` line 27, `tests/test_bench_results.py::TestQuickBenchSchema`, `docs/benchmarks/results/llm_*.json`, `README.md` benchmark table | `TestQuickBenchSchema` (13 tests); `scripts/validate_bench_json.py --check`; manual: README table matches result file values | S-G | closed |
 | Event-loop stall & stream token loss | FR-011 | `SerialWorker`, `AsyncTokenStream` | `tests/test_serial_worker.py` | PERF-WP03 | closed |
 | B=1 sequential decode underutilization | FR-012 | `ContinuousBatchingScheduler` | `tests/test_cb_scheduler.py` | PERF-WP04 | closed |
+| C8 pybind11 native binding ABI v4 | FR-013 | `ArcMmapContext`, `TensorPtrMap` | `tests/test_pybind_bridge.py` | PERF-WP06 | closed |
 
 ## Plan test-list audit (S-G)
 Plan test names were replaced by `test_<function>_<scenario>_<expected>` names; every planned test maps to a repository test or is marked hardware:
@@ -99,3 +100,4 @@ Plan test names were replaced by `test_<function>_<scenario>_<expected>` names; 
 | 1.2.0 | 2026-10-31 | CLI session | H9 benchmark publication row added (FR-010, issue #49) | traceability for quick_v1 benchmark protocol and TestQuickBenchSchema | next revision |
 | 1.3.0 | 2026-10-31 | CLI session | WP-03 SerialWorker row added (FR-011, issue #51) | traceability for event-loop stall elimination and test_serial_worker.py | pending |
 | 1.4.0 | 2026-10-31 | CLI session | WP-04 ContinuousBatchingScheduler row added (FR-012, issue #52) | traceability for continuous batching and test_cb_scheduler.py | pending |
+| 1.5.0 | 2026-10-31 | CLI session | WP-06 pybind11 native binding row added (FR-013, issue #53) | traceability for pybind11 native binding ABI v4 and test_pybind_bridge.py | pending |

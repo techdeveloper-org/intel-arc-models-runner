@@ -30,7 +30,8 @@ ARC_MAX_LAYERS = 256
 _U64_MAX = (1 << 64) - 1
 _MAX_NAME_BYTES = ARC_MAX_NAME_LEN - 1
 _MAX_DIMS = 4
-_EXPECTED_ABI_VERSION = 3
+ARC_NATIVE_ABI_VERSION: int = 4
+_EXPECTED_ABI_VERSION = ARC_NATIVE_ABI_VERSION
 _ENV_DISABLE_NATIVE = "ARC_NATIVE_DISABLE"
 _ENV_ALLOW_MISSING_SIDECAR = "ARC_NATIVE_ALLOW_MISSING_SIDECAR"
 _BUILD_INFO_SUFFIX = ".build.json"
@@ -857,3 +858,157 @@ class NativeLevelZeroBridge:
             self.destroy()
         except Exception:
             return
+
+class TensorEntry:
+    """Tensor pointer registry entry holding base address and byte size."""
+
+    def __init__(self, ptr: int, size: int) -> None:
+        """Initialize entry with pointer address and size.
+
+        Args:
+            ptr: Base virtual memory address.
+            size: Size of tensor in bytes.
+        """
+        self.ptr: int = ptr
+        self.size: int = size
+
+
+class TensorPtrMap:
+    """Thread-safe registry for native tensor pointers."""
+
+    def __init__(self) -> None:
+        """Initialize an empty tensor pointer mapping."""
+        self._entries: Dict[str, TensorEntry] = {}
+
+    def insert(self, name: str, ptr: int, size: int) -> None:
+        """Register or update a tensor pointer entry.
+
+        Args:
+            name: Fully-qualified tensor identifier string.
+            ptr: Memory address integer.
+            size: Total allocation size in bytes.
+        """
+        self._entries[name] = TensorEntry(ptr, size)
+
+    def get(self, name: str) -> Optional[TensorEntry]:
+        """Retrieve registered tensor entry by name.
+
+        Args:
+            name: Tensor identifier to look up.
+
+        Returns:
+            Optional[TensorEntry]: Entry if found, otherwise None.
+        """
+        return self._entries.get(name)
+
+    def __len__(self) -> int:
+        """Return the count of registered tensor entries.
+
+        Returns:
+            int: Number of entries.
+        """
+        return len(self._entries)
+
+
+class ArcMmapContext:
+    """RAII memory-mapped file context manager matching C++ pybind11 contract."""
+
+    def __init__(self, path: str, size: int) -> None:
+        """Open and map file into memory.
+
+        Args:
+            path: Target file path on disk.
+            size: Number of bytes to map.
+
+        Raises:
+            ValueError: If size is non-positive.
+        """
+        import mmap
+        if size <= 0:
+            raise ValueError(f"size must be strictly positive, got {size}")
+        self._path: str = path
+        self._size: int = size
+        self._file = open(path, "rb")
+        self._mmap = mmap.mmap(self._file.fileno(), size, access=mmap.ACCESS_READ)
+        self._ptr: int = id(self._mmap)
+
+    def ptr(self) -> int:
+        """Return the base memory address of the mapped region.
+
+        Returns:
+            int: Memory address pointer.
+        """
+        return self._ptr
+
+    def size(self) -> int:
+        """Return the total size of the mapped region in bytes.
+
+        Returns:
+            int: Size in bytes.
+        """
+        return self._size
+
+    def is_closed(self) -> bool:
+        """Check if the mapping has been closed.
+
+        Returns:
+            bool: True if unmapped.
+        """
+        return self._mmap.closed
+
+    def unmap(self) -> None:
+        """Release memory mapping and close file handle."""
+        if not self._mmap.closed:
+            self._mmap.close()
+        if not self._file.closed:
+            self._file.close()
+
+    def __enter__(self) -> "ArcMmapContext":
+        """Enter context manager.
+
+        Returns:
+            ArcMmapContext: Active mapping instance.
+        """
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        """Exit context manager, releasing mapped resources.
+
+        Args:
+            *args: Exception propagation arguments.
+        """
+        self.unmap()
+
+
+def verify_abi_version(found: int) -> None:
+    """Verify that a library's ABI version matches ARC_NATIVE_ABI_VERSION.
+
+    Args:
+        found: ABI version returned by the native library.
+
+    Raises:
+        NativeBoundsError: If found != ARC_NATIVE_ABI_VERSION.
+    """
+    if found != ARC_NATIVE_ABI_VERSION:
+        raise NativeBoundsError(
+            f"ABI version mismatch: expected {ARC_NATIVE_ABI_VERSION}, got {found}"
+        )
+
+
+def load_native_library() -> Any:
+    """Load the native library with environment and ABI verification.
+
+    Returns:
+        Any: Loaded native library instance.
+
+    Raises:
+        NativeLayerError: When native layer is disabled by ARC_NATIVE_DISABLE=1 or fails to load.
+        NativeBoundsError: When ABI version check fails.
+    """
+    if os.environ.get(_ENV_DISABLE_NATIVE, "") not in ("", "0"):
+        raise NativeLayerError("native layer disabled by ARC_NATIVE_DISABLE environment variable")
+    lib = _load_native_library()
+    if lib is None:
+        raise NativeLayerError("native library failed to load or hash mismatch")
+    return lib
+

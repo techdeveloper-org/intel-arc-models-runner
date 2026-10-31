@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-31
+
+### Added
+- feat(native): WP-06 pybind11 native binding (ABI v4) — Modern C++20 pybind11 module (`arc_native_pybind.h`, `arc_native_pybind.cpp`) providing RAII memory-mapped file context manager `ArcMmapContext` (`__enter__`, `__exit__`, `ptr()`, `size()`, `unmap()`); high-performance tensor pointer map `TensorPtrMap`; ABI version bumped to 4 across headers, build configuration, and Python bridge; strict fallback with `NativeLayerError` when `ARC_NATIVE_DISABLE=1` and `NativeBoundsError` on stale ABI version.
+
+
 ## [0.2.2] - 2026-10-31
 
 ### Added

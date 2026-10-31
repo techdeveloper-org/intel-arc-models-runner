@@ -393,6 +393,7 @@ flowchart TD
 
 - **SerialWorker** (`src/arc_runner/server/worker.py`): single daemon thread draining a SimpleQueue, eliminating event-loop stalls proven at 2077ms.
 - **ContinuousBatchingScheduler** (`src/arc_runner/engine/cb_scheduler.py`): iteration-level batching wrapper over OpenVINO GenAI with dynamic concurrency capping.
+- **ArcMmapContext & pybind11 ABI v4** (`src/arc_runner/native/bridge.py`): C++ RAII memory-mapped context manager and fast tensor descriptor index.
 
 👉 *For detailed subsystem breakdowns, Multi-LoRA hot-swapping, and UML diagrams, see: [**Architecture & Subsystem Deep Dive**](docs/architecture.md)*
 
@@ -405,9 +406,10 @@ flowchart TD
 ### Architecture Overview
 
 ```
-Python Layer  →  ctypes FFI bridge  →  libarc_native_sys.dll
-                                         ├─ arc_flash_stream_mmap.c   (Win32 zero-copy mmap)
-                                         └─ arc_level_zero_bridge.c   (Level Zero USM DMA)
+Python Layer  →  pybind11 C++20 / ctypes FFI bridge  →  libarc_native_sys.dll (ABI v4)
+                                                        ├─ arc_native_pybind.cpp    (pybind11 RAII context & tensor map)
+                                                        ├─ arc_flash_stream_mmap.c  (Win32 zero-copy mmap)
+                                                        └─ arc_level_zero_bridge.c  (Level Zero USM DMA)
 ```
 
 ### Key Capabilities

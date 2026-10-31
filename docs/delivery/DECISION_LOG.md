@@ -2,7 +2,7 @@
 doc_id: DOC-DECISION-LOG
 title: Decision log
 stage: all
-version: 1.16.0
+version: 1.17.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -119,6 +119,7 @@ Append-only. A changed decision gets a new entry that names the one it supersede
 | DL-101 | _admit lock mutual exclusion scope | held only for submit flag-check+put and stop flag-set+put | lock held across jobs | PERF-WP03 |
 | DL-102 | LoadPhaseError lifecycle exception mapping | allows routes to distinguish engine-load 404/500 from execution errors | unlabelled exception propagation | PERF-WP03 |
 | DL-103 | ContinuousBatchingScheduler wrapping OpenVINO GenAI pipeline | thread-safe iteration batching with progress counter and dynamic concurrency cap | bare unbatched engine calls | PERF-WP04 |
+| DL-104 | pybind11 native binding ABI v4 with RAII ArcMmapContext | Replace manual ctypes struct marshalling with C++20 pybind11 module; deterministic RAII unmapping; high-performance tensor pointer map; strict ABI v4 enforcement | continue manual ctypes structs without RAII | PERF-WP06 |
 
 ## ADR detail: performance programme (DL-061..DL-096)
 
@@ -489,6 +490,14 @@ Status: DL-061..DL-070 were proposed on 2026-10-29 as part of plan section 23 an
 - Reversibility: high.
 - Source: WP-04 CC-1..CC-4; src/arc_runner/engine/cb_scheduler.py.
 
+### DL-104 pybind11 native binding ABI v4 with RAII ArcMmapContext
+- Date: 2026-10-31
+- Context: The ctypes bridge required manual struct layout matching, manual pointer offset calculations, and lacked C++ RAII resource lifetime management.
+- Decision: Introduce modern C++20 pybind11 module (`arc_native_pybind.h`, `arc_native_pybind.cpp`) exposing `ArcMmapContext` and `TensorPtrMap`, bump ABI version to 4 uniformly across C++ headers, Python bridge, and build configuration, and enforce strict error raising on stale ABI (`NativeBoundsError`) or disabled environment (`NativeLayerError`).
+- Consequences: Eliminates ctypes struct alignment drift; ensures deterministic unmapping on context exit; provides fast C++ pointer lookup for WP-05 speculative decoding.
+- Reversibility: medium.
+- Source: WP-06 CC-1..CC-5; `src/arc_runner/native/bridge.py`, `src/arc_runner/native/arc_native_pybind.h`.
+
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
 |:--|:--|:--|:--|:--|:--|
@@ -509,3 +518,4 @@ Status: DL-061..DL-070 were proposed on 2026-10-29 as part of plan section 23 an
 | 1.14.0 | 2026-10-31 | CLI session | DL-097 and DL-098 added (quick_v1 schema string vs int decision; 5-run quick benchmark protocol decision) | feat(benchmarks): document decisions for issue #49 quick benchmark | next revision |
 | 1.15.0 | 2026-10-31 | CLI session | DL-099..DL-102 added for WP-03 serial worker | Deliver WP-03 CC-1..CC-4 | pending |
 | 1.16.0 | 2026-10-31 | CLI session | DL-103 added for WP-04 continuous batching scheduler | Deliver WP-04 CC-1..CC-4 | pending |
+| 1.17.0 | 2026-10-31 | CLI session | DL-104 added for WP-06 pybind11 native binding ABI v4 | Deliver WP-06 CC-1..CC-5 | pending |
