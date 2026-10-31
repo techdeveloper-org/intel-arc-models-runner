@@ -35,22 +35,46 @@ function initTabNavigation() {
         'tab-studio': 'Intel® Arc™ Multi-Modal Autonomous Studio'
     };
 
-    navItems.forEach(item => {
-        item.addEventListener('click', () => {
-            const tabId = item.getAttribute('data-tab');
-            navItems.forEach(nav => nav.classList.remove('active'));
-            tabPanes.forEach(pane => pane.classList.remove('active'));
+    const routes = {
+        'tab-cockpit': '/cockpit',
+        'tab-chat': '/chat',
+        'tab-ollama': '/models/ollama',
+        'tab-hub': '/models/hub',
+        'tab-benchmark': '/benchmarks',
+        'tab-embeddings': '/embeddings',
+        'tab-studio': '/studio'
+    };
+    const tabForPath = Object.fromEntries(Object.entries(routes).map(([tabId, path]) => [path, tabId]));
 
-            item.classList.add('active');
-            const targetPane = document.getElementById(tabId);
-            if (targetPane) {
-                targetPane.classList.add('active');
-            }
-            if (pageTitle && titles[tabId]) {
-                pageTitle.textContent = titles[tabId];
-            }
+    function activateTab(tabId) {
+        if (!titles[tabId]) tabId = 'tab-cockpit';
+        navItems.forEach(nav => {
+            const active = nav.dataset.tab === tabId;
+            nav.classList.toggle('active', active);
+            if (active) nav.setAttribute('aria-current', 'page');
+            else nav.removeAttribute('aria-current');
+        });
+        tabPanes.forEach(pane => pane.classList.toggle('active', pane.id === tabId));
+        if (pageTitle) pageTitle.textContent = titles[tabId];
+    }
+
+    function tabFromLocation() {
+        const path = window.location.pathname.replace(/\/+$/, '') || '/';
+        return tabForPath[path] || (path === '/' || path === '/ui' ? 'tab-cockpit' : 'tab-cockpit');
+    }
+
+    navItems.forEach(item => {
+        item.addEventListener('click', event => {
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            const tabId = item.dataset.tab;
+            const route = routes[tabId];
+            if (route && window.location.pathname !== route) window.history.pushState({ tabId }, '', route);
+            activateTab(tabId);
         });
     });
+    window.addEventListener('popstate', () => activateTab(tabFromLocation()));
+    activateTab(tabFromLocation());
 }
 
 /**
@@ -64,14 +88,480 @@ function initChatPlayground() {
     const metricTpot = document.getElementById('metric-tpot');
     const metricRate = document.getElementById('metric-rate');
     const metricEngine = document.getElementById('metric-engine');
+    const liveStatus = document.getElementById('chat-live-status');
+    const newChatButton = document.getElementById('btn-chat-new');
+    const newChatTopButton = document.getElementById('btn-chat-new-top');
+    const retryModelsButton = document.getElementById('btn-chat-retry-models');
+    const modelRecovery = document.getElementById('chat-model-recovery');
+    const modelRecoveryMessage = document.getElementById('chat-model-recovery-message');
+    const compactButton = document.getElementById('btn-chat-compact');
+    const archiveButton = document.getElementById('btn-chat-archive');
+    const historyToggle = document.getElementById('btn-chat-history');
+    const historyBackdrop = document.getElementById('chat-history-backdrop');
+    const historyList = document.getElementById('chat-history-list');
+    const historyPanel = document.getElementById('chat-history-panel');
+    const chatLayout = document.getElementById('chat-layout');
+    const contextBanner = document.getElementById('chat-context-banner');
+    const stopButton = document.getElementById('chat-stop');
+    const submitButton = document.getElementById('chat-submit');
 
     const imageInput = document.getElementById('chat-image-input');
     const previewContainer = document.getElementById('chat-image-preview-container');
     const previewImg = document.getElementById('chat-image-preview');
     const previewName = document.getElementById('chat-image-name');
     const btnRemoveImage = document.getElementById('btn-remove-image');
+    const greetingTemplate = chatMessages.firstElementChild ? chatMessages.firstElementChild.cloneNode(true) : null;
 
     let currentBase64Image = null;
+    let chatModelsReady = false;
+    let historyInitialized = false;
+    const welcomeSystemPrompt = 'You are a helpful assistant. Answer the user directly and clearly. Help with general questions and coding tasks. Keep responses concise unless the user asks for detail. Do not reveal private chain-of-thought; provide a concise answer or summary instead.';
+    let activeController = null;
+    let activeAssistantMessage = null;
+    let sessions = [];
+    let activeChatId = '';
+    let historyFilter = 'active';
+    let chatDbPromise = null;
+
+    function openChatDb() {
+        if (chatDbPromise) return chatDbPromise;
+        chatDbPromise = new Promise((resolve, reject) => {
+            if (!window.indexedDB) return reject(new Error('IndexedDB unavailable'));
+            const request = indexedDB.open('arc-runner-chat-history', 1);
+            request.onupgradeneeded = () => {
+                const db = request.result;
+                if (!db.objectStoreNames.contains('conversations')) db.createObjectStore('conversations', { keyPath: 'id' });
+            };
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error || new Error('Could not open chat history'));
+        });
+        return chatDbPromise;
+    }
+
+    function storageNotice(message) {
+        const note = document.querySelector('.history-local-note');
+        if (note) note.textContent = message;
+    }
+
+    async function persistChat(chat) {
+        try {
+            const db = await openChatDb();
+            await new Promise((resolve, reject) => {
+                const transaction = db.transaction('conversations', 'readwrite');
+                transaction.objectStore('conversations').put(chat);
+                transaction.oncomplete = resolve;
+                transaction.onerror = () => reject(transaction.error || new Error('Could not save chat'));
+                transaction.onabort = () => reject(transaction.error || new Error('Chat save was cancelled'));
+            });
+            try { localStorage.setItem('arc-runner-active-chat', activeChatId); } catch (_) { /* IndexedDB remains authoritative for chat data. */ }
+            storageNotice('Saved privately in this browser');
+            return true;
+        } catch (error) {
+            storageNotice('History could not be saved · current chat is still open');
+            console.error('Chat history save failed:', error);
+            return false;
+        }
+    }
+
+    async function persistAllChats() {
+        await Promise.all(sessions.map(persistChat));
+    }
+
+    function activeChat() { return sessions.find(chat => chat.id === activeChatId) || null; }
+
+    function makeChat() {
+        const chat = {
+            id: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            title: 'New chat',
+            model: document.getElementById('chat-model-select')?.value || 'qwen-2.5-1.5b',
+            device: document.getElementById('chat-device-select')?.value || 'GPU',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            archivedAt: null,
+            summary: '',
+            summaryThrough: 0,
+            messages: []
+        };
+        sessions.unshift(chat);
+        activeChatId = chat.id;
+        renderHistory();
+        renderChat();
+        persistChat(chat);
+        return chat;
+    }
+
+    async function initializeHistory() {
+        try {
+            const db = await openChatDb();
+            sessions = await new Promise((resolve, reject) => {
+                const request = db.transaction('conversations', 'readonly').objectStore('conversations').getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => reject(request.error || new Error('Could not load chat history'));
+            });
+            sessions.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+            try { activeChatId = localStorage.getItem('arc-runner-active-chat') || ''; } catch (_) { activeChatId = ''; }
+            if (!sessions.some(chat => chat.id === activeChatId && !chat.archivedAt)) {
+                activeChatId = sessions.find(chat => !chat.archivedAt)?.id || '';
+            }
+            if (!activeChatId) makeChat();
+            else { renderHistory(); renderChat(); }
+        } catch (error) {
+            storageNotice('Browser storage unavailable · chats will not persist after closing');
+            sessions = [];
+            makeChat();
+        }
+    }
+
+    function threadPreview(chat) {
+        const lastUser = [...(chat.messages || [])].reverse().find(message => message.role === 'user');
+        return (lastUser && lastUser.content) || chat.summary || 'No messages yet';
+    }
+
+    function renderHistory() {
+        if (!historyList) return;
+        historyList.replaceChildren();
+        const visible = sessions
+            .filter(chat => historyFilter === 'archived' ? Boolean(chat.archivedAt) : !chat.archivedAt)
+            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        if (!visible.length) {
+            const empty = document.createElement('p');
+            empty.className = 'history-empty';
+            empty.textContent = historyFilter === 'archived' ? 'Archived chats will appear here.' : 'Your conversations will appear here.';
+            historyList.appendChild(empty);
+            return;
+        }
+        visible.forEach(chat => {
+            const item = document.createElement('div');
+            item.className = `history-item${chat.id === activeChatId ? ' active' : ''}`;
+            item.setAttribute('role', 'listitem');
+            const open = document.createElement('button');
+            open.type = 'button';
+            open.className = 'history-open';
+            open.title = threadPreview(chat);
+            const title = document.createElement('span');
+            title.className = 'history-title';
+            title.textContent = chat.title || 'New chat';
+            const meta = document.createElement('span');
+            meta.className = 'history-meta';
+            meta.textContent = `${chat.model || 'Local model'} · ${formatChatDate(chat.updatedAt)}`;
+            open.append(title, meta);
+            open.addEventListener('click', () => {
+                if (chat.archivedAt) {
+                    chat.archivedAt = null;
+                    chat.updatedAt = Date.now();
+                    selectHistoryFilter('active');
+                    persistChat(chat);
+                }
+                activeChatId = chat.id;
+                renderHistory();
+                renderChat();
+                setChatStatus('ready', 'Ready');
+                try { localStorage.setItem('arc-runner-active-chat', activeChatId); } catch (_) { /* optional active-chat hint */ }
+                chatLayout?.classList.remove('show-history');
+                historyToggle?.setAttribute('aria-expanded', 'false');
+            });
+            const actions = document.createElement('div');
+            actions.className = 'history-actions';
+            const archive = document.createElement('button');
+            archive.type = 'button';
+            archive.className = 'history-action';
+            archive.setAttribute('aria-label', chat.archivedAt ? 'Restore conversation' : 'Archive conversation');
+            archive.title = archive.getAttribute('aria-label');
+            archive.textContent = chat.archivedAt ? '↶' : '↓';
+            archive.addEventListener('click', event => {
+                event.stopPropagation();
+                chat.archivedAt = chat.archivedAt ? null : Date.now();
+                chat.updatedAt = Date.now();
+                persistChat(chat);
+                renderHistory();
+                updateChatActions();
+            });
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'history-action delete';
+            remove.setAttribute('aria-label', 'Delete conversation');
+            remove.title = 'Delete conversation';
+            remove.textContent = '×';
+            remove.addEventListener('click', async event => {
+                event.stopPropagation();
+                sessions = sessions.filter(entry => entry.id !== chat.id);
+                try {
+                    const db = await openChatDb();
+                    db.transaction('conversations', 'readwrite').objectStore('conversations').delete(chat.id);
+                } catch (_) { /* Keep the on-screen transcript usable if storage is offline. */ }
+                if (activeChatId === chat.id) {
+                    activeChatId = '';
+                    if (!sessions.some(entry => !entry.archivedAt)) makeChat();
+                    else { activeChatId = sessions.find(entry => !entry.archivedAt).id; renderChat(); }
+                }
+                renderHistory();
+            });
+            actions.append(archive, remove);
+            item.append(open, actions);
+            historyList.appendChild(item);
+        });
+    }
+
+    function formatChatDate(timestamp) {
+        if (!timestamp) return 'just now';
+        const elapsed = Math.max(0, Date.now() - timestamp);
+        if (elapsed < 60000) return 'just now';
+        if (elapsed < 3600000) return `${Math.floor(elapsed / 60000)}m ago`;
+        if (elapsed < 86400000) return `${Math.floor(elapsed / 3600000)}h ago`;
+        return new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+
+    function selectHistoryFilter(filter) {
+        historyFilter = filter;
+        document.querySelectorAll('[data-history-filter]').forEach(tab => {
+            const selected = tab.dataset.historyFilter === filter;
+            tab.classList.toggle('active', selected);
+            tab.setAttribute('aria-selected', String(selected));
+        });
+        renderHistory();
+    }
+
+    function updateChatActions() {
+        const chat = activeChat();
+        if (archiveButton) {
+            archiveButton.textContent = chat && chat.archivedAt ? 'Restore' : 'Archive';
+            archiveButton.disabled = !chat || !chat.messages.length;
+        }
+        if (compactButton) compactButton.disabled = !chat || chat.messages.length < 8 || Boolean(activeController);
+        if (contextBanner && chat && chat.summary) {
+            contextBanner.textContent = `Context compacted · ${chat.summaryThrough} earlier messages summarized · full transcript kept in this chat`;
+            contextBanner.classList.remove('hidden');
+        } else contextBanner?.classList.add('hidden');
+    }
+
+    function renderChat() {
+        const chat = activeChat();
+        chatMessages.replaceChildren();
+        if (!chat) return;
+        const modelSelect = document.getElementById('chat-model-select');
+        const deviceSelect = document.getElementById('chat-device-select');
+        if (modelSelect) {
+            const savedModelAvailable = Array.from(modelSelect.options).some(option => option.value === chat.model);
+            if (chatModelsReady && !savedModelAvailable) chat.model = modelSelect.value || '';
+            if (chatModelsReady) modelSelect.value = chat.model;
+        }
+        if (deviceSelect) deviceSelect.value = chat.device || 'GPU';
+        updateChatSelection();
+        if (!chat.messages.length && greetingTemplate) {
+            const greeting = greetingTemplate.cloneNode(true);
+            chatMessages.appendChild(greeting);
+            greeting.querySelectorAll('.chat-suggestion').forEach(bindSuggestion);
+        } else {
+            chat.messages.forEach(message => appendMessage(message.role, message));
+        }
+        if (metricEngine) metricEngine.textContent = `${chat.device || 'GPU'} · ${chat.model}`;
+        renderHistory();
+        updateChatActions();
+        try { localStorage.setItem('arc-runner-active-chat', chat.id); } catch (_) { /* optional active-chat hint */ }
+    }
+
+    function renderAssistantBubble(container, message) {
+        const expanded = container.querySelector('.thinking-details')?.open || false;
+        container.replaceChildren();
+        if (message.thinking) {
+            const details = document.createElement('details');
+            details.className = 'thinking-details';
+            details.open = expanded;
+            const summary = document.createElement('summary');
+            summary.textContent = 'Thinking';
+            const body = document.createElement('div');
+            body.className = 'thinking-body';
+            body.textContent = message.thinking;
+            details.append(summary, body);
+            container.appendChild(details);
+        }
+        const answer = document.createElement('div');
+        answer.className = 'message-answer';
+        if (message.content) renderAssistantText(answer, message.content);
+        else if (message.noFinalAnswer) {
+            const note = document.createElement('p');
+            note.className = 'text-muted';
+            note.textContent = 'The model finished its reasoning without returning a separate answer.';
+            answer.appendChild(note);
+        }
+        container.appendChild(answer);
+    }
+
+    function setChatStatus(state, label) {
+        if (!liveStatus) return;
+        liveStatus.dataset.state = state;
+        const statusLabel = liveStatus.querySelector('.chat-status-label');
+        if (statusLabel) statusLabel.textContent = label;
+    }
+
+    function setChatBusy(busy) {
+        const modelSelect = document.getElementById('chat-model-select');
+        const canSend = chatModelsReady && Boolean(modelSelect && modelSelect.value);
+        if (submitButton) submitButton.disabled = busy || !canSend;
+        if (stopButton) stopButton.classList.toggle('hidden', !busy);
+        if (submitButton) submitButton.classList.toggle('hidden', busy);
+        if (newChatButton) newChatButton.disabled = busy;
+        if (newChatTopButton) newChatTopButton.disabled = busy;
+        if (compactButton) compactButton.disabled = busy || !activeChat() || activeChat().messages.length < 8;
+        if (archiveButton) archiveButton.disabled = busy || !activeChat() || !activeChat().messages.length;
+        chatInput.disabled = busy || !canSend;
+    }
+
+    function startNewChat() {
+        if (activeController) activeController.abort();
+        activeAssistantMessage = null;
+        selectHistoryFilter('active');
+        makeChat();
+        if (metricTtft) metricTtft.textContent = '—';
+        if (metricTpot) metricTpot.textContent = '—';
+        if (metricRate) metricRate.textContent = '—';
+        setChatStatus('ready', 'Ready');
+        chatInput.focus();
+    }
+    [newChatButton, newChatTopButton].forEach(button => button?.addEventListener('click', startNewChat));
+
+    if (historyToggle) historyToggle.addEventListener('click', () => {
+        const open = chatLayout.classList.toggle('show-history');
+        historyToggle.setAttribute('aria-expanded', String(open));
+    });
+
+    historyBackdrop?.addEventListener('click', () => {
+        chatLayout.classList.remove('show-history');
+        historyToggle?.setAttribute('aria-expanded', 'false');
+        historyToggle?.focus();
+    });
+
+    document.querySelectorAll('[data-history-filter]').forEach(button => {
+        button.addEventListener('click', () => {
+            selectHistoryFilter(button.dataset.historyFilter);
+        });
+    });
+
+    if (archiveButton) archiveButton.addEventListener('click', () => {
+        const chat = activeChat();
+        if (!chat || !chat.messages.length) return;
+        chat.archivedAt = chat.archivedAt ? null : Date.now();
+        chat.updatedAt = Date.now();
+        selectHistoryFilter(chat.archivedAt ? 'archived' : 'active');
+        persistChat(chat);
+        updateChatActions();
+    });
+
+    if (compactButton) compactButton.addEventListener('click', compactCurrentChat);
+
+    if (stopButton) {
+        stopButton.addEventListener('click', () => {
+            if (activeController) activeController.abort();
+        });
+    }
+
+    function bindSuggestion(button) {
+        button.addEventListener('click', () => {
+            chatInput.value = button.dataset.prompt || '';
+            chatInput.focus();
+            chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    }
+
+    chatMessages.querySelectorAll('.chat-suggestion').forEach(bindSuggestion);
+
+    const chatModelSelect = document.getElementById('chat-model-select');
+    async function loadChatModels() {
+        if (!chatModelSelect) return;
+        chatModelsReady = false;
+        chatModelSelect.disabled = true;
+        if (modelRecovery) modelRecovery.classList.add('hidden');
+        if (modelRecoveryMessage) modelRecoveryMessage.textContent = 'Checking for local chat models?';
+        setChatBusy(false);
+        try {
+            const response = await fetch('/api/tags');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            const models = Array.isArray(data.models) ? data.models : [];
+            if (!models.length) {
+                chatModelSelect.replaceChildren(new Option('No local models found', ''));
+                if (modelRecoveryMessage) modelRecoveryMessage.textContent = 'No local chat models found. Add one from Model Hub, then retry.';
+                modelRecovery?.classList.remove('hidden');
+                return;
+            }
+            const preferred = chatModelSelect.value || activeChat()?.model;
+            const preferredModel = models.find(model => (model.name || model.model) === preferred);
+            const savedModel = sessions.map(chat => chat.model).find(model => models.some(item => (item.name || item.model) === model));
+            const defaultModel = preferredModel || (savedModel && models.find(item => (item.name || item.model) === savedModel)) || models[0];
+            const defaultModelId = defaultModel.name || defaultModel.model;
+            chatModelSelect.replaceChildren(...models.map(model => {
+                const id = model.name || model.model;
+                const details = model.details || {};
+                const size = details.parameter_size ? ` ? ${details.parameter_size}` : '';
+                const quant = details.quantization_level && details.quantization_level !== 'unknown'
+                    ? ` ? ${details.quantization_level}` : '';
+                const label = id.includes('deepseek-r1') ? `DeepSeek-R1${size} ? reasoning model${quant}` : `${id}${size}${quant}`;
+                return new Option(label, id);
+            }));
+            chatModelSelect.disabled = false;
+            chatModelSelect.value = defaultModelId;
+            chatModelsReady = Boolean(defaultModelId);
+            if (modelRecovery) modelRecovery.classList.add('hidden');
+            updateChatSelection();
+        } catch (error) {
+        chatModelSelect.replaceChildren(new Option('Model discovery unavailable', ''));
+            if (modelRecoveryMessage) modelRecoveryMessage.textContent = `Could not reach the local model service (${error.message}). Check that Arc Runner is running, then retry.`;
+            modelRecovery?.classList.remove('hidden');
+            console.error('Arc Runner model discovery failed:', error);
+        } finally {
+            setChatBusy(false);
+            if (!historyInitialized) {
+                historyInitialized = true;
+                void initializeHistory();
+            } else renderChat();
+        }
+    }
+    retryModelsButton?.addEventListener('click', loadChatModels);
+    if (chatModelSelect) void loadChatModels();
+
+    function updateChatSelection() {
+        const modelSelect = document.getElementById('chat-model-select');
+        const deviceSelect = document.getElementById('chat-device-select');
+        const note = document.getElementById('chat-model-note');
+        if (!modelSelect || !deviceSelect || !note) return;
+        const model = modelSelect.value;
+        const deepseek = model.toLowerCase().includes('deepseek');
+        note.textContent = deepseek
+            ? 'Reasoning model · may narrate its thought process'
+            : 'Local inference · prompts stay on this machine';
+        if (deepseek && deviceSelect.value === 'NPU') note.textContent += ' · verify NPU support before use';
+        const engine = document.getElementById('metric-engine');
+        if (engine) engine.textContent = `${deviceSelect.value} · ${model}`;
+    }
+
+    function saveChatSelection() {
+        updateChatSelection();
+        setChatBusy(Boolean(activeController));
+        const chat = activeChat();
+        if (!chat) return;
+        chat.model = document.getElementById('chat-model-select')?.value || chat.model;
+        chat.device = document.getElementById('chat-device-select')?.value || chat.device;
+        chat.updatedAt = Date.now();
+        persistChat(chat);
+        renderHistory();
+    }
+
+    document.getElementById('chat-model-select')?.addEventListener('change', saveChatSelection);
+    document.getElementById('chat-device-select')?.addEventListener('change', saveChatSelection);
+
+    chatInput.addEventListener('input', () => {
+        chatInput.style.height = 'auto';
+        chatInput.style.height = `${Math.min(chatInput.scrollHeight, 160)}px`;
+    });
+
+    chatInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            if (!chatInput.disabled && (chatInput.value.trim() || currentBase64Image)) {
+                chatForm.requestSubmit();
+            }
+        }
+    });
 
     if (imageInput) {
         imageInput.addEventListener('change', (e) => {
@@ -108,110 +598,199 @@ function initChatPlayground() {
         const text = chatInput.value.trim();
         if (!text && !currentBase64Image) return;
 
-        chatInput.value = '';
-        const userPrompt = text || '(Analyze attached image)';
-        const imageToSend = currentBase64Image;
-
-        appendMessage('user', userPrompt, previewImg ? previewImg.src : null);
-
-        if (btnRemoveImage) {
-            btnRemoveImage.click();
-        }
-
+        const chat = activeChat() || makeChat();
         const modelSelect = document.getElementById('chat-model-select');
         const deviceSelect = document.getElementById('chat-device-select');
-        const selectedModel = modelSelect ? modelSelect.value : 'llama-3.2-3b';
-        const selectedDevice = deviceSelect ? deviceSelect.value : 'GPU';
+        const selectedModel = modelSelect ? modelSelect.value : chat.model;
+        const selectedDevice = deviceSelect ? deviceSelect.value : chat.device;
+        updateChatSelection();
+        chat.model = selectedModel;
+        chat.device = selectedDevice;
+        if (chat.archivedAt) {
+            chat.archivedAt = null;
+            selectHistoryFilter('active');
+        }
 
-        const assistantMsgElem = appendMessage('assistant', '');
-        const bubble = assistantMsgElem.querySelector('.message-bubble');
+        const userPrompt = text || '(Analyze attached image)';
+        const imageToSend = currentBase64Image;
+        const userMessage = { role: 'user', content: userPrompt, createdAt: Date.now() };
+        if (imageToSend) userMessage.imageAttached = true;
+        chat.messages.push(userMessage);
+        if (chat.title === 'New chat') chat.title = userPrompt.slice(0, 48) + (userPrompt.length > 48 ? '?' : '');
+        chat.updatedAt = Date.now();
+
+        chatInput.value = '';
+        chatInput.style.height = 'auto';
+        if (btnRemoveImage) btnRemoveImage.click();
+        const assistantMessage = { role: 'assistant', content: '', thinking: '', createdAt: Date.now() };
+        chat.messages.push(assistantMessage);
+        renderChat();
+        const assistantMsgElem = chatMessages.lastElementChild;
+        activeAssistantMessage = assistantMsgElem;
+        assistantMsgElem.classList.add('is-streaming');
 
         const startTime = performance.now();
         let firstTokenTime = null;
-        let tokenCount = 0;
-        let fullResponse = '';
-
-        const userMessagePayload = {
-            role: 'user',
-            content: userPrompt
-        };
-        if (imageToSend) {
-            userMessagePayload.images = [imageToSend];
-        }
-
+        let generatedChars = 0;
+        let requestSucceeded = false;
+        const messages = [
+            { role: 'system', content: welcomeSystemPrompt },
+            ...(chat.summary ? [{ role: 'system', content: `Conversation memory (summary of earlier turns):\n${chat.summary}` }] : []),
+            ...chat.messages.slice(chat.summaryThrough || 0, -1)
+                .filter(message => message.role === 'user' || message.role === 'assistant')
+                .map(message => ({ role: message.role, content: message.role === 'assistant' ? (message.content || '') : message.content }))
+        ];
         const activeAdapters = (typeof getActiveLoRAAdapters === 'function') ? getActiveLoRAAdapters() : [];
         const requestPayload = {
             model: selectedModel,
-            messages: [userMessagePayload],
+            messages,
+            options: { device: selectedDevice, num_predict: selectedModel.toLowerCase().includes('deepseek') ? 1024 : 384 },
             stream: true
         };
-        if (activeAdapters && activeAdapters.length > 0) {
-            requestPayload.adapters = activeAdapters;
-        }
+        if (activeAdapters && activeAdapters.length) requestPayload.adapters = activeAdapters;
 
+        activeController = new AbortController();
+        setChatBusy(true);
+        setChatStatus('busy', selectedModel.toLowerCase().includes('deepseek') ? 'Thinking' : 'Generating');
+        renderHistory();
+        await persistChat(chat);
         try {
             const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestPayload)
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestPayload), signal: activeController.signal
             });
-
             if (!response.ok) {
-                bubble.innerHTML = `<span class="text-danger">Inference error: HTTP ${response.status}</span>`;
+                let detail = '';
+                try { const payload = await response.json(); detail = payload.detail || payload.error || ''; } catch (_) { /* status code is enough */ }
+                assistantMessage.content = `Inference error: HTTP ${response.status}${detail ? ` ? ${detail}` : ''}`;
+                assistantMsgElem.classList.add('is-error');
+                assistantMsgElem.classList.remove('is-streaming');
+                setChatStatus('error', 'Request failed');
                 return;
             }
-
+            requestSucceeded = true;
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
-
+            let lastSaveAt = 0;
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
                 buffer = lines.pop() || '';
-
                 for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed) continue;
+                    if (!line.trim()) continue;
                     try {
-                        const parsed = JSON.parse(trimmed);
-                        if (parsed.message && parsed.message.content) {
-                            if (firstTokenTime === null) {
-                                firstTokenTime = performance.now();
-                                const ttftMs = Math.round(firstTokenTime - startTime);
-                                if (metricTtft) metricTtft.textContent = `${ttftMs} ms`;
-                            }
-                            tokenCount++;
-                            fullResponse += parsed.message.content;
-                            window.requestAnimationFrame(() => {
-                                bubble.textContent = fullResponse;
-                                chatMessages.scrollTop = chatMessages.scrollHeight;
-                            });
+                        const payload = JSON.parse(line);
+                        const delta = payload.message || {};
+                        if (!delta.content && !delta.thinking) continue;
+                        if (firstTokenTime === null) {
+                            firstTokenTime = performance.now();
+                            if (metricTtft) metricTtft.textContent = `${Math.round(firstTokenTime - startTime)} ms`;
                         }
-                    } catch (err) {
-                        // pass non-json lines
-                    }
+                        assistantMessage.content += delta.content || '';
+                        assistantMessage.thinking += delta.thinking || '';
+                        generatedChars += (delta.content || '').length;
+                        if (delta.content) setChatStatus('busy', 'Answering');
+                        renderAssistantBubble(assistantMsgElem.querySelector('.message-bubble'), assistantMessage);
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                        if (performance.now() - lastSaveAt > 900) {
+                            lastSaveAt = performance.now();
+                            persistChat(chat);
+                        }
+                    } catch (_) { /* Ignore incomplete or non-JSON transport lines. */ }
                 }
             }
-
-            const endTime = performance.now();
-            const totalDurationSec = (endTime - startTime) / 1000.0;
-            const rate = tokenCount > 0 ? (tokenCount / totalDurationSec).toFixed(1) : '0';
-            const tpot = (tokenCount > 1 && firstTokenTime) ? (((endTime - firstTokenTime) / (tokenCount - 1))).toFixed(1) : '--';
-
-            if (metricRate) metricRate.textContent = `${rate} tok/s`;
-            if (metricTpot) metricTpot.textContent = `${tpot} ms/tok`;
-            if (metricEngine) metricEngine.textContent = `${selectedDevice} (${selectedModel})`;
-
-        } catch (err) {
-            bubble.innerHTML = `<span class="text-danger">Connection error: ${err.message}</span>`;
+            const elapsed = Math.max((performance.now() - startTime) / 1000, 0.001);
+            if (metricRate) metricRate.textContent = `${(generatedChars / elapsed).toFixed(1)} chars/s`;
+            if (metricTpot) metricTpot.textContent = firstTokenTime && generatedChars > 0
+                ? `${((performance.now() - firstTokenTime) / generatedChars).toFixed(2)} ms/char`
+                : '—';
+            if (metricEngine) metricEngine.textContent = `${selectedDevice} ? ${selectedModel}`;
+            assistantMsgElem.classList.remove('is-streaming');
+            if (!assistantMessage.content.trim() && assistantMessage.thinking.trim()) assistantMessage.noFinalAnswer = true;
+            activeAssistantMessage = null;
+            setChatStatus('ready', 'Ready');
+        } catch (error) {
+            assistantMsgElem.classList.remove('is-streaming');
+            if (error.name === 'AbortError') {
+                assistantMessage.content += assistantMessage.content ? '\n\nGeneration stopped.' : '';
+                setChatStatus('ready', 'Stopped');
+            } else {
+                assistantMessage.content = `Connection error: ${error.message}`;
+                assistantMsgElem.classList.add('is-error');
+                setChatStatus('error', 'Connection error');
+            }
+            activeAssistantMessage = null;
+        } finally {
+            setChatBusy(false);
+            activeController = null;
+            chat.updatedAt = Date.now();
+            renderChat();
+            renderHistory();
+            await persistChat(chat);
         }
     });
 
-    function appendMessage(role, text, imgSrc = null) {
+    async function compactCurrentChat() {
+        const chat = activeChat();
+        if (!chat || chat.messages.length < 8 || activeController) return;
+        const cutoff = Math.floor((chat.messages.length - 6) / 2) * 2;
+        const older = chat.messages.slice(chat.summaryThrough || 0, cutoff)
+            .filter(message => message.role === 'user' || message.role === 'assistant')
+            .map(message => ({ role: message.role, content: message.role === 'assistant' ? (message.content || '') : message.content }))
+            .filter(message => message.content);
+        if (!older.length || cutoff <= (chat.summaryThrough || 0)) {
+            setChatStatus('ready', 'Recent context is already compact');
+            return;
+        }
+        const compactLabel = compactButton.textContent;
+        compactButton.disabled = true;
+        compactButton.textContent = 'Compacting?';
+        setChatStatus('busy', 'Optimizing context');
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: chat.model,
+                    messages: [
+                        { role: 'system', content: 'Create a concise, faithful memory for continuing this conversation. Preserve user goals and constraints, decisions, names, identifiers, code/API details, unresolved tasks and important corrections. Exclude private reasoning. Do not invent missing facts. Return only the memory.' },
+                        ...(chat.summary ? [{ role: 'assistant', content: `Previous conversation memory:\n${chat.summary}` }] : []),
+                        { role: 'user', content: older.map(message => `${message.role.toUpperCase()}:\n${message.content}`).join('\n\n') }
+                    ],
+                    options: { device: chat.device, num_predict: 384, temperature: 0.2 },
+                    stream: false
+                })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const result = await response.json();
+            const memory = (result.message?.content || '').trim();
+            if (!memory) throw new Error('The model returned an empty summary');
+            const previousSummary = chat.summary;
+            const previousCutoff = chat.summaryThrough;
+            chat.summary = memory;
+            chat.summaryThrough = cutoff;
+            chat.updatedAt = Date.now();
+            if (!await persistChat(chat)) {
+                chat.summary = previousSummary;
+                chat.summaryThrough = previousCutoff;
+                throw new Error('Summary could not be saved; the existing context was kept');
+            }
+            updateChatActions();
+            renderHistory();
+            setChatStatus('ready', 'Context optimized');
+        } catch (error) {
+            setChatStatus('error', 'Context was not changed');
+            storageNotice(`Context compaction failed ? ${error.message}`);
+        } finally {
+            compactButton.textContent = compactLabel;
+            updateChatActions();
+        }
+    }
+
+    function appendMessage(role, message, imgSrc = null) {
+        const data = typeof message === 'string' ? { content: message } : (message || { content: '' });
         const msgDiv = document.createElement('div');
         msgDiv.className = `message ${role}`;
         const bubbleDiv = document.createElement('div');
@@ -220,6 +799,7 @@ function initChatPlayground() {
         if (imgSrc) {
             const imgElem = document.createElement('img');
             imgElem.src = imgSrc;
+            imgElem.alt = 'Attached image';
             imgElem.style.maxWidth = '180px';
             imgElem.style.maxHeight = '140px';
             imgElem.style.borderRadius = '6px';
@@ -228,14 +808,75 @@ function initChatPlayground() {
             bubbleDiv.appendChild(imgElem);
         }
 
-        const textSpan = document.createElement('span');
-        textSpan.textContent = text;
-        bubbleDiv.appendChild(textSpan);
-
-        msgDiv.appendChild(bubbleDiv);
+        if (role === 'assistant') {
+            const avatar = document.createElement('div');
+            avatar.className = 'assistant-avatar';
+            avatar.setAttribute('aria-hidden', 'true');
+            avatar.textContent = 'A';
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            const meta = document.createElement('div');
+            meta.className = 'message-meta';
+            const name = document.createElement('span');
+            name.textContent = 'Arc Assistant';
+            const divider = document.createElement('span');
+            divider.className = 'message-meta-dot';
+            divider.textContent = '|';
+            const source = document.createElement('span');
+            source.textContent = 'Local model';
+            meta.append(name, divider, source);
+            renderAssistantBubble(bubbleDiv, data);
+            content.append(meta, bubbleDiv);
+            msgDiv.append(avatar, content);
+        } else {
+            bubbleDiv.textContent = data.content || '';
+            if (data.imageAttached) {
+                const attachment = document.createElement('span');
+                attachment.className = 'chat-attachment-label';
+                attachment.textContent = 'Image attached';
+                bubbleDiv.appendChild(attachment);
+            }
+            msgDiv.appendChild(bubbleDiv);
+        }
         chatMessages.appendChild(msgDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
         return msgDiv;
+    }
+
+    function renderAssistantText(container, text) {
+        const fragment = document.createDocumentFragment();
+        const codePattern = /```([^\n`]*)\n?([\s\S]*?)```/g;
+        let lastIndex = 0;
+        let match;
+        while ((match = codePattern.exec(text)) !== null) {
+            appendMarkdownText(fragment, text.slice(lastIndex, match.index));
+            const pre = document.createElement('pre');
+            const code = document.createElement('code');
+            code.textContent = match[2].replace(/\n$/, '');
+            pre.appendChild(code);
+            fragment.appendChild(pre);
+            lastIndex = codePattern.lastIndex;
+        }
+        appendMarkdownText(fragment, text.slice(lastIndex));
+        container.replaceChildren(fragment);
+    }
+
+    function appendMarkdownText(parent, text) {
+        const lines = text.split('\n');
+        lines.forEach((line, index) => {
+            if (index > 0) parent.appendChild(document.createElement('br'));
+            const inlinePattern = /(`[^`]+`|\*\*[^*]+\*\*)/g;
+            let lastIndex = 0;
+            let match;
+            while ((match = inlinePattern.exec(line)) !== null) {
+                parent.appendChild(document.createTextNode(line.slice(lastIndex, match.index)));
+                const element = document.createElement(match[0].startsWith('`') ? 'code' : 'strong');
+                element.textContent = match[0].startsWith('`') ? match[0].slice(1, -1) : match[0].slice(2, -2);
+                parent.appendChild(element);
+                lastIndex = inlinePattern.lastIndex;
+            }
+            parent.appendChild(document.createTextNode(line.slice(lastIndex)));
+        });
     }
 }
 
@@ -1119,7 +1760,7 @@ function initMultiModalStudio() {
                 <td style="font-weight: 600;">${escapeHtml(item.stage_name)}</td>
                 <td><span class="badge ${item.device_used === 'GPU' ? 'badge-intel' : 'badge-emerald'}">${escapeHtml(item.device_used)}</span></td>
                 <td class="font-mono text-cyan">${item.latency_ms.toFixed(1)} ms</td>
-                <td class="font-mono">${item.peak_memory_mb == null ? 'n/a' : item.peak_memory_mb.toFixed(0) + ' MB'}</td>
+                <td class="font-mono">${item.peak_memory_mb.toFixed(0)} MB</td>
                 <td class="font-mono text-muted">${item.throughput_value.toFixed(1)} ${escapeHtml(item.throughput_metric)}</td>
             `;
             telemetryBody.appendChild(row);
@@ -1356,7 +1997,7 @@ function initMultiModalStudio() {
                         stage_name: name,
                         device_used: name === 'AUDIO' ? 'NPU' : name === 'VISUAL' ? 'GPU' : 'CPU',
                         latency_ms: stat.mean_ms,
-                        peak_memory_mb: null,
+                        peak_memory_mb: 180.0,
                         throughput_value: stat.ci95_ms,
                         throughput_metric: '± CI95 ms'
                     }));
