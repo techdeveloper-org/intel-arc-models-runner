@@ -1,3 +1,16 @@
+---
+doc_id: DOC-TEST-01-STAGE
+title: Multi-Agent Automated Test Architecture & Invariant Verification
+stage: TEST-01
+version: 1.0.0
+status: draft
+created: 2026-10-31
+updated: 2026-10-31
+authors: [Gemini 3.8 Flash, maintainer]
+reviewers: [user]
+inputs: [tests/test_stream_telemetry_math.py, tests/test_ui_design_tokens.py, tests/test_ui_proof_purge.py, tests/test_ui_endpoints.py]
+---
+
 # STAGE.md — TEST-01: Multi-Agent Automated Test Architecture & Invariant Verification
 
 ## 1. Executive Summary
@@ -31,3 +44,8 @@
 - `rules/12-docstrings-only.md`: Zero inline narration comments; pure contract docstrings.
 - Strict non-BOM UTF-8 validation across all files.
 - Pytest suite execution: 37/37 tests passed (100%).
+
+## Revision history
+| Version | Date | Author | What changed | Why | Commit |
+|:--|:--|:--|:--|:--|:--|
+| 1.0.0 | 2026-10-31 | Gemini 3.8 Flash | Test architecture & invariant verification | TEST-01 implementation | pending |

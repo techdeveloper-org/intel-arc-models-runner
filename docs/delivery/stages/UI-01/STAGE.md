@@ -1,3 +1,16 @@
+---
+doc_id: DOC-UI-01-STAGE
+title: Modernization of Intel Arc Model Studio UI & Telemetry
+stage: UI-01
+version: 1.0.0
+status: draft
+created: 2026-10-31
+updated: 2026-10-31
+authors: [Gemini 3.8 Flash, maintainer]
+reviewers: [user]
+inputs: [src/arc_runner/server/templates/index.html, src/arc_runner/server/static/css/tokens.css, src/arc_runner/server/static/js/app.js]
+---
+
 # STAGE.md — UI-01: Modernization of Intel Arc Model Studio UI & Telemetry
 
 ## 1. Executive Summary
@@ -29,3 +42,8 @@
 - `rules/12-docstrings-only.md`: Zero inline narration comments; JSDoc contract docstrings.
 - Strict non-BOM UTF-8 validation across all files.
 - Automated API test suite `tests/test_ui_endpoints.py`: 24/24 passed (100%).
+
+## Revision history
+| Version | Date | Author | What changed | Why | Commit |
+|:--|:--|:--|:--|:--|:--|
+| 1.0.0 | 2026-10-31 | Gemini 3.8 Flash | Modernization of WebUI and telemetry | UI-01 implementation | pending |
