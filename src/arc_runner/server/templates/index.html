@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Intel® Arc™ Model Studio | Dual-Silicon Local LLM Runner</title>
+    <link rel="stylesheet" href="/static/css/tokens.css?v=20261031-1">
     <link rel="stylesheet" href="/static/css/style.css?v=20261029-2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -118,7 +119,7 @@
                             </div>
                             <div class="metric-row">
                                 <span class="metric-label">Memory Architecture</span>
-                                <span class="metric-val text-cyan">Unified Shared Memory (USM)</span>
+                                <span class="metric-val text-cyan" id="gpu-usm-badge">Unified Shared Memory (USM)</span>
                             </div>
                             <div class="metric-row">
                                 <span class="metric-label">Matrix Acceleration</span>
@@ -127,10 +128,10 @@
                             <div class="metric-progress-group">
                                 <div class="progress-labels">
                                     <span>VRAM Allocation</span>
-                                    <span id="gpu-vram-text">2.1 GB / 16.0 GB</span>
+                                    <span id="gpu-vram-text">System / Shared Memory</span>
                                 </div>
                                 <div class="progress-bar-bg">
-                                    <div class="progress-bar-fill fill-intel" style="width: 14%;"></div>
+                                    <div class="progress-bar-fill fill-intel" id="gpu-vram-bar" style="width: 25%;"></div>
                                 </div>
                             </div>
                         </div>
