@@ -51,6 +51,7 @@ Model files are untrusted input. The Intel GPU driver provides a Level Zero load
 | FR-011 | The system SHALL serialise all engine calls through a single daemon thread (`arc-inference`) using `queue.SimpleQueue` and an admission lock, eliminating event-loop stall and token loss. | GitHub Issue #51 (WP-03) | `tests/test_serial_worker.py` |
 | FR-012 | The system SHALL provide dynamic iteration-level continuous batching via ContinuousBatchingScheduler wrapping OpenVINO GenAI iteration pipeline, with thread-safe admission control and dynamic concurrency cap. | GitHub Issue #52 (WP-04) | `tests/test_cb_scheduler.py` |
 | FR-013 | The system SHALL expose C++ RAII memory-mapped file bindings via pybind11 with ABI version 4, providing ArcMmapContext and TensorPtrMap with deterministic unmapping and strict ABI mismatch validation. | GitHub Issue #53 (WP-06) | `tests/test_pybind_bridge.py` |
+| FR-014 | The system SHALL provide dual-silicon speculative decoding via SpeculativeDecodeEngine coupling NPU draft token generation (DraftEngine, NPU_DRAFT_DEVICE="NPU") with Arc GPU parallel verification (VerifierEngine), AdjustedRejectionSampler, NpuDetector, and automatic single-model fallback when disabled (ARC_NPU_DISABLE=1) or accept rate < 0.6. | GitHub Issue #54 (WP-05) | `tests/test_speculative.py` |
 
 ### 3.2 Non-functional requirements
 
@@ -81,3 +82,4 @@ Findings and their mapping to requirements: `docs/delivery/TRACEABILITY.md`.
 | 2026-10-31 | 0.2.1 | feat(server): WP-03 serial inference worker | Add FR-011: SerialWorker FIFO daemon thread and AsyncTokenStream | #51 |
 | 2026-10-31 | 0.2.2 | feat(engine): WP-04 continuous batching scheduler | Add FR-012: ContinuousBatchingScheduler dynamic iteration batching | #52 |
 | 2026-10-31 | 0.2.3 | feat(native): WP-06 pybind11 native binding ABI v4 | Add FR-013: pybind11 native binding and ABI version 4 | #53 |
+| 2026-10-31 | 0.2.4 | feat(engine): WP-05 speculative decode engine | Add FR-014: SpeculativeDecodeEngine dual-silicon speculation | #54 |

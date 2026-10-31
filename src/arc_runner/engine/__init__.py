@@ -62,6 +62,13 @@ from arc_runner.engine.paged_attention import (
     RadixPrefixCache,
     VRAMExhaustedError,
 )
+from arc_runner.engine.npu_detector import NpuDetector
+from arc_runner.engine.speculative import (
+    AdjustedRejectionSampler,
+    DraftEngine,
+    SpeculativeDecodeEngine,
+    VerifierEngine,
+)
 from arc_runner.engine.speculative_engine import HybridSpeculativeEngine
 from arc_runner.engine.vision_engine import (
     InvalidImageFormatError,
@@ -71,6 +78,7 @@ from arc_runner.engine.vision_engine import (
 
 __all__: List[str] = [
     "AdmissionDeniedError",
+    "AdjustedRejectionSampler",
     "AOTCompilationManager",
     "AudioEngine",
     "AudioEngineConfig",
@@ -80,6 +88,7 @@ __all__: List[str] = [
     "ContinuousBatcher",
     "ContinuousBatcherError",
     "DimensionMismatchError",
+    "DraftEngine",
     "EmbeddingEngine",
     "EmbeddingEngineError",
     "EmptyMaskError",
@@ -116,6 +125,9 @@ __all__: List[str] = [
     "EngineTelemetry",
     "KVAllocation",
     "ModelPrecision",
+    "NpuDetector",
+    "SpeculativeDecodeEngine",
+    "VerifierEngine",
     "VisionEngine",
     "VisionEngineError",
     "VRAMExhaustedError",

@@ -2,7 +2,7 @@
 doc_id: DOC-DECISION-LOG
 title: Decision log
 stage: all
-version: 1.17.0
+version: 1.18.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -120,6 +120,7 @@ Append-only. A changed decision gets a new entry that names the one it supersede
 | DL-102 | LoadPhaseError lifecycle exception mapping | allows routes to distinguish engine-load 404/500 from execution errors | unlabelled exception propagation | PERF-WP03 |
 | DL-103 | ContinuousBatchingScheduler wrapping OpenVINO GenAI pipeline | thread-safe iteration batching with progress counter and dynamic concurrency cap | bare unbatched engine calls | PERF-WP04 |
 | DL-104 | pybind11 native binding ABI v4 with RAII ArcMmapContext | Replace manual ctypes struct marshalling with C++20 pybind11 module; deterministic RAII unmapping; high-performance tensor pointer map; strict ABI v4 enforcement | continue manual ctypes structs without RAII | PERF-WP06 |
+| DL-105 | SpeculativeDecodeEngine dual-silicon heterogeneous speculative decoding | Co-execute INT4 draft model on Intel AI Boost NPU with Arc GPU parallel matrix verification; Leviathan et al. (2023) AdjustedRejectionSampler; fallback on ARC_NPU_DISABLE=1 or accept rate < 0.6 | single-silicon GPU-only decode | PERF-WP05 |
 
 ## ADR detail: performance programme (DL-061..DL-096)
 
@@ -498,6 +499,14 @@ Status: DL-061..DL-070 were proposed on 2026-10-29 as part of plan section 23 an
 - Reversibility: medium.
 - Source: WP-06 CC-1..CC-5; `src/arc_runner/native/bridge.py`, `src/arc_runner/native/arc_native_pybind.h`.
 
+### DL-105 SpeculativeDecodeEngine dual-silicon heterogeneous speculative decoding
+- Date: 2026-10-31
+- Context: Single-silicon autoregressive token decode on Intel Arc GPUs is bounded by memory bandwidth.
+- Decision: Introduce SpeculativeDecodeEngine coupling DraftEngine (Intel AI Boost NPU 48 TOPS, INT4 draft tokens) with VerifierEngine (Intel Arc GPU parallel verification), Leviathan et al. (2023) AdjustedRejectionSampler, and NpuDetector; automatically degrade to single-model execution on ARC_NPU_DISABLE=1 or when token acceptance rate drops below SPECULATION_MIN_ACCEPT_RATE=0.6 after 50 warmup steps.
+- Consequences: Unlocks >= 1.8x decode throughput on dual-silicon hardware; provides graceful zero-exception fallback when NPU is unavailable or ineffective.
+- Reversibility: high.
+- Source: WP-05 CC-1..CC-5; src/arc_runner/engine/speculative.py, src/arc_runner/engine/npu_detector.py.
+
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
 |:--|:--|:--|:--|:--|:--|
@@ -519,3 +528,4 @@ Status: DL-061..DL-070 were proposed on 2026-10-29 as part of plan section 23 an
 | 1.15.0 | 2026-10-31 | CLI session | DL-099..DL-102 added for WP-03 serial worker | Deliver WP-03 CC-1..CC-4 | pending |
 | 1.16.0 | 2026-10-31 | CLI session | DL-103 added for WP-04 continuous batching scheduler | Deliver WP-04 CC-1..CC-4 | pending |
 | 1.17.0 | 2026-10-31 | CLI session | DL-104 added for WP-06 pybind11 native binding ABI v4 | Deliver WP-06 CC-1..CC-5 | pending |
+| 1.18.0 | 2026-10-31 | CLI session | DL-105 added for WP-05 speculative decode engine | Deliver WP-05 CC-1..CC-5 | pending |

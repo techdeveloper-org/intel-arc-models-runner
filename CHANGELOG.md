@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-31
+
+### Added
+- feat(engine): WP-05 speculative decode engine — Heterogeneous dual-silicon speculative decoding coupling an NPU draft model (`DraftEngine`, Intel AI Boost NPU 48 TOPS) with parallel Arc GPU verification (`VerifierEngine`); Leviathan et al. (2023) `AdjustedRejectionSampler` with vector mismatch rejection; `NpuDetector` via OpenVINO Core device enumeration; automatic fallback on `ARC_NPU_DISABLE=1` or when token acceptance rate drops below `SPECULATION_MIN_ACCEPT_RATE=0.6` after 50 warmup steps.
+
+
 ## [0.2.3] - 2026-10-31
 
 ### Added

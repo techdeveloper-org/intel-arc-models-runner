@@ -408,3 +408,81 @@ def test_repeated_speculative_load_unload_memory_clean(tmp_path: Path) -> None:
                 assert engine.is_loaded is False
                 assert engine.model_path == ""
                 assert engine.draft_model_path == ""
+
+
+def test_speculative_decode_engine_import_cc1() -> None:
+    """CC-1: SpeculativeDecodeEngine is importable from arc_runner.engine.speculative."""
+    from arc_runner.engine.speculative import (
+        AdjustedRejectionSampler,
+        DraftEngine,
+        SpeculativeDecodeEngine,
+        VerifierEngine,
+    )
+
+    assert SpeculativeDecodeEngine is not None
+    assert DraftEngine is not None
+    assert VerifierEngine is not None
+    assert AdjustedRejectionSampler is not None
+
+
+def test_npu_detector_detection_cc2(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CC-2: NpuDetector returns 'NPU' when enumerated, None otherwise or when disabled."""
+    from arc_runner.engine.npu_detector import NpuDetector
+
+    detector = NpuDetector()
+
+    mock_core = mock.MagicMock()
+    mock_core.available_devices = ["CPU", "GPU.0", "NPU"]
+    with mock.patch("openvino.Core", return_value=mock_core):
+        assert detector.detect() == "NPU"
+
+    mock_core_no_npu = mock.MagicMock()
+    mock_core_no_npu.available_devices = ["CPU", "GPU.0"]
+    with mock.patch("openvino.Core", return_value=mock_core_no_npu):
+        assert detector.detect() is None
+
+    monkeypatch.setenv("ARC_NPU_DISABLE", "1")
+    assert detector.detect() is None
+
+
+def test_adjusted_rejection_sampler_dimension_mismatch_cc3() -> None:
+    """CC-3: AdjustedRejectionSampler raises ValueError on vector dimension mismatch."""
+    from arc_runner.engine.speculative import AdjustedRejectionSampler
+
+    sampler = AdjustedRejectionSampler(draft_k=4)
+
+    with pytest.raises(ValueError) as exc_info:
+        sampler.sample([0.6, 0.4], [0.5])
+    assert "Dimension mismatch" in str(exc_info.value)
+
+    assert sampler.sample([0.8], [0.4], rand_val=0.5) is True
+    assert sampler.sample([0.2], [0.8], rand_val=0.5) is False
+    assert sampler.sample([0.5], [0.0], rand_val=0.99) is True
+
+
+def test_npu_disabled_by_env_falls_back_cc4(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CC-4: ARC_NPU_DISABLE=1 causes graceful fallback to single-model path."""
+    monkeypatch.setenv("ARC_NPU_DISABLE", "1")
+    from arc_runner.engine.speculative import SpeculativeDecodeEngine
+
+    engine = SpeculativeDecodeEngine()
+    assert engine.is_available() is False
+
+    result = engine.generate("test input prompt")
+    assert result is not None
+    assert "test input prompt" in result
+
+
+def test_accept_rate_below_threshold_triggers_warning_fallback_cc5(caplog: pytest.LogCaptureFixture) -> None:
+    """CC-5: Low accept rate after warmup logs warning and triggers fallback path."""
+    import logging
+    from arc_runner.engine.speculative import SpeculativeDecodeEngine
+
+    engine = SpeculativeDecodeEngine(warmup_steps=10, min_accept_rate=0.6)
+
+    with caplog.at_level(logging.WARNING):
+        for _ in range(12):
+            engine.record_step(accepted=0, draft=4)
+
+    assert any("below threshold" in record.message for record in caplog.records)
+    assert engine._use_speculation is False

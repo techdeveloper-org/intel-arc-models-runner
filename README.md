@@ -394,6 +394,7 @@ flowchart TD
 - **SerialWorker** (`src/arc_runner/server/worker.py`): single daemon thread draining a SimpleQueue, eliminating event-loop stalls proven at 2077ms.
 - **ContinuousBatchingScheduler** (`src/arc_runner/engine/cb_scheduler.py`): iteration-level batching wrapper over OpenVINO GenAI with dynamic concurrency capping.
 - **ArcMmapContext & pybind11 ABI v4** (`src/arc_runner/native/bridge.py`): C++ RAII memory-mapped context manager and fast tensor descriptor index.
+- **SpeculativeDecodeEngine** (`src/arc_runner/engine/speculative.py`): heterogeneous dual-silicon speculative decoding offloading draft tokens to Intel AI Boost NPU with Arc GPU verification.
 
 👉 *For detailed subsystem breakdowns, Multi-LoRA hot-swapping, and UML diagrams, see: [**Architecture & Subsystem Deep Dive**](docs/architecture.md)*
 
