@@ -116,6 +116,32 @@ class TestMultiModelCoBenchmarker:
 
         assert report.iterations == 2
         assert report.avg_e2e_latency_ms > 0.0
-        assert report.cloud_comparison_usd_per_run == 0.350
-        assert report.hardware_payback_runs > 0
+        assert report.cloud_comparison_usd_per_run is None
+        assert report.hardware_payback_runs is None
+        assert report.audio_rtf is None and report.video_rtf is None and report.llm_tok_per_sec is None
         assert len(report.stage_latencies_ms) > 0
+
+    def test_co_benchmark_with_supplied_price_assumptions_derives_payback(self) -> None:
+        """Cloud ROI is computed only from caller-supplied prices: payback = ceil(hardware / cloud cost)."""
+        benchmarker = MultiModelCoBenchmarker()
+        report = benchmarker.run_co_benchmark(
+            prompt="Optics",
+            iterations=1,
+            warmup_runs=0,
+            cloud_cost_per_run_usd=0.5,
+            hardware_cost_usd=101.0,
+        )
+        assert report.cloud_comparison_usd_per_run == 0.5
+        assert report.hardware_payback_runs == 202
+
+    def test_co_benchmark_scorecard_contains_no_unmeasured_claims(self) -> None:
+        """The scorecard never prints fixed speedup or host-IPC figures it did not measure."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        buffer = StringIO()
+        benchmarker = MultiModelCoBenchmarker(console=Console(file=buffer, width=200))
+        benchmarker.run_co_benchmark(prompt="Optics", iterations=1, warmup_runs=0)
+        text = buffer.getvalue()
+        assert "40,000" not in text and "1,850,000" not in text and "$350" not in text and "100% Free" not in text

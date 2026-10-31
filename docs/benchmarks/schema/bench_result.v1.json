@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bench_result.v1.json",
+  "title": "arc-runner benchmark result file, schema version 1",
+  "description": "Every number in the benchmark documentation must come from a file of this shape. Validated by scripts/validate_bench_json.py (stdlib only; this file documents the same rules).",
+  "type": "object",
+  "required": ["schema_version", "run_id", "created_utc", "environment", "protocol", "samples"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "created_utc": {"type": "string", "description": "ISO 8601 UTC timestamp"},
+    "environment": {
+      "type": "object",
+      "required": ["os", "python", "git_sha", "hardware"],
+      "properties": {
+        "os": {"type": "string"},
+        "python": {"type": "string"},
+        "git_sha": {"type": "string"},
+        "hardware": {"type": "string"},
+        "openvino_genai": {"type": ["string", "null"]},
+        "ollama_version": {"type": ["string", "null"]},
+        "driver_versions": {"type": "object"},
+        "on_ac_power": {"type": ["boolean", "null"]},
+        "power_mode": {"type": ["string", "null"], "description": "Optional. Power source at run time: 'ac', 'battery', or 'unknown'."},
+        "external_artifacts": {
+          "type": "array",
+          "description": "Optional. IR files and the toolchain used to produce them.",
+          "items": {
+            "type": "object",
+            "required": ["path", "sha256", "tool", "version"],
+            "properties": {
+              "path": {"type": "string", "description": "Absolute or repo-relative path to the artifact file."},
+              "sha256": {"type": "string", "description": "Hex SHA-256 of the file at measurement time."},
+              "tool": {"type": "string", "description": "Tool that produced the artifact (e.g. 'optimum-intel', 'openvino')."},
+              "version": {"type": "string", "description": "Version of the tool."}
+            }
+          }
+        },
+        "preconditions": {"type": "object", "description": "Optional. Results of the pre-run AC-power, idle-CPU and memory checks; each value is null with a reason when it could not be read."}
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "required": ["warmup_runs", "timed_runs", "labels"],
+      "description": "temperature and max_new_tokens are additionally required when the file contains llm samples",
+      "properties": {
+        "warmup_runs": {"type": "integer", "minimum": 0},
+        "timed_runs": {"type": "integer", "minimum": 1},
+        "temperature": {"type": "number"},
+        "max_new_tokens": {"type": "integer", "minimum": 1},
+        "labels": {"type": "object", "description": "backend -> device and quantization labels printed next to every row"},
+        "harness": {"type": "object", "description": "Optional. Harness settings of the run: max_warmups, interleaved, interleave_seed, cooldown_s, idle_window_s, warmup_cv_threshold."},
+        "series_quality": {"type": "array", "description": "Optional. Per series: warmups_run, warmup_converged (null if fewer than 3 warmups), timed_n, cv, non_normal (null if undefined). Recorded next to the data; not a gate condition."}
+      }
+    },
+    "failures": {
+      "type": "array",
+      "description": "Optional. Tiers that could not be measured on the device, recorded instead of being dropped or faked.",
+      "items": {"type": "object", "required": ["model_id", "backend", "error"], "properties": {"model_id": {"type": "string"}, "backend": {"type": "string"}, "error": {"type": "string"}}}
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["model_id", "backend", "iteration", "ttft_ms", "decode_tps", "prompt_tokens", "completion_tokens", "source", "is_warmup", "fallback_used"],
+        "properties": {
+          "model_id": {"type": "string"},
+          "backend": {"type": "string"},
+          "iteration": {"type": "integer", "minimum": 0},
+          "ttft_ms": {"type": ["number", "null"], "minimum": 0},
+          "decode_tps": {"type": ["number", "null"], "minimum": 0},
+          "prompt_tokens": {"type": "integer", "minimum": 0},
+          "completion_tokens": {"type": "integer", "minimum": 0},
+          "source": {"enum": ["measured", "derived", "projected"]},
+          "is_warmup": {"type": "boolean"},
+          "fallback_used": {"type": "boolean"},
+          "noisy": {"type": "boolean"},
+          "workload": {"enum": ["llm", "embeddings", "vlm", "audio_stt", "audio_tts", "image", "video"], "default": "llm"},
+          "metrics": {
+            "type": ["object", "null"],
+            "description": "Named measurements whose key carries the unit suffix (latency_s, rtf, throughput_fps, energy_j). Required and non-empty when workload is not llm; a null value means not measured.",
+            "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+            "additionalProperties": {"type": ["number", "null"], "minimum": 0}
+          }
+        }
+      }
+    }
+  }
+}

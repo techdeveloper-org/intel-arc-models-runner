@@ -73,12 +73,13 @@ python scratch/run_live_sequential_model_benchmarks.py --model qwen-2.5-1.5b
 # Option B: Benchmark an ultra-fast NPU embedding model (5W power envelope)
 python scratch/run_live_sequential_model_benchmarks.py --model all-minilm-l6-v2
 
-# Option C: Run the comprehensive 30-case Triad catalog audit
-python scratch/run_full_catalog_benchmark_audit.py
+# Option C: Vision-language, audio, image or video models (each writes a schema-v1 result file)
+python scratch/run_live_vlm_benchmarks.py --model qwen2-vl-7b
+python scratch/run_live_audio_benchmarks.py --model whisper-tiny
 ```
 
 #### Step 3: Submit Your Results
-1. Locate the generated JSON telemetry at `scratch/live_physical_benchmark_results.json` (or copy the summary table printed to stdout).
+1. Locate the generated schema-v1 result file under `docs/benchmarks/results/` and check it with `python scripts/validate_bench_json.py`.
 2. [**Open a GitHub Issue**](https://github.com/techdeveloper-org/intel-arc-models-runner/issues/new) using the title format:
    ```text
    [Community Benchmark] <GPU or NPU Model> - <Model Slug>

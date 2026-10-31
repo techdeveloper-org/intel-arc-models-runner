@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux (Python ${{ matrix.python-version }}, native layer, sanitizers)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install toolchain and package
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc gcc-mingw-w64-x86-64
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Build the native library (-Werror)
+        run: python src/arc_runner/native/build_native.py
+
+      - name: Tests (hardware tests excluded; they are reported as not run, never as passed)
+        run: python -m pytest -m "not hardware" -q
+
+      - name: Ring protocol model check
+        run: python scripts/check_ring_model.py 2 3 2 2
+
+      - name: Benchmark result files and generated tables
+        run: |
+          python scripts/validate_bench_json.py
+          python scripts/render_bench_docs.py --check
+
+      - name: Code, docs and diagrams in sync
+        run: python scripts/check_docs_sync.py
+
+  diagrams:
+    name: Mermaid blocks render
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install mermaid-cli
+        run: npm install --no-save @mermaid-js/mermaid-cli@10.9.1
+
+      - name: Render every Mermaid block
+        run: PATH="$PWD/node_modules/.bin:$PATH" python scripts/check_mermaid.py --require
+
+  windows:
+    name: Windows (mingw build, no GPU)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Check the compiler
+        shell: bash
+        run: gcc --version
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Build the native DLL (-Werror) and write its sidecar
+        run: python src/arc_runner/native/build_native.py
+
+      - name: Tests (hardware tests excluded)
+        run: python -m pytest -m "not hardware" -q
+
+      - name: Upload the built DLL and sidecar
+        uses: actions/upload-artifact@v4
+        with:
+          name: libarc_native_sys-windows
+          path: |
+            src/arc_runner/native/libarc_native_sys.dll
+            src/arc_runner/native/libarc_native_sys.dll.build.json
+
+  redfirst:
+    name: Red-first check against the pre-fix baseline (manual)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Run the new regression tests against the baseline source c7312e0
+        run: |
+          git worktree add ../baseline c7312e0
+          cp tests/test_honesty_no_fabrication.py tests/test_native_bounds.py tests/test_gguf_untrusted_input.py ../baseline/tests/
+          cd ../baseline
+          pip install -e ".[dev]"
+          if python -m pytest tests/test_honesty_no_fabrication.py tests/test_native_bounds.py tests/test_gguf_untrusted_input.py -q -p no:cacheprovider; then
+            echo "these tests must FAIL on the baseline"; exit 1
+          fi

@@ -4,20 +4,30 @@ Coordinates alias resolution, non-blocking downloads, SHA-256 integrity checks,
 and synchronized Level Zero engine memory teardown prior to weight unlinking.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
 import hashlib
 from pathlib import Path
+import re
 import shutil
 import threading
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
+from typing import TYPE_CHECKING
+
 from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError
 from arc_runner.core.logging import get_logger
+from arc_runner.core.path_policy import resolve_inside
 from arc_runner.hub.downloader import DownloadProgress, ModelDownloader
 from arc_runner.hub.registry import CuratedModelInfo, ModelRegistry
-from arc_runner.server.model_manager import ModelManager
+
+if TYPE_CHECKING:
+    from arc_runner.server.model_manager import ModelManager
 
 logger = get_logger("hub.manager")
+
+_TAG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 
 class HubManager:
@@ -62,12 +72,15 @@ class HubManager:
             ModelNotFoundError: If model does not exist locally.
         """
         clean_id = model_id.strip().split(":")[0]
-        direct = (self._base_dir / clean_id).resolve()
+        try:
+            direct = resolve_inside(self._base_dir, clean_id)
+        except ArcRunnerError:
+            raise ModelNotFoundError(model_id, str(self._base_dir)) from None
         if direct.exists() and direct.is_dir():
             return direct
 
         alias_info = ModelRegistry.resolve(clean_id)
-        candidate = (self._base_dir / alias_info.alias).resolve()
+        candidate = resolve_inside(self._base_dir, alias_info.alias)
         if candidate.exists() and candidate.is_dir():
             return candidate
 
@@ -96,6 +109,36 @@ class HubManager:
 
         return (len(missing) == 0, missing)
 
+    def prepare_pull(self, model_id: str) -> Tuple[str, Path]:
+        """Validate a pull request and compute where it would be stored, without touching the disk.
+
+        The model name becomes a directory name, so it must be an ordinary flat name (an optional ":tag" is
+        dropped, as in resolve_model_dir). Names with separators, "..", NUL, drive letters or absolute paths,
+        and over-long names are refused.
+
+        Args:
+            model_id: Model alias or Hugging Face repository name from the request.
+
+        Returns:
+            Tuple[str, Path]: Repository identifier to download and the resolved target directory below the
+            base directory.
+
+        Raises:
+            ArcRunnerError: 422 when the name is empty; 400 (INVALID_MODEL_NAME or PATH_NOT_ALLOWED) when it
+                is not a safe directory name.
+        """
+        clean_name = model_id.strip()
+        if not clean_name:
+            raise ArcRunnerError("Model identifier cannot be empty", "INVALID_ARGUMENT", 422)
+
+        _, separator, tag = clean_name.partition(":")
+        if separator and not _TAG.fullmatch(tag):
+            raise ArcRunnerError("Invalid model tag", "INVALID_MODEL_NAME", 400)
+
+        info: CuratedModelInfo = ModelRegistry.resolve(clean_name)
+        target_dir = resolve_inside(self._base_dir, info.alias.split(":")[0])
+        return info.repo_id.split(":")[0], target_dir
+
     def pull(
         self,
         model_id: str,
@@ -111,24 +154,20 @@ class HubManager:
             Iterator of DownloadProgress emissions, or resolved Path upon synchronous completion.
 
         Raises:
-            ArcRunnerError: If model_id is empty or download fails.
+            ArcRunnerError: If model_id is empty or unsafe (see prepare_pull), or the download fails.
         """
-        clean_name = model_id.strip()
-        if not clean_name:
-            raise ArcRunnerError("Model identifier cannot be empty", "INVALID_ARGUMENT", 422)
-
-        info: CuratedModelInfo = ModelRegistry.resolve(clean_name)
-        target_dir = (self._base_dir / info.alias).resolve()
+        repo_id, target_dir = self.prepare_pull(model_id)
+        info: CuratedModelInfo = ModelRegistry.resolve(model_id.strip())
 
         if stream:
             return self._downloader.download_stream(
-                repo_id=info.repo_id,
+                repo_id=repo_id,
                 destination_dir=target_dir,
                 expected_size=info.size_bytes,
             )
 
         return self._downloader.download_sync(
-            repo_id=info.repo_id,
+            repo_id=repo_id,
             destination_dir=target_dir,
         )
 
@@ -208,7 +247,7 @@ class HubManager:
             ArcRunnerError: If destination directory already exists.
         """
         src_dir = self.resolve_model_dir(source)
-        dest_dir = (self._base_dir / destination.strip()).resolve()
+        dest_dir = resolve_inside(self._base_dir, destination)
 
         if dest_dir.exists():
             raise ArcRunnerError(f"Destination '{destination}' already exists", "RESOURCE_CONFLICT", 409)

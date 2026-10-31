@@ -19,9 +19,9 @@ from arc_runner.server.model_manager import ModelManager
 
 
 @pytest.fixture
-def client():
-    """Create a FastAPI TestClient configured for UI endpoint testing."""
-    manager = ModelManager()
+def client(tmp_path: Path):
+    """Create a FastAPI TestClient whose models directory is the test's tmp_path."""
+    manager = ModelManager(model_dirs=[tmp_path])
     app = create_app(model_manager=manager, debug=True)
     return TestClient(app)
 
@@ -161,11 +161,11 @@ def test_api_ollama_inspect_missing_model_returns_404(client: TestClient) -> Non
     assert "not found" in resp.json()["detail"].lower()
 
 
-def test_api_gguf_convert_missing_file_returns_404(client: TestClient) -> None:
+def test_api_gguf_convert_missing_file_returns_404(client: TestClient, tmp_path: Path) -> None:
     """Verify POST /api/gguf/convert returns 404 when the source GGUF path does not exist."""
     resp = client.post(
         "/api/gguf/convert",
-        json={"path": "/nonexistent/path/model.gguf", "output_dir": "/tmp/out"},
+        json={"path": str(tmp_path / "missing.gguf"), "output_dir": str(tmp_path / "out")},
     )
     assert resp.status_code == 404
     assert "not found" in resp.json()["detail"].lower()
@@ -327,11 +327,10 @@ def test_sse_convert_endpoint_invalid_precision_error(client: TestClient, tmp_pa
 
 
 def test_sse_convert_endpoint_directory_traversal_protection(client: TestClient, tmp_path: Path) -> None:
-    """Verify path traversal outside permitted space yields event: error frame."""
+    """Verify a source path outside the allowed roots is refused with 403."""
     out_dir = tmp_path / "ov_out"
     resp = client.get(f"/api/gguf/convert/stream?path=../../../../nonexistent.gguf&output_dir={out_dir}")
-    assert resp.status_code == 200
-    assert "event: error" in resp.text
+    assert resp.status_code == 403
 
 
 def test_sse_convert_endpoint_special_characters_in_path(client: TestClient, tmp_path: Path) -> None:

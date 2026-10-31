@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import math
 import time
-from typing import ClassVar
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from arc_runner.benchmark.stats import student_t_ci95
 from arc_runner.core.logging import get_logger
 from arc_runner.orchestrator.models import (
     DeviceSchedulingStrategy,
@@ -31,20 +31,6 @@ logger = get_logger("benchmark.multimodal")
 class MultiModelCoBenchmarker:
     """Orchestrates multi-modal co-benchmarking passes across heterogeneous Intel silicon."""
 
-    STUDENT_T_95_TABLE: ClassVar[dict[int, float]] = {
-        1: 12.706,
-        2: 4.303,
-        3: 3.182,
-        4: 2.776,
-        5: 2.571,
-        6: 2.447,
-        7: 2.365,
-        8: 2.306,
-        9: 2.262,
-        10: 2.228,
-        20: 2.086,
-        30: 2.042,
-    }
 
     def __init__(
         self,
@@ -66,6 +52,8 @@ class MultiModelCoBenchmarker:
         iterations: int = 3,
         warmup_runs: int = 1,
         strategy: DeviceSchedulingStrategy = DeviceSchedulingStrategy.HETEROGENEOUS_PARALLEL,
+        cloud_cost_per_run_usd: float | None = None,
+        hardware_cost_usd: float | None = None,
     ) -> MultiModelBenchmarkReport:
         """Execute automated multi-modal co-benchmark matrix across specified iterations.
 
@@ -74,9 +62,14 @@ class MultiModelCoBenchmarker:
             iterations: Number of measured production runs.
             warmup_runs: Number of discarded initial warmup runs.
             strategy: Silicon scheduling strategy to evaluate.
+            cloud_cost_per_run_usd: Cloud API price per run, supplied by the caller; this project does not
+                know third-party prices, so no default exists.
+            hardware_cost_usd: Hardware purchase price, supplied by the caller.
 
         Returns:
-            MultiModelBenchmarkReport with sample means, confidence intervals, and Cloud ROI.
+            MultiModelBenchmarkReport with sample means and confidence intervals; ROI fields are filled only
+            from the supplied prices (payback = ceil(hardware / cloud cost)), RTF and token-rate fields stay
+            None because this benchmark does not measure them.
         """
         logger.info(
             f"Starting Multi-Model Co-Benchmark: {iterations} iterations, {warmup_runs} warmup passes (strategy: {strategy.value})"
@@ -114,9 +107,9 @@ class MultiModelCoBenchmarker:
 
         avg_stages = {k: round(v / iterations, 2) for k, v in stage_sums.items()}
 
-        cloud_cost_per_run = 0.350
-        hardware_cost_usd = 300.0
-        payback_runs = max(1, math.ceil(hardware_cost_usd / cloud_cost_per_run))
+        payback_runs: int | None = None
+        if cloud_cost_per_run_usd and hardware_cost_usd:
+            payback_runs = max(1, math.ceil(hardware_cost_usd / cloud_cost_per_run_usd))
 
         benchmark_id = f"bench_mm_{int(time.time())}"
         report = MultiModelBenchmarkReport(
@@ -126,10 +119,7 @@ class MultiModelCoBenchmarker:
             ci95_latency_ms=round(ci95_lat, 2),
             avg_usm_transfer_us=round(mean_usm, 2),
             ci95_usm_transfer_us=round(ci95_usm, 2),
-            audio_rtf=0.20,
-            video_rtf=0.65,
-            llm_tok_per_sec=34.5,
-            cloud_comparison_usd_per_run=cloud_cost_per_run,
+            cloud_comparison_usd_per_run=cloud_cost_per_run_usd,
             hardware_payback_runs=payback_runs,
             stage_latencies_ms=avg_stages,
         )
@@ -189,25 +179,23 @@ class MultiModelCoBenchmarker:
         usm_table.add_row(
             "USM Zero-Copy Pointer Handoff",
             f"{report.avg_usm_transfer_us:.2f} ± {report.ci95_usm_transfer_us:.2f} µs",
-            "~40,000x faster",
-        )
-        usm_table.add_row(
-            "Host Memory Socket Serialization",
-            "~1,850,000 µs (1.85 s)",
-            "1.0x (Baseline)",
+            "not measured",
         )
         c.print(usm_table)
 
-        roi_table = Table(title="Commercial Cloud API Replacement ROI Analysis", show_header=True, header_style="bold yellow")
-        roi_table.add_column("Cost / Economic Metric", style="bold white", width=36)
-        roi_table.add_column("Cloud Stack (OpenAI + ElevenLabs + Runway)", justify="right", style="red", width=28)
-        roi_table.add_column("Local Intel Arc Studio", justify="right", style="bold green", width=24)
+        if report.cloud_comparison_usd_per_run is None:
+            c.print("[dim]Cloud ROI not computed: supply cloud_cost_per_run_usd and hardware_cost_usd (assumptions, not measurements).[/dim]")
+            return
 
-        roi_table.add_row("Cost per 30-Second Video", f"${report.cloud_comparison_usd_per_run:.3f}", "$0.000 (100% Free)")
-        roi_table.add_row("1,000 Videos (Creator Scale)", "$350.00", "$0.00")
-        roi_table.add_row("10,000 Videos (Agency Scale)", "$3,500.00", "$0.00")
-        roi_table.add_row("100,000 Videos (Enterprise Hub)", "$35,000.00", "$0.00")
-        roi_table.add_row("Intel Arc Hardware Payback Period", "N/A", f"<{report.hardware_payback_runs} Generations")
+        roi_table = Table(title="Cloud API Replacement ROI (from caller-supplied prices)", show_header=True, header_style="bold yellow")
+        roi_table.add_column("Cost / Economic Metric", style="bold white", width=36)
+        roi_table.add_column("Supplied cloud price", justify="right", style="red", width=24)
+        per_run = report.cloud_comparison_usd_per_run
+        roi_table.add_row("Cost per run", f"${per_run:.3f}")
+        for runs in (1_000, 10_000, 100_000):
+            roi_table.add_row(f"{runs:,} runs", f"${per_run * runs:,.2f}")
+        if report.hardware_payback_runs is not None:
+            roi_table.add_row("Hardware payback (runs)", f"{report.hardware_payback_runs:,}")
         c.print(roi_table)
 
     def _compute_confidence_interval_95(self, samples: list[float]) -> tuple[float, float]:
@@ -219,17 +207,4 @@ class MultiModelCoBenchmarker:
         Returns:
             Tuple of (sample_mean, confidence_half_width).
         """
-        n = len(samples)
-        if n == 0:
-            return 0.0, 0.0
-        if n == 1:
-            return samples[0], 0.0
-
-        mean = sum(samples) / n
-        variance = sum((x - mean) ** 2 for x in samples) / (n - 1)
-        std_dev = math.sqrt(variance)
-        std_error = std_dev / math.sqrt(n)
-
-        df = n - 1
-        t_crit = self.STUDENT_T_95_TABLE.get(df, 2.0)
-        return mean, t_crit * std_error
+        return student_t_ci95(samples)

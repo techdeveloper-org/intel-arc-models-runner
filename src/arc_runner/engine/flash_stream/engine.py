@@ -3,6 +3,10 @@
 Executes massive LLM architectures with an O(1) resident RAM footprint by
 streaming layer weights on-demand through a 3-slot ring buffer, partitioning
 Attention and RoPE to the Intel NPU and SwiGLU matrix computation to the Arc GPU.
+
+Limitation: this engine is a demonstrator of the streaming and dispatch path. It does not
+sample from model logits; the text it emits is a fixed list of canned tokens, so its telemetry is
+labelled metrics_source="synthetic_pipeline" and must not be quoted as model throughput.
 """
 
 from pathlib import Path
@@ -194,25 +198,30 @@ class FlashStreamInferenceEngine(BaseEngine):
             tokens_per_second=tps,
             total_tokens=max_tokens,
             total_latency_ms=total_duration_ms,
+            metrics_source="synthetic_pipeline",
+            is_estimate=True,
         )
 
     def get_working_memory_report(self) -> Dict[str, Any]:
         """Compute resident memory footprint across ring buffer and KV cache allocations.
 
         Returns:
-            Dictionary containing active memory metrics and O(1) invariant status.
+            Dictionary containing mapped ring-buffer and KV-cache byte counts and ring slot occupancy.
         """
         ring_bytes = self.weight_manager.get_active_memory_bytes() if self.weight_manager else 0
         kv_bytes = self.kv_buffer.get_memory_bytes() if self.kv_buffer else 0
         total_bytes = ring_bytes + kv_bytes
         total_mb = total_bytes / (1024 * 1024)
+        slots_capacity = self.weight_manager.ring_buffer_slots if self.weight_manager else 0
+        slots_occupied = self.weight_manager.get_occupied_slot_count() if self.weight_manager else 0
 
         return {
             "ring_buffer_bytes": ring_bytes,
             "kv_cache_bytes": kv_bytes,
             "total_working_bytes": total_bytes,
             "total_working_mb": round(total_mb, 2),
-            "o1_invariant_satisfied": True,
+            "ring_slots_occupied": slots_occupied,
+            "ring_slots_capacity": slots_capacity,
         }
 
     def unload(self) -> None:

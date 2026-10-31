@@ -1,0 +1,1 @@
+{"id": "msg_ID", "type": "message", "role": "assistant", "model": "llama-3.2-3b-int4", "content": [{"type": "text", "text": "Hello there"}], "stop_reason": "end_turn", "stop_sequence": null, "usage": {"input_tokens": 9, "output_tokens": 2}}

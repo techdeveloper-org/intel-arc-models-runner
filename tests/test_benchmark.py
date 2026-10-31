@@ -260,3 +260,16 @@ def test_benchmark_concurrent_runs_thread_safe(bench_env):
     assert sum1.iterations == sum2.iterations
     assert sum1.avg_tokens_per_sec > 0.0
     assert sum2.avg_tokens_per_sec > 0.0
+
+
+def test_run_benchmark_zero_tokens_raises_instead_of_inventing_throughput(bench_env):
+    """A pass that streams no token must fail, never report a throughput derived from a floor value."""
+
+    class SilentEngine(MockBenchmarkEngine):
+        def generate_stream(self, prompt, config=None):
+            yield TokenChunk(text="", token_id=2, is_finished=True, finish_reason="stop", prompt_tokens=8, completion_tokens=0)
+
+    bench_env["manager"]._cache["llama-3.2-3b:GPU:none:NPU:4"] = SilentEngine("llama-3.2-3b")
+    with pytest.raises(ArcRunnerError) as excinfo:
+        bench_env["runner"].run_benchmark(model_id="llama-3.2-3b", device="GPU", iterations=1, warmup=0, max_new_tokens=4)
+    assert excinfo.value.error_code == "NO_TOKENS_GENERATED"

@@ -5,36 +5,81 @@ Intel AI Boost NPUs (stateful MCDM arrays), and host CPUs, with a thread-safe
 Producer-Consumer streaming bridge.
 """
 
+import errno
+import hashlib
 import os
 import queue
+import re
 import threading
 import time
 from pathlib import Path
-from typing import Any, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 from arc_runner.core.constants import (
+    DEFAULT_CACHE_DIR,
     DEFAULT_CONTEXT_WINDOW,
     DEFAULT_MAX_NEW_TOKENS,
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_K,
     DEFAULT_TOP_P,
+    NPU_MAX_PROMPT_LEN,
+    NPU_MIN_RESPONSE_LEN,
     STREAM_BUFFER_SIZE,
 )
 from arc_runner.core.exceptions import (
     ArcRunnerError,
+    ConfigurationError,
     ContextWindowExceededError,
     DeviceNotFoundError,
     ModelLoadError,
     ModelNotFoundError,
+    PromptCapExceededError,
 )
+from arc_runner.core.logging import get_logger
 from arc_runner.engine.base import BaseEngine
+from arc_runner.engine.context_budget import ContextBudgetMixin
 from arc_runner.engine.kv_cache import KVCacheManager
 from arc_runner.engine.lora_manager import LoRAManager
-from arc_runner.engine.models import EngineTelemetry, GenerationConfig, TokenChunk
+from arc_runner.engine.models import EngineTelemetry, GenerationConfig, TokenChunk, validate_generation_config
+from arc_runner.engine.telemetry import telemetry_from_perf_metrics, telemetry_from_stream, telemetry_unavailable
 from arc_runner.utils.dll_loader import initialize_windows_dll_environment
 
 
-class OpenVINOGenAIEngine(BaseEngine):
+logger = get_logger("engine.openvino")
+
+KV_PRECISION_ENV = "ARC_KV_CACHE_PRECISION"
+CACHE_DIR_ENV = "ARC_CACHE_DIR"
+WARMUP_ENV = "ARC_WARMUP_ON_LOAD"
+DEVICE_KEY_MAX_LEN = 64
+WARMUP_PROMPT = "Hello."
+WARMUP_MAX_NEW_TOKENS = 4
+_RESERVED_DEVICE_NAMES = frozenset({"CON", "PRN", "AUX", "NUL"} | {f"COM{i}" for i in range(1, 10)} | {f"LPT{i}" for i in range(1, 10)})
+_INVALID_KEY_CHARS = re.compile(r"[^A-Za-z0-9._-]")
+_NPU_OVER_CAP_LIBRARY_MSG = 'Set the "MAX_PROMPT_LEN" config option to increase the limit.'
+
+
+def device_key(device: str, max_len: int = DEVICE_KEY_MAX_LEN) -> str:
+    """Turn a device string into a stable, Windows-safe directory name.
+
+    Args:
+        device: Device string such as 'GPU.0' or 'AUTO:GPU,CPU'.
+        max_len: Maximum key length; longer keys are truncated with a hash suffix.
+
+    Returns:
+        str: Non-empty upper-case key made of letters, digits, dot, underscore and hyphen.
+    """
+    digest = hashlib.sha256(device.encode("utf-8")).hexdigest()[:8].upper()
+    key = _INVALID_KEY_CHARS.sub("_", device.upper()).strip("._ ")
+    if not key:
+        key = f"DEVICE_{digest}"
+    if key.split(".", 1)[0] in _RESERVED_DEVICE_NAMES:
+        key = "_" + key
+    if len(key) > max_len:
+        key = f"{key[: max_len - 9]}_{hashlib.sha256(key.encode('utf-8')).hexdigest()[:8].upper()}"
+    return key
+
+
+class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
     """Execution engine wrapping openvino_genai.LLMPipeline for Intel heterogeneous silicon."""
 
     VALID_DEVICE_PREFIXES = ("GPU", "NPU", "CPU")
@@ -58,6 +103,7 @@ class OpenVINOGenAIEngine(BaseEngine):
         self._model_path: str = ""
         self._device: str = ""
         self._telemetry: EngineTelemetry = EngineTelemetry()
+        self._kv_cache_precision: str = ""
 
     @property
     def is_loaded(self) -> bool:
@@ -112,29 +158,167 @@ class OpenVINOGenAIEngine(BaseEngine):
         if not any(normalized_device.startswith(prefix) for prefix in self.VALID_DEVICE_PREFIXES):
             raise DeviceNotFoundError(device, list(self.VALID_DEVICE_PREFIXES))
 
-        device_props = dict(kwargs)
-        if normalized_device.startswith("GPU"):
-            cache_dir = Path(".cache/ov_cache").resolve()
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            device_props.setdefault("CACHE_DIR", str(cache_dir))
-            device_props.setdefault("KV_CACHE_PRECISION", "u8")
-            device_props.setdefault("PERFORMANCE_HINT", "LATENCY")
-            device_props.setdefault("GPU_ENABLE_SDPA_OPTIMIZATION", True)
+        device_props = self._build_ov_properties(normalized_device, dict(kwargs))
 
+        cache_dir = device_props.get("CACHE_DIR")
+        if cache_dir:
+            logger.info("Compile cache in use", extra={"cache_dir": str(cache_dir), "device": normalized_device})
+        warmup_on = self._warmup_on_load_enabled()
         try:
             import openvino_genai as ov_genai
             self._pipeline = ov_genai.LLMPipeline(str(resolved_path), normalized_device, **device_props)
             self._is_loaded = True
             self._model_path = str(resolved_path)
             self._device = normalized_device
+            if warmup_on:
+                logger.warning("warmup_on_load=on", extra={"device": normalized_device})
+                self.warmup()
         except DeviceNotFoundError:
             raise
         except ModelNotFoundError:
             raise
         except Exception as exc:
-            self._is_loaded = False
-            self._pipeline = None
-            raise ModelLoadError(str(exc), str(resolved_path), normalized_device) from exc
+            self.unload()
+            detail = f"{exc} (compile cache: {cache_dir})" if cache_dir else str(exc)
+            raise ModelLoadError(detail, str(resolved_path), normalized_device) from exc
+
+    @staticmethod
+    def _warmup_on_load_enabled() -> bool:
+        """Read ARC_WARMUP_ON_LOAD; only 'on', 'off' and empty are valid (case-insensitive).
+
+        Returns:
+            bool: True only for 'on'. An invalid value is logged at WARNING and treated as off.
+        """
+        value = os.environ.get(WARMUP_ENV, "").strip().lower()
+        if value in ("", "off"):
+            return False
+        if value == "on":
+            return True
+        logger.warning(
+            "ARC_WARMUP_ON_LOAD value is not on, off or empty; warm-up stays off",
+            extra={"env_var": WARMUP_ENV},
+        )
+        return False
+
+    def warmup(self) -> None:
+        """Run one short fixed generation to compile and touch the pipeline; telemetry is left unchanged.
+
+        Raises:
+            ArcRunnerError: If no model is loaded.
+        """
+        if not self.is_loaded:
+            raise ArcRunnerError("Model not loaded. Call load_model() first.", "MODEL_NOT_LOADED", 400)
+        saved = self._telemetry
+        try:
+            ov_config = self._build_ov_generation_config(GenerationConfig(max_new_tokens=WARMUP_MAX_NEW_TOKENS))
+            self._invoke_pipeline(WARMUP_PROMPT, ov_config)
+        finally:
+            self._telemetry = saved
+
+    @staticmethod
+    def _resolve_cache_dir(device: str) -> Optional[Path]:
+        """Create and return the absolute device-keyed compile cache directory.
+
+        Args:
+            device: Normalized device string.
+
+        Returns:
+            Optional[Path]: The directory, or None (after a WARNING) if it cannot be created or written.
+        """
+        raw = os.environ.get(CACHE_DIR_ENV, "").strip()
+        root = Path(os.path.abspath(os.path.expanduser(raw))) if raw else Path(os.path.abspath(DEFAULT_CACHE_DIR / "ov_cache"))
+        target = root / device_key(device)
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+            if not os.access(target, os.W_OK):
+                raise PermissionError(errno.EACCES, "cache directory is not writable")
+        except OSError as exc:
+            logger.warning(
+                "Compile cache disabled: directory unusable",
+                extra={"cache_dir": str(target), "device": device, "reason": str(exc), "errno": str(exc.errno)},
+            )
+            return None
+        return target
+
+    def _build_ov_properties(self, device: str, overrides: Dict[str, Any]) -> Dict[str, Any]:
+        """Build OpenVINO pipeline properties for a device.
+
+        The u8 KV cache is NOT enabled by default: it is a quality trade-off with no quality gate in
+        this project. Opt in with the KV_CACHE_PRECISION keyword or ARC_KV_CACHE_PRECISION=u8.
+
+        Args:
+            device: Normalized device string (GPU, NPU, CPU with optional suffix).
+            overrides: Caller-supplied properties; they always win over defaults.
+
+        Returns:
+            Dict[str, Any]: Properties passed to openvino_genai.LLMPipeline.
+        """
+        props = dict(overrides)
+        if "CACHE_DIR" not in props:
+            cache_dir = self._resolve_cache_dir(device)
+            if cache_dir is not None:
+                props["CACHE_DIR"] = str(cache_dir)
+        if device.startswith("GPU"):
+            props.setdefault("PERFORMANCE_HINT", "LATENCY")
+            props.setdefault("GPU_ENABLE_SDPA_OPTIMIZATION", True)
+        if device.startswith("NPU"):
+            props.setdefault("MAX_PROMPT_LEN", NPU_MAX_PROMPT_LEN)
+            props.setdefault("MIN_RESPONSE_LEN", NPU_MIN_RESPONSE_LEN)
+        requested_precision = os.environ.get(KV_PRECISION_ENV, "").strip()
+        if requested_precision:
+            props.setdefault("KV_CACHE_PRECISION", requested_precision)
+        self._kv_cache_precision = str(props.get("KV_CACHE_PRECISION", ""))
+        return props
+
+    def tokenize(self, prompt: str) -> Optional[List[int]]:
+        """Return the prompt's token ids from the loaded pipeline's tokenizer.
+
+        Args:
+            prompt: Prompt text.
+
+        Returns:
+            Optional[List[int]]: Token ids, or None if no model is loaded or the tokenizer cannot be queried.
+        """
+        if not self.is_loaded:
+            return None
+        try:
+            encoded = self._pipeline.get_tokenizer().encode(prompt)
+            return [int(token) for token in encoded.input_ids.data.flatten().tolist()]
+        except Exception as exc:
+            logger.warning("Tokenization unavailable", extra={"reason": str(exc)})
+            return None
+
+    def _check_npu_prompt_cap(self, prompt: str, prompt_tokens: Optional[int]) -> None:
+        """Raise PromptCapExceededError when the device is NPU and the prompt exceeds NPU_MAX_PROMPT_LEN.
+
+        Called before the pipeline is invoked so the error is deterministic and never
+        depends on which library error message happens to surface at runtime.  The prompt
+        is never silently truncated.
+
+        Args:
+            prompt: Prompt text; word count used as a fallback when token count is unavailable.
+            prompt_tokens: Measured token count from _check_request_fits_context, or None.
+
+        Raises:
+            PromptCapExceededError: If device is NPU and the estimated token count exceeds the cap.
+        """
+        if not self._device.startswith("NPU"):
+            return
+        count = prompt_tokens if prompt_tokens is not None else len(prompt.split())
+        if count > NPU_MAX_PROMPT_LEN:
+            raise PromptCapExceededError(count, NPU_MAX_PROMPT_LEN)
+
+    def _invoke_pipeline(self, prompt: str, ov_config: Any) -> Any:
+        """Run one synchronous generation using a single call form that returns DecodedResults.
+
+        Args:
+            prompt: Prompt text.
+            ov_config: openvino_genai.GenerationConfig or None.
+
+        Returns:
+            Any: Pipeline result (DecodedResults carrying texts and perf_metrics).
+        """
+        return self._pipeline.generate([prompt], ov_config) if ov_config else self._pipeline.generate([prompt])
 
     def _build_ov_generation_config(self, config: GenerationConfig) -> Any:
         """Convert engine GenerationConfig into an openvino_genai.GenerationConfig instance.
@@ -144,9 +328,13 @@ class OpenVINOGenAIEngine(BaseEngine):
 
         Returns:
             openvino_genai.GenerationConfig: Populated native config object.
+
+        Raises:
+            ConfigurationError: If a sampling value is out of range or the native binding rejects it.
         """
+        validate_generation_config(config)
+        import openvino_genai as ov_genai
         try:
-            import openvino_genai as ov_genai
             ov_config = ov_genai.GenerationConfig()
             ov_config.max_new_tokens = config.max_new_tokens
             ov_config.temperature = config.temperature
@@ -162,8 +350,12 @@ class OpenVINOGenAIEngine(BaseEngine):
                 if ov_adapter_cfg is not None:
                     ov_config.adapters = ov_adapter_cfg
             return ov_config
-        except Exception:
-            return None
+        except (TypeError, ValueError, RuntimeError, AttributeError) as exc:
+            logger.warning(
+                "Generation config rejected by native binding",
+                extra={"error_type": type(exc).__name__, "max_new_tokens": str(config.max_new_tokens), "reason": str(exc)},
+            )
+            raise ConfigurationError(f"native generation config rejected: {exc}") from exc
 
     def generate(self, prompt: str, config: Optional[GenerationConfig] = None) -> str:
         """Execute synchronous autoregressive generation and return completed text.
@@ -183,53 +375,35 @@ class OpenVINOGenAIEngine(BaseEngine):
             raise ArcRunnerError("Model not loaded. Call load_model() first.", "MODEL_NOT_LOADED", 400)
 
         if not prompt:
+            self._telemetry = EngineTelemetry(model_id=self._model_path, device=self._device)
             return ""
 
         cfg = config or GenerationConfig()
         ov_config = self._build_ov_generation_config(cfg)
 
+        prompt_tokens = self._check_request_fits_context(prompt, cfg.max_new_tokens)
+        self._check_npu_prompt_cap(prompt, prompt_tokens)
+
         start_time = time.monotonic()
         try:
-            raw_result = self._pipeline.generate([prompt], ov_config) if ov_config else self._pipeline.generate([prompt])
-        except Exception:
-            raw_result = self._pipeline.generate(prompt, ov_config) if ov_config else self._pipeline.generate(prompt)
-
+            raw_result = self._invoke_pipeline(prompt, ov_config)
+        except Exception as exc:
+            if self._device.startswith("NPU") and _NPU_OVER_CAP_LIBRARY_MSG in str(exc):
+                raise PromptCapExceededError(prompt_tokens or len(prompt.split()), NPU_MAX_PROMPT_LEN) from exc
+            raise
         elapsed_sec = max(time.monotonic() - start_time, 1e-6)
 
         if hasattr(raw_result, "texts") and hasattr(raw_result, "perf_metrics"):
             text_result = raw_result.texts[0] if raw_result.texts else ""
-            pm = raw_result.perf_metrics
-            try:
-                tps = float(pm.get_throughput().mean)
-                ttft_ms = float(pm.get_ttft().mean)
-                gen_tokens = int(pm.get_num_generated_tokens())
-                gen_dur_ms = float(pm.get_generate_duration().mean)
-            except Exception:
-                gen_tokens = max(1, len(text_result.split()))
-                tps = gen_tokens / elapsed_sec
-                ttft_ms = elapsed_sec * 200.0
-                gen_dur_ms = elapsed_sec * 1000.0
-
-            self._telemetry = EngineTelemetry(
-                model_id=self._model_path,
-                device=self._device,
-                ttft_ms=round(ttft_ms, 2),
-                tokens_per_second=round(tps, 2),
-                total_tokens=gen_tokens,
-                total_latency_ms=round(gen_dur_ms, 2),
+            self._telemetry = telemetry_from_perf_metrics(
+                raw_result.perf_metrics, self._model_path, self._device, elapsed_sec
             )
         else:
             text_result = str(raw_result)
-            approx_tokens = len(text_result.split())
-            self._telemetry = EngineTelemetry(
-                model_id=self._model_path,
-                device=self._device,
-                ttft_ms=round(elapsed_sec * 200.0, 2),
-                tokens_per_second=round(approx_tokens / elapsed_sec, 2),
-                total_tokens=approx_tokens,
-                total_latency_ms=round(elapsed_sec * 1000.0, 2),
-            )
+            self._telemetry = telemetry_unavailable(self._model_path, self._device, elapsed_sec)
 
+        self._telemetry.prompt_tokens = prompt_tokens or 0
+        self._telemetry.kv_cache_precision = self._kv_cache_precision
         return text_result
 
     def generate_stream(
@@ -265,10 +439,13 @@ class OpenVINOGenAIEngine(BaseEngine):
         chunk_queue: queue.Queue[Optional[TokenChunk]] = queue.Queue(maxsize=STREAM_BUFFER_SIZE)
         cancel_event = threading.Event()
         stop_sequences = cfg.stop_strings
+        max_stop_len = max((len(s) for s in stop_sequences), default=0)
 
         start_time = time.monotonic()
         first_token_time: Optional[float] = None
         generated_count = 0
+        emitted: List[str] = []
+        _cross_chunk_buf: List[str] = []
 
         def streamer_callback(chunk_text: str) -> bool:
             nonlocal first_token_time, generated_count
@@ -278,29 +455,40 @@ class OpenVINOGenAIEngine(BaseEngine):
             if first_token_time is None:
                 first_token_time = time.monotonic()
 
+            _cross_chunk_buf.append(chunk_text)
+            window = "".join(_cross_chunk_buf[-(max_stop_len + 1):]) if max_stop_len else chunk_text
+
             for stop_str in stop_sequences:
-                if stop_str in chunk_text:
-                    truncated = chunk_text.split(stop_str)[0]
+                if stop_str in window:
+                    prefix = window.split(stop_str)[0]
+                    already_emitted = "".join(_cross_chunk_buf[:-1])
+                    to_emit = prefix[len(already_emitted):]
                     cancel_event.set()
-                    if truncated:
+                    if to_emit:
+                        emitted.append(to_emit)
                         generated_count += 1
-                        chunk_queue.put(TokenChunk(text=truncated, is_finished=False, completion_tokens=generated_count))
+                        chunk_queue.put(TokenChunk(text=to_emit, is_finished=False, completion_tokens=generated_count))
                     return True
 
+            emitted.append(chunk_text)
             generated_count += 1
             chunk_queue.put(TokenChunk(text=chunk_text, is_finished=False, completion_tokens=generated_count))
             return False
 
         ov_config = self._build_ov_generation_config(cfg)
+        prompt_tokens = self._check_request_fits_context(prompt, cfg.max_new_tokens)
+        self._check_npu_prompt_cap(prompt, prompt_tokens)
 
         worker_error: List[Exception] = []
+        pipeline_result: List[Any] = []
 
         def worker_target() -> None:
             try:
                 if ov_config:
-                    self._pipeline.generate(prompt, ov_config, streamer=streamer_callback)
+                    result = self._pipeline.generate(prompt, ov_config, streamer=streamer_callback)
                 else:
-                    self._pipeline.generate(prompt, streamer=streamer_callback)
+                    result = self._pipeline.generate(prompt, streamer=streamer_callback)
+                pipeline_result.append(result)
             except Exception as exc:
                 worker_error.append(exc)
             finally:
@@ -327,27 +515,36 @@ class OpenVINOGenAIEngine(BaseEngine):
             cancel_event.set()
 
         if worker_error:
-            raise worker_error[0]
+            exc = worker_error[0]
+            if self._device.startswith("NPU") and _NPU_OVER_CAP_LIBRARY_MSG in str(exc):
+                raise PromptCapExceededError(prompt_tokens or len(prompt.split()), NPU_MAX_PROMPT_LEN) from exc
+            raise exc
 
         end_time = time.monotonic()
-        total_sec = max(end_time - start_time, 1e-6)
-        ttft = (first_token_time - start_time) * 1000.0 if first_token_time else total_sec * 500.0
-        decode_speed = generated_count / max(end_time - (first_token_time or start_time), 1e-6)
-
-        self._telemetry = EngineTelemetry(
-            model_id=self._model_path,
-            device=self._device,
-            ttft_ms=ttft,
-            tokens_per_second=decode_speed,
-            total_tokens=generated_count,
-            total_latency_ms=total_sec * 1000.0,
+        token_count: Optional[int] = None
+        is_estimate = True
+        if pipeline_result:
+            result_obj = pipeline_result[0]
+            pm = getattr(result_obj, "perf_metrics", None)
+            if pm is not None:
+                try:
+                    token_count = int(pm.get_num_generated_tokens())
+                    is_estimate = False
+                except Exception:
+                    pass
+        self._telemetry = telemetry_from_stream(
+            self._model_path, self._device, start_time, end_time, first_token_time,
+            generated_count, token_count=token_count, is_estimate=is_estimate,
         )
+        self._telemetry.prompt_tokens = prompt_tokens or 0
+        self._telemetry.kv_cache_precision = self._kv_cache_precision
 
         finish_reason = "length" if generated_count >= cfg.max_new_tokens else "stop"
         yield TokenChunk(
             text="",
             is_finished=True,
             finish_reason=finish_reason,
+            prompt_tokens=prompt_tokens or 0,
             completion_tokens=generated_count,
         )
 

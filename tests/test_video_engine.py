@@ -299,7 +299,34 @@ class TestVideoEnginePositive:
             assert b.iteration_rate_it_s > 0.0
             assert b.frames_per_second > 0.0
             assert b.real_time_factor > 0.0
-            assert b.energy_yield_frames_per_kwh > 0.0
+            assert b.energy_yield_frames_per_kwh is None
+            assert b.package_power_w is None
+            assert b.peak_memory_mb is None
+
+    def test_video_generation_without_perf_metrics_reports_stage_timings_as_none(self, tmp_path: Path) -> None:
+        """H9: without OpenVINO perf metrics there is no stage split and no step rate."""
+
+        class _NoMetricsResult(MockVideoResult):
+            def __init__(self, tensor: Any) -> None:
+                super().__init__(tensor)
+                self.perf_metrics = None
+
+        class _NoMetricsPipeline(MockText2VideoPipeline):
+            def generate(self, prompt: str, **kwargs: Any) -> Any:
+                return _NoMetricsResult(super().generate(prompt, **kwargs).video)
+
+            def get_performance_metrics(self) -> Any:
+                raise RuntimeError("perf metrics unavailable")
+
+        model_dir = tmp_path / "mock_video_model"
+        model_dir.mkdir()
+        with mock.patch("openvino_genai.Text2VideoPipeline", side_effect=_NoMetricsPipeline):
+            engine = VideoEngine(model_path_or_id=model_dir)
+            res = engine.generate(prompt="No metrics", num_frames=8, fps=8, width=128, height=128)
+        b = res.breakdown
+        assert b.text_encoder_ms is None and b.denoise_transformer_ms is None and b.vae_decoder_ms is None
+        assert b.step_latency_ms is None and b.iteration_rate_it_s is None
+        assert b.frames_per_second > 0.0 and b.real_time_factor > 0.0
 
     def test_video_engine_context_manager_and_disposal(self, tmp_path: Path) -> None:
         """P10: Verify context manager entry, exit, and explicit resource reclamation."""

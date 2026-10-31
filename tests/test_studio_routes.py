@@ -29,7 +29,8 @@ class TestStudioRoutes:
         data = response.json()
         assert "project_id" in data
         assert "video_output_path" in data
-        assert data["cloud_cost_saved_usd"] == 0.35
+        assert data["cloud_cost_saved_usd"] is None
+        assert data["telemetry"]["peak_vram_mb"] is None
         assert len(data["script_scenes"]) >= 1
 
     def test_post_generate_project_sse_streaming(self) -> None:
@@ -59,7 +60,9 @@ class TestStudioRoutes:
         assert response.status_code == 200
         data = response.json()
         assert "benchmark_id" in data
-        assert data["cloud_comparison_usd_per_run"] == 0.35
+        assert data["cloud_comparison_usd_per_run"] is None
+        assert data["hardware_payback_runs"] is None
+        assert data["audio_rtf"] is None and data["video_rtf"] is None and data["llm_tok_per_sec"] is None
         assert data["iterations"] == 1
 
     def test_get_project_metadata_and_not_found(self) -> None:

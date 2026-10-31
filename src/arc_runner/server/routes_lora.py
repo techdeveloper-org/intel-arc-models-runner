@@ -10,12 +10,15 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException, Request, status
 
+from arc_runner.core.exceptions import ArcRunnerError
 from arc_runner.core.logging import get_logger
+from arc_runner.core.path_policy import allowed_roots, ensure_path_allowed
 from arc_runner.engine.lora_manager import (
     AdapterConfigError,
     AdapterNotFoundError,
     LoRAAdapterMetadata,
 )
+from arc_runner.server.errors import hidden_error
 from arc_runner.server.schemas import (
     LoRAAdapterResponse,
     LoRAInspectRequest,
@@ -48,11 +51,14 @@ def _to_response_dto(meta: LoRAAdapterMetadata) -> LoRAAdapterResponse:
     )
 
 
-def _validate_safe_path(path_str: str) -> Path:
-    """Validate that path does not contain illegal traversal segments.
+def _validate_safe_path(path_str: str, request: Request, allow_name: bool = False) -> Path:
+    """Validate that a path has no traversal segments and lies inside an allowed root.
 
     Args:
         path_str: Raw path input string.
+        request: Active request, for the models directories.
+        allow_name: If True a bare adapter name (no separator, not absolute) is returned unresolved; the
+            LoRA manager resolves it below its own directories.
 
     Returns:
         Path: Resolved filesystem path.
@@ -65,7 +71,13 @@ def _validate_safe_path(path_str: str) -> Path:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Path traversal not permitted: {path_str}",
         )
-    return Path(path_str).resolve()
+    if allow_name and "/" not in path_str.replace("\\", "/") and not Path(path_str).is_absolute():
+        return Path(path_str)
+    model_mgr_dirs = getattr(request.app.state.model_manager, "model_dirs", [])
+    try:
+        return ensure_path_allowed(path_str, allowed_roots(model_mgr_dirs or [Path("models")]))
+    except ArcRunnerError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
 
 @router.get("/api/adapters", response_model=List[LoRAAdapterResponse])
@@ -97,19 +109,18 @@ async def load_adapter(payload: LoRALoadRequest, request: Request) -> LoRAAdapte
     Raises:
         HTTPException: If adapter is not found or config is corrupted.
     """
-    _validate_safe_path(payload.adapter)
+    _validate_safe_path(payload.adapter, request, allow_name=True)
     model_mgr = request.app.state.model_manager
 
     try:
         meta = await asyncio.to_thread(model_mgr.lora_manager.load_adapter, payload.adapter)
         return _to_response_dto(meta)
     except AdapterNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise hidden_error("lora adapter not found", exc, f"LoRA adapter '{payload.adapter[:128]}' not found", 404, adapter=payload.adapter) from exc
     except AdapterConfigError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise hidden_error("lora adapter config invalid", exc, "LoRA adapter configuration is invalid", 400, adapter=payload.adapter) from exc
     except Exception as exc:
-        logger.error(f"Failed to load LoRA adapter '{payload.adapter}': {exc}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+        raise hidden_error("lora adapter load failed", exc, "Failed to load LoRA adapter", adapter=payload.adapter) from exc
 
 
 @router.post("/api/adapters/unload")
@@ -142,10 +153,10 @@ async def inspect_adapter(payload: LoRAInspectRequest, request: Request) -> LoRA
     Raises:
         HTTPException: If path is invalid or files are corrupt.
     """
-    safe_path = _validate_safe_path(payload.path)
+    safe_path = _validate_safe_path(payload.path, request, allow_name=True)
     model_mgr = request.app.state.model_manager
 
-    if not safe_path.exists():
+    if not safe_path.is_absolute():
         in_dir = model_mgr.lora_manager.adapters_dir / payload.path
         if in_dir.exists():
             safe_path = in_dir.resolve()
@@ -154,9 +165,8 @@ async def inspect_adapter(payload: LoRAInspectRequest, request: Request) -> LoRA
         meta = await asyncio.to_thread(model_mgr.lora_manager.parse_adapter_metadata, safe_path)
         return _to_response_dto(meta)
     except AdapterNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise hidden_error("lora adapter not found", exc, f"LoRA adapter '{payload.path[:128]}' not found", 404, adapter=payload.path) from exc
     except AdapterConfigError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise hidden_error("lora adapter config invalid", exc, "LoRA adapter configuration is invalid", 400, adapter=payload.path) from exc
     except Exception as exc:
-        logger.error(f"Failed to inspect adapter at '{payload.path}': {exc}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+        raise hidden_error("lora adapter inspect failed", exc, "Failed to inspect LoRA adapter", adapter=payload.path) from exc

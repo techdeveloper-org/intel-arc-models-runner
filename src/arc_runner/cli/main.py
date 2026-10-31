@@ -5,7 +5,9 @@ server management, model hub acquisition, and heterogeneous performance benchmar
 """
 
 import argparse
+import ipaddress
 import json
+import os
 from pathlib import Path
 import sys
 from typing import List, Optional
@@ -18,6 +20,7 @@ from arc_runner import __version__
 from arc_runner.benchmark.multimodal_runner import MultiModelCoBenchmarker
 from arc_runner.benchmark.runner import BenchmarkRunner
 from arc_runner.core.constants import DEFAULT_HOST, DEFAULT_PORT
+from arc_runner.core.exceptions import ConfigurationError
 from arc_runner.core.logging import get_logger, setup_logging
 from arc_runner.devices.detector import DeviceDetector
 from arc_runner.devices.models import DeviceType, SystemTopology
@@ -38,6 +41,20 @@ from arc_runner.quant.gguf_parser import GGUFParser
 from arc_runner.quant.transpiler import GGUFTranspiler
 from arc_runner.server.app import create_app
 from arc_runner.server.model_manager import ModelManager
+
+
+def _measured(value: Optional[float], spec: str, suffix: str = "") -> str:
+    """Format a telemetry value that may be unmeasured.
+
+    Args:
+        value: Measured value or None.
+        spec: Format spec such as ".1f".
+        suffix: Unit text appended to a measured value.
+
+    Returns:
+        str: The formatted value, or "n/a (not measured)" for None.
+    """
+    return "n/a (not measured)" if value is None else f"{value:{spec}}{suffix}"
 
 
 def render_devices_dashboard(topology: SystemTopology, console: Optional[Console] = None) -> None:
@@ -104,6 +121,23 @@ def render_devices_dashboard(topology: SystemTopology, console: Optional[Console
     c.print(Panel("\n".join(status_lines), title="System Readiness Status", border_style="green" if topology.has_intel_arc else "yellow"))
 
 
+def _is_loopback_host(host: str) -> bool:
+    """Tell whether a bind address only accepts connections from this machine.
+
+    Args:
+        host: Value of --host.
+
+    Returns:
+        bool: True for "localhost" and loopback IP literals; False for wildcard addresses, other IPs and names.
+    """
+    if host.strip().lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host.strip().strip("[]")).is_loopback
+    except ValueError:
+        return False
+
+
 def run_server(
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
@@ -123,15 +157,26 @@ def run_server(
         log_file: Optional path to rotating JSON file appender.
 
     Returns:
-        int: Process exit code.
+        int: Process exit code; 2 when the configuration (for example ARC_CONTEXT_WINDOW) is invalid,
+        reported on stderr before any model is loaded.
     """
     import uvicorn
 
     setup_logging(debug=debug, log_file=Path(log_file) if log_file else None)
     logger = get_logger("cli.server")
 
-    manager = ModelManager(model_dirs=[Path(d) for d in model_dirs] if model_dirs else None)
+    try:
+        manager = ModelManager(model_dirs=[Path(d) for d in model_dirs] if model_dirs else None)
+    except ConfigurationError as exc:
+        text = " ".join(str(exc.message).split())[:300]
+        print(f"arc-runner serve: configuration error: {text}", file=sys.stderr)
+        return 2
     app = create_app(model_manager=manager, debug=debug)
+    if not _is_loopback_host(host) and not os.environ.get("ARC_API_KEY", "").strip():
+        logger.warning(
+            "Listening beyond loopback with no ARC_API_KEY: anyone who can reach this port can run models, pull and delete models. Set ARC_API_KEY or bind to 127.0.0.1.",
+            extra={"bind_host": host, "port": port},
+        )
 
     console = Console()
     startup_banner = (
@@ -180,7 +225,10 @@ def handle_pull(model_id: str, base_dir: Optional[str] = None) -> int:
     console.print(f"[bold cyan]Pulling model:[/bold cyan] {info.alias} [dim]({info.repo_id})[/dim]")
     try:
         last_pct = -1.0
+        final_verified: Optional[bool] = None
         for progress in hub.pull(model_id, stream=True):
+            if progress.verified is not None:
+                final_verified = progress.verified
             if progress.percent is not None and progress.percent != last_pct:
                 pct_str = f"{progress.percent:5.1f}%"
                 speed_str = f"{progress.speed_mbps:.1f} MB/s" if progress.speed_mbps else "calculating..."
@@ -190,7 +238,10 @@ def handle_pull(model_id: str, base_dir: Optional[str] = None) -> int:
             elif progress.status in ("pulling manifest", "verifying checksum", "success"):
                 console.print(f"  [bold green]✔[/bold green] {progress.status}")
 
-        console.print(f"[bold green]Model '{info.alias}' successfully pulled and verified![/bold green]")
+        if final_verified:
+            console.print(f"[bold green]Model '{info.alias}' successfully pulled and verified against Hub hashes.[/bold green]")
+        else:
+            console.print(f"[bold yellow]Model '{info.alias}' pulled; no remote hashes were available, so it is NOT verified.[/bold yellow]")
         return 0
     except Exception as exc:
         console.print(f"[bold red]Pull failed:[/bold red] {exc}")
@@ -1043,9 +1094,9 @@ def handle_generate_image(
                 f"[bold green]Image Synthesized Successfully[/bold green]\n"
                 f"Destination: [cyan]{saved_path}[/cyan] ({file_kb:.1f} KB)\n"
                 f"Resolution: [bold]{res.width}x{res.height}[/bold] | Steps: [bold]{res.num_inference_steps}[/bold] | CFG: [dim]{res.guidance_scale}[/dim] | Seed: [dim]{res.seed_used}[/dim]\n"
-                f"Total Latency: [bold]{res.total_latency_s:.3f}s[/bold] | Step Rate: [bold green]{res.breakdown.iteration_rate_it_s:.2f} it/s[/bold green] ({res.breakdown.step_latency_ms:.1f} ms/step)\n"
+                f"Total Latency: [bold]{res.total_latency_s:.3f}s[/bold] | Step Rate: [bold green]{_measured(res.breakdown.iteration_rate_it_s, '.2f', ' it/s')}[/bold green] ({_measured(res.breakdown.step_latency_ms, '.1f', ' ms/step')})\n"
                 f"Raster Throughput: [bold cyan]{res.breakdown.megapixels_per_sec:.3f} MP/s[/bold cyan]\n"
-                f"[dim]Breakdown: TextEnc: {res.breakdown.text_encoder_ms:.1f}ms | UNet Denoise: {res.breakdown.denoise_unet_ms:.1f}ms | VAE Decode: {res.breakdown.vae_decoder_ms:.1f}ms[/dim]"
+                f"[dim]Breakdown: TextEnc: {_measured(res.breakdown.text_encoder_ms, '.1f', 'ms')} | UNet Denoise: {_measured(res.breakdown.denoise_unet_ms, '.1f', 'ms')} | VAE Decode: {_measured(res.breakdown.vae_decoder_ms, '.1f', 'ms')}[/dim]"
             )
             c.print(
                 Panel(
@@ -1155,9 +1206,9 @@ def handle_generate_video(
                 f"Resolution: [bold]{res.resolution[0]}x{res.resolution[1]}[/bold] | Frames: [bold]{res.num_frames}[/bold] @ [bold]{res.fps} fps[/bold] ({res.duration_sec:.2f}s)\n"
                 f"Steps: [bold]{res.request.num_inference_steps}[/bold] | CFG: [dim]{res.request.guidance_scale}[/dim] | Container: [cyan]{res.request.export_container}[/cyan]\n"
                 f"Total Latency: [bold]{res.total_latency_ms / 1000.0:.3f}s[/bold] | Real-Time Factor (RTF): [bold cyan]{res.breakdown.real_time_factor:.2f}x[/bold cyan]\n"
-                f"Video Throughput: [bold green]{res.breakdown.frames_per_second:.2f} fps[/bold green] ({res.breakdown.step_latency_ms:.1f} ms/step)\n"
-                f"Energy Yield: [bold yellow]{res.breakdown.energy_yield_frames_per_kwh:.1f} frames/kWh[/bold yellow] (Proof M103 @ 21W TDP)\n"
-                f"[dim]Breakdown: TextEnc: {res.breakdown.text_encoder_ms:.1f}ms | 3D Denoise: {res.breakdown.denoise_transformer_ms:.1f}ms | 3D VAE: {res.breakdown.vae_decoder_ms:.1f}ms | Mux: {res.breakdown.video_encode_ms:.1f}ms[/dim]"
+                f"Video Throughput: [bold green]{res.breakdown.frames_per_second:.2f} fps[/bold green] ({_measured(res.breakdown.step_latency_ms, '.1f', ' ms/step')})\n"
+                f"Energy Yield: [bold yellow]{_measured(res.breakdown.energy_yield_frames_per_kwh, '.1f', ' frames/kWh')}[/bold yellow]\n"
+                f"[dim]Breakdown: TextEnc: {_measured(res.breakdown.text_encoder_ms, '.1f', 'ms')} | 3D Denoise: {_measured(res.breakdown.denoise_transformer_ms, '.1f', 'ms')} | 3D VAE: {_measured(res.breakdown.vae_decoder_ms, '.1f', 'ms')} | Mux: {res.breakdown.video_encode_ms:.1f}ms[/dim]"
             )
             c.print(
                 Panel(
@@ -1248,7 +1299,7 @@ def handle_studio(
                     f"Duration: [bold]{payload.total_duration_sec:.2f}s[/bold] | Scenes: [bold]{len(payload.script_scenes)}[/bold]\n"
                     f"Total E2E Latency: [bold yellow]{payload.telemetry.total_latency_ms / 1000.0:.2f}s[/bold yellow]\n"
                     f"USM Zero-Copy Transfer: [bold cyan]{payload.telemetry.usm_zero_copy_latency_us:.2f} µs[/bold cyan]\n"
-                    f"Cloud Cost Saved: [bold green]${payload.cloud_cost_saved_usd:.3f}[/bold green] (vs OpenAI + ElevenLabs + Runway)",
+                    f"Cloud Cost Saved: [bold green]{'not computed (no price assumption supplied)' if payload.cloud_cost_saved_usd is None else f'${payload.cloud_cost_saved_usd:.3f}'}[/bold green]",
                     title="Production Artifact",
                     border_style="green",
                 )

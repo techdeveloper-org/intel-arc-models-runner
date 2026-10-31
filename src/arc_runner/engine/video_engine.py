@@ -19,8 +19,29 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from arc_runner.core.exceptions import ArcRunnerError, ModelLoadError
 from arc_runner.core.logging import get_logger
+from arc_runner.engine.device_errors import classify_device_error
 
 logger = get_logger("arc_runner.engine.video")
+
+
+def _mean(val: Any) -> float:
+    """Extract the mean value from either a MeanStdPair object or a plain dict.
+
+    OpenVINO GenAI returns a MeanStdPair with a .mean attribute in most builds but
+    returns a plain dict {"mean": x, "std": y} in some versions. This helper handles
+    both shapes so perf-metric extraction never raises AttributeError.
+
+    Args:
+        val: Value returned by a get_*_infer_duration() call.
+
+    Returns:
+        float: The mean duration in milliseconds, or 0.0 when the key is absent.
+    """
+    if isinstance(val, (int, float)):
+        return float(val)
+    if isinstance(val, dict):
+        return float(val.get("mean", 0.0))
+    return float(val.mean)
 
 
 class VideoEngineError(ArcRunnerError):
@@ -63,16 +84,17 @@ class VideoGenerationRequest(BaseModel):
 class VideoGenerationBreakdown(BaseModel):
     """Granular latency and throughput decomposition of the video generation pipeline."""
 
-    text_encoder_ms: float = Field(description="Text prompt conditioning latency in milliseconds")
-    denoise_transformer_ms: float = Field(description="Total 3D DiT/transformer denoising latency in milliseconds")
-    vae_decoder_ms: float = Field(description="3D spatio-temporal VAE decoding latency in milliseconds")
-    video_encode_ms: float = Field(description="Container muxing and serialization latency in milliseconds")
-    step_latency_ms: float = Field(description="Average latency per denoising step in milliseconds")
-    iteration_rate_it_s: float = Field(description="Denoising throughput in iterations per second (it/s)")
-    frames_per_second: float = Field(description="Video throughput in frames per second (fps)")
-    real_time_factor: float = Field(description="Real-Time Factor: wall clock time / video duration")
-    energy_yield_frames_per_kwh: float = Field(description="Frames synthesized per kilowatt-hour (Proof M103)")
-    peak_memory_mb: float = Field(description="Peak resident memory in Megabytes")
+    text_encoder_ms: Optional[float] = Field(default=None, description="Text prompt conditioning latency in milliseconds; None if the pipeline reported no perf metrics")
+    denoise_transformer_ms: Optional[float] = Field(default=None, description="Total 3D DiT/transformer denoising latency in milliseconds; None if not reported")
+    vae_decoder_ms: Optional[float] = Field(default=None, description="3D spatio-temporal VAE decoding latency in milliseconds; None if not reported")
+    video_encode_ms: float = Field(description="Container muxing and serialization latency in milliseconds (measured)")
+    step_latency_ms: Optional[float] = Field(default=None, description="Average latency per denoising step in milliseconds; None if not reported")
+    iteration_rate_it_s: Optional[float] = Field(default=None, description="Denoising throughput in iterations per second (it/s); None if not reported")
+    frames_per_second: float = Field(description="Video throughput in frames per second (frames / measured wall time)")
+    real_time_factor: float = Field(description="Real-Time Factor: measured wall clock time / video duration")
+    package_power_w: Optional[float] = Field(default=None, description="Measured package power in watts; None because the engine does not sample a power counter")
+    energy_yield_frames_per_kwh: Optional[float] = Field(default=None, description="Frames per kilowatt-hour; None unless power was measured")
+    peak_memory_mb: Optional[float] = Field(default=None, description="Peak resident memory in megabytes; None because the engine does not measure it")
 
 
 class VideoGenerationResult(BaseModel):
@@ -174,6 +196,12 @@ class VideoEngine:
                 )
             except Exception as dev_exc:
                 if target_device == "GPU":
+                    error_class = classify_device_error(dev_exc)
+                    if error_class in ("DEVICE_LOST", "OOM"):
+                        raise ModelLoadError(
+                            f"Unrecoverable GPU error ({error_class}) loading video model"
+                            f" at '{self._model_path}': {dev_exc}"
+                        ) from dev_exc
                     logger.warning(
                         "Intel Arc GPU compilation failed, falling back to Host CPU: %s",
                         dev_exc,
@@ -473,23 +501,20 @@ class VideoEngine:
             except Exception:
                 metrics_obj = None
 
-            text_enc_ms = 0.0
-            denoise_ms = 0.0
-            vae_ms = 0.0
+            text_enc_ms: Optional[float] = None
+            denoise_ms: Optional[float] = None
+            vae_ms: Optional[float] = None
             if metrics_obj is not None:
                 try:
-                    text_enc_ms = float(metrics_obj.get_text_encoder_infer_duration().mean)
-                    denoise_ms = float(metrics_obj.get_transformer_infer_duration().mean)
-                    if denoise_ms <= 0.0:
-                        denoise_ms = float(metrics_obj.get_unet_infer_duration().mean)
-                    vae_ms = float(metrics_obj.get_vae_decoder_infer_duration().mean)
-                except Exception:
-                    pass
-
-            if denoise_ms <= 0.0:
-                denoise_ms = max(0.1, total_latency_ms * 0.82)
-                text_enc_ms = max(0.01, total_latency_ms * 0.06)
-                vae_ms = max(0.01, total_latency_ms * 0.12)
+                    reported_text = _mean(metrics_obj.get_text_encoder_infer_duration())
+                    reported_denoise = _mean(metrics_obj.get_transformer_infer_duration())
+                    if reported_denoise <= 0.0:
+                        reported_denoise = _mean(metrics_obj.get_unet_infer_duration())
+                    reported_vae = _mean(metrics_obj.get_vae_decoder_infer_duration())
+                    if reported_denoise > 0.0:
+                        text_enc_ms, denoise_ms, vae_ms = reported_text, reported_denoise, reported_vae
+                except Exception as exc:
+                    logger.warning("Video perf metrics unreadable; stage timings left unset: %s", exc)
 
             t_enc_start = time.perf_counter()
             saved_path: Optional[str] = None
@@ -503,26 +528,21 @@ class VideoEngine:
             t_enc_end = time.perf_counter()
             encode_ms = max(0.01, (t_enc_end - t_enc_start) * 1000.0)
 
-            step_latency_ms = max(0.01, denoise_ms / max(1, request.num_inference_steps))
-            it_rate = 1000.0 / step_latency_ms
+            step_latency_ms = denoise_ms / max(1, request.num_inference_steps) if denoise_ms else None
+            it_rate = 1000.0 / step_latency_ms if step_latency_ms else None
             duration_sec = float(request.num_frames) / float(request.fps)
             fps_throughput = float(request.num_frames) / total_sec
             rtf = total_sec / max(1e-4, duration_sec)
 
-            package_power_w = 21.0
-            energy_yield = (3.6e6 * float(request.num_frames)) / (package_power_w * total_sec)
-
             breakdown = VideoGenerationBreakdown(
-                text_encoder_ms=round(text_enc_ms, 2),
-                denoise_transformer_ms=round(denoise_ms, 2),
-                vae_decoder_ms=round(vae_ms, 2),
+                text_encoder_ms=None if text_enc_ms is None else round(text_enc_ms, 2),
+                denoise_transformer_ms=None if denoise_ms is None else round(denoise_ms, 2),
+                vae_decoder_ms=None if vae_ms is None else round(vae_ms, 2),
                 video_encode_ms=round(encode_ms, 2),
-                step_latency_ms=round(step_latency_ms, 2),
-                iteration_rate_it_s=round(it_rate, 2),
+                step_latency_ms=None if step_latency_ms is None else round(step_latency_ms, 2),
+                iteration_rate_it_s=None if it_rate is None else round(it_rate, 2),
                 frames_per_second=round(fps_throughput, 2),
                 real_time_factor=round(rtf, 4),
-                energy_yield_frames_per_kwh=round(energy_yield, 2),
-                peak_memory_mb=round(float(request.num_frames * request.width * request.height * 3) / (1024.0 * 1024.0) + 420.0, 2),
             )
 
             model_name = self._model_path.name if self._model_path else "unknown"

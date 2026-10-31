@@ -249,7 +249,7 @@ class TestPositiveTriad:
             assert chunks[-1].finish_reason == "length"
 
             report = engine.get_working_memory_report()
-            assert report["o1_invariant_satisfied"] is True
+            assert 0 < report["ring_slots_occupied"] <= report["ring_slots_capacity"]
             assert report["total_working_mb"] > 0
         finally:
             engine.unload()

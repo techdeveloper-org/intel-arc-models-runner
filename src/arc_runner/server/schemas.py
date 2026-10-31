@@ -165,7 +165,7 @@ class OpenAIChatCompletionResponse(BaseModel):
     created: int = Field(description="Unix epoch creation timestamp in seconds")
     model: str = Field(description="Model used for generation")
     choices: List[OpenAIChatCompletionChoice] = Field(description="Completion choices array")
-    usage: Dict[str, int] = Field(description="Token utilization counts")
+    usage: Optional[Dict[str, int]] = Field(default=None, description="Engine-reported token counts; absent when the engine did not measure them")
 
 
 class OpenAIChunkDelta(BaseModel):
@@ -302,8 +302,8 @@ class OpenAIEmbeddingData(BaseModel):
 class OpenAIEmbeddingUsage(BaseModel):
     """Token usage metadata for embedding generation."""
 
-    prompt_tokens: int = Field(default=0, description="Tokens evaluated in prompt inputs")
-    total_tokens: int = Field(default=0, description="Total tokens consumed")
+    prompt_tokens: int = Field(default=0, description="Tokens evaluated in prompt inputs, as reported by the engine")
+    total_tokens: int = Field(default=0, description="Total tokens consumed, as reported by the engine")
 
 
 class OpenAIEmbeddingResponse(BaseModel):
@@ -312,7 +312,7 @@ class OpenAIEmbeddingResponse(BaseModel):
     object: str = Field(default="list", description="List object type")
     data: List[OpenAIEmbeddingData] = Field(description="Embedding data list")
     model: str = Field(description="Target model identifier evaluated")
-    usage: OpenAIEmbeddingUsage = Field(default_factory=OpenAIEmbeddingUsage, description="Usage statistics")
+    usage: Optional[OpenAIEmbeddingUsage] = Field(default=None, description="Usage statistics; absent when the engine did not report token counts")
 
 
 class LoRASpecSchema(BaseModel):

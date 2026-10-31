@@ -5,6 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
+*.so.build.json
 
 # Distribution / packaging
 .Python
@@ -38,6 +39,7 @@ venv.bak/
 models/
 weights/
 checkpoints/
+.cache/
 *.bin
 *.pt
 *.pth

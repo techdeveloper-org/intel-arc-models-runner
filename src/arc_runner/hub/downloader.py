@@ -9,7 +9,7 @@ from pathlib import Path
 import queue
 import threading
 import time
-from typing import Iterator, Optional
+from typing import Dict, Iterator, Optional, Tuple
 from pydantic import BaseModel, Field
 
 from arc_runner.core.exceptions import ArcRunnerError
@@ -28,6 +28,7 @@ class DownloadProgress(BaseModel):
     percent: Optional[float] = Field(default=None, description="Completion percentage 0.0 to 100.0")
     speed_mbps: Optional[float] = Field(default=None, description="Smoothed bandwidth in Megabytes per second")
     eta_seconds: Optional[float] = Field(default=None, description="Estimated remaining seconds")
+    verified: Optional[bool] = Field(default=None, description="True only when every file matched a remote hash; False when no comparison was possible; None while in progress")
 
 
 class ModelDownloader:
@@ -61,6 +62,84 @@ class ModelDownloader:
             pass
         return total
 
+    def _fetch_remote_file_hashes(self, repo_id: str) -> Dict[str, Tuple[str, str]]:
+        """Fetch per-file content hashes published by the Hugging Face Hub.
+
+        Files stored in LFS carry a sha256; other files carry a git blob object id (sha1).
+
+        Args:
+            repo_id: Canonical Hugging Face repository identifier.
+
+        Returns:
+            Dict[str, Tuple[str, str]]: Mapping of repository file name to (algorithm, hex digest),
+            where algorithm is "sha256" or "git-sha1".
+
+        Raises:
+            ArcRunnerError: If the metadata cannot be fetched.
+        """
+        try:
+            from huggingface_hub import HfApi
+
+            info = HfApi().model_info(repo_id, files_metadata=True)
+        except Exception as exc:
+            raise ArcRunnerError(f"Could not fetch file hashes for '{repo_id}': {exc}", "HUB_METADATA_UNAVAILABLE", 502) from exc
+        hashes: Dict[str, Tuple[str, str]] = {}
+        for sibling in info.siblings or []:
+            lfs = getattr(sibling, "lfs", None)
+            lfs_sha = lfs.get("sha256") if isinstance(lfs, dict) else getattr(lfs, "sha256", None)
+            blob_id = getattr(sibling, "blob_id", None)
+            if lfs_sha:
+                hashes[sibling.rfilename] = ("sha256", str(lfs_sha))
+            elif blob_id:
+                hashes[sibling.rfilename] = ("git-sha1", str(blob_id))
+        return hashes
+
+    @staticmethod
+    def _hash_file(path: Path, algorithm: str) -> str:
+        """Hash a file the way the Hub does.
+
+        Args:
+            path: File to hash.
+            algorithm: "sha256" (plain content) or "git-sha1" (git blob object id).
+
+        Returns:
+            str: Lowercase hex digest.
+        """
+        size = path.stat().st_size
+        digest = hashlib.sha256() if algorithm == "sha256" else hashlib.sha1(b"blob %d\0" % size)
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1 << 20), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    def _verify_snapshot(self, dest: Path, remote: Dict[str, Tuple[str, str]], repo_id: str) -> str:
+        """Compare every downloaded file with the hash the Hub publishes for it.
+
+        Args:
+            dest: Resolved destination directory.
+            remote: Mapping from file name to (algorithm, hex digest).
+            repo_id: Repository identifier used in error messages.
+
+        Returns:
+            str: Short digest computed over the sorted (file name, verified hash) list.
+
+        Raises:
+            ArcRunnerError: With code CHECKSUM_MISMATCH if a file is missing, escapes dest, or differs.
+        """
+        combined = hashlib.sha256()
+        for name in sorted(remote):
+            algorithm, expected = remote[name]
+            target = (dest / name).resolve()
+            if dest != target and dest not in target.parents:
+                raise ArcRunnerError(f"Remote file name '{name}' escapes the download directory", "CHECKSUM_MISMATCH", 502)
+            if not target.is_file():
+                raise ArcRunnerError(f"'{name}' is listed by '{repo_id}' but was not downloaded", "CHECKSUM_MISMATCH", 502)
+            actual = self._hash_file(target, algorithm)
+            if actual != expected.lower():
+                raise ArcRunnerError(f"{algorithm} mismatch for '{name}' from '{repo_id}'", "CHECKSUM_MISMATCH", 502)
+            combined.update(f"{name}\0{actual}\n".encode("utf-8"))
+        return combined.hexdigest()[:12]
+
     def download_stream(
         self,
         repo_id: str,
@@ -82,7 +161,7 @@ class ModelDownloader:
         """
         dest = destination_dir.resolve()
         dest.mkdir(parents=True, exist_ok=True)
-        digest = hashlib.sha256(repo_id.encode("utf-8")).hexdigest()[:12]
+        digest: Optional[str] = None
 
         yield DownloadProgress(
             status="pulling manifest",
@@ -155,15 +234,24 @@ class ModelDownloader:
             raise ArcRunnerError(f"Failed to download repository '{repo_id}': {err}", "DOWNLOAD_FAILED", 502)
 
         final_bytes = self._get_dir_size(dest)
-        yield DownloadProgress(
-            status="verifying checksum",
-            digest=digest,
-            total=final_bytes,
-            completed=final_bytes,
-            percent=99.9,
-            speed_mbps=0.0,
-            eta_seconds=0.0,
-        )
+        verified = False
+        try:
+            remote_hashes = self._fetch_remote_file_hashes(repo_id)
+        except ArcRunnerError as exc:
+            logger.warning("Checksum comparison unavailable", extra={"repo_id": repo_id, "reason": exc.message})
+            remote_hashes = {}
+        if remote_hashes:
+            yield DownloadProgress(
+                status="verifying checksum",
+                digest=digest,
+                total=final_bytes,
+                completed=final_bytes,
+                percent=99.9,
+                speed_mbps=0.0,
+                eta_seconds=0.0,
+            )
+            digest = self._verify_snapshot(dest, remote_hashes, repo_id)
+            verified = True
 
         yield DownloadProgress(
             status="success",
@@ -173,6 +261,7 @@ class ModelDownloader:
             percent=100.0,
             speed_mbps=0.0,
             eta_seconds=0.0,
+            verified=verified,
         )
 
     def download_sync(self, repo_id: str, destination_dir: Path) -> Path:

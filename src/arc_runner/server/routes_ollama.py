@@ -4,6 +4,7 @@ Provides /api/generate, /api/chat, /api/tags, /api/show, /api/version, and root 
 with NDJSON streaming and non-blocking C++ execution.
 """
 
+from arc_runner._version import __version__
 import asyncio
 from datetime import datetime, timezone
 import json
@@ -13,13 +14,15 @@ import time
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 
+from arc_runner.server.prefix_probe import match_prefix_with_real_tokens
 from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError
 from arc_runner.core.logging import get_logger, set_request_context
 from arc_runner.engine.models import GenerationConfig, LoRAAdapterSpec, TokenChunk
 from arc_runner.hub.downloader import DownloadProgress
 from arc_runner.hub.manager import HubManager
+from arc_runner.server.errors import hidden_error, model_not_found_detail
 from arc_runner.server.model_manager import ModelManager
 from arc_runner.server.schemas import (
     OllamaChatMessage,
@@ -94,7 +97,7 @@ async def get_version() -> OllamaVersionResponse:
     Returns:
         OllamaVersionResponse containing active version string.
     """
-    return OllamaVersionResponse(version="0.1.0")
+    return OllamaVersionResponse(version=__version__)
 
 
 @router.get("/api/tags", response_model=OllamaTagsResponse)
@@ -136,7 +139,7 @@ async def show_model(
         details_dict = manager.get_model_details(target)
         return OllamaShowResponse(**details_dict)
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(target)) from exc
 
 
 def _build_generation_config(
@@ -309,6 +312,53 @@ async def _stream_token_chunks(
         yield item
 
 
+def _eval_timing_ns(engine: Any, duration_ns: int) -> Dict[str, int]:
+    """Split a request duration into prompt and decode nanoseconds using measured TTFT only.
+
+    Args:
+        engine: Engine that served the request.
+        duration_ns: Total wall-clock request duration in nanoseconds.
+
+    Returns:
+        Dict[str, int]: prompt_eval_duration and eval_duration, both 0 when TTFT was not measured.
+    """
+    telemetry = engine.get_telemetry()
+    if not telemetry.is_ttft_valid:
+        return {"prompt_eval_duration": 0, "eval_duration": 0}
+    prompt_ns = min(int(telemetry.ttft_ms * 1_000_000), duration_ns)
+    return {"prompt_eval_duration": prompt_ns, "eval_duration": max(duration_ns - prompt_ns, 0)}
+
+
+def _measured_prompt_count(engine: Any) -> Optional[int]:
+    """Return the engine-measured prompt token count, or None when it was not measured.
+
+    Args:
+        engine: Engine that served the request.
+
+    Returns:
+        Optional[int]: Telemetry prompt_tokens when positive, else None (0 means not measured).
+    """
+    count = engine.get_telemetry().prompt_tokens
+    return count if count > 0 else None
+
+
+def _without_unmeasured(response: Any, *fields: str) -> JSONResponse:
+    """Serialize a response model, dropping the named fields when they are None.
+
+    Args:
+        response: Pydantic response model.
+        *fields: Field names omitted from the wire payload when unmeasured.
+
+    Returns:
+        JSONResponse: JSON payload without the unmeasured fields.
+    """
+    payload = response.model_dump(mode="json")
+    for name in fields:
+        if payload.get(name) is None:
+            payload.pop(name, None)
+    return JSONResponse(content=payload)
+
+
 @router.post("/api/generate")
 async def generate(
     request: OllamaGenerateRequest,
@@ -338,14 +388,13 @@ async def generate(
     try:
         engine = manager.get_or_load_engine(request.model, device=device)
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(request.model)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to load engine: {exc}") from exc
+        raise hidden_error("engine load failed", exc, "Failed to load engine", model=request.model) from exc
 
     batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
     if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
-        dummy_tokens = [hash(word) % 32000 for word in request.prompt.split()[:32]]
-        batch_pipeline.prefix_cache.match_prefix(dummy_tokens)
+        match_prefix_with_real_tokens(batch_pipeline, engine, request.prompt)
 
     gen_config = _build_generation_config(
         request.options,
@@ -381,10 +430,9 @@ async def generate(
                         "done": True,
                         "total_duration": duration_ns,
                         "load_duration": 0,
-                        "prompt_eval_count": chunk.prompt_tokens or len(request.prompt.split()),
-                        "prompt_eval_duration": int(duration_ns * 0.2),
+                        **({} if chunk.prompt_tokens is None else {"prompt_eval_count": chunk.prompt_tokens}),
                         "eval_count": tokens_generated,
-                        "eval_duration": int(duration_ns * 0.8),
+                        **_eval_timing_ns(engine, duration_ns),
                         "context": [],
                     }
                     yield json.dumps(final_payload) + "\n"
@@ -393,21 +441,23 @@ async def generate(
 
     text = engine.generate(request.prompt, gen_config)
     duration_ns = time.time_ns() - start_ns
-    tokens_count = len(text.split())
+    tokens_count = engine.get_telemetry().total_tokens
     manager.record_generation_metrics(tokens_count)
 
-    return OllamaGenerateResponse(
-        model=request.model,
-        created_at=datetime.now(timezone.utc).isoformat(),
-        response=text,
-        done=True,
-        total_duration=duration_ns,
-        load_duration=0,
-        prompt_eval_count=len(request.prompt.split()),
-        prompt_eval_duration=int(duration_ns * 0.2),
-        eval_count=tokens_count,
-        eval_duration=int(duration_ns * 0.8),
-        context=[],
+    return _without_unmeasured(
+        OllamaGenerateResponse(
+            model=request.model,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            response=text,
+            done=True,
+            total_duration=duration_ns,
+            load_duration=0,
+            prompt_eval_count=_measured_prompt_count(engine),
+            eval_count=tokens_count,
+            **_eval_timing_ns(engine, duration_ns),
+            context=[],
+        ),
+        "prompt_eval_count",
     )
 
 
@@ -440,16 +490,15 @@ async def chat(
     try:
         engine = manager.get_or_load_engine(request.model, device=device)
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(request.model)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to load engine: {exc}") from exc
+        raise hidden_error("engine load failed", exc, "Failed to load engine", model=request.model) from exc
 
     chat_prompt = _format_chat_prompt(request.messages, request.model)
 
     batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
     if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
-        dummy_tokens = [hash(word) % 32000 for word in chat_prompt.split()[:32]]
-        batch_pipeline.prefix_cache.match_prefix(dummy_tokens)
+        match_prefix_with_real_tokens(batch_pipeline, engine, chat_prompt)
 
     gen_config = _build_generation_config(
         request.options,
@@ -496,10 +545,9 @@ async def chat(
                         "done": True,
                         "total_duration": duration_ns,
                         "load_duration": 0,
-                        "prompt_eval_count": chunk.prompt_tokens or len(chat_prompt.split()),
-                        "prompt_eval_duration": int(duration_ns * 0.2),
+                        **({} if chunk.prompt_tokens is None else {"prompt_eval_count": chunk.prompt_tokens}),
                         "eval_count": tokens_generated,
-                        "eval_duration": int(duration_ns * 0.8),
+                        **_eval_timing_ns(engine, duration_ns),
                     }
                     yield json.dumps(final_payload) + "\n"
 
@@ -507,6 +555,22 @@ async def chat(
 
     parsed_text = _split_chat_output(engine.generate(chat_prompt, gen_config), request.model)
     duration_ns = time.time_ns() - start_ns
+    tokens_count = engine.get_telemetry().total_tokens
+    manager.record_generation_metrics(tokens_count)
+
+    return _without_unmeasured(
+        OllamaChatResponse(
+            model=request.model,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            message=OllamaChatMessage(role="assistant", content=text),
+            done=True,
+            total_duration=duration_ns,
+            load_duration=0,
+            prompt_eval_count=_measured_prompt_count(engine),
+            eval_count=tokens_count,
+            **_eval_timing_ns(engine, duration_ns),
+        ),
+        "prompt_eval_count",
     tokens_count = len(parsed_text["content"].split())
     manager.record_generation_metrics(tokens_count)
 
@@ -543,6 +607,7 @@ async def pull_model(
     """
     if not request.name or not request.name.strip():
         raise HTTPException(status_code=422, detail="Model name must not be empty")
+    hub.prepare_pull(request.name)
 
     if request.stream:
         async def ndjson_pull_generator() -> AsyncIterator[str]:
@@ -571,7 +636,7 @@ async def pull_model(
                 if item is None:
                     break
                 if isinstance(item, Exception):
-                    raise HTTPException(status_code=500, detail=str(item))
+                    raise hidden_error("model pull failed", item, "Model pull failed", model=request.name)
                 yield json.dumps(item.model_dump(exclude_none=True)) + "\n"
 
             yield json.dumps({"status": "success"}) + "\n"
@@ -582,7 +647,7 @@ async def pull_model(
         hub.pull(request.name, stream=False)
         return OllamaStatusResponse(status="success")
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise hidden_error("model pull failed", exc, "Model pull failed", model=request.name) from exc
 
 
 @router.delete("/api/delete", response_model=OllamaStatusResponse)
@@ -610,9 +675,9 @@ async def delete_model(
         hub.delete(target)
         return OllamaStatusResponse(status="success")
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(target)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise hidden_error("model delete failed", exc, "Model delete failed", model=target) from exc
 
 
 @router.post("/api/copy", response_model=OllamaStatusResponse)
@@ -636,7 +701,9 @@ async def copy_model(
         hub.copy(request.source, request.destination)
         return OllamaStatusResponse(status="success")
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(request.source)) from exc
+    except ArcRunnerError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     except Exception as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise hidden_error("model copy failed", exc, "Model copy failed", 409, source=request.source) from exc
 

@@ -325,7 +325,9 @@ def test_n_ui_07_pipeline_failure_sse_emits_failed(client: TestClient) -> None:
         )
         assert resp.status_code == 200
         assert "FAILED" in resp.text
-        assert "Silicon allocation failure" in resp.text
+        # Deliberate (M4): the raw exception text stays in the server log; the client sees a stable message.
+        assert "Silicon allocation failure" not in resp.text
+        assert "Studio pipeline failed" in resp.text
 
 
 def test_n_ui_08_malformed_json_body(client: TestClient) -> None:
