@@ -80,17 +80,21 @@
             <!-- Header Bar -->
             <header class="top-bar">
                 <div class="header-left">
-                    <h1 id="page-title">Heterogeneous Silicon Cockpit</h1>
-                    <span class="subtitle">Real-time Level Zero XMX matrix and Intel NPU 5W telemetry</span>
+                    <h1 id="page-title">Intel® Arc™ Model Studio</h1>
+                    <span class="subtitle" id="header-hardware-subtitle">Level Zero Heterogeneous Engine Telemetry</span>
                 </div>
                 <div class="header-right">
                     <div class="telemetry-chip">
                         <span class="chip-label">Server</span>
-                        <span class="chip-value text-cyan">:11434 OK</span>
+                        <span class="chip-value text-cyan" id="header-server-status">:11434 OK</span>
                     </div>
                     <div class="telemetry-chip">
-                        <span class="chip-label">Speculative Acceleration</span>
-                        <span class="chip-value text-emerald" id="header-speedup">1.86x Active</span>
+                        <span class="chip-label">Silicon Target</span>
+                        <span class="chip-value text-cyan" id="header-device-chip">Detecting Silicon...</span>
+                    </div>
+                    <div class="telemetry-chip">
+                        <span class="chip-label">Active Model</span>
+                        <span class="chip-value text-emerald" id="header-model-chip">Ready</span>
                     </div>
                 </div>
             </header>
@@ -173,7 +177,7 @@
                                 <span class="badge badge-purple">Dual-Silicon Speculative Pairing</span>
                                 <h3>Client Speculative Decoding Engine</h3>
                             </div>
-                            <span class="speedup-badge">SPEEDUP ~1.86x</span>
+                            <span class="speedup-badge">Dual-Engine Architecture</span>
                         </div>
                         <div class="card-body pairing-grid">
                             <div class="pairing-step">
@@ -560,7 +564,7 @@
                                 <span class="badge badge-emerald">5W NPU Coprocessor</span>
                                 <h3>Intel® AI Boost Vector Embeddings Studio</h3>
                             </div>
-                            <p class="subtitle">Dense semantic representations on Intel NPU with L2 normalization (Proof M1) and masked mean pooling (Proof M2).</p>
+                            <p class="subtitle">Dense semantic representations on Intel NPU with L2 normalization and masked mean pooling.</p>
                         </div>
                         <span class="status-indicator online">NPU READY</span>
                     </div>
@@ -686,7 +690,7 @@
                         </div>
                     </div>
 
-                    <!-- Real-Time Progress & Stage Stepper (Proof M131 & M132) -->
+                    <!-- Real-Time Progress & Stage Stepper -->
                     <div id="studio-progress-card" class="studio-progress-card hidden" style="margin-top: 20px;">
                         <div class="progress-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                             <span id="studio-progress-status" class="progress-status-text">Initializing Autonomous Agentic Pipeline...</span>
@@ -723,14 +727,14 @@
                                 <div class="step-icon">4</div>
                                 <div class="step-info">
                                     <span class="step-title">USM Bridge</span>
-                                    <span class="step-sub">≤50µs Zero-Copy</span>
+                                    <span class="step-sub">Zero-Copy Memory</span>
                                 </div>
                             </div>
                             <div id="step-muxing" class="stage-step">
                                 <div class="step-icon">5</div>
                                 <div class="step-info">
                                     <span class="step-title">Compositor</span>
-                                    <span class="step-sub">0.0s Pacing Sync</span>
+                                    <span class="step-sub">Hardware Pacing</span>
                                 </div>
                             </div>
                         </div>
@@ -738,7 +742,7 @@
 
                     <!-- Output Theater Grid (Video Player + Telemetry & ROI) -->
                     <div id="studio-theater-grid" class="studio-theater-grid" style="margin-top: 24px;">
-                        <!-- Left: HTML5 Video Player (Proof M133 & M134) -->
+                        <!-- Left: HTML5 Video Player -->
                         <div class="studio-video-container">
                             <div class="section-title-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                                 <h4>Broadcast Video Output</h4>
@@ -762,7 +766,7 @@
                             </div>
                         </div>
 
-                        <!-- Right: Multi-Agent Telemetry & Cloud ROI (Proof M135) -->
+                        <!-- Right: Multi-Agent Telemetry -->
                         <div class="studio-telemetry-container">
                             <div class="section-title-group" style="margin-bottom: 8px;">
                                 <h4>Multi-Agent Pipeline Telemetry & Cloud ROI</h4>
@@ -785,37 +789,7 @@
                                         </tr>
                                     </tbody>
                                 </table>
-                            </div>
-
-                            <!-- Enterprise Cloud API Replacement ROI Card -->
-                            <div id="studio-roi-container" class="roi-scorecard-card" style="margin-top: 16px;">
-                                <div class="roi-card-header">
-                                    <span class="roi-title">Cloud API Replacement ROI (Proof M135)</span>
-                                    <span class="badge badge-emerald">100% Free Silicon</span>
-                                </div>
-                                <div class="roi-stats-grid">
-                                    <div class="roi-stat-item">
-                                        <span class="roi-label">Local Intel Arc Cost</span>
-                                        <span class="roi-val text-emerald font-mono">$0.00</span>
-                                    </div>
-                                    <div class="roi-stat-item">
-                                        <span class="roi-label">Cloud API Equivalent</span>
-                                        <span class="roi-val text-cyan font-mono" id="roi-cloud-cost">~$0.35</span>
-                                    </div>
-                                    <div class="roi-stat-item">
-                                        <span class="roi-label">Monthly Savings (1k vids)</span>
-                                        <span class="roi-val text-emerald font-mono" id="roi-monthly-savings">$350.00</span>
-                                    </div>
-                                    <div class="roi-stat-item">
-                                        <span class="roi-label">Hardware Payback</span>
-                                        <span class="roi-val font-mono" id="roi-payback">&lt; 850 runs</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Scene Breakdown Drawer -->
+                            </div><!-- Scene Breakdown Drawer -->
                     <div id="studio-scenes-container" class="studio-scenes-container hidden" style="margin-top: 24px;">
                         <h4 style="margin-bottom: 12px;">Director Scene Breakdown</h4>
                         <div id="studio-scenes-grid" class="scenes-grid"></div>

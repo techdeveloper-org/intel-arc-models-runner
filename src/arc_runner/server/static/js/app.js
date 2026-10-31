@@ -7,6 +7,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     initTabNavigation();
+    initHardwareTelemetry();
     initChatPlayground();
     initOllamaStudio();
     initModelHub();
@@ -75,6 +76,93 @@ function initTabNavigation() {
     });
     window.addEventListener('popstate', () => activateTab(tabFromLocation()));
     activateTab(tabFromLocation());
+}
+
+/**
+ * Mathematical Inference Telemetry Engine (foundation-model-mathematics-expert).
+ * Tracks exact microsecond timestamps for streaming token performance.
+ */
+class StreamTelemetryTracker {
+    constructor() {
+        this.reset();
+    }
+    reset() {
+        this.tDispatch = 0;
+        this.tFirstToken = 0;
+        this.tLastToken = 0;
+        this.tokenCount = 0;
+    }
+    start() {
+        this.reset();
+        this.tDispatch = window.performance ? performance.now() : Date.now();
+    }
+    onTokenChunk(newTokens = 1) {
+        this.tokenCount += newTokens;
+        const now = window.performance ? performance.now() : Date.now();
+        if (this.tokenCount === newTokens) {
+            this.tFirstToken = now;
+        }
+        this.tLastToken = now;
+    }
+    getTTFT() {
+        if (!this.tFirstToken || !this.tDispatch) return 0;
+        return Math.max(0, this.tFirstToken - this.tDispatch);
+    }
+    getTPOT() {
+        if (this.tokenCount <= 1 || !this.tFirstToken) return 0;
+        return Math.max(0, (this.tLastToken - this.tFirstToken) / (this.tokenCount - 1));
+    }
+    getTPS() {
+        if (!this.tDispatch || !this.tokenCount) return 0;
+        const now = window.performance ? performance.now() : Date.now();
+        const totalDurationSec = (now - this.tDispatch) / 1000;
+        return totalDurationSec > 0 ? (this.tokenCount / totalDurationSec) : 0;
+    }
+}
+
+/**
+ * Live Silicon Telemetry Poller (gpu-architecture-specialist).
+ * Binds the UI directly to FastAPI /api/devices with 3000ms heartbeat.
+ */
+function initHardwareTelemetry() {
+    const deviceChip = document.getElementById('header-device-chip');
+    const subtitle = document.getElementById('header-hardware-subtitle');
+    const activeDeviceInd = document.getElementById('active-device-indicator');
+    const gpuArch = document.getElementById('gpu-arch');
+    const npuGen = document.getElementById('npu-gen');
+
+    async function poll() {
+        try {
+            const resp = await fetch('/api/devices');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const summary = data.device_summary || {};
+            const devices = summary.devices || [];
+            const gpu = devices.find(d => d.device_type === 'gpu') || {};
+            const npu = devices.find(d => d.device_type === 'npu') || {};
+
+            if (deviceChip) {
+                deviceChip.textContent = gpu.name ? `GPU: ${gpu.name}` : (data.npu_boost_ready ? 'NPU: Boost Active' : 'Silicon: Ready');
+            }
+            if (activeDeviceInd) {
+                activeDeviceInd.textContent = gpu.name ? `GPU: ${gpu.name}` : 'Silicon: Ready';
+            }
+            if (gpuArch && gpu.name) {
+                gpuArch.textContent = gpu.name;
+            }
+            if (npuGen && npu.name) {
+                npuGen.textContent = npu.name;
+            }
+            if (subtitle) {
+                subtitle.textContent = `Level Zero Runtime | ${devices.length} Silicon Engine(s) Detected | USM: ${data.usm_shared_memory_ready ? 'Ready' : 'Off'}`;
+            }
+        } catch (_) {
+            if (deviceChip) deviceChip.textContent = 'Silicon: Disconnected';
+        }
+    }
+
+    poll();
+    setInterval(poll, 3000);
 }
 
 /**
@@ -1650,7 +1738,7 @@ function initBatchCockpit() {
  * Initialize Arc MultiModal Studio dashboard, SSE streaming client, and HTML5 video playback.
  * 
  * Manages reactive pipeline stage progress transitions, Little's Law event buffer decoding,
- * HTMLMediaElement zero-leak memory lifecycle (Proof M133), and Cloud API ROI scorecards (Proof M135).
+ * HTMLMediaElement zero-leak memory lifecycle, and Stage latency scorecards.
  */
 function initMultiModalStudio() {
     const btnProduce = document.getElementById('btn-produce-video');
@@ -1796,22 +1884,6 @@ function initMultiModalStudio() {
         }
     }
 
-    /**
-     * Update cloud replacement ROI calculator metrics.
-     * 
-     * @param {number} sceneCount Number of decomposed production scenes.
-     */
-    function updateRoiMetrics(sceneCount) {
-        const scenes = Math.max(1, sceneCount || 3);
-        const cloudCost = 0.015 + (0.03 * scenes) + (0.08 * scenes);
-        const monthlySavings = cloudCost * 1000;
-        const paybackRuns = Math.ceil(300.0 / cloudCost);
-
-        if (roiCloudCost) roiCloudCost.textContent = `~$${cloudCost.toFixed(2)}`;
-        if (roiMonthlySavings) roiMonthlySavings.textContent = `$${monthlySavings.toFixed(2)}`;
-        if (roiPayback) roiPayback.textContent = `< ${paybackRuns} runs`;
-    }
-
     btnProduce.addEventListener('click', async () => {
         const prompt = promptInput ? promptInput.value.trim() : '';
         if (!prompt) {
@@ -1941,7 +2013,6 @@ function initMultiModalStudio() {
                             const scenesList = payload.script_scenes || payload.scenes || [];
                             if (scenesList.length > 0) {
                                 renderScenes(scenesList);
-                                updateRoiMetrics(scenesList.length);
                             }
                         }
                     } else if (eventData.stage === 'FAILED') {

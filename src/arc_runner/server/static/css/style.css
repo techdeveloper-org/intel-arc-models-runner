@@ -2,43 +2,45 @@
    Intel Arc Model Studio — Glassmorphic Design System (8pt Grid & WCAG AAA)
    ========================================================================== */
 
-:root {
-    --bg-primary: #0B0F17;
-    --bg-secondary: #111827;
-    --bg-glass: rgba(17, 24, 39, 0.78);
-    --bg-glass-elevated: rgba(30, 41, 59, 0.85);
-    
-    --border-glass: rgba(255, 255, 255, 0.08);
-    --border-focus: rgba(0, 199, 253, 0.5);
+@import url('tokens.css');
 
-    --text-primary: #F8FAFC;
-    --text-secondary: #94A3B8;
-    --text-muted: #64748B;
+:root {
+    --bg-primary: var(--color-canvas-base);
+    --bg-secondary: var(--color-surface-card);
+    --bg-glass: var(--color-surface-glass);
+    --bg-glass-elevated: var(--color-surface-elevated);
+    
+    --border-glass: var(--color-border-glass);
+    --border-focus: var(--color-border-focus);
+
+    --text-primary: var(--color-text-primary);
+    --text-secondary: var(--color-text-secondary);
+    --text-muted: var(--color-text-muted);
 
     --intel-blue: #0071C5;
-    --intel-cyan: #00C7FD;
-    --npu-emerald: #10B981;
+    --intel-cyan: var(--color-accent-arc);
+    --npu-emerald: var(--color-accent-emerald);
     --accent-purple: #8B5CF6;
-    --danger-red: #EF4444;
+    --danger-red: var(--color-accent-coral);
 
-    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: var(--font-family-sans);
+    --font-mono: var(--font-family-mono);
 
-    --space-1: 4px;
-    --space-2: 8px;
-    --space-3: 16px;
-    --space-4: 24px;
-    --space-5: 32px;
-    --space-6: 48px;
+    --space-1: var(--space-4);
+    --space-2: var(--space-8);
+    --space-3: var(--space-16);
+    --space-4: var(--space-24);
+    --space-5: var(--space-32);
+    --space-6: var(--space-48);
 
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 16px;
     --radius-xl: 24px;
 
-    --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    --shadow-glow-intel: 0 0 24px rgba(0, 199, 253, 0.2);
-    --shadow-glow-npu: 0 0 24px rgba(16, 185, 129, 0.2);
+    --shadow-glass: var(--shadow-card);
+    --shadow-glow-intel: var(--shadow-glow-arc);
+    --shadow-glow-npu: var(--shadow-glow-emerald);
 }
 
 * {
