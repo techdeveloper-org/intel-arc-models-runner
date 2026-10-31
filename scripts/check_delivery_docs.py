@@ -56,7 +56,7 @@ def committed_text(path: Path) -> str:
         path: File path inside the repository.
     """
     relative = path.relative_to(REPO_ROOT).as_posix()
-    result = subprocess.run(["git", "-C", str(REPO_ROOT), "show", f"HEAD:{relative}"], capture_output=True, text=True)
+    result = subprocess.run(["git", "-C", str(REPO_ROOT), "show", f"HEAD:{relative}"], capture_output=True, encoding="utf-8")
     return result.stdout if result.returncode == 0 else ""
 
 

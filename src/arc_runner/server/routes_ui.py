@@ -198,13 +198,13 @@ async def compile_aot(payload: AOTCompileRequest, request: Request) -> dict[str,
     if target_path.exists():
         resolved_path = ensure_path_allowed(target_path, _path_roots(request))
     else:
+        from arc_runner.core.exceptions import ModelNotFoundError
         from arc_runner.hub.manager import HubManager
         hub_mgr = HubManager()
-        local_models = hub_mgr.list_local()
-        for m in local_models:
-            if m["model_id"] == payload.model_id:
-                resolved_path = Path(m["path"])
-                break
+        try:
+            resolved_path = hub_mgr.resolve_model_dir(payload.model_id)
+        except ModelNotFoundError:
+            pass
 
         if not resolved_path:
             manifest = importer.find_manifest(payload.model_id)
