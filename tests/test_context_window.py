@@ -118,7 +118,11 @@ def test_resolve_context_window_oversized_config_falls_back_without_parsing(tmp_
     _expect_default_with_log(_model_dir(tmp_path, raw=big), caplog, "larger than")
 
 
-@pytest.mark.parametrize("raw", [b"{not json", b"[1, 2]", b'"text"', b"123", b"null", b"\xff\xfe\x00", b"", b"[" * 100000])
+@pytest.mark.parametrize(
+    "raw",
+    [b"{not json", b"[1, 2]", b'"text"', b"123", b"null", b"\xff\xfe\x00", b"", b"[" * 100000],
+    ids=["bad_json", "array", "string", "number", "null", "bad_bytes", "empty", "deep_nesting"],
+)
 def test_resolve_context_window_malformed_or_non_object_config_falls_back(tmp_path: Path, caplog: pytest.LogCaptureFixture, raw: bytes) -> None:
     """Invalid JSON, a non-object document, bad bytes and deep nesting all degrade to the default."""
     with caplog.at_level(logging.INFO):
