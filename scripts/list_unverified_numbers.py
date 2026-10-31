@@ -31,7 +31,7 @@ def inventory(root: Path = REPO_ROOT) -> List[Dict[str, object]]:
     for path in sorted(list((root / "docs").rglob("*.md")) + [root / "README.md"]):
         text = path.read_text(encoding="utf-8", errors="replace")
         if BANNER.search(text):
-            records.append({"file": str(path.relative_to(root)), "numeric_table_rows": len(ROW.findall(text))})
+            records.append({"file": path.relative_to(root).as_posix(), "numeric_table_rows": len(ROW.findall(text))})
     return records
 
 

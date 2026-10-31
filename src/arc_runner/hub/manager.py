@@ -4,6 +4,8 @@ Coordinates alias resolution, non-blocking downloads, SHA-256 integrity checks,
 and synchronized Level Zero engine memory teardown prior to weight unlinking.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
 import hashlib
 from pathlib import Path
@@ -12,12 +14,16 @@ import shutil
 import threading
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
+from typing import TYPE_CHECKING
+
 from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError
 from arc_runner.core.logging import get_logger
 from arc_runner.core.path_policy import resolve_inside
 from arc_runner.hub.downloader import DownloadProgress, ModelDownloader
 from arc_runner.hub.registry import CuratedModelInfo, ModelRegistry
-from arc_runner.server.model_manager import ModelManager
+
+if TYPE_CHECKING:
+    from arc_runner.server.model_manager import ModelManager
 
 logger = get_logger("hub.manager")
 

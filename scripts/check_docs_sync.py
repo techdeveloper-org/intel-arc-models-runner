@@ -67,16 +67,17 @@ def diagram_files_and_stamps() -> List[str]:
         uml = REPO_ROOT / "uml" / f"{kind}_diagram.md"
         drawio = REPO_ROOT / "drawio" / f"{kind}_diagram.drawio"
         for path in (uml, drawio):
+            rel = path.relative_to(REPO_ROOT).as_posix()
             if not path.exists():
-                problems.append(f"missing {path.relative_to(REPO_ROOT)}")
+                problems.append(f"missing {rel}")
                 continue
             match = STAMP.search(path.read_text(encoding="utf-8"))
             if not match:
-                problems.append(f"{path.relative_to(REPO_ROOT)} has no generated stamp; run python scripts/generate_diagrams.py")
+                problems.append(f"{rel} has no generated stamp; run python scripts/generate_diagrams.py")
             elif match.group(1) != version:
-                problems.append(f"{path.relative_to(REPO_ROOT)} stamped {match.group(1)} but VERSION is {version}; regenerate diagrams")
+                problems.append(f"{rel} stamped {match.group(1)} but VERSION is {version}; regenerate diagrams")
             elif not is_ancestor(match.group(2)):
-                problems.append(f"{path.relative_to(REPO_ROOT)} stamped with commit {match.group(2)} that is not an ancestor of HEAD")
+                problems.append(f"{rel} stamped with commit {match.group(2)} that is not an ancestor of HEAD")
     return problems
 
 
@@ -112,7 +113,7 @@ def benchmark_docs() -> List[str]:
         if path.name in ("README.md", "METHOD.md"):
             continue
         if "Provenance status" not in path.read_text(encoding="utf-8"):
-            problems.append(f"{path.relative_to(REPO_ROOT)} has no provenance note")
+            problems.append(f"{path.relative_to(REPO_ROOT).as_posix()} has no provenance note")
     import render_bench_docs
 
     if render_bench_docs.main(["--check"]) != 0:
@@ -140,7 +141,7 @@ def links() -> List[str]:
                     continue
                 relative = target.split("#")[0]
                 if relative and not (path.parent / relative).exists():
-                    problems.append(f"{path.relative_to(REPO_ROOT)}:{number} broken link {target}")
+                    problems.append(f"{path.relative_to(REPO_ROOT).as_posix()}:{number} broken link {target}")
     return problems
 
 
