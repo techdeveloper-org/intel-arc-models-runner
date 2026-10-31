@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-10-31
+
+### Added
+- feat(perf): WP-CONC & WP-PERF concurrency correctness and performance optimization verification — Comprehensive concurrency correctness verification suite (`tests/test_concurrency_correctness.py`) satisfying CCC-1 through CCC-10 (single worker invariant, FIFO ordering, cancellation slot release, backpressure buffer bounds, multi-client SSE stream isolation, continuous batching preemption, speculative rejection divergence, thermal throttle concurrency step-down, shutdown drain, and mmap ref-count safety); performance criteria verification suite (`tests/test_perf_optimizations.py`) validating PCC-1 through PCC-8 (TTFT <= 200ms, ITL <= 50ms, dispatch overhead P99 <= 1500us, continuous batching step throughput < 1.0s, zero-copy pointer lookup < 50ms, fast tensor map lookup < 2.0ms, Sysman telemetry query < 100ms, and complete non-regression); stage delivery record `docs/delivery/stages/PERF-WP08/STAGE.md`.
+
 ## [0.2.5] - 2026-10-31
 
 ### Added

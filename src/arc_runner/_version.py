@@ -1,3 +1,3 @@
-"""Single source of the package version."""
+"""Version metadata for arc-runner."""
 
-__version__: str = "0.2.5"
+__version__: str = "0.2.6"

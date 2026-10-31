@@ -53,6 +53,7 @@ Model files are untrusted input. The Intel GPU driver provides a Level Zero load
 | FR-013 | The system SHALL expose C++ RAII memory-mapped file bindings via pybind11 with ABI version 4, providing ArcMmapContext and TensorPtrMap with deterministic unmapping and strict ABI mismatch validation. | GitHub Issue #53 (WP-06) | `tests/test_pybind_bridge.py` |
 | FR-014 | The system SHALL provide dual-silicon speculative decoding via SpeculativeDecodeEngine coupling NPU draft token generation (DraftEngine, NPU_DRAFT_DEVICE="NPU") with Arc GPU parallel verification (VerifierEngine), AdjustedRejectionSampler, NpuDetector, and automatic single-model fallback when disabled (ARC_NPU_DISABLE=1) or accept rate < 0.6. | GitHub Issue #54 (WP-05) | `tests/test_speculative.py` |
 | FR-015 | The system SHALL implement proactive closed-loop thermal and power surveillance via ThermalMonitor daemon thread ("arc-thermal-monitor") polling Level Zero Sysman every 5.0s, driving ThrottlePolicy with 5.0°C hysteresis to throttle ContinuousBatchingScheduler sequence concurrency at 80°C (cap=4) and 90°C (cap=1), with ARC_SYSMAN_DISABLE=1 fallback and /health telemetry. | GitHub Issue #55 (WP-07) | `tests/test_thermal_monitor.py` |
+| FR-016 | The system SHALL satisfy Concurrency Correctness Criteria (CCC-1..CCC-10) and Performance Criteria (PCC-1..PCC-8), guaranteeing single-worker FIFO dispatch, cancellation release, bounded backpressure, stream isolation, dynamic preemption, speculative divergence abort, thermal step-down, sub-1500us dispatch overhead, and non-regression across all 106 tests. | GitHub Issue #56 (WP-CONC, WP-PERF) | `tests/test_concurrency_correctness.py`, `tests/test_perf_optimizations.py` |
 
 ### 3.2 Non-functional requirements
 
@@ -85,3 +86,4 @@ Findings and their mapping to requirements: `docs/delivery/TRACEABILITY.md`.
 | 2026-10-31 | 0.2.3 | feat(native): WP-06 pybind11 native binding ABI v4 | Add FR-013: pybind11 native binding and ABI version 4 | #53 |
 | 2026-10-31 | 0.2.4 | feat(engine): WP-05 speculative decode engine | Add FR-014: SpeculativeDecodeEngine dual-silicon speculation | #54 |
 | 2026-10-31 | 0.2.5 | feat(devices): WP-07 thermal monitor and throttle policy | Add FR-015: ThermalMonitor and ThrottlePolicy closed-loop governance | #55 |
+| 2026-10-31 | 0.2.6 | feat(perf): WP-CONC and WP-PERF concurrency correctness & perf optimization | Add FR-016: CCC-1..CCC-10 and PCC-1..PCC-8 concurrency correctness and performance bounds | #56 |

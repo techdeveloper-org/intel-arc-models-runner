@@ -2,7 +2,7 @@
 doc_id: DOC-RESUME
 title: Resume checkpoint
 stage: all
-version: 1.22.0
+version: 1.23.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -146,3 +146,4 @@ python scripts/validate_bench_json.py
 | 1.20.0 | 2026-10-31 | CLI session | Mark WP-06 done; link to stages/PERF-WP06/STAGE.md | WP-06 pybind11 native binding ABI v4 delivered | pending |
 | 1.21.0 | 2026-10-31 | CLI session | Mark WP-05 done; link to stages/PERF-WP05/STAGE.md | WP-05 speculative decode engine delivered | pending |
 | 1.22.0 | 2026-10-31 | CLI session | Mark WP-07 done; link to stages/PERF-WP07/STAGE.md | WP-07 thermal monitor and throttle policy delivered | pending |
+| 1.23.0 | 2026-10-31 | CLI session | Mark WP-CONC & WP-PERF done; link to stages/PERF-WP08/STAGE.md | CCC-1..CCC-10 & PCC-1..PCC-8 concurrency correctness & perf optimization verified | pending |

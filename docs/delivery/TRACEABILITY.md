@@ -2,7 +2,7 @@
 doc_id: DOC-TRACEABILITY
 title: Finding to requirement to code to test traceability
 stage: all
-version: 1.7.0
+version: 1.8.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -69,6 +69,7 @@ Findings are defined in `docs/plans/MASTER_PLAN_v4.md` sections 2, 19.2 and 21.2
 | C8 pybind11 native binding ABI v4 | FR-013 | `ArcMmapContext`, `TensorPtrMap` | `tests/test_pybind_bridge.py` | PERF-WP06 | closed |
 | Dual-silicon speculative decoding | FR-014 | `SpeculativeDecodeEngine`, `NpuDetector` | `tests/test_speculative.py` | PERF-WP05 | closed |
 | Thermal & power throttling governance | FR-015 | `ThermalMonitor`, `ThrottlePolicy` | `tests/test_thermal_monitor.py` | PERF-WP07 | closed |
+| Concurrency correctness & perf optimization | FR-016 | `SerialWorker`, `ContinuousBatchingScheduler`, `ArcMmapContext`, `SpeculativeDecodeEngine`, `ThermalMonitor` | `tests/test_concurrency_correctness.py`, `tests/test_perf_optimizations.py` | PERF-WP08 | closed |
 
 ## Plan test-list audit (S-G)
 Plan test names were replaced by `test_<function>_<scenario>_<expected>` names; every planned test maps to a repository test or is marked hardware:
@@ -105,3 +106,4 @@ Plan test names were replaced by `test_<function>_<scenario>_<expected>` names; 
 | 1.5.0 | 2026-10-31 | CLI session | WP-06 pybind11 native binding row added (FR-013, issue #53) | traceability for pybind11 native binding ABI v4 and test_pybind_bridge.py | pending |
 | 1.6.0 | 2026-10-31 | CLI session | WP-05 SpeculativeDecodeEngine row added (FR-014, issue #54) | traceability for dual-silicon speculative decoding and test_speculative.py | pending |
 | 1.7.0 | 2026-10-31 | CLI session | WP-07 ThermalMonitor row added (FR-015, issue #55) | traceability for thermal monitor, throttle policy and test_thermal_monitor.py | pending |
+| 1.8.0 | 2026-10-31 | CLI session | WP-CONC & WP-PERF concurrency and performance verification row added (FR-016, issue #56) | traceability for CCC-1..CCC-10 and PCC-1..PCC-8 tests | pending |

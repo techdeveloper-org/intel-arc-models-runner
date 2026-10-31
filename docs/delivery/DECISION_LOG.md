@@ -2,7 +2,7 @@
 doc_id: DOC-DECISION-LOG
 title: Decision log
 stage: all
-version: 1.19.0
+version: 1.20.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -122,6 +122,7 @@ Append-only. A changed decision gets a new entry that names the one it supersede
 | DL-104 | pybind11 native binding ABI v4 with RAII ArcMmapContext | Replace manual ctypes struct marshalling with C++20 pybind11 module; deterministic RAII unmapping; high-performance tensor pointer map; strict ABI v4 enforcement | continue manual ctypes structs without RAII | PERF-WP06 |
 | DL-105 | SpeculativeDecodeEngine dual-silicon heterogeneous speculative decoding | Co-execute INT4 draft model on Intel AI Boost NPU with Arc GPU parallel matrix verification; Leviathan et al. (2023) AdjustedRejectionSampler; fallback on ARC_NPU_DISABLE=1 or accept rate < 0.6 | single-silicon GPU-only decode | PERF-WP05 |
 | DL-106 | ThermalMonitor daemon and ThrottlePolicy closed-loop governance | Polling Level Zero Sysman every 5.0s with 5.0°C hysteresis state machine (NORMAL, WARN, CRITICAL); dynamically throttle ContinuousBatchingScheduler concurrency cap to 4 at 80°C or 95% PL1, and to 1 at 90°C | unthrottled hardware thermal crash or driver stall | PERF-WP07 |
+| DL-107 | Concurrency correctness (CCC-1..CCC-10) and performance gate verification (PCC-1..PCC-8) | Dedicated regression validation suites guaranteeing single-worker FIFO, slot cancellation, backpressure, SSE isolation, preemption, and sub-millisecond dispatch bounds | ad-hoc integration checks without concurrency invariant verification | PERF-WP08 |
 
 ## ADR detail: performance programme (DL-061..DL-096)
 
@@ -516,6 +517,14 @@ Status: DL-061..DL-070 were proposed on 2026-10-29 as part of plan section 23 an
 - Reversibility: high.
 - Source: WP-07 CC-1..CC-5; src/arc_runner/engine/thermal_monitor.py, src/arc_runner/devices/sysman.py.
 
+### DL-107 Concurrency correctness (CCC-1..CCC-10) and performance gate verification (PCC-1..PCC-8)
+- Date: 2026-10-31
+- Context: Heterogeneous engine optimization across serial worker, continuous batching, native bindings, dual-silicon speculative decoding, and thermal monitoring requires rigorous end-to-end invariant validation and performance bounding.
+- Decision: Establish dedicated test suites for concurrency correctness (CCC-1..CCC-10 in tests/test_concurrency_correctness.py) and performance optimization bounds (PCC-1..PCC-8 in tests/test_perf_optimizations.py); enforce 100% pass across all 106 unit, concurrency, and performance tests.
+- Consequences: Eliminates regression risk, locks in sub-millisecond dispatch bounds, and guarantees multi-client stream isolation and thread safety.
+- Reversibility: high.
+- Source: WP-CONC, WP-PERF, tests/test_concurrency_correctness.py, tests/test_perf_optimizations.py.
+
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
 |:--|:--|:--|:--|:--|:--|
@@ -539,3 +548,4 @@ Status: DL-061..DL-070 were proposed on 2026-10-29 as part of plan section 23 an
 | 1.17.0 | 2026-10-31 | CLI session | DL-104 added for WP-06 pybind11 native binding ABI v4 | Deliver WP-06 CC-1..CC-5 | pending |
 | 1.18.0 | 2026-10-31 | CLI session | DL-105 added for WP-05 speculative decode engine | Deliver WP-05 CC-1..CC-5 | pending |
 | 1.19.0 | 2026-10-31 | CLI session | DL-106 added for WP-07 thermal monitor and throttle policy | Deliver WP-07 CC-1..CC-5 | pending |
+| 1.20.0 | 2026-10-31 | CLI session | DL-107 added for WP-CONC and WP-PERF concurrency correctness and performance optimization verification | Deliver WP-CONC & WP-PERF | pending |

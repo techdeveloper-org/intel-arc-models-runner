@@ -35,6 +35,7 @@ uml/, drawio/      generated diagrams (13 types each)
 | ArcMmapContext | `src/arc_runner/native/bridge.py` | RAII memory-mapped file context manager with pybind11 C++ binding [v0.2.3] <!-- Introduced in v0.2.3 --> |
 | SpeculativeDecodeEngine | `src/arc_runner/engine/speculative.py` | Heterogeneous dual-silicon speculative decoding coupling NPU draft with Arc GPU verify [v0.2.4] <!-- Introduced in v0.2.4 --> |
 | ThermalMonitor | `src/arc_runner/engine/thermal_monitor.py` | Daemon thread & ThrottlePolicy hysteresis closed-loop governance [v0.2.5] <!-- Introduced in v0.2.5 --> |
+| Concurrency & Perf Gates | `tests/test_concurrency_correctness.py` | Concurrency Correctness (CCC-1..10) and Performance Criteria (PCC-1..8) [v0.2.6] <!-- Introduced in v0.2.6 --> |
 
 Native layer: Modern C++20 pybind11 module `arc_native_sys` (ABI version 4, sidecar hash checked on load) exposing `ArcMmapContext` and `TensorPtrMap`, with fallback to ctypes/Python path. Missing, disabled (`ARC_NATIVE_DISABLE=1`) or stale libraries fall back to the Python read path. Level Zero is loaded at run time and always selects a GPU device, never the NPU.
 

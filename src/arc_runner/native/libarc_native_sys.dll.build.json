@@ -19,11 +19,11 @@
       "-Wpedantic"
     ]
   },
-  "git_sha": "21851290a9bd54f7ce8ae969befc7f3129cabc43",
+  "git_sha": "ef42a3fd441701bd3ed140dea300ecfc4e40ecf7",
   "host": "Windows-11-10.0.26220-SP0",
   "link_flags": [
     "-shared",
     "-Wl,--no-undefined"
   ],
-  "sha256": "40304f7acf4eb8ecc26f661ac818d898581dc049d4f522d91459f8085e4174a4"
+  "sha256": "cc284e47e760c3e5a1b0d097a598fa779ec0361ecdc4199d8487320f1819770b"
 }
