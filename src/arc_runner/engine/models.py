@@ -6,7 +6,7 @@ hardware telemetry, and key-value memory allocations.
 
 from enum import Enum
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from arc_runner.core.constants import (
     DEFAULT_MAX_NEW_TOKENS,
@@ -44,6 +44,25 @@ class GenerationConfig(BaseModel):
     repetition_penalty: float = Field(default=DEFAULT_REPETITION_PENALTY, ge=1.0, le=2.0, description="Logit penalty for repeated tokens")
     stop_strings: List[str] = Field(default_factory=list, description="Sequences that immediately halt generation")
     stop_token_ids: List[int] = Field(default_factory=list, description="Token IDs that halt generation")
+
+    @field_validator("stop_strings")
+    @classmethod
+    def stop_strings_must_be_nonempty(cls, v: List[str]) -> List[str]:
+        """Reject stop_strings containing empty or whitespace-only elements.
+
+        Args:
+            v: The stop_strings value to validate.
+
+        Returns:
+            The validated list.
+
+        Raises:
+            ValueError: If any element is empty or whitespace-only.
+        """
+        for s in v:
+            if not s or not s.strip():
+                raise ValueError("stop_strings elements must be non-empty and not whitespace-only")
+        return v
     stream: bool = Field(default=False, description="Whether to stream tokens incrementally")
     adapters: Optional[List[LoRAAdapterSpec]] = Field(default=None, description="Active LoRA adapters to compose during generation")
 
@@ -75,6 +94,20 @@ class EngineTelemetry(BaseModel):
     accepted_tokens_total: int = Field(default=0, description="Total draft tokens accepted by target model")
     acceptance_rate: float = Field(default=0.0, description="Empirical acceptance rate alpha in [0.0, 1.0]")
     speculative_speedup: float = Field(default=1.0, description="Effective throughput speedup factor over baseline")
+    metrics_source: str = Field(
+        default="unavailable",
+        description="Origin of timing values: ov_perf_metrics, wallclock_stream, or unavailable",
+    )
+    is_estimate: bool = Field(default=False, description="True if values are wall-clock approximations, not engine counters")
+    is_ttft_valid: bool = Field(default=False, description="True if ttft_ms was measured and may be reported")
+    is_tps_valid: bool = Field(default=False, description="True if tokens_per_second was measured and may be reported")
+    prompt_tokens: int = Field(default=0, description="Prompt tokens counted by the model tokenizer, 0 if not measured")
+    tpot_ms: float = Field(default=0.0, description="Mean time per output token reported by the engine, 0 if not measured")
+    decode_tokens_per_second: float = Field(
+        default=0.0,
+        description="(generated tokens - 1) / (generate duration - TTFT), derived only from documented engine counters; 0 if not derivable",
+    )
+    kv_cache_precision: str = Field(default="", description="KV cache precision requested for the pipeline, empty for the runtime default")
 
 
 class SpeculativeConfig(BaseModel):
@@ -98,3 +131,26 @@ class KVAllocation(BaseModel):
     total_tokens: int = Field(..., description="Combined sequence length reserved")
     memory_footprint_mb: float = Field(..., description="Estimated memory footprint in megabytes")
     is_active: bool = Field(default=True, description="True if buffer is currently allocated")
+    footprint_from_model_config: bool = Field(
+        default=False,
+        description="True when the footprint used layers, KV heads and head dim read from the model config; False when the legacy 28/8/128 assumption was used",
+    )
+
+
+def validate_generation_config(config: GenerationConfig) -> None:
+    """Re-check sampling bounds for configs that bypassed pydantic validation (for example model_construct).
+
+    Args:
+        config: Engine sampling configuration.
+
+    Raises:
+        ConfigurationError: If max_new_tokens, temperature or top_p is outside its valid range.
+    """
+    from arc_runner.core.exceptions import ConfigurationError
+
+    if not isinstance(config.max_new_tokens, int) or config.max_new_tokens < 1:
+        raise ConfigurationError(f"invalid max_new_tokens {config.max_new_tokens!r}: must be an integer >= 1")
+    if not isinstance(config.temperature, (int, float)) or not 0.0 <= config.temperature <= 2.0:
+        raise ConfigurationError(f"invalid temperature {config.temperature!r}: must be within [0, 2]")
+    if not isinstance(config.top_p, (int, float)) or not 0.0 < config.top_p <= 1.0:
+        raise ConfigurationError(f"invalid top_p {config.top_p!r}: must be within (0, 1]")

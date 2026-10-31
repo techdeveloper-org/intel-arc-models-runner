@@ -2,6 +2,9 @@
 
 [← Back to Benchmarks Hub](README.md) · [← Back to README](../../README.md) · [Comparative Matrix](comparative_matrix.md) · [Ollama Showdown](ollama_showdown.md)
 
+
+> **Provenance status: UNVERIFIED.** This document predates the schema-v1 result files and the [benchmark method](METHOD.md). Its numbers were not produced by the current harness and must not be quoted as measurements. Known problems: (1) The "30.8x TTFT" and similar ratios are not reproduced by any stored result file. (2) Energy-yield figures (tokens per joule) assume power values that were not measured. (3) "XMX / DPAS engines" on the Meteor Lake Xe-LPG iGPU is unverified: that architecture is not documented here to have XMX units. (4) The flash-stream memory trace ("dM <= 1 MB") reports mapped array bytes, not resident memory, and came from a synthetic container. (5) The "30.8x" figure is contradicted by the measured CPU/GPU TTFT ratios on Qwen2.5-1.5B (17.7x low, 2.9x medium, 2.3x hard); the speed-up gate fails because CPU CV exceeds 10%. (6) Other figures that do not match the result files: GPU TTFT 139 ms (measured 20.1, 25.0 and 73.7 ms by tier), GPU decode 27.5 to 32.0 tok/s (measured 40.1 to 52.2), NPU decode 10.26 tok/s (measured 14.4 to 15.4), NPU/GPU TTFT 14.7x (measured 30x to 112x). (7) The flash-stream rows (843 MB resident, 14.37 tok/s, "Ollama CRASH: OOM") disagree with the stored JSON (4.12 MB working set, 8.51 tok/s, Ollama not run), and 32B/72B was never run on real weights. (8) "Driver 32.0.101.6127", "7 Xe-cores" and "build 26100" are not backed by `probe.json` (build 26220; no driver or Xe-core field). The measured results, if any, are in the generated table in the [Benchmarks hub](README.md#measured-results-generated).
+
 ---
 
 To provide transparent, reproducible empirical proof to the developer community, `intel-arc-models-runner` was subjected to rigorous live testing on physical Intel silicon.

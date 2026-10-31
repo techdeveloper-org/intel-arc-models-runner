@@ -264,6 +264,8 @@ def test_ffmpeg_pipe_muxing_should_streamFramesDirectly_when_ffmpegAvailable(tem
     out_mp4 = temp_output_dir / "pipe_test.mp4"
     if shutil.which("ffmpeg") is not None:
         success = compositor._stream_encode_ffmpeg(frames, wav_path, out_mp4, fps=8)
+        if not success and compositor._detect_qsv_encoder() == "h264_qsv":
+            pytest.skip("ffmpeg lists h264_qsv but no usable Intel Quick Sync device is present")
         assert success is True
         assert out_mp4.exists()
 

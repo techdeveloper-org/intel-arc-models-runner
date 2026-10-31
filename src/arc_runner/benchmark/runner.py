@@ -4,8 +4,6 @@ Executes deterministic warmup passes, measures TTFT, TPOT, and tokens/sec throug
 and renders formatted Rich visual scorecards for Intel Arc GPUs and NPUs.
 """
 
-import math
-from pathlib import Path
 import time
 from typing import List, Optional, Tuple
 from pydantic import BaseModel, Field
@@ -15,6 +13,7 @@ from rich.table import Table
 
 from arc_runner.core.exceptions import ArcRunnerError
 from arc_runner.core.logging import get_logger
+from arc_runner.benchmark.stats import student_t_ci95, student_t_critical_95
 from arc_runner.engine.models import GenerationConfig
 from arc_runner.server.model_manager import ModelManager
 
@@ -53,21 +52,6 @@ class BenchmarkSummary(BaseModel):
 class BenchmarkRunner:
     """Orchestrates hardware benchmark runs with warmup rejection and statistical confidence."""
 
-    STUDENT_T_95_TABLE = {
-        1: 12.706,
-        2: 4.303,
-        3: 3.182,
-        4: 2.776,
-        5: 2.571,
-        6: 2.447,
-        7: 2.365,
-        8: 2.306,
-        9: 2.262,
-        10: 2.228,
-        20: 2.086,
-        30: 2.042,
-    }
-
     def __init__(self, model_manager: Optional[ModelManager] = None) -> None:
         """Initialize the benchmark runner with optional engine model manager.
 
@@ -77,7 +61,7 @@ class BenchmarkRunner:
         self._manager = model_manager or ModelManager()
 
     def _get_student_t_critical(self, df: int) -> float:
-        """Lookup two-tailed Student's t critical value for 95% confidence level.
+        """Return the two-sided 95% Student's t critical value (see arc_runner.benchmark.stats).
 
         Args:
             df: Degrees of freedom (n - 1).
@@ -85,14 +69,7 @@ class BenchmarkRunner:
         Returns:
             float: Critical t-score multiplier.
         """
-        if df in self.STUDENT_T_95_TABLE:
-            return self.STUDENT_T_95_TABLE[df]
-        if df > 30:
-            return 1.960
-        for k in sorted(self.STUDENT_T_95_TABLE.keys()):
-            if df <= k:
-                return self.STUDENT_T_95_TABLE[k]
-        return 2.0
+        return student_t_critical_95(df)
 
     def _compute_confidence_interval_95(self, samples: List[float]) -> Tuple[float, float]:
         """Compute sample mean and 95% Student's t confidence interval half-width.
@@ -103,19 +80,7 @@ class BenchmarkRunner:
         Returns:
             Tuple[float, float]: (sample_mean, ci95_half_width).
         """
-        n = len(samples)
-        if n == 0:
-            return 0.0, 0.0
-        mean_val = sum(samples) / n
-        if n < 2:
-            return mean_val, 0.0
-
-        variance = sum((x - mean_val) ** 2 for x in samples) / (n - 1)
-        std_dev = math.sqrt(variance)
-        df = n - 1
-        t_crit = self._get_student_t_critical(df)
-        half_width = t_crit * (std_dev / math.sqrt(n))
-        return mean_val, half_width
+        return student_t_ci95(samples)
 
     def run_benchmark(
         self,
@@ -125,6 +90,7 @@ class BenchmarkRunner:
         warmup: int = 2,
         max_new_tokens: int = 64,
         prompt: Optional[str] = None,
+        long_prompt: Optional[str] = None,
     ) -> BenchmarkSummary:
         """Execute benchmark iterations with warmup rejection and statistical CI calculation.
 
@@ -134,20 +100,25 @@ class BenchmarkRunner:
             iterations: Number of timed benchmark measurement runs (minimum 1).
             warmup: Number of initial discarded runs to pre-warm kernels and caches.
             max_new_tokens: Number of completion tokens to generate per iteration.
-            prompt: Optional custom prompt text.
+            prompt: Optional custom prompt text used when long_prompt is not supplied.
+            long_prompt: Optional long-context prompt; when provided it is passed to
+                generate_stream instead of prompt so that TTFT measurements reflect
+                realistic prefill latency for long inputs.
 
         Returns:
             BenchmarkSummary containing computed metrics and per-run breakdown.
 
         Raises:
-            ArcRunnerError: If iterations or tokens is zero/negative, or if model load fails.
+            ArcRunnerError: If iterations or tokens is zero/negative, if model load fails, or if a pass
+                streams no token (NO_TOKENS_GENERATED).
         """
         if iterations <= 0:
             raise ArcRunnerError("Iterations must be greater than zero", "INVALID_ARGUMENT", 422)
         if max_new_tokens <= 0:
             raise ArcRunnerError("Tokens must be greater than zero", "INVALID_ARGUMENT", 422)
 
-        test_prompt = prompt or "Explain how Intel Arc GPUs and Intel AI Boost NPUs accelerate local LLM inference."
+        _default = "Explain how Intel Arc GPUs and Intel AI Boost NPUs accelerate local LLM inference."
+        test_prompt = long_prompt or prompt or _default
         engine = self._manager.get_or_load_engine(model_id, device=device)
 
         gen_config = GenerationConfig(
@@ -180,14 +151,18 @@ class BenchmarkRunner:
 
             t_end = time.perf_counter_ns()
 
-            if t_first is None:
-                t_first = t_end
+            if t_first is None or generated_tokens == 0:
+                raise ArcRunnerError(
+                    f"Pass {run_idx} of '{model_id}' on {device} produced no tokens; no throughput can be reported",
+                    "NO_TOKENS_GENERATED",
+                    502,
+                )
 
             total_ms = max(0.01, (t_end - t_start) / 1_000_000.0)
             ttft_ms = max(0.01, (t_first - t_start) / 1_000_000.0)
             decode_ms = max(1e-3, (t_end - t_first) / 1_000_000.0)
 
-            tokens_count = max(1, generated_tokens)
+            tokens_count = generated_tokens
             tpot_ms = max(0.01, decode_ms / tokens_count if tokens_count > 1 else decode_ms)
             tok_per_sec = (tokens_count / decode_ms) * 1000.0
 

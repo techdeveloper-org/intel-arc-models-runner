@@ -2,6 +2,9 @@
 
 [← Back to Benchmarks Hub](README.md) · [← Back to README](../../README.md) · [Empirical Silicon Proofs](empirical_silicon.md) · [Testing Guide](../testing.md)
 
+
+> **Provenance status: UNVERIFIED.** This document predates the schema-v1 result files and the [benchmark method](METHOD.md). Its numbers were not produced by the current harness and must not be quoted as measurements. Known problems: (1) The "silent CPU fallback" and "OOM collapse" claims for heavy models were not reproduced: the heavy-model Ollama run was never executed. (2) Token-entropy and response-quality discussions use outputs whose generating script versions are unknown. (3) Throughput figures are not backed by a result file. The 30-case audit describes behaviour and test cases, not measured throughput. The measured results, if any, are in the generated table in the [Benchmarks hub](README.md#measured-results-generated).
+
 ---
 
 To address developer inquiries regarding how `intel-arc-models-runner` compares to Ollama on real Intel hardware, and whether local NPU/GPU outputs are genuinely readable, coherent, and mathematically correct, we executed a scientific **30-Case Triad Audit** (12 Positive, 9 Negative, 9 Edge-Case tests) on an **Intel® Core™ Ultra 5 125H** host machine.
@@ -91,10 +94,7 @@ To comprehensively prove deterministic accuracy, robustness against adversarial 
 | **E8** | Edge| Hard | `llama-3.2-1b` | Client Abort: Recycles physical KV memory blocks immediately to free pool | 0.08s | **0.02s** | Instant Free | **PASS (Proof M32)**|
 | **E9** | Edge| Hard | `qwen-2.5-1.5b` | Thermal Stepping: Discards warmup passes; bounds jitter with $CV \le 0.75$ | 15.40s | **4.10s** | 2.80s (Spec) | **PASS (CI 95%)** |
 
-```bash
-# Execute the comprehensive 30-Case Triad Audit harness
-python scratch/run_full_catalog_benchmark_audit.py
-```
+> The script that used to produce this table (`run_full_catalog_benchmark_audit.py`) printed fixed timings and a constant PASS verdict without running any model, and has been removed. Reproduce real numbers with `python scratch/run_live_sequential_model_benchmarks.py --model <alias>` (results land in `docs/benchmarks/results/`).
 
 ---
 

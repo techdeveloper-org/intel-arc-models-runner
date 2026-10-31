@@ -1,8 +1,11 @@
 # Bare-Metal Flash-Stream Heterogeneous Engine: Zero-RAM OOM Heavy Model Orchestration
 
 ### Document ID: `RESEARCH-FLASH-STREAM-HEAVY-MODELS-M121-M134`
-### Status: Verified & Enforced
+### Status: Design document; numeric claims unverified (see the provenance note below)
 ### Authoring Authority: Lead SDLC Squad (10 Specialists) & Mathematical Council (12 Opus Masters)
+
+
+> **Provenance status: UNVERIFIED.** This document predates the schema-v1 result files and the [benchmark method](../benchmarks/METHOD.md). Its numbers were not produced by the current harness and must not be quoted as measurements. Known problems: (1) The text describes an LRU ring buffer; the implementation is now a direct-mapped ring (layer % slots) because a cyclic scan over more layers than slots gives LRU a zero hit rate. (2) "O(1) RAM" counts mapped array bytes; resident memory depends on the page cache and working set and is reported separately. (3) The "85.7 ns zero-copy handoff" and NVMe bandwidth bounds are not backed by a stored measurement. (4) Non-temporal-load (L3 bypass) ideas were evaluated and not built: write-back mapped pages gain nothing and the code has no CPU copy to bypass. The measured results, if any, are in the generated table in the [Benchmarks hub](../benchmarks/README.md#measured-results-generated).
 
 ---
 

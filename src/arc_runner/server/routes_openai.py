@@ -15,10 +15,12 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from arc_runner.server.prefix_probe import match_prefix_with_real_tokens
 from arc_runner.core.constants import DEFAULT_MAX_NEW_TOKENS
 from arc_runner.core.exceptions import ModelNotFoundError
 from arc_runner.core.logging import get_logger
 from arc_runner.engine.models import GenerationConfig, TokenChunk
+from arc_runner.server.errors import hidden_error, model_not_found_detail
 from arc_runner.server.model_manager import ModelManager
 from arc_runner.server.schemas import (
     OpenAIChatCompletionChoice,
@@ -93,7 +95,31 @@ async def get_model(
         mtime = int(resolved.stat().st_mtime) if resolved.exists() else int(time.time())
         return OpenAIModelCard(id=resolved.name, created=mtime, owned_by="intel-arc-models-runner")
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(model)) from exc
+
+
+def measured_usage(telemetry: Any) -> Optional[Dict[str, int]]:
+    """Build an OpenAI usage object from engine-measured counts only.
+
+    Args:
+        telemetry: EngineTelemetry of the finished request.
+
+    Returns:
+        Optional[Dict[str, int]]: prompt/completion/total tokens, or None when the engine measured neither.
+        A prompt count of 0 means unmeasured; completion counts are valid when metrics_source is not unavailable.
+    """
+    prompt = telemetry.prompt_tokens if telemetry.prompt_tokens > 0 else None
+    completion = telemetry.total_tokens if telemetry.metrics_source != "unavailable" else None
+    if prompt is None and completion is None:
+        return None
+    usage: Dict[str, int] = {}
+    if prompt is not None:
+        usage["prompt_tokens"] = prompt
+    if completion is not None:
+        usage["completion_tokens"] = completion
+    if prompt is not None and completion is not None:
+        usage["total_tokens"] = prompt + completion
+    return usage
 
 
 async def _stream_token_chunks(
@@ -140,7 +166,7 @@ async def _stream_token_chunks(
         yield item
 
 
-@router.post("/chat/completions")
+@router.post("/chat/completions", response_model_exclude_none=True)
 async def chat_completions(
     request: OpenAIChatCompletionRequest,
     raw_request: Request,
@@ -165,9 +191,9 @@ async def chat_completions(
     try:
         engine = manager.get_or_load_engine(request.model, device="GPU")
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail=model_not_found_detail(request.model)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to load engine: {exc}") from exc
+        raise hidden_error("engine load failed", exc, "Failed to load engine", model=request.model) from exc
 
     formatted_lines: List[str] = []
     for msg in request.messages:
@@ -177,8 +203,7 @@ async def chat_completions(
 
     batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
     if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
-        dummy_tokens = [hash(word) % 32000 for word in chat_prompt.split()[:32]]
-        batch_pipeline.prefix_cache.match_prefix(dummy_tokens)
+        match_prefix_with_real_tokens(batch_pipeline, engine, chat_prompt)
 
     stops: List[str] = []
     if request.stop:
@@ -263,9 +288,10 @@ async def chat_completions(
         return StreamingResponse(sse_generator(), media_type="text/event-stream")
 
     text = engine.generate(chat_prompt, gen_config)
-    prompt_tokens = len(chat_prompt.split())
-    completion_tokens = len(text.split())
-    manager.record_generation_metrics(completion_tokens)
+    telemetry = engine.get_telemetry()
+    usage = measured_usage(telemetry)
+    if telemetry.metrics_source != "unavailable":
+        manager.record_generation_metrics(telemetry.total_tokens)
 
     return OpenAIChatCompletionResponse(
         id=completion_id,
@@ -278,9 +304,5 @@ async def chat_completions(
                 finish_reason="stop",
             )
         ],
-        usage={
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-        },
+        usage=usage,
     )

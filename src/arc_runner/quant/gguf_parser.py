@@ -5,7 +5,7 @@ directly from binary streams without loading raw weight arrays into system RAM.
 """
 
 from collections import Counter
-from io import BufferedReader
+from io import BufferedReader, SEEK_END
 from pathlib import Path
 import struct
 from typing import Any, BinaryIO, Optional, Union
@@ -16,6 +16,91 @@ from arc_runner.core.logging import get_logger
 from arc_runner.quant.models import GGUFHeader, GGUFSummary, GGUFTensorInfo, GGUFValueType, GGMLType
 
 logger = get_logger(__name__)
+
+GGUF_MAX_DIMENSIONS = 4
+GGUF_MAX_ARRAY_DEPTH = 8
+GGUF_MAX_ALIGNMENT = 1 << 20
+GGUF_MAX_TOTAL_ARRAY_ELEMENTS = 1 << 24
+GGUF_MIN_KV_BYTES = 12
+GGUF_MIN_TENSOR_BYTES = 24
+
+_SCALAR_STRUCT_FORMATS = {
+    GGUFValueType.UINT8: "B",
+    GGUFValueType.INT8: "b",
+    GGUFValueType.UINT16: "H",
+    GGUFValueType.INT16: "h",
+    GGUFValueType.UINT32: "I",
+    GGUFValueType.INT32: "i",
+    GGUFValueType.FLOAT32: "f",
+    GGUFValueType.UINT64: "Q",
+    GGUFValueType.INT64: "q",
+    GGUFValueType.FLOAT64: "d",
+}
+_MIN_ELEMENT_BYTES = {
+    **{kind: struct.calcsize("<" + code) for kind, code in _SCALAR_STRUCT_FORMATS.items()},
+    GGUFValueType.BOOL: 1,
+    GGUFValueType.STRING: 8,
+    GGUFValueType.ARRAY: 12,
+}
+
+
+def _enum_or_error(enum_cls: Any, raw: int, what: str, stream: BinaryIO) -> Any:
+    """Convert a raw integer into an enum member or raise a typed parse error.
+
+    Args:
+        enum_cls: Enum class to convert into.
+        raw: Integer read from the file.
+        what: Description for the error message.
+        stream: Stream whose position is reported.
+
+    Returns:
+        Any: The enum member.
+
+    Raises:
+        GGUFParseError: If raw is not a member of the enum.
+    """
+    try:
+        return enum_cls(raw)
+    except ValueError:
+        raise GGUFParseError(f"Unsupported {what} id {raw}", stream.tell()) from None
+
+
+def _bytes_remaining(stream: BinaryIO) -> int:
+    """Return how many bytes lie between the stream position and its end.
+
+    Args:
+        stream: Open seekable binary stream.
+
+    Returns:
+        int: Remaining byte count; the stream position is unchanged.
+    """
+    position = stream.tell()
+    end = stream.seek(0, SEEK_END)
+    stream.seek(position)
+    return end - position
+
+
+def _read_declared(stream: BinaryIO, length: int, what: str) -> bytes:
+    """Read a length declared inside the file only if that many bytes actually remain.
+
+    The declared length is untrusted input; reading it blindly can request terabytes or
+    overflow the platform index type.
+
+    Args:
+        stream: Open seekable binary stream.
+        length: Byte count declared by the file.
+        what: Description used in the error message.
+
+    Returns:
+        bytes: Exactly length bytes.
+
+    Raises:
+        GGUFParseError: If fewer than length bytes remain.
+    """
+    remaining = _bytes_remaining(stream)
+    if length > remaining:
+        raise GGUFParseError(f"{what}: declared {length} bytes but only {remaining} remain", stream.tell())
+    return stream.read(length)
 
 
 class GGUFParser:
@@ -32,6 +117,7 @@ class GGUFParser:
         self._metadata: Optional[dict[str, Any]] = None
         self._tensor_info: Optional[list[GGUFTensorInfo]] = None
         self._data_offset: int = 0
+        self._array_elements_left: int = GGUF_MAX_TOTAL_ARRAY_ELEMENTS
 
     @property
     def header(self) -> GGUFHeader:
@@ -111,12 +197,10 @@ class GGUFParser:
         if len(len_bytes) < 8:
             raise GGUFParseError("Unexpected EOF while reading string length prefix", stream.tell())
         length = struct.unpack("<Q", len_bytes)[0]
-        string_bytes = stream.read(length)
-        if len(string_bytes) < length:
-            raise GGUFParseError(f"Truncated string: expected {length} bytes, got {len(string_bytes)}", stream.tell())
+        string_bytes = _read_declared(stream, length, "Truncated string")
         return string_bytes.decode("utf-8", errors="replace")
 
-    def _read_value(self, stream: BinaryIO, value_type: GGUFValueType) -> Any:
+    def _read_value(self, stream: BinaryIO, value_type: GGUFValueType, depth: int = 0) -> Any:
         """Deserialize typed scalar or composite value from binary stream.
 
         Args:
@@ -189,11 +273,57 @@ class GGUFParser:
             if len(type_bytes) < 4 or len(len_bytes) < 8:
                 raise GGUFParseError("EOF reading ARRAY metadata", stream.tell())
             elem_type_int = struct.unpack("<I", type_bytes)[0]
-            elem_type = GGUFValueType(elem_type_int)
+            if depth >= GGUF_MAX_ARRAY_DEPTH:
+                raise GGUFParseError(f"Arrays nested deeper than {GGUF_MAX_ARRAY_DEPTH} levels", stream.tell())
+            elem_type = _enum_or_error(GGUFValueType, elem_type_int, "array element type", stream)
             array_len = struct.unpack("<Q", len_bytes)[0]
-            return [self._read_value(stream, elem_type) for _ in range(array_len)]
+            self._reserve_array_elements(stream, elem_type, array_len)
+            fmt = _SCALAR_STRUCT_FORMATS.get(elem_type)
+            if fmt is not None:
+                raw = stream.read(array_len * struct.calcsize("<" + fmt))
+                return list(struct.unpack(f"<{array_len}{fmt}", raw))
+            return [self._read_value(stream, elem_type, depth + 1) for _ in range(array_len)]
 
         raise GGUFParseError(f"Unsupported GGUF value type {value_type}", stream.tell())
+
+    def _reserve_array_elements(self, stream: BinaryIO, elem_type: GGUFValueType, array_len: int) -> None:
+        """Charge an array's declared length against the file size and the per-file element budget.
+
+        The length is untrusted. It must be satisfiable by the bytes that remain (at the minimum
+        wire size of one element) and the running total over the whole file must stay under
+        GGUF_MAX_TOTAL_ARRAY_ELEMENTS. Nothing is truncated: exceeding either bound is an error.
+
+        Args:
+            stream: Open seekable binary stream positioned after the array header.
+            elem_type: Declared element type.
+            array_len: Declared element count.
+
+        Raises:
+            GGUFParseError: If the array cannot fit the remaining bytes or exhausts the budget.
+        """
+        remaining = _bytes_remaining(stream)
+        needed = array_len * _MIN_ELEMENT_BYTES[elem_type]
+        if needed > remaining:
+            raise GGUFParseError(f"Array declares {array_len} elements needing at least {needed} bytes but only {remaining} remain", stream.tell())
+        if array_len > self._array_elements_left:
+            raise GGUFParseError(f"Array elements exceed the per-file limit of {GGUF_MAX_TOTAL_ARRAY_ELEMENTS}", stream.tell())
+        self._array_elements_left -= array_len
+
+    def _check_record_count(self, stream: BinaryIO, count: int, min_bytes: int, what: str) -> None:
+        """Reject a declared record count that cannot fit in the remaining bytes.
+
+        Args:
+            stream: Open seekable binary stream.
+            count: Count declared by the header.
+            min_bytes: Minimum wire size of one record.
+            what: Record kind used in the error message.
+
+        Raises:
+            GGUFParseError: If count records of min_bytes each exceed the remaining bytes.
+        """
+        remaining = _bytes_remaining(stream)
+        if count * min_bytes > remaining:
+            raise GGUFParseError(f"Declared {what} count {count} cannot fit in the {remaining} remaining bytes", stream.tell())
 
     def parse_metadata(self, stream: BinaryIO, count: int) -> dict[str, Any]:
         """Deserialize all key-value pairs from the metadata header block.
@@ -206,13 +336,15 @@ class GGUFParser:
             Dictionary mapping string keys to deserialized values.
         """
         metadata: dict[str, Any] = {}
+        self._array_elements_left = GGUF_MAX_TOTAL_ARRAY_ELEMENTS
+        self._check_record_count(stream, count, GGUF_MIN_KV_BYTES, "metadata key-value")
         for _ in range(count):
             key = self._read_string(stream)
             type_bytes = stream.read(4)
             if len(type_bytes) < 4:
                 raise GGUFParseError(f"EOF reading value type for metadata key '{key}'", stream.tell())
             val_type_int = struct.unpack("<I", type_bytes)[0]
-            val_type = GGUFValueType(val_type_int)
+            val_type = _enum_or_error(GGUFValueType, val_type_int, "metadata value type", stream)
             val = self._read_value(stream, val_type)
             metadata[key] = val
         return metadata
@@ -228,15 +360,16 @@ class GGUFParser:
             List of parsed GGUFTensorInfo descriptor dataclasses.
         """
         tensor_list: list[GGUFTensorInfo] = []
+        self._check_record_count(stream, count, GGUF_MIN_TENSOR_BYTES, "tensor")
         for _ in range(count):
             name = self._read_string(stream)
             dims_bytes = stream.read(4)
             if len(dims_bytes) < 4:
                 raise GGUFParseError(f"EOF reading dimensions count for tensor '{name}'", stream.tell())
             n_dims = struct.unpack("<I", dims_bytes)[0]
-            dims_raw = stream.read(8 * n_dims)
-            if len(dims_raw) < 8 * n_dims:
-                raise GGUFParseError(f"EOF reading dimension array for tensor '{name}'", stream.tell())
+            if n_dims > GGUF_MAX_DIMENSIONS:
+                raise GGUFParseError(f"Tensor '{name}' declares {n_dims} dimensions, maximum is {GGUF_MAX_DIMENSIONS}", stream.tell())
+            dims_raw = _read_declared(stream, 8 * n_dims, f"EOF reading dimension array for tensor '{name}'")
             dimensions = struct.unpack(f"<{n_dims}Q", dims_raw)
 
             type_bytes = stream.read(4)
@@ -244,7 +377,7 @@ class GGUFParser:
             if len(type_bytes) < 4 or len(offset_bytes) < 8:
                 raise GGUFParseError(f"EOF reading type and offset for tensor '{name}'", stream.tell())
             tensor_type_int = struct.unpack("<I", type_bytes)[0]
-            tensor_type = GGMLType(tensor_type_int)
+            tensor_type = _enum_or_error(GGMLType, tensor_type_int, "tensor type", stream)
             offset = struct.unpack("<Q", offset_bytes)[0]
 
             tensor_list.append(
@@ -262,6 +395,8 @@ class GGUFParser:
         """Perform full parse of container header, metadata, and tensor info table."""
         if not self.path.exists():
             raise InvalidGGUFError(f"File not found: {self.path}", file_path=str(self.path))
+        if not self.path.is_file():
+            raise InvalidGGUFError(f"Not a regular file: {self.path}", file_path=str(self.path))
 
         with open(self.path, "rb") as f:
             self._header = self.parse_header(f)
@@ -269,9 +404,33 @@ class GGUFParser:
             self._tensor_info = self.parse_tensor_info(f, self._header.tensor_count)
 
             alignment = self._metadata.get("general.alignment", GGUF_DEFAULT_ALIGNMENT)
+            if isinstance(alignment, bool) or not isinstance(alignment, int) or not 1 <= alignment <= GGUF_MAX_ALIGNMENT or alignment & (alignment - 1):
+                raise GGUFParseError(f"general.alignment must be a power of two in [1, {GGUF_MAX_ALIGNMENT}], got {alignment!r}", f.tell())
             current_pos = f.tell()
             remainder = current_pos % alignment
             self._data_offset = current_pos if remainder == 0 else current_pos + (alignment - remainder)
+
+    def _int_metadata(self, key: str, default: Any) -> int:
+        """Read a metadata value as an integer, raising a typed error for hostile values.
+
+        Args:
+            key: Metadata key.
+            default: Value used when the key is absent.
+
+        Returns:
+            int: The integer value.
+
+        Raises:
+            GGUFParseError: If the value is a string, array, NaN, infinity or otherwise not integral.
+        """
+        assert self._metadata is not None
+        value = self._metadata.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise GGUFParseError(f"Metadata '{key}' must be a number, got {type(value).__name__}", 0)
+        try:
+            return int(value)
+        except (ValueError, OverflowError):
+            raise GGUFParseError(f"Metadata '{key}' is not a finite number: {value!r}", 0) from None
 
     def get_summary(self) -> GGUFSummary:
         """Construct comprehensive architectural and quantization summary.
@@ -285,10 +444,10 @@ class GGUFParser:
         assert self._tensor_info is not None
 
         architecture = str(self._metadata.get("general.architecture", "unknown"))
-        context_length = int(self._metadata.get(f"{architecture}.context_length", self._metadata.get("general.context_length", 4096)))
-        embedding_length = int(self._metadata.get(f"{architecture}.embedding_length", 0))
-        block_count = int(self._metadata.get(f"{architecture}.block_count", 0))
-        head_count = int(self._metadata.get(f"{architecture}.attention.head_count", 0))
+        context_length = self._int_metadata(f"{architecture}.context_length", self._metadata.get("general.context_length", 4096))
+        embedding_length = self._int_metadata(f"{architecture}.embedding_length", 0)
+        block_count = self._int_metadata(f"{architecture}.block_count", 0)
+        head_count = self._int_metadata(f"{architecture}.attention.head_count", 0)
 
         total_parameters = 0
         type_counts: Counter[str] = Counter()

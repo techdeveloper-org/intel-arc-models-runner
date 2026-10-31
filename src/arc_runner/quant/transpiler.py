@@ -10,8 +10,11 @@ import json
 import math
 from pathlib import Path
 import struct
+import re
 import time
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
+
+from xml.sax.saxutils import quoteattr
 
 import numpy as np
 
@@ -69,6 +72,27 @@ class TranspilationResult:
     duration_ms: float
     sha256_hash: str = ""
     average_sqnr_db: float = 34.0
+
+
+_XML_ILLEGAL_CHARS = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+
+
+def _xml_attr(value: Any) -> str:
+    """Return value as a quoted, escaped XML attribute literal.
+
+    Args:
+        value: Text or number taken from untrusted file content.
+
+    Returns:
+        str: The value wrapped in quotes with &, <, > and quotes escaped.
+
+    Raises:
+        TranspilationError: If the text contains a character XML 1.0 cannot represent.
+    """
+    text = str(value)
+    if _XML_ILLEGAL_CHARS.search(text):
+        raise TranspilationError(f"Name contains characters that XML 1.0 cannot represent: {text[:40]!r}", "INVALID_IR_NAME", 422)
+    return quoteattr(text)
 
 
 class GGUFTranspiler:
@@ -264,10 +288,12 @@ class GGUFTranspiler:
         ema_throughput_mb_s = 0.0
         alpha = 0.85
         total_tensors = len(tensors)
+        tensor_layout: List[Tuple[int, int]] = []
 
         with open(self._input_path, "rb") as gguf_file, open(bin_path, "wb") as out_bin:
             for idx, (tensor, byte_count) in enumerate(zip(tensors, tensor_byte_counts), start=1):
                 t_tensor_start = time.perf_counter()
+                bin_offset_start = cumulative_bytes_written
                 gguf_file.seek(tensor.offset)
                 raw_bytes = gguf_file.read(byte_count)
                 if len(raw_bytes) != byte_count:
@@ -285,6 +311,7 @@ class GGUFTranspiler:
                     hasher.update(pad_bytes)
 
                 tensor_total_bytes = byte_count + pad
+                tensor_layout.append((bin_offset_start, byte_count))
                 cumulative_bytes_written += tensor_total_bytes
 
                 t_now = time.perf_counter()
@@ -335,8 +362,7 @@ class GGUFTranspiler:
         xml_content = self._generate_ir_xml(
             model_name=model_name,
             tensors=tensors,
-            bin_filename=bin_path.name,
-            bin_size=cumulative_bytes_written,
+            tensor_layout=tensor_layout,
         )
         xml_path.write_text(xml_content, encoding="utf-8")
 
@@ -400,40 +426,63 @@ class GGUFTranspiler:
             raise TranspilationError("Transpilation failed to yield terminal artifact.")
         return self._last_result
 
+    _GGML_TO_OV_ELEMENT_TYPE: Dict[int, Tuple[str, str]] = {
+        0: ("f32", "FP32"),
+        1: ("f16", "FP16"),
+        2: ("u8", "U8"),
+        3: ("u8", "U8"),
+        4: ("u8", "U8"),
+        5: ("u8", "U8"),
+        6: ("u8", "U8"),
+        7: ("u8", "U8"),
+        8: ("i8", "I8"),
+        30: ("bf16", "BF16"),
+    }
+
     def _generate_ir_xml(
         self,
         model_name: str,
         tensors: List[Any],
-        bin_filename: str,
-        bin_size: int,
+        tensor_layout: Optional[List[Tuple[int, int]]] = None,
     ) -> str:
         """Construct standard OpenVINO IR version 11 network XML document.
+
+        The companion .bin file is located by naming convention (same base name
+        alongside the .xml). The legacy bin_file element inside meta_data is
+        intentionally omitted — OpenVINO 2026+ raises an error on that attribute.
 
         Args:
             model_name: Name of model network.
             tensors: List of GGUFTensorInfo metadata items.
-            bin_filename: Relative filename of companion .bin container.
-            bin_size: Total byte size of companion .bin container.
+            tensor_layout: Per-tensor (bin_offset, byte_count) pairs in tensor order.
+                When provided, each layer's data element carries the correct offset
+                and size. When absent, offset=0 size=0 are used as fallback.
 
         Returns:
             UTF-8 formatted OpenVINO IR XML string.
         """
         lines = [
             '<?xml version="1.0"?>',
-            f'<net name="{model_name}" version="11">',
+            f'<net name={_xml_attr(model_name)} version="11">',
             '\t<layers>',
         ]
 
+        layout = tensor_layout or []
         layer_id = 0
-        for t in tensors:
+        for idx, t in enumerate(tensors):
             dims = t.dimensions if hasattr(t, "dimensions") else (t.shape if hasattr(t, "shape") else [1])
-            shape_str = ",".join(str(s) for s in dims) if dims else "1"
+            ggml_type_val = int(t.tensor_type) if hasattr(t, "tensor_type") else 0
+            ov_elem, ov_prec = self._GGML_TO_OV_ELEMENT_TYPE.get(ggml_type_val, ("u8", "U8"))
+            if idx < len(layout):
+                bin_offset, byte_count = layout[idx]
+            else:
+                bin_offset, byte_count = 0, 0
             lines.append(
-                f'\t\t<layer id="{layer_id}" name="{t.name}" type="Const" version="opset1">'
+                f'\t\t<layer id="{layer_id}" name={_xml_attr(t.name)} type="Const" version="opset1">'
             )
-            lines.append('\t\t\t<data element_type="f32" offset="0" size="0"/>')
+            lines.append(f'\t\t\t<data element_type="{ov_elem}" offset="{bin_offset}" size="{byte_count}"/>')
             lines.append('\t\t\t<output>')
-            lines.append(f'\t\t\t\t<port id="0" precision="FP32" names="{t.name}">')
+            lines.append(f'\t\t\t\t<port id="0" precision="{ov_prec}" names={_xml_attr(t.name)}>')
             for dim in (dims or [1]):
                 lines.append(f'\t\t\t\t\t<dim>{dim}</dim>')
             lines.append('\t\t\t\t</port>')
@@ -444,9 +493,6 @@ class GGUFTranspiler:
         lines.extend([
             '\t</layers>',
             '\t<edges/>',
-            '\t<meta_data>',
-            f'\t\t<bin_file name="{bin_filename}" size="{bin_size}"/>',
-            '\t</meta_data>',
             '</net>',
         ])
         return "\n".join(lines)

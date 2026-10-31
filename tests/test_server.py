@@ -5,6 +5,7 @@ centralized logging with MDC tracing, streaming NDJSON/SSE semantics,
 LRU eviction, and error degradation handling.
 """
 
+from arc_runner import __version__
 import json
 from pathlib import Path
 import tempfile
@@ -157,7 +158,7 @@ def test_version_endpoint_returns_valid_version(test_environment):
     assert response.status_code == 200
     data = response.json()
     assert "version" in data
-    assert data["version"] == "0.1.0"
+    assert data["version"] == __version__
 
 
 def test_ollama_tags_returns_model_list(test_environment):
@@ -279,7 +280,9 @@ def test_openai_chat_completions_non_streaming(test_environment):
     assert data["model"] == "llama-3.2-3b-int4"
     assert len(data["choices"]) == 1
     assert data["choices"][0]["message"]["role"] == "assistant"
-    assert "usage" in data
+    # Deliberate change: MockEngine reports no measured token counts, so usage is omitted
+    # instead of presenting whitespace word counts as tokens (see tests/test_usage_honesty.py).
+    assert "usage" not in data
 
 
 def test_openai_chat_completions_streaming_sse(test_environment):

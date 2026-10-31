@@ -82,3 +82,28 @@ def require_intel_npu(live_topology: SystemTopology) -> SystemTopology:
     if not live_topology.has_intel_npu:
         pytest.skip("Intel AI Boost NPU accelerator not detected on current host.")
     return live_topology
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_engine_env(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep engine compile caches out of the user profile and warmup off by default.
+
+    Args:
+        tmp_path_factory: Pytest factory for a per-session temporary directory.
+        monkeypatch: Pytest monkeypatch fixture.
+    """
+    monkeypatch.setenv("ARC_CACHE_DIR", str(tmp_path_factory.getbasetemp() / "ov_cache_root"))
+    monkeypatch.delenv("ARC_WARMUP_ON_LOAD", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _allow_testclient_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let Starlette's TestClient (Host: testserver) pass the Host-header check during tests only.
+
+    Production never sets this; the allow list there is localhost, IP literals and ARC_ALLOWED_HOSTS.
+    Tests that exercise the check override or delete the variable themselves.
+
+    Args:
+        monkeypatch: Pytest monkeypatch fixture.
+    """
+    monkeypatch.setenv("ARC_ALLOWED_HOSTS", "testserver")

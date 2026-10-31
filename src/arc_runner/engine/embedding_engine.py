@@ -10,6 +10,7 @@ from typing import Any, List, Optional, Sequence
 
 from arc_runner.core.exceptions import ArcRunnerError, ModelLoadError
 from arc_runner.core.logging import get_logger
+from arc_runner.engine.device_errors import classify_device_error
 
 logger = get_logger("arc_runner.engine.embedding")
 
@@ -67,6 +68,11 @@ class EmbeddingEngine:
         return self._device
 
     @property
+    def last_prompt_tokens(self) -> Optional[int]:
+        """Tokenizer-counted prompt tokens of the last request; None because this engine does not measure them."""
+        return None
+
+    @property
     def dimension(self) -> int:
         """Return the vector dimensionality."""
         return self._dimension
@@ -96,14 +102,19 @@ class EmbeddingEngine:
                 )
                 logger.info(
                     "Initialized TextEmbeddingPipeline",
-                    device=self._device,
-                    model_path=str(self._model_path),
+                    extra={"device": self._device, "model_path": str(self._model_path)},
                 )
             except Exception as device_exc:
                 if self._device == "NPU":
+                    error_class = classify_device_error(device_exc)
+                    if error_class in ("DEVICE_LOST", "OOM"):
+                        raise ModelLoadError(
+                            f"Unrecoverable NPU error ({error_class}) loading embedding model"
+                            f" at '{self._model_path}': {device_exc}"
+                        ) from device_exc
                     logger.warning(
                         "NPU embedding initialization failed, falling back to GPU",
-                        error=str(device_exc),
+                        extra={"error": str(device_exc)},
                     )
                     self._device = "GPU"
                     self._pipeline = genai.TextEmbeddingPipeline(
@@ -239,6 +250,14 @@ class EmbeddingEngine:
 
         divisor = float(mask_sum) + eps
         return [val / divisor for val in pooled]
+
+    def unload(self) -> None:
+        """Release the OpenVINO pipeline and free associated device memory.
+
+        Safe to call on an already-unloaded engine; the call is idempotent.
+        """
+        self._pipeline = None
+        logger.debug("EmbeddingEngine unloaded", extra={"model_path": str(self._model_path)})
 
     @classmethod
     def compute_similarity(cls, vec_a: Sequence[float], vec_b: Sequence[float]) -> float:

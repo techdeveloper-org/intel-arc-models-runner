@@ -23,6 +23,26 @@ class ArcRunnerError(Exception):
         self.status_code = status_code
 
 
+class NativeLayerError(ArcRunnerError):
+    """Raised when the native acceleration layer rejects a request or reports a failure."""
+
+    def __init__(self, message: str, native_status: int = 0, os_error: int = 0) -> None:
+        """Initialize the native layer failure exception.
+
+        Args:
+            message: Human-readable error description.
+            native_status: ArcStatus code reported by the native library, if any.
+            os_error: Operating-system error code recorded by the native library, if any.
+        """
+        super().__init__(message, "NATIVE_LAYER_ERROR", 500)
+        self.native_status = native_status
+        self.os_error = os_error
+
+
+class NativeBoundsError(NativeLayerError):
+    """Raised when tensor extents, counts, or integers fall outside the supported native bounds."""
+
+
 class ModelLoadError(ArcRunnerError):
     """Raised when an OpenVINO IR model fails to compile or load on target silicon."""
 
@@ -47,9 +67,9 @@ class ModelNotFoundError(ArcRunnerError):
 
         Args:
             model_id: Model name or identifier requested.
-            search_path: File system location searched.
+            search_path: File system location searched; kept for logs and never put in the message.
         """
-        super().__init__(f"Model '{model_id}' was not found at '{search_path}'", "MODEL_NOT_FOUND", 404)
+        super().__init__(f"Model '{model_id}' was not found", "MODEL_NOT_FOUND", 404)
         self.model_id = model_id
         self.search_path = search_path
 
@@ -207,3 +227,79 @@ class VoiceNotFoundError(AudioEngineError):
         super().__init__(f"Voice embedding '{voice_name}' not found.{avail_str}", "VOICE_NOT_FOUND", 404)
         self.voice_name = voice_name
         self.available_voices = available_voices or []
+
+
+class EngineUnavailableError(ArcRunnerError):
+    """Raised when the inference worker cannot accept a new request.
+
+    Two variants share this class: ENGINE_WEDGED (worker thread did not join within the
+    graceful-shutdown timeout and is presumed hung) and SERVER_STOPPING (the lifespan
+    shutdown has begun and no new jobs will be accepted). Both map to HTTP 503 so clients
+    can retry on a different instance or after a restart.
+
+    Args:
+        message: Human-readable reason the engine is unavailable.
+        error_code: Either ``ENGINE_WEDGED`` (default) or ``SERVER_STOPPING``.
+    """
+
+    def __init__(self, message: str, error_code: str = "ENGINE_WEDGED") -> None:
+        """Initialize the engine unavailable exception.
+
+        Args:
+            message: Human-readable reason the engine is unavailable.
+            error_code: Machine-readable token; ``ENGINE_WEDGED`` or ``SERVER_STOPPING``.
+        """
+        super().__init__(message, error_code, 503)
+
+
+class ConfigurationError(ArcRunnerError):
+    """Raised when a configuration or request parameter is invalid or unsafe."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize the configuration failure exception.
+
+        Args:
+            message: Description of the invalid setting.
+        """
+        super().__init__(message, "INVALID_CONFIGURATION", 400)
+
+
+class ModelConfigError(ArcRunnerError):
+    """Raised when a model config.json is missing required fields or contains invalid values."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize the model configuration error.
+
+        Args:
+            message: Description of the missing or invalid configuration field.
+        """
+        super().__init__(message, "MODEL_CONFIG_ERROR", 400)
+
+
+class PromptCapExceededError(ArcRunnerError):
+    """Raised when a prompt exceeds the NPU hardware maximum prompt length cap.
+
+    The NPU plugin enforces a fixed MAX_PROMPT_LEN at load time.  Passing a longer
+    prompt either triggers a library RuntimeError or is detected by the pre-flight
+    token count check.  The prompt is never silently truncated.
+
+    Args:
+        prompt_tokens: Estimated or measured token count of the prompt.
+        cap: The configured or default NPU_MAX_PROMPT_LEN cap in tokens.
+    """
+
+    def __init__(self, prompt_tokens: int, cap: int) -> None:
+        """Initialize the NPU prompt cap exceeded exception.
+
+        Args:
+            prompt_tokens: Estimated or measured token count of the rejected prompt.
+            cap: Maximum prompt token length enforced by the NPU plugin.
+        """
+        super().__init__(
+            f"Prompt length ({prompt_tokens} tokens) exceeds the NPU cap ({cap} tokens); "
+            f"shorten the prompt or set MAX_PROMPT_LEN to a larger value",
+            "PROMPT_CAP_EXCEEDED",
+            400,
+        )
+        self.prompt_tokens = prompt_tokens
+        self.cap = cap

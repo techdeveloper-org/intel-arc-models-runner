@@ -4,6 +4,11 @@
 # Complies with Rule 29-container-deployment.md: Multi-Stage, Non-Root (UID 1000)
 # ==============================================================================
 
+# Base image is pinned by tag. Maintainer step before a release: also pin the digest
+# (docker buildx imagetools inspect ubuntu:24.04, then FROM ubuntu:24.04@sha256:<digest>)
+# the digest was not resolved here (no registry access). scripts/verify_container.sh and
+# tests/test_docker_container_triad.py match the literal 'FROM ubuntu:24.04 AS ...' lines,
+# so update them together with any digest pin.
 # ------------------------------------------------------------------------------
 # Stage 1: Builder
 # ------------------------------------------------------------------------------

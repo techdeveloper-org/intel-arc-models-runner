@@ -1,0 +1,216 @@
+{
+  "udm_version": 1,
+  "scope": "v0.2.0 native layer, ring buffer, telemetry, Level Zero bridge, benchmark gates (additive sections; earlier diagram content is not regenerated)",
+  "component": {
+    "title": "Native layer components",
+    "nodes": [
+      {"id": "api", "label": "FastAPI routes (OpenAI / Ollama compatible)"},
+      {"id": "engine", "label": "OpenVINOGenAIEngine"},
+      {"id": "telem", "label": "engine/telemetry.py"},
+      {"id": "mgr", "label": "FlashStreamWeightManager"},
+      {"id": "nme", "label": "NativeMemoryEngine (bridge.py)"},
+      {"id": "guard", "label": "_MappingGuard"},
+      {"id": "nzb", "label": "NativeLevelZeroBridge (bridge.py)"},
+      {"id": "sysman", "label": "LevelZeroSysman"},
+      {"id": "lib", "label": "libarc_native_sys (arc_flash_stream_mmap.c, arc_level_zero_bridge.c)"},
+      {"id": "ze", "label": "ze_loader"},
+      {"id": "gguf", "label": "GGUFParser"},
+      {"id": "stats", "label": "benchmark/stats.py + results.py"}
+    ],
+    "edges": [
+      {"from": "api", "to": "engine", "label": "generate / stream"},
+      {"from": "engine", "to": "telem", "label": "build telemetry"},
+      {"from": "mgr", "to": "gguf", "label": "parse tensor table"},
+      {"from": "mgr", "to": "nme", "label": "register, get_tensor_buffer"},
+      {"from": "nme", "to": "guard", "label": "owns"},
+      {"from": "nme", "to": "lib", "label": "ctypes, ABI 3 + sidecar hash"},
+      {"from": "nzb", "to": "lib", "label": "ctypes"},
+      {"from": "lib", "to": "ze", "label": "dlopen / LoadLibrary"},
+      {"from": "sysman", "to": "ze", "label": "ctypes (memory properties)"},
+      {"from": "stats", "to": "engine", "label": "claim gates read telemetry-derived samples"}
+    ]
+  },
+  "deployment": {
+    "title": "Deployment of the native layer",
+    "nodes": [
+      {"id": "proc", "label": "Python process (arc-runner)"},
+      {"id": "dll", "label": "libarc_native_sys.dll|.so + .build.json sidecar"},
+      {"id": "loader", "label": "ze_loader (Intel GPU driver stack)"},
+      {"id": "gpu", "label": "Intel Arc iGPU (device type 1)"},
+      {"id": "npu", "label": "Intel AI Boost NPU (device type 5, never selected for USM)"},
+      {"id": "model", "label": "GGUF model file on disk"},
+      {"id": "ci_linux", "label": "GitHub Actions ubuntu-latest (sanitizers, fake loader)"},
+      {"id": "ci_win", "label": "GitHub Actions windows-latest (mingw build, no GPU)"}
+    ],
+    "edges": [
+      {"from": "proc", "to": "dll", "label": "ctypes load after ABI + hash check"},
+      {"from": "dll", "to": "model", "label": "read-only mapping"},
+      {"from": "dll", "to": "loader", "label": "runtime load"},
+      {"from": "loader", "to": "gpu", "label": "selected"},
+      {"from": "loader", "to": "npu", "label": "skipped"},
+      {"from": "ci_linux", "to": "proc", "label": "pytest -m not hardware"},
+      {"from": "ci_win", "to": "dll", "label": "build and test"}
+    ]
+  },
+  "usecase": {
+    "title": "Use cases",
+    "actors": ["Operator", "Contributor", "CI"],
+    "nodes": [
+      {"id": "u1", "label": "Run a model with honest telemetry"},
+      {"id": "u2", "label": "Stream heavy-model layers through the ring buffer"},
+      {"id": "u3", "label": "Query device memory and power (value or None with reason)"},
+      {"id": "u4", "label": "Run the benchmark and evaluate a speed claim"},
+      {"id": "u5", "label": "Verify code, docs and diagrams are in sync"},
+      {"id": "u6", "label": "Run sanitizer and fake-loader tests"}
+    ],
+    "edges": [
+      {"from": "Operator", "to": "u1", "label": ""},
+      {"from": "Operator", "to": "u2", "label": ""},
+      {"from": "Operator", "to": "u3", "label": ""},
+      {"from": "Contributor", "to": "u4", "label": ""},
+      {"from": "CI", "to": "u5", "label": ""},
+      {"from": "CI", "to": "u6", "label": ""}
+    ]
+  },
+  "state": {
+    "title": "Ring slot lifecycle (docs/formal/RingSlots.tla)",
+    "nodes": [
+      {"id": "EMPTY", "label": "EMPTY"},
+      {"id": "PENDING", "label": "PENDING"},
+      {"id": "READY", "label": "READY"}
+    ],
+    "edges": [
+      {"from": "[*]", "to": "EMPTY", "label": "manager created"},
+      {"from": "EMPTY", "to": "PENDING", "label": "reserve: caller becomes the single loader"},
+      {"from": "PENDING", "to": "READY", "label": "publish: load finished, waiters woken"},
+      {"from": "PENDING", "to": "EMPTY", "label": "load failed, slot reset"},
+      {"from": "READY", "to": "PENDING", "label": "another layer maps to this slot"},
+      {"from": "READY", "to": "EMPTY", "label": "release_layer_slot"},
+      {"from": "READY", "to": "[*]", "label": "close"},
+      {"from": "EMPTY", "to": "[*]", "label": "close"}
+    ]
+  },
+  "sequence": {
+    "title": "acquire_layer_weights",
+    "participants": ["Consumer", "FlashStreamWeightManager", "NativeMemoryEngine", "libarc_native_sys"],
+    "messages": [
+      {"from": "Consumer", "to": "FlashStreamWeightManager", "text": "acquire_layer_weights(L)"},
+      {"from": "FlashStreamWeightManager", "to": "FlashStreamWeightManager", "text": "_reserve_slot(L): hit, wait, or become loader"},
+      {"from": "FlashStreamWeightManager", "to": "NativeMemoryEngine", "text": "get_tensor_buffer(L, name, dims, dtype)"},
+      {"from": "NativeMemoryEngine", "to": "libarc_native_sys", "text": "arc_mmap_get_tensor_ptr (range checked, sealed)"},
+      {"from": "libarc_native_sys", "to": "NativeMemoryEngine", "text": "pointer + size"},
+      {"from": "NativeMemoryEngine", "to": "FlashStreamWeightManager", "text": "read-only view kept alive by _MappingGuard"},
+      {"from": "FlashStreamWeightManager", "to": "FlashStreamWeightManager", "text": "_publish_load: slot READY, event set"},
+      {"from": "FlashStreamWeightManager", "to": "Consumer", "text": "arrays"}
+    ]
+  },
+  "activity": {
+    "title": "Registering a layer with the native mapping",
+    "nodes": [
+      {"id": "a1", "label": "Parse GGUF tensor table (declared lengths checked against remaining bytes)"},
+      {"id": "a2", "label": "Compute byte size per tensor (block layout table)"},
+      {"id": "a3", "label": "register_layer: validate index, count, dims, names, integers"},
+      {"id": "a4", "label": "arc_mmap_register_layer: every extent inside the file?"},
+      {"id": "a5", "label": "Layer registered natively"},
+      {"id": "a6", "label": "Layer rejected: Python read path is used"},
+      {"id": "a7", "label": "First read seals the table"}
+    ],
+    "edges": [
+      {"from": "a1", "to": "a2", "label": ""},
+      {"from": "a2", "to": "a3", "label": ""},
+      {"from": "a3", "to": "a4", "label": ""},
+      {"from": "a4", "to": "a5", "label": "yes"},
+      {"from": "a4", "to": "a6", "label": "no (NativeBoundsError)"},
+      {"from": "a5", "to": "a7", "label": ""}
+    ]
+  },
+  "object": {
+    "title": "Telemetry objects for one generate() call",
+    "nodes": [
+      {"id": "t1", "label": "EngineTelemetry: metrics_source=ov_perf_metrics, is_ttft_valid=True, is_tps_valid=True, is_estimate=False"},
+      {"id": "t2", "label": "EngineTelemetry (counters unavailable): metrics_source=unavailable, ttft_ms=0.0, tokens_per_second=0.0, flags False"},
+      {"id": "t3", "label": "_RingSlot: layer_idx=3, state=READY, arrays={attn_q.weight, ...}"}
+    ],
+    "edges": [
+      {"from": "t1", "to": "t3", "label": "weights read through"},
+      {"from": "t2", "to": "t3", "label": "weights read through"}
+    ]
+  },
+  "composite": {
+    "title": "Composition of the weight manager",
+    "nodes": [
+      {"id": "m", "label": "FlashStreamWeightManager"},
+      {"id": "s", "label": "_RingSlot x ring_buffer_slots"},
+      {"id": "n", "label": "NativeMemoryEngine"},
+      {"id": "g", "label": "_MappingGuard"},
+      {"id": "p", "label": "GGUFParser"},
+      {"id": "mm", "label": "mmap handle (Python read path)"}
+    ],
+    "edges": [
+      {"from": "m", "to": "s", "label": "owns"},
+      {"from": "m", "to": "n", "label": "owns"},
+      {"from": "n", "to": "g", "label": "owns"},
+      {"from": "m", "to": "p", "label": "owns"},
+      {"from": "m", "to": "mm", "label": "owns"}
+    ]
+  },
+  "interaction": {
+    "title": "Bounded synchronize on the Level Zero bridge",
+    "nodes": [
+      {"id": "i1", "label": "NativeLevelZeroBridge.synchronize"},
+      {"id": "i2", "label": "arc_ze_synchronize: close list, execute"},
+      {"id": "i3", "label": "poll zeCommandQueueSynchronize in 250 ms slices"},
+      {"id": "i4", "label": "Success: reset list, return 0"},
+      {"id": "i5", "label": "Timeout or device lost: mark context dead, return error"}
+    ],
+    "edges": [
+      {"from": "i1", "to": "i2", "label": ""},
+      {"from": "i2", "to": "i3", "label": ""},
+      {"from": "i3", "to": "i4", "label": "ZE_RESULT_SUCCESS"},
+      {"from": "i3", "to": "i5", "label": "deadline (<= 1.9 s) or error"}
+    ]
+  },
+  "communication": {
+    "title": "Level Zero initialization",
+    "nodes": [
+      {"id": "c1", "label": "NativeLevelZeroBridge"},
+      {"id": "c2", "label": "arc_ze_init_ex"},
+      {"id": "c3", "label": "ze_loader"}
+    ],
+    "edges": [
+      {"from": "c1", "to": "c2", "label": "1: arc_ze_init_ex(&status)"},
+      {"from": "c2", "to": "c3", "label": "2: zeInit(GPU_ONLY), drivers, devices, properties"},
+      {"from": "c2", "to": "c3", "label": "3: context, queue (NORMAL), list"},
+      {"from": "c2", "to": "c1", "label": "4: context or NULL + status"}
+    ]
+  },
+  "call_graph": {
+    "title": "Key call paths",
+    "edges": [
+      {"from": "FlashStreamWeightManager.acquire_layer_weights", "to": "FlashStreamWeightManager._reserve_slot", "lang": "py"},
+      {"from": "FlashStreamWeightManager.acquire_layer_weights", "to": "FlashStreamWeightManager._load_layer_arrays", "lang": "py"},
+      {"from": "FlashStreamWeightManager.acquire_layer_weights", "to": "FlashStreamWeightManager._publish_load", "lang": "py"},
+      {"from": "FlashStreamWeightManager._load_layer_arrays", "to": "NativeMemoryEngine.get_tensor_buffer", "lang": "py"},
+      {"from": "FlashStreamWeightManager._load_layer_arrays", "to": "FlashStreamWeightManager._read_tensor_array", "lang": "py"},
+      {"from": "NativeMemoryEngine.get_tensor_buffer", "to": "NativeMemoryEngine.seal", "lang": "py"},
+      {"from": "NativeMemoryEngine.get_tensor_buffer", "to": "_MappingGuard.add_view", "lang": "py"},
+      {"from": "NativeMemoryEngine.get_tensor_buffer", "to": "arc_mmap_get_tensor_ptr", "lang": "c"},
+      {"from": "NativeMemoryEngine.register_layer", "to": "arc_mmap_register_layer", "lang": "c"},
+      {"from": "arc_mmap_register_layer", "to": "arc_validate_layer", "lang": "c"},
+      {"from": "arc_validate_layer", "to": "arc_range_ok", "lang": "c"},
+      {"from": "OpenVINOGenAIEngine.generate", "to": "ContextBudgetMixin._check_request_fits_context", "lang": "py"},
+      {"from": "ContextBudgetMixin._check_request_fits_context", "to": "ContextBudgetMixin._count_prompt_tokens", "lang": "py"},
+      {"from": "ContextBudgetMixin._check_request_fits_context", "to": "ContextBudgetMixin._enforce_context_window", "lang": "py"},
+      {"from": "HybridSpeculativeEngine.generate", "to": "ContextBudgetMixin._check_request_fits_context", "lang": "py"},
+      {"from": "FlashStreamWeightManager.acquire_layer_weights", "to": "FlashStreamWeightManager._pin_layer", "lang": "py"},
+      {"from": "FlashStreamWeightManager.acquire_layer_weights", "to": "FlashStreamWeightManager._stage_layer", "lang": "py"},
+      {"from": "FlashStreamWeightManager._stage_layer", "to": "DeviceLayerStager.stage_layer", "lang": "py"},
+      {"from": "LevelZeroSysman.query_package_power", "to": "LevelZeroSysman._enumerate_handles", "lang": "py"},
+      {"from": "OpenVINOGenAIEngine.generate", "to": "OpenVINOGenAIEngine._invoke_pipeline", "lang": "py"},
+      {"from": "NativeLevelZeroBridge.synchronize", "to": "arc_ze_synchronize", "lang": "c"},
+      {"from": "NativeLevelZeroBridge.allocate_usm", "to": "arc_ze_alloc_usm", "lang": "c"},
+      {"from": "arc_ze_init_ex", "to": "arc_select_gpu", "lang": "c"},
+      {"from": "arc_ze_init_ex", "to": "arc_create_objects", "lang": "c"}
+    ]
+  }
+}

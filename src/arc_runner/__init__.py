@@ -5,12 +5,9 @@ optimized specifically for Intel Arc GPUs (discrete and integrated) and
 Intel AI Boost NPUs.
 """
 
-from typing import List
-from arc_runner.benchmark.runner import (
-    BenchmarkRunner,
-    BenchmarkRunResult,
-    BenchmarkSummary,
-)
+from typing import Any, List
+
+from arc_runner._version import __version__
 from arc_runner.core.exceptions import (
     ArcRunnerError,
     ContextWindowExceededError,
@@ -34,41 +31,76 @@ from arc_runner.devices.models import (
     DeviceType,
     SystemTopology,
 )
-from arc_runner.engine.aot_cache import AOTCompilationManager
-from arc_runner.engine.base import BaseEngine
-from arc_runner.engine.kv_cache import KVCacheManager
-from arc_runner.engine.models import (
-    EngineTelemetry,
-    GenerationConfig,
-    KVAllocation,
-    ModelPrecision,
-    SpeculativeConfig,
-    TokenChunk,
-)
-from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
-from arc_runner.engine.speculative_engine import HybridSpeculativeEngine
-from arc_runner.hub.downloader import DownloadProgress, ModelDownloader
-from arc_runner.hub.manager import HubManager
-from arc_runner.hub.ollama_importer import OllamaImporter
-from arc_runner.hub.registry import CuratedModelInfo, ModelRegistry
-from arc_runner.quant.gguf_parser import GGUFParser
-from arc_runner.quant.models import (
-    AOTCompilationResult,
-    CacheEntryInfo,
-    GGMLType,
-    GGUFHeader,
-    GGUFSummary,
-    GGUFTensorInfo,
-    GGUFValueType,
-    OllamaModelManifest,
-)
-from arc_runner.server.app import create_app
-from arc_runner.server.model_manager import ModelManager
 from arc_runner.utils.dll_loader import initialize_windows_dll_environment
 
 initialize_windows_dll_environment()
 
-__version__: str = "0.1.0"
+_LAZY: dict = {
+    "BaseEngine": ("arc_runner.engine.base", "BaseEngine"),
+    "GenerationConfig": ("arc_runner.engine.models", "GenerationConfig"),
+    "SpeculativeConfig": ("arc_runner.engine.models", "SpeculativeConfig"),
+    "TokenChunk": ("arc_runner.engine.models", "TokenChunk"),
+    "EngineTelemetry": ("arc_runner.engine.models", "EngineTelemetry"),
+    "KVAllocation": ("arc_runner.engine.models", "KVAllocation"),
+    "ModelPrecision": ("arc_runner.engine.models", "ModelPrecision"),
+    "OpenVINOGenAIEngine": ("arc_runner.engine.openvino_engine", "OpenVINOGenAIEngine"),
+    "HybridSpeculativeEngine": ("arc_runner.engine.speculative_engine", "HybridSpeculativeEngine"),
+    "KVCacheManager": ("arc_runner.engine.kv_cache", "KVCacheManager"),
+    "AOTCompilationManager": ("arc_runner.engine.aot_cache", "AOTCompilationManager"),
+    "create_app": ("arc_runner.server.app", "create_app"),
+    "ModelManager": ("arc_runner.server.model_manager", "ModelManager"),
+    "HubManager": ("arc_runner.hub.manager", "HubManager"),
+    "ModelRegistry": ("arc_runner.hub.registry", "ModelRegistry"),
+    "CuratedModelInfo": ("arc_runner.hub.registry", "CuratedModelInfo"),
+    "DownloadProgress": ("arc_runner.hub.downloader", "DownloadProgress"),
+    "ModelDownloader": ("arc_runner.hub.downloader", "ModelDownloader"),
+    "OllamaImporter": ("arc_runner.hub.ollama_importer", "OllamaImporter"),
+    "BenchmarkRunner": ("arc_runner.benchmark.runner", "BenchmarkRunner"),
+    "BenchmarkRunResult": ("arc_runner.benchmark.runner", "BenchmarkRunResult"),
+    "BenchmarkSummary": ("arc_runner.benchmark.runner", "BenchmarkSummary"),
+    "GGUFParser": ("arc_runner.quant.gguf_parser", "GGUFParser"),
+    "AOTCompilationResult": ("arc_runner.quant.models", "AOTCompilationResult"),
+    "CacheEntryInfo": ("arc_runner.quant.models", "CacheEntryInfo"),
+    "GGMLType": ("arc_runner.quant.models", "GGMLType"),
+    "GGUFHeader": ("arc_runner.quant.models", "GGUFHeader"),
+    "GGUFSummary": ("arc_runner.quant.models", "GGUFSummary"),
+    "GGUFTensorInfo": ("arc_runner.quant.models", "GGUFTensorInfo"),
+    "GGUFValueType": ("arc_runner.quant.models", "GGUFValueType"),
+    "OllamaModelManifest": ("arc_runner.quant.models", "OllamaModelManifest"),
+}
+
+
+def __getattr__(name: str) -> Any:
+    """Defer heavy imports until first attribute access (PEP 562).
+
+    Args:
+        name: Attribute name requested on the arc_runner package.
+
+    Returns:
+        The requested object, imported on first access.
+
+    Raises:
+        AttributeError: When name is not a known public name in this package.
+    """
+    if name in _LAZY:
+        import importlib
+        module_path, attr = _LAZY[name]
+        mod = importlib.import_module(module_path)
+        value = getattr(mod, attr)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module 'arc_runner' has no attribute {name!r}")
+
+
+def __dir__() -> List[str]:
+    """Return all public names so dir(arc_runner) is complete before any lazy load.
+
+    Returns:
+        Sorted list of all public names in this package.
+    """
+    return sorted(__all__)
+
+
 __all__: List[str] = [
     "__version__",
     "initialize_windows_dll_environment",

@@ -2,6 +2,7 @@ include README.md
 include LICENSE
 include pyproject.toml
 include src/arc_runner/py.typed
+recursive-include src/arc_runner/native *.c *.h *.dll *.so *.json
 recursive-include src/arc_runner/server/templates *.html
 recursive-include src/arc_runner/server/static *.css *.js
 global-exclude *.pyc __pycache__ *.pyo *.pyd .git .benchmarks .pytest_cache .ruff_cache

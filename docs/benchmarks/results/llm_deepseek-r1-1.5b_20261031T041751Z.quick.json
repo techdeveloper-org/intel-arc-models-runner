@@ -1,0 +1,78 @@
+{
+  "created_utc": "2026-10-31T04:17:51.042533+00:00",
+  "device": "GPU",
+  "environment": {
+    "arc_runner": "0.1.0",
+    "git_sha": "2811ca8eb44bfdd1062e17dd3731e8c67583d1ea",
+    "hardware": "Intel64 Family 6 Model 170 Stepping 4, GenuineIntel (18 logical CPUs)",
+    "openvino_genai": "2026.4.1.0",
+    "os": "Windows-11-10.0.26220-SP0",
+    "python": "3.13.16"
+  },
+  "max_new_tokens": 200,
+  "model": "deepseek-r1-1.5b",
+  "prompt": "Explain what is an Intel Arc GPU in one sentence.",
+  "protocol": "quick_api_benchmark",
+  "run_id": "llm-deepseek-r1-1.5b-quick-20261031",
+  "samples": [
+    {
+      "decode_tps": 31.2412,
+      "elapsed_s": 6.4018,
+      "is_warmup": true,
+      "iteration": 0,
+      "output_tokens": 200,
+      "source": "measured"
+    },
+    {
+      "decode_tps": 31.7138,
+      "elapsed_s": 6.3064,
+      "is_warmup": false,
+      "iteration": 1,
+      "output_tokens": 200,
+      "source": "measured"
+    },
+    {
+      "decode_tps": 32.0246,
+      "elapsed_s": 6.2452,
+      "is_warmup": false,
+      "iteration": 2,
+      "output_tokens": 200,
+      "source": "measured"
+    },
+    {
+      "decode_tps": 31.8456,
+      "elapsed_s": 6.2803,
+      "is_warmup": false,
+      "iteration": 3,
+      "output_tokens": 200,
+      "source": "measured"
+    },
+    {
+      "decode_tps": 31.87,
+      "elapsed_s": 6.2755,
+      "is_warmup": false,
+      "iteration": 4,
+      "output_tokens": 200,
+      "source": "measured"
+    },
+    {
+      "decode_tps": 31.9463,
+      "elapsed_s": 6.2605,
+      "is_warmup": false,
+      "iteration": 5,
+      "output_tokens": 200,
+      "source": "measured"
+    }
+  ],
+  "schema_version": "quick_v1",
+  "summary": {
+    "max_decode_tps": 32.02,
+    "mean_decode_tps": 31.88,
+    "median_decode_tps": 31.87,
+    "min_decode_tps": 31.71
+  },
+  "temperature": 0.0,
+  "timed_runs": 5,
+  "warmup_runs": 1,
+  "warning": "5 timed runs via /v1/messages API; not the full 30-run harness. No CI bounds, no NPU/CPU baseline, single tier."
+}

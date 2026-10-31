@@ -23,6 +23,9 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from arc_runner.benchmark.harness_common import total_memory_bytes
+from arc_runner.benchmark.results import build_result, capture_environment, write_result
+from arc_runner.benchmark.stats import BenchSample
 from arc_runner.core.logging import get_logger
 from arc_runner.devices.detector import DeviceDetector
 from arc_runner.engine.flash_stream.engine import FlashStreamInferenceEngine
@@ -114,7 +117,7 @@ FLASH_STREAM_HEAVY_SPECS = {
         "layers": 64,
         "hidden_dim": 5120,
         "int4_weights_gb": 18.42,
-        "ollama_status": "Instant OOM Crash (18.42 GB > 15.43 GB Total Physical RAM)",
+        "ollama_status": "not run; not measured",
         "tiers": {
             "low": {
                 "name": "Heavy Model Zero-RAM Cold Start",
@@ -138,7 +141,7 @@ FLASH_STREAM_HEAVY_SPECS = {
         "layers": 80,
         "hidden_dim": 8192,
         "int4_weights_gb": 41.20,
-        "ollama_status": "Instant Crash (41.20 GB exceeds 16GB laptop RAM by 2.67x)",
+        "ollama_status": "not run; not measured",
         "tiers": {
             "low": {
                 "name": "Fundamental Particle Physics",
@@ -174,12 +177,14 @@ class LiveSequentialBenchmarkRunner:
         self.console = Console()
         self.topology = DeviceDetector().detect_topology()
         self.results_path = Path(__file__).resolve().parent / "live_real_models_benchmark_results.json"
+        total_ram = total_memory_bytes()
+        ram_gb = round(total_ram / 1e9, 2) if total_ram is not None else None
         self.results_data: Dict[str, Any] = {
             "testbed": {
                 "cpu": self.topology.host_cpu_model,
                 "gpu": "Intel Arc Graphics (Xe-LPG, 7 Xe-cores, Level Zero USM)",
                 "npu": "Intel AI Boost NPU 3720 (5W)",
-                "ram_total_gb": 15.43,
+                "ram_total_gb": ram_gb,
                 "os": self.topology.os_platform,
             },
             "evaluated_models": {},
@@ -343,27 +348,27 @@ class LiveSequentialBenchmarkRunner:
                     elapsed = time.perf_counter() - t0
                     telemetry = engine.get_telemetry()
 
-                    tokens_gen = telemetry.total_tokens if telemetry.total_tokens > 0 else max(1, len(completion.split()))
-                    tps = round(telemetry.tokens_per_second if telemetry.tokens_per_second > 0 else (tokens_gen / max(0.01, elapsed)), 2)
-                    ttft_ms = round(telemetry.ttft_ms if telemetry.ttft_ms > 0 else (elapsed * 200.0), 2)
-
                     arc_metrics = {
                         "platform": "arc-runner (Intel Arc Xe-LPG iGPU Level Zero USM)",
-                        "ttft_ms": ttft_ms,
-                        "tokens_per_second": tps,
-                        "generated_tokens": tokens_gen,
+                        "status": "PASS",
+                        "source": telemetry.metrics_source,
+                        "is_estimate": telemetry.is_estimate,
+                        "ttft_ms": telemetry.ttft_ms if telemetry.is_ttft_valid else None,
+                        "tokens_per_second": telemetry.tokens_per_second if telemetry.is_tps_valid else None,
+                        "generated_tokens": telemetry.total_tokens if telemetry.total_tokens > 0 else None,
                         "total_latency_s": round(elapsed, 2),
-                        "power_w": 22.0,
+                        "power_w": None,
                         "completion_preview": completion.strip()[:80] + "...",
                     }
                 else:
                     arc_metrics = {
                         "platform": "arc-runner (Intel Arc Xe-LPG iGPU Level Zero USM)",
-                        "status": "REFERENCE_SWEEP",
-                        "ttft_ms": 165.0,
-                        "tokens_per_second": 54.2,
-                        "power_w": 22.0,
-                        "notes": "Projection based on Intel Arc Xe-LPG Level Zero USM kernel benchmark",
+                        "status": "UNAVAILABLE",
+                        "source": "unavailable",
+                        "ttft_ms": None,
+                        "tokens_per_second": None,
+                        "power_w": None,
+                        "notes": "Model could not be loaded on this machine; no value is reported.",
                     }
 
                 # 2. Ollama CPU comparison
@@ -373,8 +378,13 @@ class LiveSequentialBenchmarkRunner:
                     t_spec["max_tokens"],
                 )
 
-                tps = arc_metrics.get("tokens_per_second", 0.0)
-                speedup_factor = round(tps / max(0.1, ollama_metrics.get("tokens_per_second", 1.0)), 2) if ollama_metrics and ollama_metrics.get("status") == "PASS" else "N/A"
+                tps = arc_metrics.get("tokens_per_second")
+                ollama_ok = bool(ollama_metrics) and ollama_metrics.get("status") == "PASS"
+                speedup_factor = (
+                    round(tps / max(0.1, ollama_metrics.get("tokens_per_second", 1.0)), 2)
+                    if tps is not None and ollama_ok
+                    else "N/A"
+                )
 
                 model_results["tiers"][tier_name] = {
                     "workload_name": t_spec["name"],
@@ -425,7 +435,7 @@ class LiveSequentialBenchmarkRunner:
             "architecture_layers": spec["layers"],
             "int4_weights_size_gb": spec["int4_weights_gb"],
             "ollama_standard_status": spec["ollama_status"],
-            "flash_stream_status": "PASS (Zero-OOM Elimination, Proof M122)",
+            "flash_stream_status": "PASS on synthetic container only; real 32B/72B weights not run",
             "tiers": {},
         }
 
@@ -447,11 +457,11 @@ class LiveSequentialBenchmarkRunner:
                     "resident_ring_ram_mb": round(mem_report.get("ring_buffer_bytes", 0) / (1024 * 1024), 2),
                     "paged_kv_cache_mb": round(mem_report.get("kv_cache_bytes", 0) / (1024 * 1024), 2),
                     "total_working_set_mb": mem_report.get("total_working_mb", 0.0),
-                    "full_scale_32b_ram_mb": 843.0,
-                    "ttft_ms": round(telemetry.ttft_ms, 2),
-                    "tokens_per_second": round(telemetry.tokens_per_second, 2),
-                    "o1_invariant_satisfied": True,
-                    "zero_oom_guarantee": "M_working (952 MB) < M_free (1240 - 4500 MB)",
+                    "model_kind": "synthetic_container_8_layers_hidden_dim_32",
+                    "source": telemetry.metrics_source,
+                    "is_estimate": telemetry.is_estimate,
+                    "ttft_ms": round(telemetry.ttft_ms, 2) if telemetry.is_ttft_valid else None,
+                    "tokens_per_second": round(telemetry.tokens_per_second, 2) if telemetry.is_tps_valid else None,
                 }
         finally:
             engine.unload()
@@ -461,11 +471,59 @@ class LiveSequentialBenchmarkRunner:
 
         return heavy_results
 
+    def collect_schema_v1_samples(self) -> List[BenchSample]:
+        """Convert the single-run tier results into schema-v1 samples with honest provenance.
+
+        arc-runner rows are `measured` only when they came from engine perf_metrics; stream wall-clock
+        estimates are `derived`; rows without a source (legacy results) are skipped. Ollama rows are
+        measured from Ollama's own durations. Rows without a value are skipped. One iteration per tier is a smoke measurement; the claim gates need at least
+        ten timed iterations and will refuse these rows.
+
+        Returns:
+            List[BenchSample]: Samples for every tier that produced a value.
+        """
+        samples: List[BenchSample] = []
+        for alias, model in self.results_data["evaluated_models"].items():
+            for tier, data in model.get("tiers", {}).items():
+                arc = data.get("arc_runner", {})
+                if arc.get("tokens_per_second") is not None and arc.get("source") in ("ov_perf_metrics", "wallclock_stream"):
+                    source = "measured" if arc.get("source") == "ov_perf_metrics" else "derived"
+                    samples.append(BenchSample(
+                        f"{alias}/{tier}", "arc-runner", 0, arc.get("ttft_ms"), arc.get("tokens_per_second"), 0,
+                        int(arc.get("generated_tokens") or 0), source,  # type: ignore[arg-type]
+                    ))
+                ollama = data.get("ollama", {})
+                if ollama.get("status") == "PASS":
+                    samples.append(BenchSample(
+                        f"{alias}/{tier}", "ollama", 0, ollama.get("ttft_ms"), ollama.get("tokens_per_second"), 0,
+                        int(ollama.get("generated_tokens") or 0), "measured",
+                    ))
+        return samples
+
+    def write_schema_v1_results(self) -> None:
+        """Write the schema-v1 result file next to the legacy JSON when there are samples."""
+        samples = self.collect_schema_v1_samples()
+        if not samples:
+            return
+        protocol = {
+            "warmup_runs": 0, "timed_runs": 1, "temperature": 0.0, "max_new_tokens": 0,
+            "labels": {"arc-runner": "OpenVINO on the detected device", "ollama": "Ollama CPU"},
+        }
+        document = build_result("live-real-models-smoke", samples, protocol, capture_environment(Path(__file__).resolve().parents[1]))
+        target = Path(__file__).resolve().parents[1] / "docs" / "benchmarks" / "results" / "live_real_models_smoke.v1.json"
+        write_result(target, document)
+        self.console.print(f"[green]Wrote schema-v1 results to {target}[/green]")
+
+    def _ram_text(self) -> str:
+        """Return the measured physical RAM as text, or say it was not measured."""
+        ram_gb = self.results_data.get("testbed", {}).get("ram_total_gb")
+        return f"{ram_gb:.2f} GB" if ram_gb is not None else "not measured"
+
     def execute_all(self) -> None:
         """Execute full sequential benchmark sweep across all models with physical verification."""
         self.console.print(Panel(
             f"[bold cyan]Sequential Real-Model Benchmarking & Ollama Head-to-Head Suite[/bold cyan]\n"
-            f"[dim]Silicon: {self.topology.host_cpu_model} | Arc Xe-LPG iGPU | AI Boost NPU | RAM: 15.43 GB[/dim]",
+            f"[dim]Silicon: {self.topology.host_cpu_model} | Arc Xe-LPG iGPU | AI Boost NPU | RAM: {self._ram_text()}[/dim]",
             title="Physical Silicon Validation",
             border_style="cyan",
         ))
@@ -490,6 +548,7 @@ class LiveSequentialBenchmarkRunner:
             json.dump(self.results_data, f, indent=2)
 
         self.console.print(f"\n[bold green]✔ Successfully recorded physical benchmark results to {self.results_path}[/bold green]")
+        self.write_schema_v1_results()
         self.render_summary_table()
 
     def render_summary_table(self) -> None:
@@ -498,9 +557,9 @@ class LiveSequentialBenchmarkRunner:
         tbl.add_column("Model Alias", style="bold cyan")
         tbl.add_column("Tier", style="yellow")
         tbl.add_column("arc-runner (Arc GPU / NPU)", style="green")
-        tbl.add_column("Ollama (CPU Fallback)", style="dim")
+        tbl.add_column("Ollama (device not verified)", style="dim")
         tbl.add_column("Speedup Advantage", style="bold magenta")
-        tbl.add_column("RAM Footprint", style="cyan")
+        tbl.add_column("RAM Footprint (measured only)", style="cyan")
 
         for alias, m_data in self.results_data["evaluated_models"].items():
             for tier, t_data in m_data.get("tiers", {}).items():
@@ -508,18 +567,30 @@ class LiveSequentialBenchmarkRunner:
                 ollama = t_data.get("ollama", {})
                 speedup = t_data.get("speedup_vs_ollama", "N/A")
 
-                arc_str = f"{arc.get('tokens_per_second', 0):.1f} t/s (TTFT: {arc.get('ttft_ms', 0):.0f}ms)"
+                arc_tps = arc.get("tokens_per_second")
+                arc_ttft = arc.get("ttft_ms")
+                arc_str = (
+                    f"{arc_tps:.1f} t/s (TTFT: {arc_ttft:.0f}ms, {arc.get('source', 'unknown')})"
+                    if arc_tps is not None and arc_ttft is not None
+                    else "N/A (no measured value)"
+                )
                 ollama_str = f"{ollama.get('tokens_per_second', 0):.1f} t/s (TTFT: {ollama.get('ttft_ms', 0):.0f}ms)" if ollama.get("status") == "PASS" else "N/A"
                 speedup_str = f"[bold green]{speedup}x[/bold green]" if speedup != "N/A" else "-"
 
-                tbl.add_row(alias, tier.upper(), arc_str, ollama_str, speedup_str, "~1.3 GB USM")
+                tbl.add_row(alias, tier.upper(), arc_str, ollama_str, speedup_str, "not measured")
 
         for alias, h_data in self.results_data["flash_stream_heavy_models"].items():
             for tier, t_data in h_data.get("tiers", {}).items():
-                arc_str = f"{t_data.get('tokens_per_second', 0):.1f} t/s (TTFT: {t_data.get('ttft_ms', 0):.1f}ms)"
-                ollama_str = "[bold red]CRASH (OOM ENOMEM)[/bold red]"
-                speedup_str = "[bold green]INF (OOM Eliminated)[/bold green]"
-                ram_str = f"[bold green]{t_data.get('full_scale_32b_ram_mb', 843):.0f} MB (O(1))[/bold green]"
+                tps = t_data.get("tokens_per_second")
+                ttft = t_data.get("ttft_ms")
+                arc_str = (
+                    f"{tps:.1f} t/s (TTFT: {ttft:.1f}ms, synthetic container)"
+                    if tps is not None and ttft is not None
+                    else "N/A (no measured value)"
+                )
+                ollama_str = "not run"
+                speedup_str = "-"
+                ram_str = f"{t_data.get('total_working_set_mb', 0.0):.2f} MB mapped (synthetic)"
 
                 tbl.add_row(alias, tier.upper(), arc_str, ollama_str, speedup_str, ram_str)
 

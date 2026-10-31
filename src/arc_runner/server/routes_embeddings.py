@@ -5,12 +5,13 @@ leveraging the Intel AI Boost NPU and Arc GPU embedding engine.
 """
 
 import time
-from typing import List, Union
+from typing import List, Optional, Union
 
 from fastapi import APIRouter, HTTPException, Request, status
 
 from arc_runner.core.exceptions import ModelNotFoundError
 from arc_runner.core.logging import get_logger, get_request_id
+from arc_runner.server.errors import hidden_error
 from arc_runner.server.schemas import (
     OllamaEmbeddingRequest,
     OllamaEmbeddingResponse,
@@ -59,16 +60,28 @@ async def api_embeddings(req: OllamaEmbeddingRequest, request: Request) -> Ollam
             detail=f"Embedding model '{req.model}' not found in registered directories.",
         ) from exc
     except Exception as exc:
-        logger.error(f"Failed to generate embedding for {req.model}: {exc} [request_id={req_id}]")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Embedding generation failed: {exc}",
-        ) from exc
+        raise hidden_error("embedding request failed", exc, "Embedding generation failed", model=req.model, request_id=req_id) from exc
+
+
+def _reported_tokens(engine: object) -> Optional[int]:
+    """Return the engine-reported prompt token count, or None when the engine reports none.
+
+    Args:
+        engine: Embedding engine that served the request.
+
+    Returns:
+        Optional[int]: Non-negative integer count, else None.
+    """
+    value = getattr(engine, "last_prompt_tokens", None)
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return None
 
 
 @embeddings_router.post(
     "/api/embed",
     response_model=OllamaEmbedResponse,
+    response_model_exclude_none=True,
     summary="Generate batch vector embeddings (Ollama v2 format)",
 )
 async def api_embed(req: OllamaEmbedRequest, request: Request) -> OllamaEmbedResponse:
@@ -105,7 +118,7 @@ async def api_embed(req: OllamaEmbedRequest, request: Request) -> OllamaEmbedRes
             embeddings=vectors,
             total_duration=t_duration,
             load_duration=0,
-            prompt_eval_count=sum(len(item.split()) for item in inputs),
+            prompt_eval_count=_reported_tokens(engine),
         )
     except ModelNotFoundError as exc:
         logger.warning(f"Embedding model not found: {req.model} [request_id={req_id}]")
@@ -114,16 +127,13 @@ async def api_embed(req: OllamaEmbedRequest, request: Request) -> OllamaEmbedRes
             detail=f"Embedding model '{req.model}' not found in registered directories.",
         ) from exc
     except Exception as exc:
-        logger.error(f"Batch embedding generation failed for {req.model}: {exc} [request_id={req_id}]")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Batch embedding generation failed: {exc}",
-        ) from exc
+        raise hidden_error("embedding request failed", exc, "Batch embedding generation failed", model=req.model, request_id=req_id) from exc
 
 
 @embeddings_router.post(
     "/v1/embeddings",
     response_model=OpenAIEmbeddingResponse,
+    response_model_exclude_none=True,
     summary="Generate vector embeddings (OpenAI v1 format)",
 )
 async def v1_embeddings(req: OpenAIEmbeddingRequest, request: Request) -> OpenAIEmbeddingResponse:
@@ -162,16 +172,14 @@ async def v1_embeddings(req: OpenAIEmbeddingRequest, request: Request) -> OpenAI
             for idx, vec in enumerate(vectors)
         ]
 
-        total_tokens = sum(len(text.split()) for text in inputs)
+        reported = _reported_tokens(engine)
+        usage = None if reported is None else OpenAIEmbeddingUsage(prompt_tokens=reported, total_tokens=reported)
 
         return OpenAIEmbeddingResponse(
             object="list",
             data=data,
             model=req.model,
-            usage=OpenAIEmbeddingUsage(
-                prompt_tokens=total_tokens,
-                total_tokens=total_tokens,
-            ),
+            usage=usage,
         )
     except ModelNotFoundError as exc:
         logger.warning(f"OpenAI embedding model not found: {req.model} [request_id={req_id}]")
@@ -180,8 +188,4 @@ async def v1_embeddings(req: OpenAIEmbeddingRequest, request: Request) -> OpenAI
             detail=f"Model '{req.model}' not found.",
         ) from exc
     except Exception as exc:
-        logger.error(f"OpenAI embedding generation failed for {req.model}: {exc} [request_id={req_id}]")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Embedding generation failed: {exc}",
-        ) from exc
+        raise hidden_error("embedding request failed", exc, "Embedding generation failed", model=req.model, request_id=req_id) from exc

@@ -26,6 +26,7 @@ from arc_runner.orchestrator.models import (
     StudioProjectRequest,
 )
 from arc_runner.orchestrator.pipeline import StudioPipeline
+from arc_runner.server.errors import hidden_error
 
 logger = get_logger("server.routes_studio")
 router = APIRouter(prefix="/v1/studio", tags=["Arc MultiModal Studio"])
@@ -80,8 +81,8 @@ async def generate_studio_project(
                     }
                 )
             except Exception as exc:  # noqa: BLE001
-                logger.error(f"SSE pipeline failed: {exc}")
-                await queue.put({"stage": "FAILED", "error": str(exc)})
+                logger.error("studio sse pipeline failed", extra={"error_class": type(exc).__name__, "error_detail": str(exc)[:1000]}, exc_info=exc)
+                await queue.put({"stage": "FAILED", "error": "Studio pipeline failed"})
             finally:
                 await queue.put(None)
 
@@ -102,8 +103,7 @@ async def generate_studio_project(
         _PROJECT_CACHE[payload.project_id] = payload
         return payload
     except Exception as exc:
-        logger.error(f"Failed to generate studio project: {exc}")
-        raise HTTPException(status_code=500, detail=f"Studio pipeline failed: {exc}") from exc
+        raise hidden_error("studio pipeline failed", exc, "Studio pipeline failed") from exc
 
 
 @router.post(
@@ -134,8 +134,7 @@ async def run_multimodal_benchmark(
         )
         return report
     except Exception as exc:
-        logger.error(f"Co-benchmark failed: {exc}")
-        raise HTTPException(status_code=500, detail=f"Co-benchmark failed: {exc}") from exc
+        raise hidden_error("co-benchmark failed", exc, "Co-benchmark failed") from exc
 
 
 @router.get(

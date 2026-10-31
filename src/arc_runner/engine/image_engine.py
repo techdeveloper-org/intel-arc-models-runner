@@ -20,8 +20,29 @@ from pydantic import BaseModel, Field
 
 from arc_runner.core.exceptions import ArcRunnerError, ModelLoadError
 from arc_runner.core.logging import get_logger
+from arc_runner.engine.device_errors import classify_device_error
 
 logger = get_logger("arc_runner.engine.image")
+
+
+def _mean(val: Any) -> float:
+    """Extract the mean value from either a MeanStdPair object or a plain dict.
+
+    OpenVINO GenAI returns a MeanStdPair with a .mean attribute in most builds but
+    returns a plain dict {"mean": x, "std": y} in some versions. This helper handles
+    both shapes so perf-metric extraction never raises AttributeError.
+
+    Args:
+        val: Value returned by a get_*_infer_duration() call.
+
+    Returns:
+        float: The mean duration in milliseconds, or 0.0 when the key is absent.
+    """
+    if isinstance(val, (int, float)):
+        return float(val)
+    if isinstance(val, dict):
+        return float(val.get("mean", 0.0))
+    return float(val.mean)
 
 
 class ImageEngineError(ArcRunnerError):
@@ -57,11 +78,11 @@ class ImageGenerationRequest(BaseModel):
 class ImageGenerationBreakdown(BaseModel):
     """Granular latency and throughput decomposition of the image generation pipeline."""
 
-    text_encoder_ms: float = Field(description="CLIP/T5 text conditioning latency in milliseconds")
-    denoise_unet_ms: float = Field(description="Total UNet/DiT iterative denoising latency in milliseconds")
-    vae_decoder_ms: float = Field(description="AutoencoderKL latent-to-pixel decoding latency in milliseconds")
-    step_latency_ms: float = Field(description="Average latency per individual denoising step in milliseconds")
-    iteration_rate_it_s: float = Field(description="Denoising throughput in iterations per second (it/s)")
+    text_encoder_ms: Optional[float] = Field(default=None, description="CLIP/T5 text conditioning latency in milliseconds; None if the pipeline reported no perf metrics")
+    denoise_unet_ms: Optional[float] = Field(default=None, description="Total UNet/DiT iterative denoising latency in milliseconds; None if not reported")
+    vae_decoder_ms: Optional[float] = Field(default=None, description="AutoencoderKL latent-to-pixel decoding latency in milliseconds; None if not reported")
+    step_latency_ms: Optional[float] = Field(default=None, description="Average latency per denoising step in milliseconds (denoise_unet_ms / steps); None if not reported")
+    iteration_rate_it_s: Optional[float] = Field(default=None, description="Denoising throughput in iterations per second (it/s); None if not reported")
     megapixels_per_sec: float = Field(description="Spatial raster throughput in Megapixels per second (MP/s)")
 
 
@@ -155,6 +176,12 @@ class ImageEngine:
                 )
             except Exception as dev_exc:
                 if target_device == "GPU":
+                    error_class = classify_device_error(dev_exc)
+                    if error_class in ("DEVICE_LOST", "OOM"):
+                        raise ModelLoadError(
+                            f"Unrecoverable GPU error ({error_class}) loading image model"
+                            f" at '{self._model_path}': {dev_exc}"
+                        ) from dev_exc
                     logger.warning(
                         "Intel Arc GPU compilation failed, falling back to Host CPU: %s",
                         dev_exc,
@@ -234,35 +261,32 @@ class ImageEngine:
             except Exception:
                 metrics_obj = None
 
-            text_enc_ms = 0.0
-            denoise_ms = 0.0
-            vae_ms = 0.0
+            text_enc_ms: Optional[float] = None
+            denoise_ms: Optional[float] = None
+            vae_ms: Optional[float] = None
             if metrics_obj is not None:
                 try:
-                    text_enc_ms = float(metrics_obj.get_text_encoder_infer_duration().mean)
-                    denoise_ms = float(metrics_obj.get_unet_infer_duration().mean)
-                    if denoise_ms <= 0.0:
-                        denoise_ms = float(metrics_obj.get_transformer_infer_duration().mean)
-                    vae_ms = float(metrics_obj.get_vae_decoder_infer_duration().mean)
-                except Exception:
-                    pass
+                    reported_text = _mean(metrics_obj.get_text_encoder_infer_duration())
+                    reported_denoise = _mean(metrics_obj.get_unet_infer_duration())
+                    if reported_denoise <= 0.0:
+                        reported_denoise = _mean(metrics_obj.get_transformer_infer_duration())
+                    reported_vae = _mean(metrics_obj.get_vae_decoder_infer_duration())
+                    if reported_denoise > 0.0:
+                        text_enc_ms, denoise_ms, vae_ms = reported_text, reported_denoise, reported_vae
+                except Exception as exc:
+                    logger.warning("Image perf metrics unreadable; stage timings left unset: %s", exc)
 
-            if denoise_ms <= 0.0:
-                denoise_ms = max(0.1, total_sec * 850.0)
-                text_enc_ms = max(0.01, total_sec * 50.0)
-                vae_ms = max(0.01, total_sec * 100.0)
-
-            step_latency_ms = max(0.01, denoise_ms / max(1, request.num_inference_steps))
-            it_rate = 1000.0 / step_latency_ms
+            step_latency_ms = denoise_ms / max(1, request.num_inference_steps) if denoise_ms else None
+            it_rate = 1000.0 / step_latency_ms if step_latency_ms else None
             total_mp = (request.width * request.height) / 1_000_000.0
             mp_per_sec = total_mp / total_sec
 
             breakdown = ImageGenerationBreakdown(
-                text_encoder_ms=round(text_enc_ms, 2),
-                denoise_unet_ms=round(denoise_ms, 2),
-                vae_decoder_ms=round(vae_ms, 2),
-                step_latency_ms=round(step_latency_ms, 2),
-                iteration_rate_it_s=round(it_rate, 2),
+                text_encoder_ms=None if text_enc_ms is None else round(text_enc_ms, 2),
+                denoise_unet_ms=None if denoise_ms is None else round(denoise_ms, 2),
+                vae_decoder_ms=None if vae_ms is None else round(vae_ms, 2),
+                step_latency_ms=None if step_latency_ms is None else round(step_latency_ms, 2),
+                iteration_rate_it_s=None if it_rate is None else round(it_rate, 2),
                 megapixels_per_sec=round(mp_per_sec, 4),
             )
 

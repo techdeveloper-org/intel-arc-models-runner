@@ -1,10 +1,14 @@
 /**
  * @file arc_level_zero_bridge.h
- * @brief Bare-metal Level Zero USM allocation and asynchronous DMA streaming interface.
+ * @brief Level Zero USM and DMA bridge loaded dynamically from the system Level Zero loader.
  *
- * Exposes direct access to oneAPI Level Zero Unified Shared Memory (USM) host,
- * device, and shared allocations, alongside asynchronous DMA memory transfer queues
- * targeting Intel Arc Xe-LPG graphics silicon.
+ * The bridge never links against Level Zero. arc_ze_init selects the first device whose type is
+ * ZE_DEVICE_TYPE_GPU (the NPU, type VPU, is never selected), validates every driver call, and
+ * returns an opaque context. All waits are bounded below the Windows TDR limit (2 s); a wait that
+ * times out or reports device loss marks the context dead and every later call fails fast.
+ *
+ * The USM and DMA functions are used by the optional Python DeviceLayerStager (opt-in on the
+ * flash-stream weight manager); the default streaming path does not call them.
  */
 
 #ifndef ARC_LEVEL_ZERO_BRIDGE_H
@@ -24,6 +28,14 @@
 extern "C" {
 #endif
 
+#define ARC_MAX_TRACKED_ALLOCS 1024
+#define ARC_MAX_USM_BYTES ((uint64_t)1 << 36)
+#define ARC_ZE_DEFAULT_SYNC_TIMEOUT_MS 1500u
+#define ARC_ZE_MAX_SYNC_TIMEOUT_MS 1900u
+#define ARC_ZE_LOADER_ENV "ARC_ZE_LOADER_PATH"
+#define ARC_ZE_LOADER_ALLOW_ANY_ENV "ARC_ZE_LOADER_ALLOW_ANY"
+#define ARC_ZE_SYNC_TIMEOUT_ENV "ARC_ZE_SYNC_TIMEOUT_MS"
+
 /**
  * @enum ArcUsmType
  * @brief Memory residency type for Level Zero Unified Shared Memory buffers.
@@ -35,69 +47,114 @@ typedef enum {
 } ArcUsmType;
 
 /**
- * @struct ArcZeContext
- * @brief Internal runtime state holding Level Zero driver, device, context, and queues.
+ * @enum ArcZeStatus
+ * @brief Result codes of the arc_ze_* functions; negative values are errors.
  */
-typedef struct {
-    void* ze_module;
-    void* driver_handle;
-    void* device_handle;
-    void* context_handle;
-    void* queue_handle;
-    void* cmdlist_handle;
-    bool is_initialized;
-} ArcZeContext;
+typedef enum ArcZeStatus {
+    ARC_ZE_OK = 0,
+    ARC_ZE_FALLBACK_MEMCPY = 1,
+    ARC_ZE_ERR_INVALID_ARG = -1,
+    ARC_ZE_ERR_LOAD = -2,
+    ARC_ZE_ERR_SYMBOL = -3,
+    ARC_ZE_ERR_NO_GPU = -4,
+    ARC_ZE_ERR_API = -5,
+    ARC_ZE_ERR_TOO_LARGE = -6,
+    ARC_ZE_ERR_TOO_MANY_ALLOCS = -7,
+    ARC_ZE_ERR_DEAD = -8,
+    ARC_ZE_ERR_TIMEOUT = -9,
+    ARC_ZE_ERR_NOT_INITIALIZED = -10
+} ArcZeStatus;
 
 /**
- * @brief Initialize the Level Zero driver and acquire primary GPU device handles.
- *
- * @return ArcZeContext* Initialized context pointer, or NULL on driver unavailability.
+ * @struct ArcZeContext
+ * @brief Opaque runtime state holding the Level Zero module, device, context, queue and list.
  */
+typedef struct ArcZeContext ArcZeContext;
+
+/**
+ * @brief Initialize Level Zero and acquire the first GPU device (never the NPU).
+ *
+ * The loader library is taken from the ARC_ZE_LOADER_PATH environment variable if set,
+ * otherwise from the platform default names. The override must be an existing regular file whose
+ * base name looks like a Level Zero loader (ze_loader / libze_loader); any other library requires
+ * ARC_ZE_LOADER_ALLOW_ANY=1. A rejected override fails with ARC_ZE_ERR_LOAD and is not replaced by
+ * the default names.
+ *
+ * @param out_status Optional receiver for an ArcZeStatus describing the failure.
+ * @return Context pointer, or NULL if no usable GPU driver was found or any driver call failed.
+ */
+ARC_EXPORT ArcZeContext* arc_ze_init_ex(int32_t* out_status);
+
+/** @brief Same as arc_ze_init_ex without a status receiver. */
 ARC_EXPORT ArcZeContext* arc_ze_init(void);
 
 /**
- * @brief Allocate a Unified Shared Memory (USM) buffer on the designated target.
+ * @brief Allocate a USM buffer.
  *
- * @param ctx Level Zero context initialized by arc_ze_init.
- * @param size_bytes Allocation byte size.
- * @param usm_type Residency type (HOST, DEVICE, or SHARED).
- * @return void* Pointer to the allocated memory buffer, or NULL on failure.
+ * @param ctx Context from arc_ze_init.
+ * @param size_bytes Byte size; must satisfy 0 < size_bytes <= ARC_MAX_USM_BYTES.
+ * @param usm_type Residency type.
+ * @return Pointer, or NULL with the reason in arc_ze_last_status.
  */
 ARC_EXPORT void* arc_ze_alloc_usm(ArcZeContext* ctx, size_t size_bytes, ArcUsmType usm_type);
 
 /**
- * @brief Submit an asynchronous hardware DMA memory copy operation.
+ * @brief Record a copy on the command list.
  *
- * @param ctx Level Zero context.
- * @param dst Destination memory address.
- * @param src Source memory address.
- * @param size_bytes Number of bytes to transfer via DMA.
- * @return int 0 on successful submission, non-zero on error.
+ * If the driver rejects the copy and both pointers are tracked host or shared allocations, the
+ * copy is done with memcpy and ARC_ZE_FALLBACK_MEMCPY is returned.
+ *
+ * @param ctx Context from arc_ze_init.
+ * @param dst Destination address.
+ * @param src Source address.
+ * @param size_bytes Byte count.
+ * @return ARC_ZE_OK, ARC_ZE_FALLBACK_MEMCPY, or a negative ArcZeStatus.
  */
 ARC_EXPORT int arc_ze_dma_copy_async(ArcZeContext* ctx, void* dst, const void* src, size_t size_bytes);
 
 /**
- * @brief Synchronize the command queue and block until pending DMA operations finish.
+ * @brief Execute the recorded commands and wait for them, polling in slices of at most 250 ms.
  *
- * @param ctx Level Zero context.
- * @return int 0 on success, non-zero on timeout or execution fault.
+ * On timeout or device loss the context is marked dead, the command list is not reset, and
+ * ARC_ZE_ERR_TIMEOUT or ARC_ZE_ERR_API is returned.
+ *
+ * @param ctx Context from arc_ze_init.
+ * @return ARC_ZE_OK or a negative ArcZeStatus.
  */
 ARC_EXPORT int arc_ze_synchronize(ArcZeContext* ctx);
 
 /**
- * @brief Free a previously allocated Unified Shared Memory buffer.
+ * @brief Free a tracked USM allocation; unknown pointers and NULL are ignored.
  *
- * @param ctx Level Zero context.
- * @param ptr Pointer to the USM buffer to deallocate.
+ * @param ctx Context from arc_ze_init.
+ * @param ptr Pointer returned by arc_ze_alloc_usm.
  */
 ARC_EXPORT void arc_ze_free_usm(ArcZeContext* ctx, void* ptr);
 
 /**
- * @brief Release all Level Zero driver resources, queues, and context handles.
+ * @brief Free outstanding allocations and release all Level Zero resources; NULL is allowed.
  *
- * @param ctx Level Zero context to destroy.
+ * @param ctx Context to destroy.
  */
 ARC_EXPORT void arc_ze_destroy(ArcZeContext* ctx);
+
+/** @brief Return 1 if the context was marked dead (timeout or device loss), else 0. */
+ARC_EXPORT int arc_ze_is_dead(const ArcZeContext* ctx);
+
+/** @brief Return the last ArcZeStatus recorded on the context. */
+ARC_EXPORT int32_t arc_ze_last_status(const ArcZeContext* ctx);
+
+/** @brief Return the last raw ze_result_t returned by the driver. */
+ARC_EXPORT uint32_t arc_ze_last_result(const ArcZeContext* ctx);
+
+/** @brief Return the ze_device_type_t of the selected device (1 = GPU), or 0 for NULL. */
+ARC_EXPORT uint32_t arc_ze_device_type(const ArcZeContext* ctx);
+
+/** @brief Return the number of live tracked allocations. */
+ARC_EXPORT uint32_t arc_ze_alloc_count(const ArcZeContext* ctx);
+
+/** @brief Return the configured synchronize timeout in milliseconds. */
+ARC_EXPORT uint32_t arc_ze_sync_timeout_ms(const ArcZeContext* ctx);
 
 #ifdef __cplusplus
 }

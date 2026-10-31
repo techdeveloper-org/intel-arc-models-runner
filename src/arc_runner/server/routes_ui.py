@@ -15,10 +15,13 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
+from arc_runner.core.exceptions import GGUFParseError, InvalidGGUFError
 from arc_runner.core.logging import get_logger
+from arc_runner.core.path_policy import allowed_roots, ensure_path_allowed
 from arc_runner.engine.aot_cache import AOTCompilationManager
 from arc_runner.engine.embedding_engine import EmbeddingEngine
 from arc_runner.hub.ollama_importer import OllamaImporter
+from arc_runner.server.errors import hidden_error
 from arc_runner.quant.gguf_parser import GGUFParser
 from arc_runner.quant.transpiler import (
     GGUFTranspiler,
@@ -29,6 +32,32 @@ from arc_runner.quant.transpiler import (
 logger = get_logger(__name__)
 
 router = APIRouter(tags=["UI & Studio"])
+
+
+def _models_dirs(request: Request) -> list:
+    """Return the models directories of the running server.
+
+    Args:
+        request: Active request.
+
+    Returns:
+        list: Model directories, defaulting to ./models.
+    """
+    manager = getattr(request.app.state, "model_manager", None)
+    dirs = list(getattr(manager, "model_dirs", []) or [])
+    return dirs or [Path("models")]
+
+
+def _path_roots(request: Request) -> list:
+    """Return the roots request-supplied filesystem paths may point into.
+
+    Args:
+        request: Active request.
+
+    Returns:
+        list: Models directories, the Ollama directory and ARC_ALLOWED_PATHS entries.
+    """
+    return allowed_roots([*_models_dirs(request), OllamaImporter().ollama_dir])
 
 
 class InspectRequest(BaseModel):
@@ -147,7 +176,7 @@ async def get_local_ollama_models() -> dict[str, Any]:
 
 
 @router.post("/api/ollama/inspect")
-async def inspect_gguf_model(payload: InspectRequest) -> dict[str, Any]:
+async def inspect_gguf_model(payload: InspectRequest, request: Request) -> dict[str, Any]:
     """Parse and return binary GGUF container metadata and tensor tables.
 
     Args:
@@ -160,7 +189,7 @@ async def inspect_gguf_model(payload: InspectRequest) -> dict[str, Any]:
     importer = OllamaImporter()
 
     if payload.path:
-        blob_path = Path(payload.path)
+        blob_path = ensure_path_allowed(payload.path, _path_roots(request))
     elif payload.model:
         manifest = importer.find_manifest(payload.model)
         if manifest and manifest.model_blob_path:
@@ -185,13 +214,16 @@ async def inspect_gguf_model(payload: InspectRequest) -> dict[str, Any]:
             "quant_distribution": summary.quant_distribution,
             "primary_quant_type": summary.primary_quant_type,
         }
+    except (GGUFParseError, InvalidGGUFError) as e:
+        logger.error(f"Failed to inspect GGUF container at '{blob_path}': {e}")
+        raise HTTPException(status_code=400, detail="Not a valid GGUF container")
     except Exception as e:
         logger.error(f"Failed to inspect GGUF container at '{blob_path}': {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Could not inspect the container")
 
 
 @router.post("/api/aot/compile")
-async def compile_aot(payload: AOTCompileRequest) -> dict[str, Any]:
+async def compile_aot(payload: AOTCompileRequest, request: Request) -> dict[str, Any]:
     """Execute ahead-of-time compilation for specified model on target silicon.
 
     Args:
@@ -206,15 +238,15 @@ async def compile_aot(payload: AOTCompileRequest) -> dict[str, Any]:
     resolved_path: Optional[Path] = None
     target_path = Path(payload.model_id)
     if target_path.exists():
-        resolved_path = target_path
+        resolved_path = ensure_path_allowed(target_path, _path_roots(request))
     else:
+        from arc_runner.core.exceptions import ModelNotFoundError
         from arc_runner.hub.manager import HubManager
         hub_mgr = HubManager()
-        local_models = hub_mgr.list_local()
-        for m in local_models:
-            if m["model_id"] == payload.model_id:
-                resolved_path = Path(m["path"])
-                break
+        try:
+            resolved_path = hub_mgr.resolve_model_dir(payload.model_id)
+        except ModelNotFoundError:
+            pass
 
         if not resolved_path:
             manifest = importer.find_manifest(payload.model_id)
@@ -244,12 +276,11 @@ async def compile_aot(payload: AOTCompileRequest) -> dict[str, Any]:
             "speedup_multiplier": res.speedup_multiplier,
         }
     except Exception as e:
-        logger.error(f"AOT compilation endpoint error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise hidden_error("aot compilation failed", e, "AOT compilation failed", model=payload.model_id) from e
 
 
 @router.post("/api/gguf/convert")
-async def convert_gguf(payload: ConvertRequest) -> dict[str, Any]:
+async def convert_gguf(payload: ConvertRequest, request: Request) -> dict[str, Any]:
     """Transpile a local GGUF container into OpenVINO IR format.
 
     Args:
@@ -258,9 +289,10 @@ async def convert_gguf(payload: ConvertRequest) -> dict[str, Any]:
     Returns:
         Dictionary summarizing transpilation metadata and output artifacts.
     """
-    input_path = Path(payload.path)
+    input_path = ensure_path_allowed(payload.path, _path_roots(request))
+    ensure_path_allowed(payload.output_dir, _models_dirs(request))
     if not input_path.exists():
-        raise HTTPException(status_code=404, detail=f"GGUF container not found at '{payload.path}'")
+        raise HTTPException(status_code=404, detail="GGUF container not found")
 
     try:
         transpiler = GGUFTranspiler(str(input_path), payload.output_dir)
@@ -276,12 +308,12 @@ async def convert_gguf(payload: ConvertRequest) -> dict[str, Any]:
             "duration_ms": res.duration_ms,
         }
     except Exception as e:
-        logger.error(f"GGUF transpilation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise hidden_error("gguf transpilation failed", e, "GGUF conversion failed") from e
 
 
 @router.get("/api/gguf/convert/stream")
 async def convert_gguf_stream(
+    request: Request,
     path: str = Query(..., description="Filesystem path to source GGUF container"),
     output_dir: str = Query(..., description="Target export directory"),
     precision: str = Query("int4", description="Quantization precision ('int4', 'int8', 'fp16')"),
@@ -299,9 +331,10 @@ async def convert_gguf_stream(
         StreamingResponse with media type 'text/event-stream' transmitting 'progress',
         'log', 'complete', and 'error' SSE frames.
     """
+    resolved_path = ensure_path_allowed(path, _path_roots(request))
+    resolved_out = ensure_path_allowed(output_dir, _models_dirs(request))
+
     async def sse_event_generator():
-        resolved_path = Path(path).resolve()
-        resolved_out = Path(output_dir).resolve()
 
         if not resolved_path.exists():
             err_payload = json.dumps({"error": f"Source GGUF file does not exist: {path}"})
@@ -323,8 +356,11 @@ async def convert_gguf_stream(
                 ):
                     loop.call_soon_threadsafe(queue.put_nowait, ("progress", progress))
                 loop.call_soon_threadsafe(queue.put_nowait, ("complete", transpiler.last_result))
+            except UnsupportedBitWidthError:
+                loop.call_soon_threadsafe(queue.put_nowait, ("error", "Unsupported target precision. Must be int4, int8, or fp16."))
             except Exception as exc:
-                loop.call_soon_threadsafe(queue.put_nowait, ("error", str(exc)))
+                logger.error("gguf stream transpilation failed", extra={"error_class": type(exc).__name__, "error_detail": str(exc)[:1000]}, exc_info=exc)
+                loop.call_soon_threadsafe(queue.put_nowait, ("error", "GGUF conversion failed"))
             finally:
                 loop.call_soon_threadsafe(queue.put_nowait, ("done", None))
 
@@ -411,5 +447,4 @@ async def test_embeddings(payload: EmbeddingTestRequest, request: Request) -> di
             "sample_vec_b": vec_b[:5],
         }
     except Exception as e:
-        logger.error(f"Embedding test bench failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise hidden_error("embedding test failed", e, "Embedding test failed", model=payload.model) from e

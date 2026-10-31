@@ -2,6 +2,9 @@
 
 [← Back to Benchmarks Hub](README.md) · [← Back to README](../../README.md) · [Comparative Matrix](comparative_matrix.md) · [Empirical Silicon](empirical_silicon.md)
 
+
+> **Provenance status: UNVERIFIED.** This document predates the schema-v1 result files and the [benchmark method](METHOD.md). Its numbers were not produced by the current harness and must not be quoted as measurements. Known problems: (1) The derivations are analytical; numerical instantiations (watts, tokens per second, speed-up factors, acceptance rate alpha) are inputs or old results, not measurements. (2) Energy and efficiency formulas that use package power need a real power reading, which this testbed does not provide. (3) The flash-stream proofs (M121-M134) refer to a demonstrator whose output tokens are canned; they do not describe measured model throughput. (4) Any bound of the form B / (W + KV) needs the sustained bandwidth from `scripts/probe_hardware.py`; an extra efficiency factor on top of a sustained bandwidth double counts. The measured results, if any, are in the generated table in the [Benchmarks hub](README.md#measured-results-generated).
+
 ---
 
 To guarantee zero hand-waving and strict academic rigor, every pipeline metric, hardware constraint, anti-hallucination guardrail, and runtime invariant in `intel-arc-models-runner` is derived from first principles.

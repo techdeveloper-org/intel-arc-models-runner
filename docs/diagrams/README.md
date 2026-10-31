@@ -94,28 +94,28 @@ flowchart TB
     Intel_Ultra_NPU["<<component>> Intel_Ultra_NPU: 48 TOPs Systolic Array (5W TDP, Proof M50), ASR/Draft Silicon"]
     Host_CPU["<<component>> Host_CPU: AVX2 / AMX Matrix Host Fallback"]
 
-    CLI_Subsystem -->|HTTP :11434| Daemon_Gateway
-    CLI_Subsystem -->|direct_transcribe_tts| Audio_Engine
-    CLI_Subsystem -->|direct_generate_image| Image_Engine
-    WebUI_Studio -->|SSE / REST| Daemon_Gateway
-    Daemon_Gateway -->|get_or_load_engine| ModelManager
-    Daemon_Gateway -->|enqueue_request| BatchExecutionPipeline
-    BatchExecutionPipeline -->|iteration_step| ContinuousBatcher
-    ContinuousBatcher -->|allocate_blocks| Paged_Attention
-    ContinuousBatcher -->|forward_batch| OpenVINOGenAIEngine
-    ModelManager -->|initialize_speculative| HybridSpeculativeEngine
-    ModelManager -->|initialize_audio| Audio_Engine
-    ModelManager -->|initialize_image| Image_Engine
-    ModelManager -->|apply_adapter| LoRA_Manager
-    HybridSpeculativeEngine -->|dual_instance_dispatch| OpenVINOGenAIEngine
-    OpenVINOGenAIEngine -->|zeCommandListExecuteImmediate| Intel_Arc_GPU
-    Audio_Engine -->|zeCommandListExecuteImmediate tau <= 2.1us (Proof M67)| Intel_Arc_GPU
-    Audio_Engine -->|npu_fallback| Intel_Ultra_NPU
-    Audio_Engine -->|cpu_fallback| Host_CPU
-    Image_Engine -->|zeCommandListExecuteImmediate tau <= 2.1us (Proof M91)| Intel_Arc_GPU
-    Image_Engine -->|cpu_fallback| Host_CPU
-    ModelManager -->|query_telemetry| Sysman_Telemetry
-    Daemon_Gateway -->|transpile_stream| GGUF_Transpiler
+    CLI_Subsystem -->|"HTTP :11434"| Daemon_Gateway
+    CLI_Subsystem -->|"direct_transcribe_tts"| Audio_Engine
+    CLI_Subsystem -->|"direct_generate_image"| Image_Engine
+    WebUI_Studio -->|"SSE / REST"| Daemon_Gateway
+    Daemon_Gateway -->|"get_or_load_engine"| ModelManager
+    Daemon_Gateway -->|"enqueue_request"| BatchExecutionPipeline
+    BatchExecutionPipeline -->|"iteration_step"| ContinuousBatcher
+    ContinuousBatcher -->|"allocate_blocks"| Paged_Attention
+    ContinuousBatcher -->|"forward_batch"| OpenVINOGenAIEngine
+    ModelManager -->|"initialize_speculative"| HybridSpeculativeEngine
+    ModelManager -->|"initialize_audio"| Audio_Engine
+    ModelManager -->|"initialize_image"| Image_Engine
+    ModelManager -->|"apply_adapter"| LoRA_Manager
+    HybridSpeculativeEngine -->|"dual_instance_dispatch"| OpenVINOGenAIEngine
+    OpenVINOGenAIEngine -->|"zeCommandListExecuteImmediate"| Intel_Arc_GPU
+    Audio_Engine -->|"zeCommandListExecuteImmediate tau <= 2.1us (Proof M67)"| Intel_Arc_GPU
+    Audio_Engine -->|"npu_fallback"| Intel_Ultra_NPU
+    Audio_Engine -->|"cpu_fallback"| Host_CPU
+    Image_Engine -->|"zeCommandListExecuteImmediate tau <= 2.1us (Proof M91)"| Intel_Arc_GPU
+    Image_Engine -->|"cpu_fallback"| Host_CPU
+    ModelManager -->|"query_telemetry"| Sysman_Telemetry
+    Daemon_Gateway -->|"transpile_stream"| GGUF_Transpiler
 
     iface_CLI_Subsystem_Daemon_Gateway(["Daemon_Gateway"])
     CLI_Subsystem -.->|requires| iface_CLI_Subsystem_Daemon_Gateway
@@ -953,18 +953,18 @@ flowchart LR
     SlicedVAEDecoder["9: SlicedVAEDecoder\n(Proof M88, M92 <= 580MB)"]
     DiskReclaimer["10: DiskReclaimer\n(Zero-Disk Residue Manager, Proof M66, M79)"]
 
-    Client -->|1. generate(request)\n12. ImageGenerationResult| ImageEngine
-    Client -->|1. transcribe() / synthesize()\n14. TranscriptionResult / SynthesisResult| AudioEngine
-    ImageEngine -->|2. init_latents(seed) [Proof M80]\n3. z_T noise tensor| PhiloxPRNG
-    ImageEngine -->|4. dispatch_pipeline() [Proof M91]| LevelZeroDriver
-    AudioEngine -->|4. _is_silence_or_noise() [Proof M69]| VADGater
-    AudioEngine -->|8. dispatch_pipeline() [Proof M67]| LevelZeroDriver
-    LevelZeroDriver -->|5. zeCommandListExecuteImmediate() [Proof M91]\n6. USM zero-copy buffer [Proof M78]| IntelArcGPU
-    IntelArcGPU -->|7. raw latents| AntiBurnClamper
-    AntiBurnClamper -->|8. clamped latents [Proof M84]| SlicedVAEDecoder
-    SlicedVAEDecoder -->|9. decoded RGB plane [Proof M78, M92]| ImageEngine
-    ImageEngine -->|10. cleanup_model_dir() [Proof M79]\n11. Delta S_disk = 0 bytes confirmed| DiskReclaimer
-    AudioEngine -->|15. cleanup_model_dir() [Proof M66]\n16. Delta S_disk = 0 bytes confirmed| DiskReclaimer
+    Client -->|"1. generate(request)<br/>12. ImageGenerationResult"| ImageEngine
+    Client -->|"1. transcribe() / synthesize()<br/>14. TranscriptionResult / SynthesisResult"| AudioEngine
+    ImageEngine -->|"2. init_latents(seed) [Proof M80]<br/>3. z_T noise tensor"| PhiloxPRNG
+    ImageEngine -->|"4. dispatch_pipeline() [Proof M91]"| LevelZeroDriver
+    AudioEngine -->|"4. _is_silence_or_noise() [Proof M69]"| VADGater
+    AudioEngine -->|"8. dispatch_pipeline() [Proof M67]"| LevelZeroDriver
+    LevelZeroDriver -->|"5. zeCommandListExecuteImmediate() [Proof M91]<br/>6. USM zero-copy buffer [Proof M78]"| IntelArcGPU
+    IntelArcGPU -->|"7. raw latents"| AntiBurnClamper
+    AntiBurnClamper -->|"8. clamped latents [Proof M84]"| SlicedVAEDecoder
+    SlicedVAEDecoder -->|"9. decoded RGB plane [Proof M78, M92]"| ImageEngine
+    ImageEngine -->|"10. cleanup_model_dir() [Proof M79]<br/>11. Delta S_disk = 0 bytes confirmed"| DiskReclaimer
+    AudioEngine -->|"15. cleanup_model_dir() [Proof M66]<br/>16. Delta S_disk = 0 bytes confirmed"| DiskReclaimer
 ```
 
 [Mermaid Source](file:///uml/communication_diagram.md) | [Editable Draw.io Source](file:///drawio/communication_diagram.drawio)
@@ -1086,3 +1086,9 @@ Every diagram in this suite mathematically enforces the foundational proofs esta
 2. **In VS Code / Cursor**: Install the *Draw.io Integration* extension by Henning Dieterichs and open any file in `drawio/` directly.
 
 3. **Programmatic Synchronization**: When modifying architecture or codebase methods, update the authoritative UDM definitions and regenerate both Mermaid and Draw.io formats simultaneously in accordance with Rule `45-uml-diagram-lifecycle.md`.
+
+---
+
+## v0.2.0 additions
+
+Each `uml/*.md` file ends with a generated "v0.2.0 native layer" section and each `drawio/*.drawio` file has an extra page "Native layer (v0.2.0)". They come from `docs/delivery/udm/native_layer.json` plus the class and import structure read from the source with `ast`, via `python scripts/generate_diagrams.py`; the stamp (version, commit, model hash) is verified by `python scripts/check_docs_sync.py`. Earlier content of the files is not regenerated by that script. Change triggers: a change under `src/arc_runner/**` means running `check_docs_sync.py`, which lists the stale diagram or document.

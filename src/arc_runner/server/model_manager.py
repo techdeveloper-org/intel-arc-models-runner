@@ -5,6 +5,7 @@ Provides centralized model compilation, lifetime management, heterogeneous devic
 """
 
 from collections import OrderedDict
+import os
 from datetime import datetime, timezone
 import hashlib
 from pathlib import Path
@@ -12,14 +13,18 @@ import threading
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from arc_runner.core.exceptions import (
+    ArcRunnerError,
     ModelLoadError,
     ModelNotFoundError,
 )
 from arc_runner.core.logging import get_logger
+from arc_runner.core.path_policy import allowed_roots, ensure_path_allowed, resolve_inside
 from arc_runner.engine.base import BaseEngine
 from arc_runner.engine.embedding_engine import EmbeddingEngine
 from arc_runner.engine.lora_manager import LoRAManager
-from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
+from arc_runner.engine.kv_cache import KVCacheManager
+from arc_runner.engine.model_config import parse_context_window_env, read_kv_geometry, resolve_context_window
+from arc_runner.engine.openvino_engine import KV_PRECISION_ENV, OpenVINOGenAIEngine
 from arc_runner.engine.speculative_engine import HybridSpeculativeEngine, SpeculativeConfig
 from arc_runner.engine.vision_engine import VisionEngine
 
@@ -54,8 +59,13 @@ class ModelManager:
         Args:
             model_dirs: List of directory paths searched for OpenVINO IR models.
             max_loaded_models: Maximum number of compiled engines concurrently kept in memory.
+
+        Raises:
+            ConfigurationError: If ARC_CONTEXT_WINDOW is set to an invalid value (checked before any model load).
         """
+        parse_context_window_env()
         self._lock = threading.Lock()
+        self._meta_lock = threading.Lock()
         self._max_loaded_models = max_loaded_models
         defaults = model_dirs if model_dirs is not None else [_default_model_dir()]
         self._model_dirs: List[Path] = [Path(d).resolve() for d in defaults]
@@ -65,6 +75,28 @@ class ModelManager:
         self.lora_manager: LoRAManager = LoRAManager()
         self._total_requests_served: int = 0
         self._total_tokens_generated: int = 0
+
+    @staticmethod
+    def engine_key(
+        model_id: str,
+        device: str,
+        draft_model_id: Optional[str] = None,
+        draft_device: str = "NPU",
+        gamma: int = 4,
+    ) -> str:
+        """Return the canonical cache key for a given engine configuration.
+
+        Args:
+            model_id: Primary model identifier or path.
+            device: Target accelerator device string.
+            draft_model_id: Optional draft model identifier for speculative decoding.
+            draft_device: Draft model accelerator device string.
+            gamma: Speculative lookahead token count.
+
+        Returns:
+            Deterministic colon-separated cache key string.
+        """
+        return f"{model_id}:{device}:{draft_model_id or 'none'}:{draft_device}:{gamma}"
 
     @property
     def model_dirs(self) -> List[Path]:
@@ -101,20 +133,41 @@ class ModelManager:
         """
         direct_path = Path(model_id).resolve()
         if direct_path.is_dir():
-            return direct_path
+            try:
+                return ensure_path_allowed(direct_path, allowed_roots(self._model_dirs))
+            except ArcRunnerError:
+                logger.warning("Refusing a model directory outside the allowed roots", extra={"path": str(direct_path)})
 
         for base_dir in self._model_dirs:
-            candidate = (base_dir / model_id).resolve()
-            if candidate.is_dir():
-                return candidate
-
-            clean_id = model_id.split(":")[0]
-            clean_candidate = (base_dir / clean_id).resolve()
-            if clean_candidate.is_dir():
-                return clean_candidate
+            for name in (model_id, model_id.split(":")[0]):
+                try:
+                    candidate = resolve_inside(base_dir, name)
+                except ArcRunnerError:
+                    continue
+                if candidate.is_dir():
+                    return candidate
 
         search_str = ", ".join(str(d) for d in self._model_dirs)
         raise ModelNotFoundError(model_id, search_str)
+
+    @staticmethod
+    def _build_kv_manager(model_path: Path) -> KVCacheManager:
+        """Build the KV manager for one model with its resolved context window; nothing is preallocated.
+
+        Args:
+            model_path: Resolved target model directory.
+
+        Returns:
+            KVCacheManager: Manager sized from ARC_CONTEXT_WINDOW, config.json or the default.
+
+        Raises:
+            ConfigurationError: If ARC_CONTEXT_WINDOW is invalid.
+        """
+        return KVCacheManager(
+            max_context_length=resolve_context_window(model_path),
+            geometry=read_kv_geometry(model_path),
+            kv_precision=os.environ.get(KV_PRECISION_ENV, "").strip(),
+        )
 
     def get_or_load_engine(
         self,
@@ -161,7 +214,7 @@ class ModelManager:
             if draft_model_id:
                 draft_path = self.resolve_model_path(draft_model_id)
                 logger.info(f"Compiling HybridSpeculativeEngine (Target: {target_path} on {device}, Draft: {draft_path} on {draft_device})")
-                spec_engine = HybridSpeculativeEngine()
+                spec_engine = HybridSpeculativeEngine(kv_cache_manager=self._build_kv_manager(target_path))
                 spec_config = SpeculativeConfig(
                     draft_model_path=str(draft_path),
                     target_device=device,
@@ -173,7 +226,7 @@ class ModelManager:
                 return spec_engine
             else:
                 logger.info(f"Compiling OpenVINOGenAIEngine (Target: {target_path} on {device})")
-                engine = OpenVINOGenAIEngine(lora_manager=self.lora_manager)
+                engine = OpenVINOGenAIEngine(lora_manager=self.lora_manager, kv_manager=self._build_kv_manager(target_path))
                 engine.load_model(target_path, device=device)
                 self._cache[cache_key] = engine
                 return engine
@@ -207,8 +260,12 @@ class ModelManager:
             target_path = self.resolve_model_path(model_id)
 
             if len(self._embedding_cache) >= self._max_loaded_models:
-                evicted_key, _ = self._embedding_cache.popitem(last=False)
+                evicted_key, evicted_emb = self._embedding_cache.popitem(last=False)
                 logger.info(f"Evicting least recently used embedding engine: {evicted_key}")
+                try:
+                    evicted_emb.unload()
+                except Exception as exc:
+                    logger.warning(f"Error unloading evicted embedding engine {evicted_key}: {exc}")
 
             logger.info(f"Constructing EmbeddingEngine (Target: {target_path} on {device})")
             engine = EmbeddingEngine(str(target_path), device=device)
@@ -244,8 +301,12 @@ class ModelManager:
             target_path = self.resolve_model_path(model_id)
 
             if len(self._vision_cache) >= self._max_loaded_models:
-                evicted_key, _ = self._vision_cache.popitem(last=False)
+                evicted_key, evicted_vis = self._vision_cache.popitem(last=False)
                 logger.info(f"Evicting least recently used vision engine: {evicted_key}")
+                try:
+                    evicted_vis.unload()
+                except Exception as exc:
+                    logger.warning(f"Error unloading evicted vision engine {evicted_key}: {exc}")
 
             logger.info(f"Constructing VisionEngine (Target: {target_path} on {device})")
             engine = VisionEngine(str(target_path), device=device)
@@ -315,35 +376,61 @@ class ModelManager:
         }
 
     def unload_model(self, model_id: str) -> bool:
-        """Unload and remove engine instances associated with model_id from cache.
+        """Unload and remove engine instances associated with model_id from all caches.
 
         Args:
-            model_id: Model identifier to evict.
+            model_id: Model identifier to evict from LLM, embedding, and vision caches.
 
         Returns:
             True if any engine instance was evicted, False otherwise.
         """
         evicted = False
+        prefix = f"{model_id}:"
         with self._lock:
-            keys_to_remove = [k for k in self._cache if k.startswith(f"{model_id}:")]
-            for k in keys_to_remove:
+            for k in [k for k in self._cache if k.startswith(prefix)]:
                 engine = self._cache.pop(k)
                 try:
                     engine.unload()
                 except Exception as exc:
                     logger.warning(f"Error unloading engine {k}: {exc}")
                 evicted = True
+            for k in [k for k in self._embedding_cache if k.startswith(prefix)]:
+                engine = self._embedding_cache.pop(k)
+                try:
+                    engine.unload()
+                except Exception as exc:
+                    logger.warning(f"Error unloading embedding engine {k}: {exc}")
+                evicted = True
+            for k in [k for k in self._vision_cache if k.startswith(prefix)]:
+                engine = self._vision_cache.pop(k)
+                try:
+                    engine.unload()
+                except Exception as exc:
+                    logger.warning(f"Error unloading vision engine {k}: {exc}")
+                evicted = True
         return evicted
 
     def unload_all(self) -> None:
-        """Unload and release all compiled engine instances in registry."""
+        """Unload and release all compiled engine instances across all caches."""
         with self._lock:
-            for key, engine in self._cache.items():
+            for key, engine in list(self._cache.items()):
                 try:
                     engine.unload()
                 except Exception as exc:
                     logger.warning(f"Error during unload_all for {key}: {exc}")
             self._cache.clear()
+            for key, engine in list(self._embedding_cache.items()):
+                try:
+                    engine.unload()
+                except Exception as exc:
+                    logger.warning(f"Error during unload_all (embedding) for {key}: {exc}")
+            self._embedding_cache.clear()
+            for key, engine in list(self._vision_cache.items()):
+                try:
+                    engine.unload()
+                except Exception as exc:
+                    logger.warning(f"Error during unload_all (vision) for {key}: {exc}")
+            self._vision_cache.clear()
 
     def record_generation_metrics(self, tokens_generated: int) -> None:
         """Atomically increment server request and token counters.
@@ -351,7 +438,7 @@ class ModelManager:
         Args:
             tokens_generated: Output tokens count produced in completion.
         """
-        with self._lock:
+        with self._meta_lock:
             self._total_requests_served += 1
             self._total_tokens_generated += tokens_generated
 
@@ -362,9 +449,12 @@ class ModelManager:
             Dictionary containing active loaded models count and cumulative stats.
         """
         with self._lock:
+            loaded = len(self._cache)
+            keys = list(self._cache.keys())
+        with self._meta_lock:
             return {
-                "loaded_models_count": len(self._cache),
-                "loaded_keys": list(self._cache.keys()),
+                "loaded_models_count": loaded,
+                "loaded_keys": keys,
                 "total_requests_served": self._total_requests_served,
                 "total_tokens_generated": self._total_tokens_generated,
             }

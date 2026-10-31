@@ -1,32 +1,34 @@
-"""Sequential model-by-model live physical silicon benchmarking and cleanup harness.
+"""Live LLM and embedding benchmark that writes schema-v1 result files.
 
-Executes Low, Medium, and Hard workloads on physical Intel Arc GPU and Intel AI Boost NPU,
-records real physical telemetry, and cleans up model weights to preserve local disk space.
-Adheres strictly to Level 2.2 Docstrings-Only standards and Proofs M1 through M58.
+LLM rows use the engine's own perf-metric telemetry (TTFT, decode rate, token counts; never a word
+count); embedding rows time real embed_documents calls. Warmups are discarded, timed runs are recorded
+one sample each, and package power/energy come from the Sysman energy counter when present (otherwise
+None). Backends: arc-runner on the model's device, npu where the model supports it and an NPU exists,
+and a real CPU baseline run. If the wanted device is missing the run falls back to CPU and every row is
+flagged fallback_used. Nothing is simulated.
+
+Usage: python scratch/run_live_sequential_model_benchmarks.py --model qwen-2.5-1.5b [--warmups 3] [--runs 10]
 """
+
+from __future__ import annotations
 
 import argparse
 import gc
-import json
 from pathlib import Path
 import shutil
 import sys
-import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-
-from arc_runner.core.logging import get_logger
-from arc_runner.devices.detector import DeviceDetector
-from arc_runner.engine.models import GenerationConfig
-from arc_runner.hub.registry import ModelRegistry
-
-logger = get_logger("benchmark.sequential")
-
+from arc_runner.benchmark.harness_common import (  # noqa: E402
+    HarnessConfig, add_harness_args, add_keep_args, reclaim_model_dir, begin_run, config_from_args, default_result_path, directory_size_bytes, download_snapshot,
+    finish_run, optional_sysman, target_device,
+)
+from arc_runner.benchmark.nonllm import embedding_samples, llm_samples, llm_samples_interleaved  # noqa: E402
+from arc_runner.benchmark.stats import BenchSample  # noqa: E402
+from arc_runner.benchmark.workloads import export_workload_result  # noqa: E402
 
 MODEL_WORKLOAD_SPECS = {
     "qwen-2.5-1.5b": {
@@ -337,272 +339,170 @@ MODEL_WORKLOAD_SPECS = {
 }
 
 
-class SequentialBenchmarkHarness:
-    """Orchestrates single-model download, live physical execution, and immediate cleanup."""
+def embedding_batch(workload: Dict[str, Any]) -> List[str]:
+    """Build the batch of texts embedded per run for one tier.
 
-    def __init__(self, models_root: str = "models", keep_model: bool = False) -> None:
-        """Initialize the harness with base directory and cleanup policy.
+    Args:
+        workload: Tier entry of an embedding model spec.
 
-        Args:
-            models_root: Filesystem path where models are staged temporarily.
-            keep_model: If True, skips disk deletion (used for debugging).
-        """
-        self.models_root = Path(models_root).resolve()
-        self.models_root.mkdir(parents=True, exist_ok=True)
-        self.keep_model = keep_model
-        self.console = Console()
-        self.topology = DeviceDetector().detect_topology()
-        self.results_file = Path(__file__).resolve().parent / "live_physical_benchmark_results.json"
-        self._load_existing_results()
+    Returns:
+        List[str]: The tier's texts (pair, triplet, query plus corpus), batch_size generated sentences,
+        or one document of seq_length words.
 
-    def _load_existing_results(self) -> None:
-        """Load previously recorded live benchmark results from disk if present."""
-        if self.results_file.exists():
+    Raises:
+        ValueError: If the tier has none of the known input shapes.
+    """
+    if "text_a" in workload:
+        return [workload["text_a"], *([workload["text_b"]] if "text_b" in workload else [])]
+    if "anchor" in workload:
+        return [workload["anchor"], workload["positive"], workload["negative"]]
+    if "corpus" in workload:
+        return [workload["query"], *workload["corpus"]]
+    if "batch_size" in workload:
+        return [f"Benchmark sentence {i} about GPU memory management and batching." for i in range(int(workload["batch_size"]))]
+    if "seq_length" in workload:
+        return [" ".join(["token"] * int(workload["seq_length"]))]
+    raise ValueError(f"embedding tier {workload.get('name')!r} has no recognised input shape")
+
+
+def backend_plan(spec: Dict[str, Any], topology: Any, cpu_baseline: bool) -> List[tuple]:
+    """List the (backend, device, fallback_used) combinations to measure.
+
+    Args:
+        spec: Model spec.
+        topology: Detected device topology.
+        cpu_baseline: Whether to add a CPU baseline.
+
+    Returns:
+        List[tuple]: Backend plan; embeddings prefer the NPU, LLMs the spec's device.
+    """
+    preferred = "NPU" if spec["type"] == "embedding" and spec.get("npu_supported") else spec["device"]
+    device, fallback = target_device(topology, preferred)
+    plan = [("arc-runner", device, fallback)]
+    if spec["type"] == "llm" and spec.get("npu_supported") and device != "NPU" and topology.has_intel_npu:
+        plan.append(("npu", "NPU", False))
+    if cpu_baseline and device != "CPU":
+        plan.append(("cpu-baseline", "CPU", False))
+    return plan
+
+
+def collect_samples(
+    alias: str,
+    spec: Dict[str, Any],
+    engine_factory: Callable[[str, Dict[str, Any]], Any],
+    plan: List[tuple],
+    warmups: int,
+    runs: int,
+    sysman: Any,
+    harness: Optional[HarnessConfig] = None,
+) -> List[BenchSample]:
+    """Measure every tier of one model on every planned backend.
+
+    Args:
+        alias: Model alias.
+        spec: Entry of MODEL_WORKLOAD_SPECS.
+        engine_factory: Function taking (device, workload) and returning a loaded engine.
+        plan: Output of backend_plan.
+        warmups: Discarded warmup runs per tier.
+        runs: Timed runs per tier.
+        sysman: Optional Sysman for package power.
+        harness: Harness settings (converged warmup, interleaving, cooldown); None keeps fixed warmups with no cooldown.
+
+    Returns:
+        List[BenchSample]: Samples for all tiers and backends.
+    """
+    cfg = harness or HarnessConfig(max_warmups=None, cooldown_s=0.0)
+    samples: List[BenchSample] = []
+    if cfg.interleave and spec["type"] == "llm":
+        for index, (tier, workload) in enumerate(spec["workloads"].items()):
+            if index:
+                cfg.cooldown()
+            systems = [(backend, engine_factory(device, workload), fallback) for backend, device, fallback in plan]
             try:
-                with open(self.results_file, "r", encoding="utf-8") as f:
-                    self.cumulative_data = json.load(f)
-            except Exception:
-                self.cumulative_data = {"testbed": str(self.topology.host_cpu_model), "models": {}}
-        else:
-            self.cumulative_data = {"testbed": str(self.topology.host_cpu_model), "models": {}}
-
-    def _save_results(self) -> None:
-        """Persist updated benchmark results to JSON file."""
-        with open(self.results_file, "w", encoding="utf-8") as f:
-            json.dump(self.cumulative_data, f, indent=2)
-
-    def download_model(self, repo_id: str, dest_dir: Path) -> float:
-        """Download snapshot from Hugging Face if not already present.
-
-        Args:
-            repo_id: Hugging Face repository identifier.
-            dest_dir: Destination directory path on disk.
-
-        Returns:
-            float: Elapsed download time in seconds.
-        """
-        if dest_dir.exists() and (dest_dir / "openvino_model.bin").exists():
-            self.console.print(f"  [dim]Model already present at {dest_dir}, skipping download.[/dim]")
-            return 0.0
-
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        self.console.print(f"  [cyan]Downloading {repo_id} from Hugging Face...[/cyan]")
-        t0 = time.perf_counter()
-        from huggingface_hub import snapshot_download
-        snapshot_download(repo_id=repo_id, local_dir=str(dest_dir), local_dir_use_symlinks=False)
-        elapsed = time.perf_counter() - t0
-        size_mb = sum(f.stat().st_size for f in dest_dir.rglob("*") if f.is_file()) / (1024 * 1024)
-        self.console.print(f"  [green]✔ Downloaded {size_mb:.1f} MB in {elapsed:.1f}s ({size_mb/max(0.1, elapsed):.1f} MB/s)[/green]")
-        if not (dest_dir / "openvino_tokenizer.xml").exists() and (dest_dir / "tokenizer.json").exists():
-            try:
-                import openvino as ov
-                from openvino_tokenizers import convert_tokenizer
-                from transformers import AutoTokenizer
-                hf_tok = AutoTokenizer.from_pretrained(str(dest_dir))
-                ov_tok = convert_tokenizer(hf_tok)
-                ov.save_model(ov_tok, str(dest_dir / "openvino_tokenizer.xml"))
-                self.console.print("  [dim]✔ Generated openvino_tokenizer.xml from tokenizer.json[/dim]")
-            except Exception as e:
-                self.console.print(f"  [dim]Tokenizer compilation notice: {e}[/dim]")
-
-        return elapsed
-
-    def benchmark_llm_model(self, model_alias: str, spec: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute Low, Medium, and Hard workloads on physical silicon for a generative LLM.
-
-        Args:
-            model_alias: Target model identifier string.
-            spec: Workload specification dictionary.
-
-        Returns:
-            Dictionary containing live benchmark metrics.
-        """
-        from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
-
-        dest_dir = self.models_root / model_alias
-        dl_time = self.download_model(spec["repo_id"], dest_dir)
-
-        results: Dict[str, Any] = {
-            "model": model_alias,
-            "type": "llm",
-            "repo_id": spec["repo_id"],
-            "download_time_s": dl_time,
-            "gpu_benchmarks": {},
-            "npu_benchmarks": {},
-        }
-
-        # 1. Test on Intel Arc GPU
-        self.console.print(f"\n  [bold cyan]Compiling {model_alias} to Intel Arc GPU (Level Zero)...[/bold cyan]")
-        engine = OpenVINOGenAIEngine()
-        t_load = time.perf_counter()
-        engine.load_model(dest_dir, device="GPU")
-        gpu_compile_time = time.perf_counter() - t_load
-        self.console.print(f"  [green]✔ Compiled on Arc GPU in {gpu_compile_time:.2f}s[/green]")
-        results["gpu_compile_time_s"] = round(gpu_compile_time, 2)
-
-        for tier in ["low", "medium", "hard"]:
-            w = spec["workloads"][tier]
-            self.console.print(f"    [yellow]Running {tier.upper()} on GPU:[/yellow] {w['name']}")
-            t0 = time.perf_counter()
-            cfg = GenerationConfig(max_new_tokens=w["max_tokens"], temperature=0.0)
-            out_text = engine.generate(w["prompt"], config=cfg)
-            elapsed = time.perf_counter() - t0
-            tok_count = max(1, len(out_text.split()))
-
-            tok_per_sec = round(tok_count / max(0.001, elapsed), 2)
-            self.console.print(f"      [green]Output:[/green] {out_text.strip()[:100]}...")
-            self.console.print(f"      [dim]Latency: {elapsed:.3f}s | ~{tok_count} tok | {tok_per_sec} tok/s[/dim]")
-
-            results["gpu_benchmarks"][tier] = {
-                "name": w["name"],
-                "prompt": w["prompt"],
-                "output_preview": out_text.strip()[:120],
-                "latency_s": round(elapsed, 3),
-                "tokens": tok_count,
-                "tok_per_sec": tok_per_sec,
-            }
-
-        # Clean up GPU engine
-        del engine
-        gc.collect()
-
-        # 2. Test on Intel AI Boost NPU if supported
-        if spec.get("npu_supported", False) and self.topology.has_intel_npu:
-            self.console.print(f"\n  [bold magenta]Compiling {model_alias} to Intel AI Boost NPU (MCDM 5W)...[/bold magenta]")
-            npu_engine = OpenVINOGenAIEngine()
-            try:
-                t_npu_load = time.perf_counter()
-                npu_engine.load_model(dest_dir, device="NPU")
-                npu_compile_time = time.perf_counter() - t_npu_load
-                self.console.print(f"  [green]✔ Compiled on AI Boost NPU in {npu_compile_time:.2f}s[/green]")
-                results["npu_compile_time_s"] = round(npu_compile_time, 2)
-
-                # Run low workload on NPU
-                w_low = spec["workloads"]["low"]
-                t0_npu = time.perf_counter()
-                cfg_npu = GenerationConfig(max_new_tokens=min(25, w_low["max_tokens"]), temperature=0.0)
-                out_npu = npu_engine.generate(w_low["prompt"], config=cfg_npu)
-                elapsed_npu = time.perf_counter() - t0_npu
-                tok_npu = max(1, len(out_npu.split()))
-                npu_tok_per_sec = round(tok_npu / max(0.001, elapsed_npu), 2)
-
-                self.console.print(f"      [green]NPU 5W Output:[/green] {out_npu.strip()[:100]}...")
-                self.console.print(f"      [dim]NPU Latency: {elapsed_npu:.3f}s | {npu_tok_per_sec} tok/s @ 5W[/dim]")
-
-                results["npu_benchmarks"]["low"] = {
-                    "name": w_low["name"],
-                    "latency_s": round(elapsed_npu, 3),
-                    "tok_per_sec": npu_tok_per_sec,
-                    "power_watts": 5.0,
-                }
-            except Exception as exc:
-                self.console.print(f"  [dim]NPU execution note: {exc}[/dim]")
+                samples += llm_samples_interleaved(
+                    systems, workload["prompt"], workload["max_tokens"], f"{alias}/{tier}", warmups, runs,
+                    seed=cfg.seed, sysman=sysman, max_warmups=cfg.max_warmups,
+                )
             finally:
-                del npu_engine
+                del systems
                 gc.collect()
+        return samples
+    for plan_index, (backend, device, fallback) in enumerate(plan):
+        if plan_index:
+            cfg.cooldown()
+        for tier, workload in spec["workloads"].items():
+            engine = engine_factory(device, workload)
+            model_id = f"{alias}/{tier}"
+            try:
+                if spec["type"] == "llm":
+                    samples += llm_samples(engine, workload["prompt"], workload["max_tokens"], model_id, backend, warmups, runs, sysman=sysman, fallback_used=fallback, max_warmups=cfg.max_warmups)
+                else:
+                    samples += embedding_samples(engine, embedding_batch(workload), model_id, backend, warmups, runs, sysman=sysman, fallback_used=fallback, max_warmups=cfg.max_warmups)
+            finally:
+                del engine
+                gc.collect()
+    return samples
 
-        # Reclaim disk space if requested
-        if not self.keep_model and dest_dir.exists():
-            self.console.print(f"  [yellow]Reclaiming disk space for {model_alias}...[/yellow]")
-            shutil.rmtree(dest_dir, ignore_errors=True)
-            self.console.print(f"  [green]✔ Reclaimed disk space.[/green]")
 
-        return results
+def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entry point.
 
-    def benchmark_embedding_model(self, model_alias: str, spec: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute Low, Medium, and Hard workloads on physical silicon for an embedding model.
+    Args:
+        argv: Arguments without the program name, or None for sys.argv.
 
-        Args:
-            model_alias: Target model identifier string.
-            spec: Workload specification dictionary.
+    Returns:
+        int: 0 on success.
+    """
+    parser = argparse.ArgumentParser(description="Live LLM/embedding benchmark writing schema-v1 results.")
+    parser.add_argument("--model", required=True, choices=sorted(MODEL_WORKLOAD_SPECS))
+    parser.add_argument("--warmups", type=int, default=3)
+    parser.add_argument("--runs", type=int, default=10)
+    parser.add_argument("--models-root", default="models")
+    parser.add_argument("--no-cpu-baseline", action="store_true")
+    add_keep_args(parser)
+    parser.add_argument("--out", type=Path)
+    add_harness_args(parser)
+    args = parser.parse_args(argv)
 
-        Returns:
-            Dictionary containing live benchmark metrics.
-        """
-        from arc_runner.engine.embedding_engine import EmbeddingEngine
+    from arc_runner.devices.detector import DeviceDetector
+    from arc_runner.engine.embedding_engine import EmbeddingEngine
+    from arc_runner.engine.openvino_engine import OpenVINOGenAIEngine
 
-        dest_dir = self.models_root / model_alias
-        dl_time = self.download_model(spec["repo_id"], dest_dir)
+    spec = MODEL_WORKLOAD_SPECS[args.model]
+    model_dir = Path(args.models_root).resolve() / args.model
+    download_snapshot(spec["repo_id"], model_dir, ("openvino_model.xml", "openvino_tokenizer.xml"))
+    plan = backend_plan(spec, DeviceDetector().detect_topology(), not args.no_cpu_baseline)
+    harness = config_from_args(args)
+    resident = len(plan) if harness.interleave and spec["type"] == "llm" else 1
+    on_disk = directory_size_bytes(model_dir)
+    report = begin_run(harness, on_disk * resident if on_disk is not None else None)
 
-        results: Dict[str, Any] = {
-            "model": model_alias,
-            "type": "embedding",
-            "repo_id": spec["repo_id"],
-            "download_time_s": dl_time,
-            "npu_benchmarks": {},
-            "gpu_benchmarks": {},
-        }
-
-        # 1. Compile to Intel AI Boost NPU
-        target_device = "NPU" if self.topology.has_intel_npu else "GPU"
-        self.console.print(f"\n  [bold magenta]Loading {model_alias} onto Intel {target_device}...[/bold magenta]")
-        engine = EmbeddingEngine(str(dest_dir), device=target_device, normalize=True)
-
-        w_low = spec["workloads"]["low"]
-        self.console.print(f"    [yellow]Running LOW on {target_device}:[/yellow] {w_low['name']}")
-        t0 = time.perf_counter()
-        vec_a = engine.embed_query(w_low["text_a"])
-        elapsed_single = (time.perf_counter() - t0) * 1000.0
-        self.console.print(f"      [green]Single Embedding Latency:[/green] {elapsed_single:.2f} ms | Shape: {len(vec_a)}")
-
-        results["npu_benchmarks"]["low"] = {
-            "name": w_low["name"],
-            "single_latency_ms": round(elapsed_single, 2),
-            "dimensions": len(vec_a),
-            "device": target_device,
-        }
-
-        # Clean up
-        del engine
-        gc.collect()
-
-        if not self.keep_model and dest_dir.exists():
-            self.console.print(f"  [yellow]Reclaiming disk space for {model_alias}...[/yellow]")
-            shutil.rmtree(dest_dir, ignore_errors=True)
-            self.console.print(f"  [green]✔ Reclaimed disk space.[/green]")
-
-        return results
-
-    def run_single(self, model_alias: str) -> None:
-        """Execute benchmark for a single designated model alias.
-
-        Args:
-            model_alias: Target model key string.
-        """
-        if model_alias not in MODEL_WORKLOAD_SPECS:
-            self.console.print(f"[bold red]Model {model_alias} not in specifications catalog.[/bold red]")
-            return
-
-        spec = MODEL_WORKLOAD_SPECS[model_alias]
-        self.console.print(Panel.fit(
-            f"[bold cyan]Sequential Benchmark Target: {model_alias}[/bold cyan]\n"
-            f"[dim]Repo: {spec['repo_id']} | Target Silicon: {spec['device']}[/dim]",
-            border_style="cyan",
-        ))
-
+    def factory(device: str, workload: Dict[str, Any]) -> Any:
         if spec["type"] == "llm":
-            res = self.benchmark_llm_model(model_alias, spec)
-        elif spec["type"] == "embedding":
-            res = self.benchmark_embedding_model(model_alias, spec)
-        else:
-            self.console.print(f"Type {spec['type']} handling deferred.")
-            return
+            engine = OpenVINOGenAIEngine()
+            engine.load_model(model_dir, device=device)
+            return engine
+        return EmbeddingEngine(str(model_dir), device=device, normalize=True, max_length=max(512, int(workload.get("seq_length", 512))))
 
-        self.cumulative_data["models"][model_alias] = res
-        self._save_results()
-        self.console.print(f"[bold green]✔ Successfully recorded physical benchmark for {model_alias}![/bold green]\n")
+    try:
+        samples = collect_samples(args.model, spec, factory, plan, args.warmups, args.runs, optional_sysman(), harness)
+    finally:
+        reclaim_model_dir(args.delete_after, model_dir, Path(args.models_root).resolve())
+    samples, protocol_extra, environment_extra = finish_run(samples, harness, report)
+    workload = "llm" if spec["type"] == "llm" else "embeddings"
+    out = args.out or default_result_path(REPO_ROOT, workload, args.model)
+    labels = {backend: f"OpenVINO on {device}" for backend, device, _ in plan}
+    protocol_labels = dict(labels)
+    if spec["type"] == "llm":
+        from arc_runner.benchmark.results import build_result, capture_environment, write_result
 
-
-def main() -> None:
-    """CLI entry point for sequential benchmark execution."""
-    parser = argparse.ArgumentParser(description="Sequential live physical model benchmark harness.")
-    parser.add_argument("--model", type=str, default="qwen-2.5-1.5b", help="Model alias to benchmark.")
-    parser.add_argument("--keep", action="store_true", help="Keep model files on disk after benchmark.")
-    args = parser.parse_args()
-
-    harness = SequentialBenchmarkHarness(keep_model=args.keep)
-    harness.run_single(args.model)
+        protocol = {"warmup_runs": args.warmups, "timed_runs": args.runs, "temperature": 0.0, "max_new_tokens": max(w["max_tokens"] for w in spec["workloads"].values()), "labels": protocol_labels, **protocol_extra}
+        write_result(out, build_result(f"{workload}-{args.model}", samples, protocol, {**capture_environment(REPO_ROOT), **environment_extra}))
+    else:
+        export_workload_result(out, f"{workload}-{args.model}", samples, protocol_labels, args.warmups, args.runs, REPO_ROOT, protocol_extra=protocol_extra, environment_extra=environment_extra)
+    print(f"wrote {out} ({len(samples)} samples)")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

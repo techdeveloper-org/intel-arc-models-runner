@@ -5,6 +5,7 @@ archive structure, PEP 561 compliance, dual CLI entrypoints, and cryptographic
 hash integrity for arc-runner distribution packages.
 """
 
+from arc_runner import __version__
 import base64
 import hashlib
 from pathlib import Path
@@ -13,7 +14,14 @@ from typing import Dict, List, Set
 import zipfile
 import pytest
 
-from scripts.build_wheel import WheelBuilder
+import importlib.util
+
+_BUILD_WHEEL_PATH = Path(__file__).resolve().parents[1] / "scripts" / "build_wheel.py"
+_spec = importlib.util.spec_from_file_location("arc_runner_build_wheel", _BUILD_WHEEL_PATH)
+assert _spec is not None and _spec.loader is not None
+_build_wheel = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_build_wheel)
+WheelBuilder = _build_wheel.WheelBuilder
 
 
 class TestPyPIPackagingPositiveTriad:
@@ -32,10 +40,10 @@ class TestPyPIPackagingPositiveTriad:
         match the project specification.
         """
         builder = WheelBuilder()
-        wheel_candidates = list(builder.dist_dir.glob("arc_runner-*.whl"))
+        wheel_candidates = list(builder.dist_dir.glob(f"arc_runner-{__version__}-*.whl"))
         if not wheel_candidates:
             builder.compile_distribution_packages()
-            wheel_candidates = list(builder.dist_dir.glob("arc_runner-*.whl"))
+            wheel_candidates = list(builder.dist_dir.glob(f"arc_runner-{__version__}-*.whl"))
 
         wheel_path = wheel_candidates[0]
         with zipfile.ZipFile(wheel_path, "r") as archive:
@@ -43,7 +51,7 @@ class TestPyPIPackagingPositiveTriad:
             metadata_text = archive.read(metadata_name).decode("utf-8")
 
             assert "Name: arc-runner" in metadata_text
-            assert "Version: 0.1.0" in metadata_text
+            assert f"Version: {__version__}" in metadata_text
             assert "License: Apache-2.0" in metadata_text
             assert "Requires-Python: >=3.10" in metadata_text
             assert "Requires-Dist: openvino" in metadata_text
@@ -52,7 +60,7 @@ class TestPyPIPackagingPositiveTriad:
     def test_wheel_entry_points_dual_aliasing(self) -> None:
         """Verify that both arc-runner and intel-arc-models-runner CLI aliases are defined."""
         builder = WheelBuilder()
-        wheel_candidates = list(builder.dist_dir.glob("arc_runner-*.whl"))
+        wheel_candidates = list(builder.dist_dir.glob(f"arc_runner-{__version__}-*.whl"))
         assert len(wheel_candidates) > 0, "No built wheel found in dist/"
 
         wheel_path = wheel_candidates[0]
@@ -74,7 +82,7 @@ class TestPyPIPackagingPositiveTriad:
     def test_wheel_static_assets_completeness(self) -> None:
         """Verify that all non-Python HTML, CSS, JS and PEP 561 markers are bundled."""
         builder = WheelBuilder()
-        wheel_candidates = list(builder.dist_dir.glob("arc_runner-*.whl"))
+        wheel_candidates = list(builder.dist_dir.glob(f"arc_runner-{__version__}-*.whl"))
         wheel_path = wheel_candidates[0]
 
         with zipfile.ZipFile(wheel_path, "r") as archive:
@@ -88,7 +96,7 @@ class TestPyPIPackagingPositiveTriad:
     def test_wheel_record_hash_integrity(self) -> None:
         """Verify that every bundled file strictly matches its SHA256 RECORD hash."""
         builder = WheelBuilder()
-        wheel_candidates = list(builder.dist_dir.glob("arc_runner-*.whl"))
+        wheel_candidates = list(builder.dist_dir.glob(f"arc_runner-{__version__}-*.whl"))
         wheel_path = wheel_candidates[0]
 
         with zipfile.ZipFile(wheel_path, "r") as archive:
@@ -160,7 +168,7 @@ class TestPyPIPackagingEdgeCaseTriad:
     def test_wheel_archive_compression_ratio(self) -> None:
         """Verify Proof M115: compression ratio satisfies R_comp >= 1.25."""
         builder = WheelBuilder()
-        wheel_candidates = list(builder.dist_dir.glob("arc_runner-*.whl"))
+        wheel_candidates = list(builder.dist_dir.glob(f"arc_runner-{__version__}-*.whl"))
         wheel_path = wheel_candidates[0]
 
         with zipfile.ZipFile(wheel_path, "r") as archive:
@@ -173,7 +181,7 @@ class TestPyPIPackagingEdgeCaseTriad:
     def test_wheel_templates_utf8_decodable(self) -> None:
         """Verify that all bundled static templates decode cleanly as strict UTF-8."""
         builder = WheelBuilder()
-        wheel_candidates = list(builder.dist_dir.glob("arc_runner-*.whl"))
+        wheel_candidates = list(builder.dist_dir.glob(f"arc_runner-{__version__}-*.whl"))
         wheel_path = wheel_candidates[0]
 
         with zipfile.ZipFile(wheel_path, "r") as archive:
