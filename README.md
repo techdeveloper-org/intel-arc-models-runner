@@ -26,6 +26,7 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 | ↳ [**Empirical Silicon Proofs**](docs/benchmarks/empirical_silicon.md) | Real Silicon Hardware Telemetry | UNVERIFIED legacy document (see its banner): the 30.8× GPU-vs-CPU TTFT figure is not reproduced (measured CPU/GPU TTFT ratios on Qwen2.5-1.5B are 2.3× to 17.7×, and the speed-up claim gate fails), live sequential reclaim runs, 21-test hardware suite, GPU vs NPU breakdown, a Flash-Stream memory trace taken on a synthetic container (mapped bytes, not resident memory), and an Ollama comparison whose Ollama baseline was not run. |
 | ↳ [**Ollama Showdown & 30-Case Audit**](docs/benchmarks/ollama_showdown.md) | Head-to-Head Comparison vs Ollama | Ollama "Silent CPU Fallback" anatomy (Proof M56), output coherence (M57/M58), 30-case Triad Audit matrix, and a heavy-model Ollama OOM comparison whose Ollama run was never executed (UNVERIFIED). |
 | [**🤖 Claude Code**](docs/claude-code.md) | Use Claude Code against `arc-runner serve` | Anthropic `/v1/messages` (stream and tool use), env vars for Bash and PowerShell, what works, limits and troubleshooting; Claude Code itself was not run, see its UNVERIFIED list. |
+| [**🖱️ Cursor**](docs/cursor.md) | Use Cursor against `arc-runner serve` | OpenAI-compatible `/v1/chat/completions`, Cursor settings (Base URL, API Key, model name), smoke tests, tool-calling limits; Cursor itself was not run, see its UNVERIFIED list. |
 | [**🚀 Deployment & Packaging Guide**](docs/deployment.md) | Standalone PyPI Wheel & Docker Deployment | Production guide for `pip install arc-runner`, Ubuntu 24.04 Docker image, `/dev/dri` pass-through, and Kubernetes Helm specs. |
 | [**🧪 Complete Test Coverage**](docs/testing.md) | Full Test Suite Roadmap & Execution | Non-hardware suite counts measured with `pytest` (the guide gives the collected, passed, skipped and hardware-deselected numbers and their date); hardware-marked tests are reported as not run, Triad testing patterns, C sanitizer harnesses. |
 | [**🗺️ Roadmap & Multi-Modal Evolution**](docs/roadmap.md) | Delivered Milestones & Packaging Horizon | 15 core milestones + full Packaging Horizon delivered, 7 next-gen orchestration hurdles scorecard, PyPI & Docker targets. |
@@ -286,6 +287,59 @@ claude /path/to/your/project
 > **UNVERIFIED notice.** The server-side Anthropic Messages API is covered by automated tests with fake engines. Claude Code itself was not run while this was written, and no real model was loaded during testing. Anthropic does not support routing Claude Code to non-Claude models; this works only as far as the wire protocol matches. See [docs/claude-code.md](docs/claude-code.md) for the full list of what is UNVERIFIED, context-window tuning (`ARC_CONTEXT_WINDOW`), and troubleshooting.
 
 👉 *Full guide, context-window limits, and troubleshooting: [**docs/claude-code.md**](docs/claude-code.md)*
+
+---
+
+## 🖱️ Use with Cursor
+
+`arc-runner serve` exposes `POST /v1/chat/completions` (OpenAI-compatible), so Cursor can be pointed at it the same way you would point it at Ollama or LM Studio — no OpenAI API key or internet connection needed for inference. Everything runs locally on your Intel Arc GPU or NPU.
+
+### Step 1 — Start the server
+
+```bash
+arc-runner pull llama-3.2-3b
+arc-runner serve --host 127.0.0.1 --port 11434 --default-model llama-3.2-3b
+```
+
+If Ollama already occupies port `11434`, use `--port 11435` and adjust the base URL below.
+
+### Step 2 — Configure Cursor
+
+Open Cursor → **Settings → Models** (or **Preferences → Cursor Settings** depending on your version) and enter:
+
+| Field | Value |
+|:---|:---|
+| **Base URL** | `http://127.0.0.1:11434/v1` |
+| **API Key** | `local` (any non-empty string) |
+| **Model Name** | `llama-3.2-3b` (or the name from `arc-runner models`) |
+
+> Cursor appends `/chat/completions` to the Base URL. Make sure the URL ends with `/v1` (not a trailing slash).
+
+### Step 3 — Verify the connection
+
+```bash
+# Health check (no key required)
+curl http://127.0.0.1:11434/health
+
+# List pulled models
+curl http://127.0.0.1:11434/v1/models
+
+# Quick chat smoke test
+curl -s http://127.0.0.1:11434/v1/chat/completions \
+  -H "content-type: application/json" \
+  -H "authorization: Bearer local" \
+  -d '{"model":"llama-3.2-3b","max_tokens":64,"messages":[{"role":"user","content":"Say hi"}]}'
+```
+
+### Notes on Cursor + local models
+
+- **Tool calling quality** depends entirely on the model. Small models (1.5B–3B) often fail to follow Cursor Composer / Agent tool-call formats. Try a larger or instruction-tuned model for better results.
+- **Context window**: Set `ARC_CONTEXT_WINDOW` before starting the server if GPU memory is limited (e.g., `ARC_CONTEXT_WINDOW=8192`).
+- **Images**: `image_url` content is not supported; clear the chat context if Cursor sends one.
+
+> **UNVERIFIED notice.** The OpenAI-compatible API is covered by automated tests with fake engines. Cursor itself was not run against this server, and no real Cursor session was started. Cursor's UI field names and tool-call behaviour are UNVERIFIED. See [docs/cursor.md](docs/cursor.md) for the full guide, troubleshooting, and UNVERIFIED item list.
+
+👉 *Full guide, Cursor settings, troubleshooting, and UNVERIFIED list: [**docs/cursor.md**](docs/cursor.md)*
 
 ---
 
