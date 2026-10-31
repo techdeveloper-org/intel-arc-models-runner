@@ -177,6 +177,32 @@ Cursor primarily uses `POST /v1/chat/completions`. The server also answers `GET 
 
 ## 6. Not Supported / Limitations
 
+### Cursor Plan Restriction — Agent and Edit Require Paid Plan
+
+> **Important:** Cursor's **Agent mode** and **Edit mode** (Composer) require a **paid Cursor subscription ($20/month)** even when using a custom local model via a custom API key. On the Cursor Free plan, only **Chat mode** (`Ctrl+L`) works with a custom OpenAI-compatible endpoint. If you see the error *"Agent and Edit rely on custom models that require a paid subscription"*, this is expected Cursor behaviour and is unrelated to arc-runner.
+
+**Workaround — use Continue.dev instead (fully free, Agent + Edit supported):**
+
+[Continue.dev](https://www.continue.dev) is a free VS Code / JetBrains extension that connects to any OpenAI-compatible local server with no subscription required. Add this to your `~/.continue/config.json`:
+
+```json
+{
+  "models": [
+    {
+      "title": "Qwen 2.5 1.5B (Arc GPU)",
+      "provider": "openai",
+      "model": "qwen-2.5-1.5b",
+      "apiBase": "http://127.0.0.1:11434/v1",
+      "apiKey": "local"
+    }
+  ]
+}
+```
+
+Then start arc-runner as usual and use Continue's Chat, Edit, and Agent features freely.
+
+### Other Limitations
+
 - **Images / vision**: `image_url` content blocks are not supported by this route. A conversation with an image will keep failing. Clear the chat context in Cursor to recover.
 - **Function / tool calling quality**: Tool calling depends entirely on the model. Small local models (1.5B–3B) often ignore the expected format. Cursor's AI features (Composer, Tab, Agent) that rely on tool calls may produce degraded results compared to a full-size model. No measurement has been made for Cursor-specific tool-use quality with any model in this repository (UNVERIFIED).
 - **Prompt caching**: `cache_control` is accepted but ignored; no prefix caching occurs.

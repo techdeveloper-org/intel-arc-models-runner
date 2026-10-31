@@ -336,6 +336,7 @@ curl -s http://127.0.0.1:11434/v1/chat/completions \
 - **Tool calling quality** depends entirely on the model. Small models (1.5B–3B) often fail to follow Cursor Composer / Agent tool-call formats. Try a larger or instruction-tuned model for better results.
 - **Context window**: Set `ARC_CONTEXT_WINDOW` before starting the server if GPU memory is limited (e.g., `ARC_CONTEXT_WINDOW=8192`).
 - **Images**: `image_url` content is not supported; clear the chat context if Cursor sends one.
+- **⚠️ Cursor Free plan restriction**: Cursor's **Agent and Edit modes require a paid Cursor subscription** even with a custom local model. On the free plan, only **Chat mode** (`Ctrl+L`) works. See [docs/cursor.md](docs/cursor.md) for a free alternative using [Continue.dev](https://www.continue.dev).
 
 > **UNVERIFIED notice.** The OpenAI-compatible API is covered by automated tests with fake engines. Cursor itself was not run against this server, and no real Cursor session was started. Cursor's UI field names and tool-call behaviour are UNVERIFIED. See [docs/cursor.md](docs/cursor.md) for the full guide, troubleshooting, and UNVERIFIED item list.
 
