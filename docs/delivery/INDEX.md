@@ -2,7 +2,7 @@
 doc_id: DOC-INDEX
 title: Delivery document index
 stage: all
-version: 1.31.0
+version: 1.32.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -17,7 +17,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | doc_id | Title | Version | Status | Stage | Path |
 |:--|:--|:--|:--|:--|:--|
 | DOC-DECISION-LOG | Decision log | 1.14.0 | draft | all | DECISION_LOG.md |
-| DOC-RESUME | Resume checkpoint | 1.16.0 | draft | all | RESUME.md |
+| DOC-RESUME | Resume checkpoint | 1.17.0 | draft | all | RESUME.md |
 | DOC-TRACEABILITY | Finding to requirement to code to test traceability | 1.2.0 | draft | all | TRACEABILITY.md |
 | DOC-SA-STAGE | Slice S-A - remove fabricated values | 1.0.0 | draft | S-A | stages/S-A-honesty/STAGE.md |
 | DOC-SB-STAGE | Slice S-B - native memory safety | 1.0.0 | draft | S-B | stages/S-B-memory-safety/STAGE.md |
@@ -36,7 +36,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-R09-REVIEW | R09 - Level Zero / Sysman / OpenVINO device handling: second opinion | 1.0.0 | draft | S-G | reviews/R09_gpu_driver_second_opinion.md |
 | DOC-R10-REVIEW | R10 Release-readiness review for v0.2.0 (nothing tagged, published or pushed) | 1.0.0 | draft | S-G | reviews/R10_release_readiness.md |
 | DOC-R07-REVIEW | R07 Faithfulness audit of repository claims | 1.0.0 | draft | S-G | reviews/R07_faithfulness_audit.md |
-| DOC-INDEX | Delivery document index | 1.31.0 | draft | all | INDEX.md |
+| DOC-INDEX | Delivery document index | 1.32.0 | draft | all | INDEX.md |
 
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
@@ -73,3 +73,4 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | 1.29.0 | 2026-10-31 | CLI session | Reflect DOC-RESUME v1.15.0 (add commits 28101d6, e2730ce) | keep index current | 28101d6, e2730ce |
 | 1.30.0 | 2026-10-31 | CLI session | Reflect DOC-RESUME v1.16.0 (transpiler fix #47, benchmark publish #49) | feat(benchmarks) commit 090e4ab; issue #49 | 090e4ab |
 | 1.31.0 | 2026-10-31 | CLI session | DOC-DECISION-LOG to 1.14.0, DOC-TRACEABILITY to 1.2.0, DOC-RESUME to 1.16.0 | documentation sync after #49 (D1-D4 complete) | next revision |
+| 1.32.0 | 2026-10-31 | CLI session | DOC-RESUME to 1.17.0 — add Pending Items Tracker PT-01..PT-09 | surface benchmark inconsistencies and open test items for tracking | — |

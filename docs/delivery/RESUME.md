@@ -2,7 +2,7 @@
 doc_id: DOC-RESUME
 title: Resume checkpoint
 stage: all
-version: 1.16.0
+version: 1.17.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -92,6 +92,22 @@ Not verified anywhere: the whole plan section 23 v9.8 was last independently sco
 5. Run TLC on the ring model: `java -cp tla2tools.jar tlc2.TLC -workers 4 -config docs/formal/RingSlots.cfg docs/formal/RingSlots.tla`.
 6. Decide on merge, tag and release.
 
+## Pending Items Tracker
+
+Priority-ordered list of everything that must be done before this project can be considered properly tested or publishable. Update the Status column as items complete.
+
+| Pri | ID | Item | Why it matters | Status |
+|:--:|:--|:--|:--|:--|
+| 1 | PT-01 | **Implement WP-03** — serial inference worker, `to_thread`, stream bridge, bounded stop | Event-loop stall is **proven**: a 52 ms probe took 2077 ms behind one blocking call; 67/300 stream tokens were lost when the loop stalled for 2 s. No throughput number is trustworthy without this fix. | ⬜ not started |
+| 2 | PT-02 | **Run pre-merge hardware block** (N-02, N-01 part 1, N-04 on GPU, N-12, N-13) | Must pass before WP-03 and WP-12a can merge — per plan 23.4.0 | ⬜ not started |
+| 3 | PT-03 | **Re-run regression gate** (`--baseline 76b0f26`, AC power, nothing else running) | Gate refused a verdict because CV > 10 %. A clean run is needed for a valid pass/fail. | ⬜ refused verdict |
+| 4 | PT-04 | **Test Claude Code against the runner** (`docs/claude-code.md` flow) | Biggest unknown: empty `usage`, `count_tokens` 404, TTFT with large system prompt, memory at 32768 window on 15 GB shared memory | ⬜ never run |
+| 5 | PT-05 | **Resolve Qwen-2.5-1.5B number inconsistency** | Three result files give GPU/hard medians of 40.1, 50.3, and 36.3 tok/s. Published 40.44 is a mean that matches none of them. A single canonical number with a clear source is needed. | ⬜ open |
+| 6 | PT-06 | **Strengthen DeepSeek-R1-1.5B quick benchmark** (n=5 → n≥10) | 31.88 tok/s published from only 5 runs — honesty rule says this is weak evidence before a public claim | ⬜ n=5 only |
+| 7 | PT-07 | **Convert multi-domain scripts to schema-v1; fill missing tiers** | Image: only low tier (n=3) done; medium, hard, and video missing entirely. Embeddings and VLM scripts still write legacy JSON. | ⬜ partial |
+| 8 | PT-08 | **Run TLC formal model on ring buffer** | `java -cp tla2tools.jar tlc2.TLC -workers 4 -config docs/formal/RingSlots.cfg docs/formal/RingSlots.tla` — ring-buffer correctness has never been formally verified | ⬜ pending Java/tools |
+| 9 | PT-09 | **Implement u8 KV quality gate** (KL divergence check) | GPU rejects u8 at runtime (measured, committed in `ebd5b6c`). When a future device does accept it, there is no quality check to catch silent accuracy loss. | ⬜ not implemented |
+
 ## Open technical items
 
 All need a real machine or model weights: run `scratch/run_live_*_benchmarks.py` (LLM, embeddings, VLM, audio, image, video) and `scripts/bench_kv_quality.py`; check Sysman power/frequency on real drivers; give the USM-staged buffers a consumer; push to a pull request so the three CI jobs run. Independent test authorship is still open (tests were written by the implementing sessions, checked by mutation).
@@ -124,3 +140,4 @@ python scripts/validate_bench_json.py
 | 1.13.0 | 2026-10-30 | main session | PERF row: plan v9.8 (fix only), DL-096, the adoption procedure AD-1..AD-6 (one adoption per device and key, a second GPU winner bracketed against the first, CPU and NPU one per device, one 30-round repeat), the code baseline 1a4ccfe versus c3b69cb..1d0eb64 with done items marked, the measured u8 KV rejection (`m17_e` blocked), the owner's new LLM and SD-1.5 result files | round-11 final checks G1 and G4 resolved | 35b2dc3 |
 | 1.14.0 | 2026-10-30 | main session | added 'Code since the plan', 'Measured on the maintainer's machine' and 'Handoff for the next (CLI) session'; PERF row says partly implemented; maintainer list updated | the maintainer continues in the CLI on real hardware | next revision |
 | 1.15.0 | 2026-10-31 | CLI session | Add commits 28101d6 + e2730ce; docs sync in progress | track Windows fix commits | 28101d6, e2730ce |
+| 1.17.0 | 2026-10-31 | CLI session | Add Pending Items Tracker (PT-01..PT-09): benchmark inconsistencies, missing hardware tests, unverified gates, WP-03 not implemented | surfaced during session review so future sessions can track without re-deriving | — |
