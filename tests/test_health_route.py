@@ -60,7 +60,7 @@ def test_health_get_without_api_key_returns_ok_body(tmp_path: Path, monkeypatch:
     client, manager = _client(tmp_path)
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "busy": False, "busy_for_s": None}
     assert response.headers["content-type"].startswith("application/json")
     assert manager.touched == []
 
@@ -70,7 +70,7 @@ def test_health_get_with_api_key_set_needs_no_credentials(tmp_path: Path, monkey
     monkeypatch.setenv("ARC_API_KEY", "secret-key")
     client, manager = _client(tmp_path)
     assert client.get("/health").status_code == 200
-    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/health").json() == {"status": "ok", "busy": False, "busy_for_s": None}
     assert client.get("/api/devices").status_code == 401
     assert client.get("/v1/models").status_code == 401
     assert manager.touched == []
@@ -94,7 +94,7 @@ def test_health_route_is_registered_once_and_not_shadowed(tmp_path: Path) -> Non
     client, _ = _client(tmp_path)
     owners = [r for r in client.app.routes if getattr(r, "path", None) == "/health"]
     assert len(owners) == 1
-    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/health").json() == {"status": "ok", "busy": False, "busy_for_s": None}
     root = client.get("/")
     assert root.status_code == 200
     assert "Ollama is running" in root.text

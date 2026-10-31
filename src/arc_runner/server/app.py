@@ -297,7 +297,7 @@ def create_app(
             Dictionary containing detected GPU, NPU, and CPU capabilities.
         """
         detector = DeviceDetector()
-        topology = detector.detect_topology()
+        topology = await asyncio.to_thread(detector.detect_topology)
         return {
             "status": "healthy",
             "device_summary": topology.model_dump(),

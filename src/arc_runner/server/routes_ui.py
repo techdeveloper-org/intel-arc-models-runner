@@ -15,13 +15,14 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from arc_runner.core.exceptions import GGUFParseError, InvalidGGUFError
+from arc_runner.core.exceptions import EngineUnavailableError, GGUFParseError, InvalidGGUFError
 from arc_runner.core.logging import get_logger
 from arc_runner.core.path_policy import allowed_roots, ensure_path_allowed
 from arc_runner.engine.aot_cache import AOTCompilationManager
 from arc_runner.engine.embedding_engine import EmbeddingEngine
 from arc_runner.hub.ollama_importer import OllamaImporter
 from arc_runner.server.errors import hidden_error
+from arc_runner.server.worker import JobContext, LoadPhaseError, get_worker
 from arc_runner.quant.gguf_parser import GGUFParser
 from arc_runner.quant.transpiler import (
     GGUFTranspiler,
@@ -93,6 +94,20 @@ class EmbeddingTestRequest(BaseModel):
     device: str = "NPU"
 
 
+def _read_template(template_path: Path) -> Optional[str]:
+    """Read the dashboard template from disk.
+
+    Args:
+        template_path: Location of index.html.
+
+    Returns:
+        Optional[str]: File text, or None when the file does not exist.
+    """
+    if not template_path.exists():
+        return None
+    return template_path.read_text(encoding="utf-8")
+
+
 @router.get("/ui", response_class=HTMLResponse)
 async def get_ui_dashboard(request: Request) -> HTMLResponse:
     """Render and serve the Intel Arc Model Studio single-page application.
@@ -104,9 +119,9 @@ async def get_ui_dashboard(request: Request) -> HTMLResponse:
         HTMLResponse containing index.html dashboard markup.
     """
     template_path = Path(__file__).parent / "templates" / "index.html"
-    if not template_path.exists():
+    content = await asyncio.to_thread(_read_template, template_path)
+    if content is None:
         raise HTTPException(status_code=404, detail="Studio template index.html not found")
-    content = template_path.read_text(encoding="utf-8")
     routes = {
         "/": "tab-cockpit",
         "/ui": "tab-cockpit",
@@ -260,11 +275,13 @@ async def compile_aot(payload: AOTCompileRequest, request: Request) -> dict[str,
         )
 
     try:
-        res = aot_mgr.compile_model(
-            model_path=resolved_path,
-            device=payload.device,
-            prewarm=payload.prewarm,
-            model_id=payload.model_id,
+        res = await get_worker(request.app).submit(
+            lambda ctx: aot_mgr.compile_model(
+                model_path=resolved_path,
+                device=payload.device,
+                prewarm=payload.prewarm,
+                model_id=payload.model_id,
+            )
         )
         return {
             "model_id": res.model_id,
@@ -275,6 +292,8 @@ async def compile_aot(payload: AOTCompileRequest, request: Request) -> dict[str,
             "cache_path": res.cache_path,
             "speedup_multiplier": res.speedup_multiplier,
         }
+    except EngineUnavailableError:
+        raise
     except Exception as e:
         raise hidden_error("aot compilation failed", e, "AOT compilation failed", model=payload.model_id) from e
 
@@ -429,16 +448,20 @@ async def test_embeddings(payload: EmbeddingTestRequest, request: Request) -> di
     model_mgr = request.app.state.model_manager
     t_start = time.perf_counter()
 
-    try:
-        engine = model_mgr.get_or_load_embedding_engine(payload.model, device=payload.device)
+    def run(ctx: JobContext) -> Any:
+        """Load the embedding engine and embed both queries on the worker thread."""
+        engine = ctx.load(lambda: model_mgr.get_or_load_embedding_engine(payload.model, device=payload.device))
         vec_a = engine.embed_query(payload.query_a)
         vec_b = engine.embed_query(payload.query_b)
-        sim = engine.compute_similarity(vec_a, vec_b)
+        return vec_a, vec_b, engine.compute_similarity(vec_a, vec_b), engine.device
+
+    try:
+        vec_a, vec_b, sim, device = await get_worker(request.app).submit(run)
         duration_ms = (time.perf_counter() - t_start) * 1000.0
 
         return {
             "model": payload.model,
-            "device": engine.device,
+            "device": device,
             "dimension": len(vec_a),
             "cosine_similarity": sim,
             "angular_distance": math.acos(max(-1.0, min(1.0, sim))) / math.pi,
@@ -446,5 +469,9 @@ async def test_embeddings(payload: EmbeddingTestRequest, request: Request) -> di
             "sample_vec_a": vec_a[:5],
             "sample_vec_b": vec_b[:5],
         }
+    except EngineUnavailableError:
+        raise
+    except LoadPhaseError as e:
+        raise hidden_error("embedding test failed", e.__cause__, "Embedding test failed", model=payload.model) from e.__cause__
     except Exception as e:
         raise hidden_error("embedding test failed", e, "Embedding test failed", model=payload.model) from e

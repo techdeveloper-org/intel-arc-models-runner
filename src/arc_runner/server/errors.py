@@ -8,7 +8,9 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from arc_runner.core.exceptions import ModelNotFoundError
 from arc_runner.core.logging import get_logger
+from arc_runner.server.worker import LoadPhaseError
 
 logger = get_logger("server.errors")
 
@@ -45,3 +47,19 @@ def hidden_error(log_message: str, exc: BaseException, public: str, status_code:
     fields.update({f"ctx_{key}": str(value)[:_MAX_NAME_CHARS] for key, value in context.items()})
     logger.error(log_message, extra=fields, exc_info=exc)
     return HTTPException(status_code=status_code, detail=public)
+
+
+def load_failure_to_http(exc: LoadPhaseError, model: str) -> HTTPException:
+    """Map an engine-load failure from the worker to the HTTP error the client should see.
+
+    Args:
+        exc: LoadPhaseError whose ``__cause__`` is the original load exception.
+        model: Model name as requested by the client.
+
+    Returns:
+        HTTPException: 404 for an unknown model, otherwise a 500 with a stable public message.
+    """
+    cause = exc.__cause__
+    if isinstance(cause, ModelNotFoundError):
+        return HTTPException(status_code=404, detail=model_not_found_detail(model))
+    return hidden_error("engine load failed", cause, "Failed to load engine", model=model)

@@ -135,6 +135,27 @@ class AsyncTokenStream:
                 return
 
 
+def get_worker(app: Any) -> "SerialWorker":
+    """Return the app's SerialWorker, starting one on first use when the lifespan did not run.
+
+    The lifespan normally creates the worker. Embedders and test clients that build the app
+    without running its lifespan get a worker started lazily on the first engine request, which
+    must happen on the running event loop.
+
+    Args:
+        app: FastAPI application whose ``state.worker`` holds the worker.
+
+    Returns:
+        SerialWorker: The started worker.
+    """
+    worker = getattr(app.state, "worker", None)
+    if worker is None:
+        worker = SerialWorker()
+        worker.start()
+        app.state.worker = worker
+    return worker
+
+
 def _make_fail(future: "asyncio.Future[Any]", loop: asyncio.AbstractEventLoop) -> Callable[[BaseException], None]:
     """Build the callback that fails a job's future on its loop if it is still pending.
 
@@ -188,14 +209,16 @@ class SerialWorker:
         return time.monotonic() - current[1]
 
     def start(self) -> None:
-        """Capture the running event loop and start the worker thread.
+        """Start the worker daemon thread.
 
-        Must be called from async code (the app lifespan) so results can be delivered
-        to the right loop.
+        May be called from async code (the app lifespan) or test setup.
         """
-        self._loop = asyncio.get_running_loop()
+        try:
+            self._loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self._loop = None
         self._thread.start()
-        logger.info("serial worker started", extra={"thread": self._thread.name})
+        logger.info("serial worker started", extra={"thread_name": self._thread.name})
 
     def stop(self, join_timeout_s: float | None = None) -> bool:
         """Refuse new work, let the queue drain, and join the thread within a deadline.
@@ -221,7 +244,7 @@ class SerialWorker:
             self._wedged = True
             logger.error("serial worker wedged", extra={"timeout_s": deadline})
         else:
-            logger.info("serial worker stopped", extra={"thread": self._thread.name})
+            logger.info("serial worker stopped", extra={"thread_name": self._thread.name})
         return not alive
 
     async def submit(self, run: Callable[[JobContext], T]) -> T:
@@ -246,10 +269,10 @@ class SerialWorker:
             self._job_queue.put((run, _make_fail(future, loop), future))
         return await future
 
-    def _post(self, fn: Callable[..., None], *args: Any) -> None:
-        """Run a callback on the event loop; log and drop it if the loop is already closed."""
+    def _post(self, loop: asyncio.AbstractEventLoop, fn: Callable[..., None], *args: Any) -> None:
+        """Run a callback on the future's event loop; log and drop it if the loop is already closed."""
         try:
-            self._loop.call_soon_threadsafe(fn, *args)
+            loop.call_soon_threadsafe(fn, *args)
         except RuntimeError:
             logger.warning("job result dropped, event loop closed")
 
@@ -260,6 +283,7 @@ class SerialWorker:
             if job is _SENTINEL:
                 break
             run, fail, future = job
+            loop = future.get_loop()
             self._current = (run, time.monotonic())
             refuse = self._stopping or self._wedged
             self._busy = True
@@ -276,9 +300,9 @@ class SerialWorker:
                 self._busy = False
                 self._current = None
             if error is not None:
-                self._post(fail, error)
+                self._post(loop, fail, error)
             else:
-                self._post(self._resolve, future, result)
+                self._post(loop, self._resolve, future, result)
 
     @staticmethod
     def _resolve(future: "asyncio.Future[Any]", value: Any) -> None:

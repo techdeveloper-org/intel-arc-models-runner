@@ -13,10 +13,11 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
 from arc_runner.benchmark.multimodal_runner import MultiModelCoBenchmarker
+from arc_runner.core.exceptions import EngineUnavailableError
 from arc_runner.core.logging import get_logger
 from arc_runner.orchestrator.models import (
     BenchmarkRequest,
@@ -27,6 +28,7 @@ from arc_runner.orchestrator.models import (
 )
 from arc_runner.orchestrator.pipeline import StudioPipeline
 from arc_runner.server.errors import hidden_error
+from arc_runner.server.worker import JobContext, get_worker
 
 logger = get_logger("server.routes_studio")
 router = APIRouter(prefix="/v1/studio", tags=["Arc MultiModal Studio"])
@@ -43,12 +45,14 @@ _PROJECT_CACHE: dict[str, StudioArtifactPayload] = {}
 )
 async def generate_studio_project(
     request: StudioProjectRequest,
+    raw_request: Request,
     stream: bool = Query(default=False, description="Whether to stream real-time SSE progress events"),
 ) -> Any:
     """Execute end-to-end multi-modal video generation from creative brief prompt.
 
     Args:
         request: Validated StudioProjectRequest specifying prompt, duration, and styling.
+        raw_request: Injected FastAPI HTTP request holding the application state.
         stream: Query flag enabling Server-Sent Events (SSE) streaming format.
 
     Returns:
@@ -57,6 +61,7 @@ async def generate_studio_project(
     Raises:
         HTTPException: If pipeline execution encounters fatal generation failure.
     """
+    worker = get_worker(raw_request.app)
     if stream:
         queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
         loop = asyncio.get_running_loop()
@@ -67,9 +72,13 @@ async def generate_studio_project(
                 {"stage": stg.value, "progress": pct, "message": msg},
             )
 
-        async def worker() -> None:
+        def run_pipeline(ctx: JobContext) -> StudioArtifactPayload:
+            """Execute the studio pipeline on the worker thread."""
+            return _PIPELINE.execute(request, progress_cb)
+
+        async def pipeline_task() -> None:
             try:
-                payload = await asyncio.to_thread(_PIPELINE.execute, request, progress_cb)
+                payload = await worker.submit(run_pipeline)
                 _PROJECT_CACHE[payload.project_id] = payload
                 await queue.put(
                     {
@@ -86,7 +95,7 @@ async def generate_studio_project(
             finally:
                 await queue.put(None)
 
-        asyncio.create_task(worker())
+        asyncio.create_task(pipeline_task())
 
         async def event_generator() -> AsyncIterator[str]:
             yield f"data: {json.dumps({'stage': 'INITIATED', 'progress': 0.0, 'message': 'Project accepted by orchestrator'})}\n\n"
@@ -99,9 +108,11 @@ async def generate_studio_project(
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
     try:
-        payload = _PIPELINE.execute(request)
+        payload = await worker.submit(lambda ctx: _PIPELINE.execute(request))
         _PROJECT_CACHE[payload.project_id] = payload
         return payload
+    except EngineUnavailableError:
+        raise
     except Exception as exc:
         raise hidden_error("studio pipeline failed", exc, "Studio pipeline failed") from exc
 
@@ -113,11 +124,13 @@ async def generate_studio_project(
 )
 async def run_multimodal_benchmark(
     request: BenchmarkRequest,
+    raw_request: Request,
 ) -> MultiModelBenchmarkReport:
     """Execute automated hardware co-benchmarking across multi-modal models and compute Cloud ROI.
 
     Args:
         request: Validated BenchmarkRequest specifying iterations, warmup passes, and silicon strategy.
+        raw_request: Injected FastAPI HTTP request holding the application state.
 
     Returns:
         MultiModelBenchmarkReport with sample means, 95% confidence intervals, and Cloud cost savings.
@@ -126,13 +139,16 @@ async def run_multimodal_benchmark(
         HTTPException: If benchmark execution fails.
     """
     try:
-        report = _BENCHMARKER.run_co_benchmark(
-            prompt=request.prompt,
-            iterations=request.iterations,
-            warmup_runs=request.warmup_runs,
-            strategy=request.strategy,
+        return await get_worker(raw_request.app).submit(
+            lambda ctx: _BENCHMARKER.run_co_benchmark(
+                prompt=request.prompt,
+                iterations=request.iterations,
+                warmup_runs=request.warmup_runs,
+                strategy=request.strategy,
+            )
         )
-        return report
+    except EngineUnavailableError:
+        raise
     except Exception as exc:
         raise hidden_error("co-benchmark failed", exc, "Co-benchmark failed") from exc
 

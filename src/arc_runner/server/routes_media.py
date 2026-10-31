@@ -14,13 +14,14 @@ import tempfile
 import time
 from typing import Any, Optional
 
-import anyio
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from arc_runner.core.exceptions import EngineUnavailableError
 from arc_runner.core.logging import get_logger
 from arc_runner.server.errors import hidden_error
+from arc_runner.server.worker import get_worker
 
 logger = get_logger(__name__)
 
@@ -119,7 +120,7 @@ async def transcribe_audio(payload: TranscribeRequest, request: Request) -> dict
             engine.load_model(resolved_model, device=payload.device)
             return engine.transcribe(audio_path, language=payload.language)
 
-        res = await anyio.to_thread.run_sync(_run_transcribe)
+        res = await get_worker(request.app).submit(lambda ctx: _run_transcribe())
         latency_s = time.perf_counter() - t_start
 
         return {
@@ -132,6 +133,8 @@ async def transcribe_audio(payload: TranscribeRequest, request: Request) -> dict
             "model_id": payload.model_id,
         }
     except HTTPException:
+        raise
+    except EngineUnavailableError:
         raise
     except Exception as exc:
         raise hidden_error("audio transcription failed", exc, "Audio transcription failed", model=payload.model_id) from exc
@@ -174,7 +177,7 @@ async def synthesize_speech(payload: TTSRequest, request: Request) -> Response:
             engine.save_audio_wav(res.audio_samples, buf, sample_rate=res.sample_rate)
             return buf.getvalue(), res.duration_s, res.sample_rate
 
-        wav_bytes, duration_s, sample_rate = await anyio.to_thread.run_sync(_run_tts)
+        wav_bytes, duration_s, sample_rate = await get_worker(request.app).submit(lambda ctx: _run_tts())
         latency_s = time.perf_counter() - t_start
         rtf = latency_s / max(0.001, duration_s)
 
@@ -187,6 +190,8 @@ async def synthesize_speech(payload: TTSRequest, request: Request) -> Response:
             "X-Sample-Rate": str(sample_rate),
         }
         return Response(content=wav_bytes, media_type="audio/wav", headers=headers)
+    except EngineUnavailableError:
+        raise
     except Exception as exc:
         raise hidden_error("speech synthesis failed", exc, "Speech synthesis failed", model=payload.model_id) from exc
 
@@ -233,7 +238,7 @@ async def generate_image(payload: GenerateImageRequest, request: Request) -> Res
             res = engine.generate(gen_req)
             return res.image_bytes, res
 
-        image_bytes, result_obj = await anyio.to_thread.run_sync(_run_gen)
+        image_bytes, result_obj = await get_worker(request.app).submit(lambda ctx: _run_gen())
         latency_s = time.perf_counter() - t_start
 
         it_rate = getattr(result_obj.breakdown, "iteration_rate_it_s", None)
@@ -249,6 +254,8 @@ async def generate_image(payload: GenerateImageRequest, request: Request) -> Res
             "X-Height": str(payload.height),
         }
         return Response(content=image_bytes, media_type="image/png", headers=headers)
+    except EngineUnavailableError:
+        raise
     except Exception as exc:
         raise hidden_error("image generation failed", exc, "Image generation failed", model=payload.model_id) from exc
 
@@ -297,7 +304,7 @@ async def generate_video(payload: GenerateVideoRequest, request: Request) -> Res
             res = engine.generate(v_req)
             return res.video_bytes, res
 
-        video_bytes, result_obj = await anyio.to_thread.run_sync(_run_video)
+        video_bytes, result_obj = await get_worker(request.app).submit(lambda ctx: _run_video())
         latency_s = time.perf_counter() - t_start
 
         headers = {
@@ -308,5 +315,7 @@ async def generate_video(payload: GenerateVideoRequest, request: Request) -> Res
             "X-FPS": str(payload.fps),
         }
         return Response(content=video_bytes, media_type="video/mp4", headers=headers)
+    except EngineUnavailableError:
+        raise
     except Exception as exc:
         raise hidden_error("video generation failed", exc, "Video generation failed", model=payload.model_id) from exc

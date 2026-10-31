@@ -2,7 +2,7 @@
 doc_id: DOC-RESUME
 title: Resume checkpoint
 stage: all
-version: 1.17.0
+version: 1.18.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -24,7 +24,7 @@ Completed (commit `090e4ab`, issue #49):
 - README performance table updated with both measured values + source footnotes.
 - Also completed prior session's transpiler fix (#47, `bd5377e`): removed legacy `<meta_data><bin_file>` XML element that OpenVINO 2026.4.1.0 rejects; added per-tensor bin offset/size tracking.
 
-Next: WP-03 (serial inference worker) per plan 23.5.1, or hardware pre-merge block 23.4.0.
+Next: WP-12a or hardware pre-merge block 23.4.0 (WP-03 serial inference worker is completed and verified).
 
 ## State (2026-10-30)
 
@@ -98,7 +98,7 @@ Priority-ordered list of everything that must be done before this project can be
 
 | Pri | ID | Item | Why it matters | Status |
 |:--:|:--|:--|:--|:--|
-| 1 | PT-01 | **Implement WP-03** — serial inference worker, `to_thread`, stream bridge, bounded stop | Event-loop stall is **proven**: a 52 ms probe took 2077 ms behind one blocking call; 67/300 stream tokens were lost when the loop stalled for 2 s. No throughput number is trustworthy without this fix. | ⬜ not started |
+| 1 | PT-01 | **Implement WP-03** — serial inference worker, `to_thread`, stream bridge, bounded stop | Event-loop stall is **proven**: a 52 ms probe took 2077 ms behind one blocking call; 67/300 stream tokens were lost when the loop stalled for 2 s. No throughput number is trustworthy without this fix. | ✅ done (`stages/PERF-WP03/STAGE.md`) |
 | 2 | PT-02 | **Run pre-merge hardware block** (N-02, N-01 part 1, N-04 on GPU, N-12, N-13) | Must pass before WP-03 and WP-12a can merge — per plan 23.4.0 | ⬜ not started |
 | 3 | PT-03 | **Re-run regression gate** (`--baseline 76b0f26`, AC power, nothing else running) | Gate refused a verdict because CV > 10 %. A clean run is needed for a valid pass/fail. | ⬜ refused verdict |
 | 4 | PT-04 | **Test Claude Code against the runner** (`docs/claude-code.md` flow) | Biggest unknown: empty `usage`, `count_tokens` 404, TTFT with large system prompt, memory at 32768 window on 15 GB shared memory | ⬜ never run |
@@ -141,3 +141,4 @@ python scripts/validate_bench_json.py
 | 1.14.0 | 2026-10-30 | main session | added 'Code since the plan', 'Measured on the maintainer's machine' and 'Handoff for the next (CLI) session'; PERF row says partly implemented; maintainer list updated | the maintainer continues in the CLI on real hardware | next revision |
 | 1.15.0 | 2026-10-31 | CLI session | Add commits 28101d6 + e2730ce; docs sync in progress | track Windows fix commits | 28101d6, e2730ce |
 | 1.17.0 | 2026-10-31 | CLI session | Add Pending Items Tracker (PT-01..PT-09): benchmark inconsistencies, missing hardware tests, unverified gates, WP-03 not implemented | surfaced during session review so future sessions can track without re-deriving | — |
+| 1.18.0 | 2026-10-31 | CLI session | Mark PT-01 (WP-03) done; link to stages/PERF-WP03/STAGE.md | WP-03 serial inference worker delivered | pending |

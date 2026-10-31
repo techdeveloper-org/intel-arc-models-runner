@@ -391,6 +391,8 @@ flowchart TD
     Engines --> Silicon
 ```
 
+- **SerialWorker** (`src/arc_runner/server/worker.py`): single daemon thread draining a SimpleQueue, eliminating event-loop stalls proven at 2077ms.
+
 👉 *For detailed subsystem breakdowns, Multi-LoRA hot-swapping, and UML diagrams, see: [**Architecture & Subsystem Deep Dive**](docs/architecture.md)*
 
 ---

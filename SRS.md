@@ -48,6 +48,7 @@ Model files are untrusted input. The Intel GPU driver provides a Level Zero load
 | FR-008 | The system SHALL measure token counts at the engine boundary using the OpenVINO tokenizer and set `is_estimate: False` in telemetry. When the tokenizer is unavailable, the system MAY emit an estimate with `is_estimate: True`. | GitHub Issue #45 (WP-14) | `tests/test_token_accounting.py` |
 | FR-009 | The `arc_runner` package SHALL defer all heavy imports (OpenVINO, numpy, torch) until first attribute access via PEP 562 `__getattr__`, reducing cold-start latency without breaking existing import paths. | GitHub Issue #45 (WP-15) | `tests/test_lazy_imports.py` |
 | FR-010 | The system SHALL record and publish GPU decode throughput (tok/s) for supported models using both the 30-run harness protocol (schema-v1, `*.v1.json`) and the quick-API-benchmark protocol (schema `quick_v1`, `*.quick.json`). Published values SHALL be derived from measured result files only; no value is hardcoded or estimated. | GitHub Issue #49 | `docs/benchmarks/results/llm_*.json`, `scripts/validate_bench_json.py`, `tests/test_bench_results.py::TestQuickBenchSchema` |
+| FR-011 | The system SHALL serialise all engine calls through a single daemon thread (`arc-inference`) using `queue.SimpleQueue` and an admission lock, eliminating event-loop stall and token loss. | GitHub Issue #51 (WP-03) | `tests/test_serial_worker.py` |
 
 ### 3.2 Non-functional requirements
 
@@ -75,3 +76,4 @@ Findings and their mapping to requirements: `docs/delivery/TRACEABILITY.md`.
 | 2026-10-31 | 0.2.0 | fix(tests): Windows parametrize ids | Change log row only (fix type per rule 44 §3) | #45 |
 | 2026-10-31 | 0.2.0 | fix(scripts,hub): Windows test failures | Change log row only (fix type per rule 44 §3) | #45 |
 | 2026-10-31 | 0.2.0 | feat(benchmarks): publish GPU tok/s for qwen-2.5-1.5b and deepseek-r1-1.5b | Add FR-010: benchmark throughput publication via both full-harness and quick-API protocols | #49 |
+| 2026-10-31 | 0.2.1 | feat(server): WP-03 serial inference worker | Add FR-011: SerialWorker FIFO daemon thread and AsyncTokenStream | #51 |

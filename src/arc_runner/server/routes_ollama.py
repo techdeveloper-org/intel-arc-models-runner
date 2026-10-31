@@ -17,13 +17,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 
 from arc_runner.server.prefix_probe import match_prefix_with_real_tokens
-from arc_runner.core.exceptions import ArcRunnerError, ModelNotFoundError
+from arc_runner.core.exceptions import ArcRunnerError, EngineUnavailableError, ModelNotFoundError
 from arc_runner.core.logging import get_logger, set_request_context
-from arc_runner.engine.models import GenerationConfig, LoRAAdapterSpec, TokenChunk
+from arc_runner.engine.models import GenerationConfig, LoRAAdapterSpec
 from arc_runner.hub.downloader import DownloadProgress
 from arc_runner.hub.manager import HubManager
-from arc_runner.server.errors import hidden_error, model_not_found_detail
+from arc_runner.server.errors import hidden_error, load_failure_to_http, model_not_found_detail
 from arc_runner.server.model_manager import ModelManager
+from arc_runner.server.routes_openai import _forward_job_failure, _stream_failure
+from arc_runner.server.worker import AsyncTokenStream, JobContext, LoadPhaseError, get_worker
 from arc_runner.server.schemas import (
     OllamaChatMessage,
     OllamaChatRequest,
@@ -268,77 +270,150 @@ def _split_chat_output(text: str, model_id: str) -> Dict[str, str]:
     return parser.feed(text, final=True)
 
 
-async def _stream_token_chunks(
-    engine: Any,
+_STREAM_JOBS: "set[asyncio.Task[Any]]" = set()
+
+
+async def _run_blocking(
+    raw_request: Request,
+    manager: ModelManager,
+    model: str,
+    device: str,
     prompt: str,
-    config: GenerationConfig,
-) -> AsyncIterator[TokenChunk]:
-    """Asynchronously bridge C++ engine token generator to async generator queue.
+    gen_config: GenerationConfig,
+) -> Any:
+    """Load the engine and generate a full completion on the serial inference worker.
 
     Args:
-        engine: Loaded BaseEngine instance.
+        raw_request: Active HTTP request; carries the app state.
+        manager: ModelManager that owns the engines.
+        model: Requested model name.
+        device: Target device string.
         prompt: Prefill prompt text.
-        config: GenerationConfig parameters.
+        gen_config: Generation parameters.
 
-    Yields:
-        TokenChunk emissions as decoded.
+    Returns:
+        Tuple of (text, telemetry, duration_ns) where duration_ns covers generation only.
+
+    Raises:
+        HTTPException: 404 for an unknown model, 500 for other load failures.
+        EngineUnavailableError: When the worker is stopping or wedged (HTTP 503).
     """
-    queue: asyncio.Queue[Union[TokenChunk, Exception, None]] = asyncio.Queue(maxsize=128)
+    batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
+
+    def run(ctx: JobContext) -> Any:
+        engine = ctx.load(lambda: manager.get_or_load_engine(model, device=device))
+        if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
+            match_prefix_with_real_tokens(batch_pipeline, engine, prompt)
+        start_ns = time.time_ns()
+        text = engine.generate(prompt, gen_config)
+        return text, engine.get_telemetry(), time.time_ns() - start_ns
+
+    try:
+        return await get_worker(raw_request.app).submit(run)
+    except LoadPhaseError as exc:
+        raise load_failure_to_http(exc, model) from exc.__cause__
+
+
+async def _open_stream(
+    raw_request: Request,
+    manager: ModelManager,
+    model: str,
+    device: str,
+    prompt: str,
+    gen_config: GenerationConfig,
+) -> Any:
+    """Start a streaming job on the serial worker and return once the first event arrived.
+
+    Load failures and refused submits surface here as HTTP errors, before any response byte
+    is sent. The final event is ``("done", (text, prompt_tokens, telemetry, duration_ns))``,
+    or ``("done", None)`` when the engine ended without a finished chunk.
+
+    Args:
+        raw_request: Active HTTP request; carries the app state.
+        manager: ModelManager that owns the engines.
+        model: Requested model name.
+        device: Target device string.
+        prompt: Prefill prompt text.
+        gen_config: Generation parameters.
+
+    Returns:
+        Tuple of (stream, events); events is an async iterator of (kind, payload) pairs.
+
+    Raises:
+        HTTPException: 404 for an unknown model, 500 for other failures before the first token.
+        EngineUnavailableError: When the worker is stopping or wedged (HTTP 503).
+    """
     loop = asyncio.get_running_loop()
+    stream = AsyncTokenStream()
+    batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
 
-    def worker() -> None:
+    def run_stream(ctx: JobContext) -> None:
         try:
-            for chunk in engine.generate_stream(prompt, config):
-                while True:
-                    try:
-                        loop.call_soon_threadsafe(queue.put_nowait, chunk)
-                        break
-                    except asyncio.QueueFull:
-                        time.sleep(0.002)
+            engine = ctx.load(lambda: manager.get_or_load_engine(model, device=device))
+            if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
+                match_prefix_with_real_tokens(batch_pipeline, engine, prompt)
+            start_ns = time.time_ns()
+            final: Any = None
+            for chunk in engine.generate_stream(prompt, gen_config):
+                if stream.is_cancelled:
+                    return
+                if chunk.is_finished:
+                    final = (chunk.text, chunk.prompt_tokens, engine.get_telemetry(), time.time_ns() - start_ns)
+                else:
+                    stream.push_chunk(chunk.text, loop)
+            stream.push_done(final, loop)
         except Exception as exc:
-            loop.call_soon_threadsafe(queue.put_nowait, exc)
-        finally:
-            loop.call_soon_threadsafe(queue.put_nowait, None)
+            stream.push_error(exc, loop)
 
-    worker_thread = threading.Thread(target=worker, daemon=True)
-    worker_thread.start()
+    job = asyncio.create_task(get_worker(raw_request.app).submit(run_stream))
+    _STREAM_JOBS.add(job)
+    job.add_done_callback(_STREAM_JOBS.discard)
+    job.add_done_callback(lambda finished: _forward_job_failure(finished, stream, loop))
+    source = stream.__aiter__()
+    try:
+        first = await source.__anext__()
+    except BaseException:
+        stream.cancel()
+        raise
+    if first[0] == "error":
+        stream.cancel()
+        raise _stream_failure(first[1], model)
 
-    while True:
-        item = await queue.get()
-        if item is None:
-            break
-        if isinstance(item, Exception):
-            raise item
-        yield item
+    async def events() -> AsyncIterator[Any]:
+        yield first
+        if first[0] == "chunk":
+            async for item in source:
+                yield item
+
+    return stream, events()
 
 
-def _eval_timing_ns(engine: Any, duration_ns: int) -> Dict[str, int]:
+def _eval_timing_ns(telemetry: Any, duration_ns: int) -> Dict[str, int]:
     """Split a request duration into prompt and decode nanoseconds using measured TTFT only.
 
     Args:
-        engine: Engine that served the request.
+        telemetry: EngineTelemetry of the finished request.
         duration_ns: Total wall-clock request duration in nanoseconds.
 
     Returns:
         Dict[str, int]: prompt_eval_duration and eval_duration, both 0 when TTFT was not measured.
     """
-    telemetry = engine.get_telemetry()
     if not telemetry.is_ttft_valid:
         return {"prompt_eval_duration": 0, "eval_duration": 0}
     prompt_ns = min(int(telemetry.ttft_ms * 1_000_000), duration_ns)
     return {"prompt_eval_duration": prompt_ns, "eval_duration": max(duration_ns - prompt_ns, 0)}
 
 
-def _measured_prompt_count(engine: Any) -> Optional[int]:
+def _measured_prompt_count(telemetry: Any) -> Optional[int]:
     """Return the engine-measured prompt token count, or None when it was not measured.
 
     Args:
-        engine: Engine that served the request.
+        telemetry: EngineTelemetry of the finished request.
 
     Returns:
         Optional[int]: Telemetry prompt_tokens when positive, else None (0 means not measured).
     """
-    count = engine.get_telemetry().prompt_tokens
+    count = telemetry.prompt_tokens
     return count if count > 0 else None
 
 
@@ -385,63 +460,62 @@ async def generate(
     if request.options and "device" in request.options:
         device = str(request.options["device"])
 
-    try:
-        engine = manager.get_or_load_engine(request.model, device=device)
-    except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=model_not_found_detail(request.model)) from exc
-    except Exception as exc:
-        raise hidden_error("engine load failed", exc, "Failed to load engine", model=request.model) from exc
-
-    batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
-    if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
-        match_prefix_with_real_tokens(batch_pipeline, engine, request.prompt)
-
     gen_config = _build_generation_config(
         request.options,
         stream=request.stream,
         adapters=request.adapters,
         adapter=request.adapter,
     )
-    start_ns = time.time_ns()
 
     if request.stream:
+        stream, events = await _open_stream(raw_request, manager, request.model, device, request.prompt, gen_config)
+
         async def ndjson_generator() -> AsyncIterator[str]:
             tokens_generated = 0
-            async for chunk in _stream_token_chunks(engine, request.prompt, gen_config):
-                if await raw_request.is_disconnected():
-                    break
-                now_iso = datetime.now(timezone.utc).isoformat()
-                if not chunk.is_finished:
-                    tokens_generated += 1
-                    payload = {
-                        "model": request.model,
-                        "created_at": now_iso,
-                        "response": chunk.text,
-                        "done": False,
-                    }
-                    yield json.dumps(payload) + "\n"
-                else:
-                    duration_ns = time.time_ns() - start_ns
-                    manager.record_generation_metrics(tokens_generated)
-                    final_payload = {
-                        "model": request.model,
-                        "created_at": now_iso,
-                        "response": chunk.text,
-                        "done": True,
-                        "total_duration": duration_ns,
-                        "load_duration": 0,
-                        **({} if chunk.prompt_tokens is None else {"prompt_eval_count": chunk.prompt_tokens}),
-                        "eval_count": tokens_generated,
-                        **_eval_timing_ns(engine, duration_ns),
-                        "context": [],
-                    }
-                    yield json.dumps(final_payload) + "\n"
+            try:
+                async for kind, payload in events:
+                    if await raw_request.is_disconnected():
+                        break
+                    now_iso = datetime.now(timezone.utc).isoformat()
+                    if kind == "chunk":
+                        tokens_generated += 1
+                        yield json.dumps(
+                            {
+                                "model": request.model,
+                                "created_at": now_iso,
+                                "response": payload,
+                                "done": False,
+                            }
+                        ) + "\n"
+                    elif kind == "done":
+                        if payload is None:
+                            continue
+                        final_text, prompt_tokens, telemetry, duration_ns = payload
+                        manager.record_generation_metrics(tokens_generated)
+                        final_payload = {
+                            "model": request.model,
+                            "created_at": now_iso,
+                            "response": final_text,
+                            "done": True,
+                            "total_duration": duration_ns,
+                            "load_duration": 0,
+                            **({} if prompt_tokens is None else {"prompt_eval_count": prompt_tokens}),
+                            "eval_count": tokens_generated,
+                            **_eval_timing_ns(telemetry, duration_ns),
+                            "context": [],
+                        }
+                        yield json.dumps(final_payload) + "\n"
+                    else:
+                        raise payload
+            finally:
+                stream.cancel()
 
         return StreamingResponse(ndjson_generator(), media_type="application/x-ndjson")
 
-    text = engine.generate(request.prompt, gen_config)
-    duration_ns = time.time_ns() - start_ns
-    tokens_count = engine.get_telemetry().total_tokens
+    text, telemetry, duration_ns = await _run_blocking(
+        raw_request, manager, request.model, device, request.prompt, gen_config
+    )
+    tokens_count = telemetry.total_tokens
     manager.record_generation_metrics(tokens_count)
 
     return _without_unmeasured(
@@ -452,9 +526,9 @@ async def generate(
             done=True,
             total_duration=duration_ns,
             load_duration=0,
-            prompt_eval_count=_measured_prompt_count(engine),
+            prompt_eval_count=_measured_prompt_count(telemetry),
             eval_count=tokens_count,
-            **_eval_timing_ns(engine, duration_ns),
+            **_eval_timing_ns(telemetry, duration_ns),
             context=[],
         ),
         "prompt_eval_count",
@@ -487,18 +561,7 @@ async def chat(
     if request.options and "device" in request.options:
         device = str(request.options["device"])
 
-    try:
-        engine = manager.get_or_load_engine(request.model, device=device)
-    except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=model_not_found_detail(request.model)) from exc
-    except Exception as exc:
-        raise hidden_error("engine load failed", exc, "Failed to load engine", model=request.model) from exc
-
     chat_prompt = _format_chat_prompt(request.messages, request.model)
-
-    batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
-    if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
-        match_prefix_with_real_tokens(batch_pipeline, engine, chat_prompt)
 
     gen_config = _build_generation_config(
         request.options,
@@ -506,56 +569,67 @@ async def chat(
         adapters=request.adapters,
         adapter=request.adapter,
     )
-    start_ns = time.time_ns()
 
     if request.stream:
+        stream, events = await _open_stream(raw_request, manager, request.model, device, chat_prompt, gen_config)
+
         async def chat_ndjson_generator() -> AsyncIterator[str]:
             tokens_generated = 0
             output_parser = _ChatOutputParser(request.model)
-            async for chunk in _stream_token_chunks(engine, chat_prompt, gen_config):
-                if await raw_request.is_disconnected():
-                    break
-                now_iso = datetime.now(timezone.utc).isoformat()
-                if not chunk.is_finished:
-                    tokens_generated += 1
-                    parsed_text = output_parser.feed(chunk.text)
-                    payload = {
-                        "model": request.model,
-                        "created_at": now_iso,
-                        "message": {
-                            "role": "assistant",
-                            "content": parsed_text["content"],
-                            "thinking": parsed_text["thinking"],
-                        },
-                        "done": False,
-                    }
-                    yield json.dumps(payload) + "\n"
-                else:
-                    parsed_text = output_parser.feed(chunk.text, final=True)
-                    duration_ns = time.time_ns() - start_ns
-                    manager.record_generation_metrics(tokens_generated)
-                    final_payload = {
-                        "model": request.model,
-                        "created_at": now_iso,
-                        "message": {
-                            "role": "assistant",
-                            "content": parsed_text["content"],
-                            "thinking": parsed_text["thinking"],
-                        },
-                        "done": True,
-                        "total_duration": duration_ns,
-                        "load_duration": 0,
-                        **({} if chunk.prompt_tokens is None else {"prompt_eval_count": chunk.prompt_tokens}),
-                        "eval_count": tokens_generated,
-                        **_eval_timing_ns(engine, duration_ns),
-                    }
-                    yield json.dumps(final_payload) + "\n"
+            try:
+                async for kind, payload in events:
+                    if await raw_request.is_disconnected():
+                        break
+                    now_iso = datetime.now(timezone.utc).isoformat()
+                    if kind == "chunk":
+                        tokens_generated += 1
+                        parsed_text = output_parser.feed(payload)
+                        yield json.dumps(
+                            {
+                                "model": request.model,
+                                "created_at": now_iso,
+                                "message": {
+                                    "role": "assistant",
+                                    "content": parsed_text["content"],
+                                    "thinking": parsed_text["thinking"],
+                                },
+                                "done": False,
+                            }
+                        ) + "\n"
+                    elif kind == "done":
+                        if payload is None:
+                            continue
+                        final_text, prompt_tokens, telemetry, duration_ns = payload
+                        parsed_text = output_parser.feed(final_text, final=True)
+                        manager.record_generation_metrics(tokens_generated)
+                        final_payload = {
+                            "model": request.model,
+                            "created_at": now_iso,
+                            "message": {
+                                "role": "assistant",
+                                "content": parsed_text["content"],
+                                "thinking": parsed_text["thinking"],
+                            },
+                            "done": True,
+                            "total_duration": duration_ns,
+                            "load_duration": 0,
+                            **({} if prompt_tokens is None else {"prompt_eval_count": prompt_tokens}),
+                            "eval_count": tokens_generated,
+                            **_eval_timing_ns(telemetry, duration_ns),
+                        }
+                        yield json.dumps(final_payload) + "\n"
+                    else:
+                        raise payload
+            finally:
+                stream.cancel()
 
         return StreamingResponse(chat_ndjson_generator(), media_type="application/x-ndjson")
 
-    parsed_text = _split_chat_output(engine.generate(chat_prompt, gen_config), request.model)
-    duration_ns = time.time_ns() - start_ns
-    tokens_count = engine.get_telemetry().total_tokens
+    text, telemetry, duration_ns = await _run_blocking(
+        raw_request, manager, request.model, device, chat_prompt, gen_config
+    )
+    parsed_text = _split_chat_output(text, request.model)
+    tokens_count = telemetry.total_tokens
     manager.record_generation_metrics(tokens_count)
 
     return _without_unmeasured(
@@ -570,9 +644,9 @@ async def chat(
             done=True,
             total_duration=duration_ns,
             load_duration=0,
-            prompt_eval_count=_measured_prompt_count(engine),
+            prompt_eval_count=_measured_prompt_count(telemetry),
             eval_count=tokens_count,
-            **_eval_timing_ns(engine, duration_ns),
+            **_eval_timing_ns(telemetry, duration_ns),
         ),
         "prompt_eval_count",
     )
@@ -643,12 +717,14 @@ async def pull_model(
 @router.delete("/api/delete", response_model=OllamaStatusResponse)
 async def delete_model(
     request: OllamaDeleteRequest,
+    raw_request: Request,
     hub: HubManager = Depends(get_hub_manager),
 ) -> OllamaStatusResponse:
     """Delete a local model repository from disk matching Ollama DELETE /api/delete.
 
     Args:
         request: OllamaDeleteRequest payload.
+        raw_request: Active FastAPI HTTP request.
         hub: Injected HubManager instance.
 
     Returns:
@@ -656,16 +732,19 @@ async def delete_model(
 
     Raises:
         HTTPException: If model is missing or not found.
+        EngineUnavailableError: When the worker is stopping or wedged (HTTP 503).
     """
     target = request.name or request.model
     if not target or not target.strip():
         raise HTTPException(status_code=400, detail="Missing required 'name' or 'model' field")
 
     try:
-        hub.delete(target)
+        await get_worker(raw_request.app).submit(lambda ctx: hub.delete(target))
         return OllamaStatusResponse(status="success")
     except ModelNotFoundError as exc:
         raise HTTPException(status_code=404, detail=model_not_found_detail(target)) from exc
+    except EngineUnavailableError:
+        raise
     except Exception as exc:
         raise hidden_error("model delete failed", exc, "Model delete failed", model=target) from exc
 

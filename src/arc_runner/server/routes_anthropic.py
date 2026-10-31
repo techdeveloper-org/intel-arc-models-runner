@@ -1,8 +1,8 @@
 """Anthropic Messages API routes so Claude Code can use the runner the way it uses Ollama.
 
 Serves POST /v1/messages (blocking and server-sent events), POST /v1/messages/count_tokens and the
-HEAD/GET /api/hello connection probe. Engine work reuses the OpenAI route machinery (prompt layout,
-the thread-to-async stream bridge and measured-usage rules); this module adds Anthropic framing,
+HEAD/GET /api/hello connection probe. Engine work runs on the serial inference worker and reuses the OpenAI route
+machinery (measured-usage rules and job-failure forwarding); this module adds Anthropic framing,
 tool-call handling, ping events and the Anthropic error envelope.
 
 Token counts on the wire are engine-measured or absent. A stream carries ping events while the
@@ -11,9 +11,7 @@ engine is silent so the client's idle watchdog does not abort a long prefill.
 
 import asyncio
 import json
-import threading
 from typing import Any, AsyncIterator, Dict, List, Optional, Set, Tuple
-import weakref
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -21,7 +19,7 @@ from pydantic import ValidationError
 
 from arc_runner.core.exceptions import ArcRunnerError, ContextWindowExceededError, ModelNotFoundError
 from arc_runner.core.logging import get_logger
-from arc_runner.engine.models import EngineTelemetry, GenerationConfig, TokenChunk
+from arc_runner.engine.models import EngineTelemetry, GenerationConfig
 from arc_runner.server.anthropic_convert import (
     Segment,
     StreamSegmenter,
@@ -39,7 +37,8 @@ from arc_runner.server.anthropic_schemas import (
     parse_messages_request,
 )
 from arc_runner.server.model_manager import ModelManager
-from arc_runner.server.routes_openai import _stream_token_chunks, get_model_manager, measured_usage
+from arc_runner.server.routes_openai import _forward_job_failure, get_model_manager, measured_usage
+from arc_runner.server.worker import AsyncTokenStream, JobContext, LoadPhaseError, get_worker
 
 logger = get_logger("server.routes_anthropic")
 
@@ -49,67 +48,7 @@ probe_router = APIRouter(tags=["anthropic"])
 STREAM_PING_INTERVAL_SECONDS: float = 10.0
 MAX_REQUEST_BYTES: int = 64 * 1024 * 1024
 
-_ENGINE_LOCKS: "weakref.WeakKeyDictionary[Any, threading.Lock]" = weakref.WeakKeyDictionary()
-_ENGINE_LOCKS_GUARD = threading.Lock()
 _END = object()
-_PING = object()
-
-
-def _engine_lock(engine: Any) -> threading.Lock:
-    """Return the lock that serialises work on one engine instance.
-
-    Args:
-        engine: Loaded engine.
-
-    Returns:
-        threading.Lock: The engine's lock, created on first use.
-    """
-    with _ENGINE_LOCKS_GUARD:
-        lock = _ENGINE_LOCKS.get(engine)
-        if lock is None:
-            lock = threading.Lock()
-            _ENGINE_LOCKS[engine] = lock
-        return lock
-
-
-class _GuardedEngine:
-    """Engine view for the stream bridge that serialises runs, stops on cancel and captures telemetry."""
-
-    def __init__(self, engine: Any, cancel: threading.Event) -> None:
-        """Wrap an engine.
-
-        Args:
-            engine: Loaded engine.
-            cancel: Set by the consumer when the client left or the request ended.
-        """
-        self._engine = engine
-        self._cancel = cancel
-        self.telemetry: Optional[EngineTelemetry] = None
-
-    def generate_stream(self, prompt: str, config: GenerationConfig) -> Any:
-        """Yield engine chunks while holding the engine lock, closing the engine stream on cancel.
-
-        Args:
-            prompt: Prompt text.
-            config: Generation parameters.
-
-        Yields:
-            TokenChunk: Chunks from the wrapped engine.
-        """
-        with _engine_lock(self._engine):
-            if self._cancel.is_set():
-                return
-            inner = self._engine.generate_stream(prompt, config)
-            try:
-                for chunk in inner:
-                    if self._cancel.is_set():
-                        return
-                    yield chunk
-                self.telemetry = self._engine.get_telemetry()
-            finally:
-                close = getattr(inner, "close", None)
-                if callable(close):
-                    close()
 
 
 def _describe_error(exc: BaseException) -> Tuple[int, str, str]:
@@ -192,23 +131,21 @@ async def _read_request(raw_request: Request, require_max_tokens: bool) -> Parse
     return parse_messages_request(payload, require_max_tokens=require_max_tokens)
 
 
-async def _load_engine(manager: ModelManager, model: str) -> Any:
-    """Load or fetch the engine for a model off the event loop.
+def _load_failure(manager: ModelManager, model: str, exc: LoadPhaseError) -> BaseException:
+    """Translate an engine-load failure from the worker into the exception the route reports.
 
     Args:
         manager: Model manager.
         model: Requested model name.
+        exc: LoadPhaseError whose ``__cause__`` is the original load exception.
 
     Returns:
-        Any: Ready engine.
-
-    Raises:
-        AnthropicRequestError: 404 when the model is unknown.
+        BaseException: A 404 AnthropicRequestError for an unknown model, otherwise the original exception.
     """
-    try:
-        return await asyncio.to_thread(manager.get_or_load_engine, model, "GPU")
-    except ModelNotFoundError as exc:
-        raise _model_not_found(manager, model) from exc
+    cause = exc.__cause__
+    if isinstance(cause, ModelNotFoundError):
+        return _model_not_found(manager, model)
+    return cause
 
 
 def _build_config(parsed: ParsedRequest, stream: bool) -> GenerationConfig:
@@ -286,22 +223,6 @@ def _segments_to_blocks(segments: Optional[List[Segment]], text: str) -> List[Di
         else:
             blocks.append({"type": "tool_use", "id": new_tool_id(), "name": segment.name, "input": segment.input})
     return blocks
-
-
-def _generate_blocking(engine: Any, prompt: str, config: GenerationConfig) -> Tuple[str, EngineTelemetry]:
-    """Run one blocking generation under the engine lock.
-
-    Args:
-        engine: Loaded engine.
-        prompt: Prompt text.
-        config: Generation parameters.
-
-    Returns:
-        Tuple[str, EngineTelemetry]: Output text and the telemetry of that same run.
-    """
-    with _engine_lock(engine):
-        text = engine.generate(prompt, config)
-        return text, engine.get_telemetry()
 
 
 def _event(name: str, data: Dict[str, Any]) -> bytes:
@@ -392,17 +313,17 @@ class _BlockWriter:
         ]
 
 
-async def _next_chunk(chunks: AsyncIterator[TokenChunk]) -> Any:
-    """Await the next chunk, returning a sentinel at the end of the stream.
+async def _next_event(events: AsyncIterator[Tuple[str, Any]]) -> Any:
+    """Await the next stream event, returning a sentinel at the end of the stream.
 
     Args:
-        chunks: Bridge iterator.
+        events: Iterator over the AsyncTokenStream.
 
     Returns:
-        Any: A TokenChunk, or the end sentinel.
+        Any: A (kind, payload) event, or the end sentinel.
     """
     try:
-        return await chunks.__anext__()
+        return await events.__anext__()
     except StopAsyncIteration:
         return _END
 
@@ -410,10 +331,9 @@ async def _next_chunk(chunks: AsyncIterator[TokenChunk]) -> Any:
 async def _sse_body(
     raw_request: Request,
     manager: ModelManager,
-    guarded: _GuardedEngine,
-    chunks: AsyncIterator[TokenChunk],
+    stream: AsyncTokenStream,
+    events: AsyncIterator[Tuple[str, Any]],
     first: "asyncio.Future[Any]",
-    cancel: threading.Event,
     parsed: ParsedRequest,
 ) -> AsyncIterator[bytes]:
     """Produce the server-sent event stream for one message.
@@ -421,10 +341,9 @@ async def _sse_body(
     Args:
         raw_request: Incoming request, used to notice a departed client while the engine is silent.
         manager: Model manager, told the measured token count.
-        guarded: Engine view that captured telemetry for this run.
-        chunks: Bridge iterator over engine chunks.
-        first: Task already waiting for the first chunk.
-        cancel: Cancel flag shared with the engine thread.
+        stream: Stream the worker job feeds; cancelled when the response ends.
+        events: Iterator over that stream.
+        first: Task already waiting for the first event.
         parsed: Validated request.
 
     Yields:
@@ -435,6 +354,7 @@ async def _sse_body(
     segmenter = StreamSegmenter(enabled=bool(names))
     finish_reason: Optional[str] = None
     final_prompt_tokens: Optional[int] = None
+    telemetry: Optional[EngineTelemetry] = None
     pending = first
     yield _event("message_start", {"type": "message_start", "message": {
         "id": new_message_id(), "type": "message", "role": "assistant", "model": parsed.model,
@@ -449,16 +369,18 @@ async def _sse_body(
                 if await raw_request.is_disconnected():
                     return
                 yield _event("ping", {"type": "ping"})
-            chunk = pending.result()
-            if chunk is _END:
+            item = pending.result()
+            if item is _END:
                 break
-            if chunk.is_finished:
-                finish_reason = chunk.finish_reason
-                final_prompt_tokens = chunk.prompt_tokens
+            kind, payload = item
+            if kind == "error":
+                raise _stream_error(manager, parsed.model, payload)
+            if kind == "done":
+                telemetry, finish_reason, final_prompt_tokens = payload
             else:
-                for event in writer.text(segmenter.feed(chunk.text)):
+                for event in writer.text(segmenter.feed(payload)):
                     yield event
-            pending = asyncio.ensure_future(_next_chunk(chunks))
+            pending = asyncio.ensure_future(_next_event(events))
 
         flushed, tail = segmenter.finish()
         for event in writer.text(flushed):
@@ -470,9 +392,9 @@ async def _sse_body(
                     yield event
         for event in writer.close_text() + writer.empty_block_if_none():
             yield event
-        usage = _usage(guarded.telemetry, final_prompt_tokens)
-        if guarded.telemetry is not None and guarded.telemetry.metrics_source != "unavailable":
-            manager.record_generation_metrics(guarded.telemetry.total_tokens)
+        usage = _usage(telemetry, final_prompt_tokens)
+        if telemetry is not None and telemetry.metrics_source != "unavailable":
+            manager.record_generation_metrics(telemetry.total_tokens)
         if writer.tool_blocks:
             stop_reason = "tool_use"
         else:
@@ -483,29 +405,39 @@ async def _sse_body(
         _, error_type, message = _describe_error(exc)
         yield _event("error", {"type": "error", "error": {"type": error_type, "message": message}})
     finally:
-        cancel.set()
+        stream.cancel()
         if not pending.done():
             pending.cancel()
+
+
+def _stream_error(manager: ModelManager, model: str, exc: BaseException) -> BaseException:
+    """Translate the exception of a stream error event into the exception the route reports.
+
+    Args:
+        manager: Model manager.
+        model: Requested model name.
+        exc: Exception carried by the error event.
+
+    Returns:
+        BaseException: The mapped exception; LoadPhaseError is unwrapped.
+    """
+    return _load_failure(manager, model, exc) if isinstance(exc, LoadPhaseError) else exc
 
 
 async def _open_stream(
     raw_request: Request,
     manager: ModelManager,
-    engine: Any,
-    prompt: str,
     parsed: ParsedRequest,
     request_id: str,
 ) -> StreamingResponse:
-    """Start the engine and return the streaming response.
+    """Start the worker job and return the streaming response.
 
-    The first engine event is awaited for up to one ping interval before the HTTP status is committed, so a
+    The first stream event is awaited for up to one ping interval before the HTTP status is committed, so a
     prompt that does not fit the context window fails as an HTTP 400 that the client can act on.
 
     Args:
         raw_request: Incoming request.
         manager: Model manager.
-        engine: Loaded engine.
-        prompt: Prompt text.
         parsed: Validated request.
         request_id: Request id for the response header.
 
@@ -513,18 +445,50 @@ async def _open_stream(
         StreamingResponse: text/event-stream response.
 
     Raises:
-        Exception: Whatever the engine raised before producing its first event.
+        Exception: Whatever the job raised before producing its first event.
     """
-    cancel = threading.Event()
-    guarded = _GuardedEngine(engine, cancel)
-    chunks = _stream_token_chunks(guarded, prompt, _build_config(parsed, True))
-    first = asyncio.ensure_future(_next_chunk(chunks))
+    worker = get_worker(raw_request.app)
+    loop = asyncio.get_running_loop()
+    stream = AsyncTokenStream()
+
+    def run_stream(ctx: JobContext) -> None:
+        """Load, render the prompt and push every engine chunk into the stream on the worker thread."""
+        try:
+            engine = ctx.load(lambda: manager.get_or_load_engine(parsed.model, "GPU"))
+            prompt = build_prompt(engine, parsed)
+            config = _build_config(parsed, True)
+            finish_reason: Optional[str] = None
+            prompt_tokens: Optional[int] = None
+            inner = engine.generate_stream(prompt, config)
+            try:
+                for chunk in inner:
+                    if stream.is_cancelled:
+                        return
+                    if chunk.is_finished:
+                        finish_reason = chunk.finish_reason
+                        prompt_tokens = chunk.prompt_tokens
+                    else:
+                        stream.push_chunk(chunk.text, loop)
+                stream.push_done((engine.get_telemetry(), finish_reason, prompt_tokens), loop)
+            finally:
+                close = getattr(inner, "close", None)
+                if callable(close):
+                    close()
+        except Exception as exc:
+            stream.push_error(exc, loop)
+
+    job = asyncio.create_task(worker.submit(run_stream))
+    job.add_done_callback(lambda finished: _forward_job_failure(finished, stream, loop))
+    events = stream.__aiter__()
+    first = asyncio.ensure_future(_next_event(events))
     done, _ = await asyncio.wait({first}, timeout=STREAM_PING_INTERVAL_SECONDS)
-    if first in done and first.exception() is not None:
-        cancel.set()
-        raise first.exception()  # type: ignore[misc]
+    if first in done:
+        result = first.result()
+        if result is not _END and result[0] == "error":
+            stream.cancel()
+            raise _stream_error(manager, parsed.model, result[1])
     return StreamingResponse(
-        _sse_body(raw_request, manager, guarded, chunks, first, cancel, parsed),
+        _sse_body(raw_request, manager, stream, events, first, parsed),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "request-id": request_id},
     )
@@ -548,12 +512,20 @@ async def create_message(raw_request: Request, manager: ModelManager = Depends(g
             "model": parsed.model, "stream": parsed.stream, "turns": len(parsed.messages),
             "tools": len(parsed.tools), "max_tokens": parsed.max_tokens,
         })
-        engine = await _load_engine(manager, parsed.model)
-        prompt = build_prompt(engine, parsed)
         if parsed.stream:
-            return await _open_stream(raw_request, manager, engine, prompt, parsed, request_id)
-        config = _build_config(parsed, False)
-        text, telemetry = await asyncio.to_thread(_generate_blocking, engine, prompt, config)
+            return await _open_stream(raw_request, manager, parsed, request_id)
+
+        def run(ctx: JobContext) -> Tuple[str, EngineTelemetry]:
+            """Load, render the prompt and generate once on the worker thread."""
+            engine = ctx.load(lambda: manager.get_or_load_engine(parsed.model, "GPU"))
+            prompt = build_prompt(engine, parsed)
+            config = _build_config(parsed, False)
+            return engine.generate(prompt, config), engine.get_telemetry()
+
+        try:
+            text, telemetry = await get_worker(raw_request.app).submit(run)
+        except LoadPhaseError as exc:
+            raise _load_failure(manager, parsed.model, exc) from exc.__cause__
     except Exception as exc:
         return _error_response(exc, request_id)
 
@@ -592,17 +564,19 @@ async def count_tokens(raw_request: Request, manager: ModelManager = Depends(get
     request_id = new_request_id()
     try:
         parsed = await _read_request(raw_request, require_max_tokens=False)
-        engine = await _load_engine(manager, parsed.model)
-        tokenize = getattr(engine, "tokenize", None)
-        token_ids: Optional[List[int]] = None
-        if callable(tokenize):
-            prompt = build_prompt(engine, parsed)
 
-            def run() -> Optional[List[int]]:
-                with _engine_lock(engine):
-                    return tokenize(prompt)
+        def run(ctx: JobContext) -> Optional[List[int]]:
+            """Load the engine and tokenize the exact prompt it would receive, on the worker thread."""
+            engine = ctx.load(lambda: manager.get_or_load_engine(parsed.model, "GPU"))
+            tokenize = getattr(engine, "tokenize", None)
+            if not callable(tokenize):
+                return None
+            return tokenize(build_prompt(engine, parsed))
 
-            token_ids = await asyncio.to_thread(run)
+        try:
+            token_ids = await get_worker(raw_request.app).submit(run)
+        except LoadPhaseError as exc:
+            raise _load_failure(manager, parsed.model, exc) from exc.__cause__
         if token_ids is None:
             raise AnthropicRequestError(
                 "token counting is unavailable: the loaded engine has no usable tokenizer, so no count is reported "

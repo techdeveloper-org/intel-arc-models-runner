@@ -5,11 +5,11 @@ leveraging the Intel AI Boost NPU and Arc GPU embedding engine.
 """
 
 import time
-from typing import List, Optional, Union
+from typing import Any, Callable, List, Optional, TypeVar
 
 from fastapi import APIRouter, HTTPException, Request, status
 
-from arc_runner.core.exceptions import ModelNotFoundError
+from arc_runner.core.exceptions import EngineUnavailableError, ModelNotFoundError
 from arc_runner.core.logging import get_logger, get_request_id
 from arc_runner.server.errors import hidden_error
 from arc_runner.server.schemas import (
@@ -22,10 +22,58 @@ from arc_runner.server.schemas import (
     OpenAIEmbeddingResponse,
     OpenAIEmbeddingUsage,
 )
+from arc_runner.server.worker import JobContext, LoadPhaseError, get_worker
 
 logger = get_logger("server.routes.embeddings")
 
 embeddings_router = APIRouter(tags=["Embeddings"])
+
+T = TypeVar("T")
+
+
+async def _run_embedding(
+    request: Request,
+    model: str,
+    job: Callable[[Any], T],
+    not_found_detail: str,
+    failure_public: str,
+) -> T:
+    """Run an embedding job on the serial worker and map failures to the route's error shapes.
+
+    Args:
+        request: FastAPI request holding the application state.
+        model: Embedding model name, used for logging.
+        job: Callable taking the loaded embedding engine and returning the route result.
+        not_found_detail: Client message for an unknown model (HTTP 404).
+        failure_public: Client message for any other failure (HTTP 500).
+
+    Returns:
+        T: Value returned by ``job``.
+
+    Raises:
+        HTTPException: 404 for an unknown model, 500 for any other failure.
+        EngineUnavailableError: When the worker is stopping or wedged (HTTP 503).
+    """
+    model_mgr = request.app.state.model_manager
+    req_id = get_request_id()
+
+    def run(ctx: JobContext) -> T:
+        """Load the embedding engine and execute the job on the worker thread."""
+        engine = ctx.load(lambda: model_mgr.get_or_load_embedding_engine(model))
+        return job(engine)
+
+    try:
+        return await get_worker(request.app).submit(run)
+    except EngineUnavailableError:
+        raise
+    except LoadPhaseError as exc:
+        cause = exc.__cause__
+        if isinstance(cause, ModelNotFoundError):
+            logger.warning(f"Embedding model not found: {model} [request_id={req_id}]")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail) from cause
+        raise hidden_error("embedding request failed", cause, failure_public, model=model, request_id=req_id) from cause
+    except Exception as exc:
+        raise hidden_error("embedding request failed", exc, failure_public, model=model, request_id=req_id) from exc
 
 
 @embeddings_router.post(
@@ -46,21 +94,14 @@ async def api_embeddings(req: OllamaEmbeddingRequest, request: Request) -> Ollam
     Raises:
         HTTPException: 404 if model not found, 500 on execution error.
     """
-    model_mgr = request.app.state.model_manager
-    req_id = get_request_id()
-
-    try:
-        engine = model_mgr.get_or_load_embedding_engine(req.model)
-        vector = engine.embed_query(req.prompt)
-        return OllamaEmbeddingResponse(embedding=vector)
-    except ModelNotFoundError as exc:
-        logger.warning(f"Embedding model not found: {req.model} [request_id={req_id}]")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Embedding model '{req.model}' not found in registered directories.",
-        ) from exc
-    except Exception as exc:
-        raise hidden_error("embedding request failed", exc, "Embedding generation failed", model=req.model, request_id=req_id) from exc
+    vector = await _run_embedding(
+        request,
+        req.model,
+        lambda engine: engine.embed_query(req.prompt),
+        f"Embedding model '{req.model}' not found in registered directories.",
+        "Embedding generation failed",
+    )
+    return OllamaEmbeddingResponse(embedding=vector)
 
 
 def _reported_tokens(engine: object) -> Optional[int]:
@@ -97,37 +138,27 @@ async def api_embed(req: OllamaEmbedRequest, request: Request) -> OllamaEmbedRes
     Raises:
         HTTPException: 404 if model not found, 500 on execution error.
     """
-    model_mgr = request.app.state.model_manager
-    req_id = get_request_id()
     t_start = time.perf_counter_ns()
+    inputs: List[str] = [req.input] if isinstance(req.input, str) else list(req.input)
 
-    try:
-        engine = model_mgr.get_or_load_embedding_engine(req.model)
+    def job(engine: Any) -> Any:
+        """Embed the documents and capture the engine-reported token count on the worker thread."""
+        return engine.embed_documents(inputs), _reported_tokens(engine)
 
-        inputs: List[str]
-        if isinstance(req.input, str):
-            inputs = [req.input]
-        else:
-            inputs = list(req.input)
-
-        vectors = engine.embed_documents(inputs)
-        t_duration = time.perf_counter_ns() - t_start
-
-        return OllamaEmbedResponse(
-            model=req.model,
-            embeddings=vectors,
-            total_duration=t_duration,
-            load_duration=0,
-            prompt_eval_count=_reported_tokens(engine),
-        )
-    except ModelNotFoundError as exc:
-        logger.warning(f"Embedding model not found: {req.model} [request_id={req_id}]")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Embedding model '{req.model}' not found in registered directories.",
-        ) from exc
-    except Exception as exc:
-        raise hidden_error("embedding request failed", exc, "Batch embedding generation failed", model=req.model, request_id=req_id) from exc
+    vectors, reported = await _run_embedding(
+        request,
+        req.model,
+        job,
+        f"Embedding model '{req.model}' not found in registered directories.",
+        "Batch embedding generation failed",
+    )
+    return OllamaEmbedResponse(
+        model=req.model,
+        embeddings=vectors,
+        total_duration=time.perf_counter_ns() - t_start,
+        load_duration=0,
+        prompt_eval_count=reported,
+    )
 
 
 @embeddings_router.post(
@@ -149,43 +180,19 @@ async def v1_embeddings(req: OpenAIEmbeddingRequest, request: Request) -> OpenAI
     Raises:
         HTTPException: 404 if model not found, 500 on execution error.
     """
-    model_mgr = request.app.state.model_manager
-    req_id = get_request_id()
+    inputs: List[str] = [req.input] if isinstance(req.input, str) else [str(x) for x in req.input]
 
-    try:
-        engine = model_mgr.get_or_load_embedding_engine(req.model)
+    def job(engine: Any) -> Any:
+        """Embed the documents and capture the engine-reported token count on the worker thread."""
+        return engine.embed_documents(inputs), _reported_tokens(engine)
 
-        inputs: List[str]
-        if isinstance(req.input, str):
-            inputs = [req.input]
-        else:
-            inputs = [str(x) for x in req.input]
-
-        vectors = engine.embed_documents(inputs)
-
-        data = [
-            OpenAIEmbeddingData(
-                object="embedding",
-                index=idx,
-                embedding=vec,
-            )
-            for idx, vec in enumerate(vectors)
-        ]
-
-        reported = _reported_tokens(engine)
-        usage = None if reported is None else OpenAIEmbeddingUsage(prompt_tokens=reported, total_tokens=reported)
-
-        return OpenAIEmbeddingResponse(
-            object="list",
-            data=data,
-            model=req.model,
-            usage=usage,
-        )
-    except ModelNotFoundError as exc:
-        logger.warning(f"OpenAI embedding model not found: {req.model} [request_id={req_id}]")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Model '{req.model}' not found.",
-        ) from exc
-    except Exception as exc:
-        raise hidden_error("embedding request failed", exc, "Embedding generation failed", model=req.model, request_id=req_id) from exc
+    vectors, reported = await _run_embedding(
+        request,
+        req.model,
+        job,
+        f"Model '{req.model}' not found.",
+        "Embedding generation failed",
+    )
+    data = [OpenAIEmbeddingData(object="embedding", index=idx, embedding=vec) for idx, vec in enumerate(vectors)]
+    usage = None if reported is None else OpenAIEmbeddingUsage(prompt_tokens=reported, total_tokens=reported)
+    return OpenAIEmbeddingResponse(object="list", data=data, model=req.model, usage=usage)

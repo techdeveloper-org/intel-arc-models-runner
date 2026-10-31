@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "arc-runner"
-version = "0.2.0"
+version = "0.2.1"
 description = "High-performance local model runner optimized specifically for Intel Arc GPUs and AI Boost NPUs."
 readme = "README.md"
 requires-python = ">=3.10"

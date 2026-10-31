@@ -25,6 +25,13 @@ docs/              architecture, benchmarks (METHOD.md, schema/, results/), form
 uml/, drawio/      generated diagrams (13 types each)
 ```
 
+### Key Components
+
+| Component | Path | Description |
+|:---|:---|:---|
+| SerialWorker | `src/arc_runner/server/worker.py` | FIFO daemon thread serialising engine calls [v0.2.1] <!-- Introduced in v0.2.1 --> |
+| AsyncTokenStream | `src/arc_runner/server/worker.py` | Ordered sync→async bridge for streaming tokens [v0.2.1] <!-- Introduced in v0.2.1 --> |
+
 Native layer: Python `NativeMemoryEngine` -> ctypes -> `libarc_native_sys` (ABI version 3, sidecar hash checked on load) -> OS mapping. Missing, disabled (`ARC_NATIVE_DISABLE=1`) or stale libraries fall back to the Python read path. Level Zero is loaded at run time and always selects a GPU device, never the NPU.
 
 Delivery records: `docs/delivery/` (RESUME.md is the session entry point; INDEX.md, DECISION_LOG.md, TRACEABILITY.md, stages/). The long-range plan is `docs/plans/MASTER_PLAN_v4.md`.
