@@ -299,9 +299,12 @@ async def _run_blocking(
         EngineUnavailableError: When the worker is stopping or wedged (HTTP 503).
     """
     batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
+    cb_scheduler = getattr(raw_request.app.state, "cb_scheduler", None)
 
     def run(ctx: JobContext) -> Any:
         engine = ctx.load(lambda: manager.get_or_load_engine(model, device=device))
+        if cb_scheduler is not None and hasattr(cb_scheduler, "add_request"):
+            cb_scheduler.add_request(f"gen-{time.time_ns()}", prompt, gen_config)
         if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
             match_prefix_with_real_tokens(batch_pipeline, engine, prompt)
         start_ns = time.time_ns()
@@ -346,10 +349,13 @@ async def _open_stream(
     loop = asyncio.get_running_loop()
     stream = AsyncTokenStream()
     batch_pipeline = getattr(raw_request.app.state, "batch_pipeline", None)
+    cb_scheduler = getattr(raw_request.app.state, "cb_scheduler", None)
 
     def run_stream(ctx: JobContext) -> None:
         try:
             engine = ctx.load(lambda: manager.get_or_load_engine(model, device=device))
+            if cb_scheduler is not None and hasattr(cb_scheduler, "add_request"):
+                cb_scheduler.add_request(f"stream-{time.time_ns()}", prompt, gen_config)
             if batch_pipeline and hasattr(batch_pipeline, "prefix_cache"):
                 match_prefix_with_real_tokens(batch_pipeline, engine, prompt)
             start_ns = time.time_ns()

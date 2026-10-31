@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-31
+
+### Added
+- feat(engine): WP-04 continuous batching scheduler — `ContinuousBatchingScheduler` wrapping OpenVINO GenAI iteration pipeline; thread-safe admission control and dynamic concurrency cap; Banach contraction progress loop with `CB_MAX_STEPS_WITHOUT_PROGRESS` ceiling; `/health` telemetry `scheduler_status` extension.
+
 ## [0.2.1] - 2026-10-31
 
 ### Added

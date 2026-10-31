@@ -392,6 +392,7 @@ flowchart TD
 ```
 
 - **SerialWorker** (`src/arc_runner/server/worker.py`): single daemon thread draining a SimpleQueue, eliminating event-loop stalls proven at 2077ms.
+- **ContinuousBatchingScheduler** (`src/arc_runner/engine/cb_scheduler.py`): iteration-level batching wrapper over OpenVINO GenAI with dynamic concurrency capping.
 
 👉 *For detailed subsystem breakdowns, Multi-LoRA hot-swapping, and UML diagrams, see: [**Architecture & Subsystem Deep Dive**](docs/architecture.md)*
 

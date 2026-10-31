@@ -31,6 +31,7 @@ uml/, drawio/      generated diagrams (13 types each)
 |:---|:---|:---|
 | SerialWorker | `src/arc_runner/server/worker.py` | FIFO daemon thread serialising engine calls [v0.2.1] <!-- Introduced in v0.2.1 --> |
 | AsyncTokenStream | `src/arc_runner/server/worker.py` | Ordered sync→async bridge for streaming tokens [v0.2.1] <!-- Introduced in v0.2.1 --> |
+| ContinuousBatchingScheduler | `src/arc_runner/engine/cb_scheduler.py` | Dynamic iteration-level batching wrapping ContinuousBatchingPipeline [v0.2.2] <!-- Introduced in v0.2.2 --> |
 
 Native layer: Python `NativeMemoryEngine` -> ctypes -> `libarc_native_sys` (ABI version 3, sidecar hash checked on load) -> OS mapping. Missing, disabled (`ARC_NATIVE_DISABLE=1`) or stale libraries fall back to the Python read path. Level Zero is loaded at run time and always selects a GPU device, never the NPU.
 

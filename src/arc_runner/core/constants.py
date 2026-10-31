@@ -61,3 +61,9 @@ def graceful_shutdown_s() -> float:
 
         raise ArcRunnerError(f"{GRACEFUL_SHUTDOWN_ENV} must be 1-9 ASCII digits >= 1, got {value!r}")
     return float(value)
+
+PREFILL_WINDOW_MS: int = 20
+DECODE_STEPS_PER_TICK: int = 4
+MAX_CONCURRENT_SEQUENCES: int = 8
+CB_MAX_STEPS_WITHOUT_PROGRESS: int = 10_000
+CB_QUEUE_DRAIN_TIMEOUT_S: float = 15.0

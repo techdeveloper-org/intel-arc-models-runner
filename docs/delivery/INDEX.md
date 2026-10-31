@@ -2,7 +2,7 @@
 doc_id: DOC-INDEX
 title: Delivery document index
 stage: all
-version: 1.34.0
+version: 1.35.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -16,9 +16,9 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 
 | doc_id | Title | Version | Status | Stage | Path |
 |:--|:--|:--|:--|:--|:--|
-| DOC-DECISION-LOG | Decision log | 1.15.0 | draft | all | DECISION_LOG.md |
-| DOC-RESUME | Resume checkpoint | 1.18.0 | draft | all | RESUME.md |
-| DOC-TRACEABILITY | Finding to requirement to code to test traceability | 1.3.0 | draft | all | TRACEABILITY.md |
+| DOC-DECISION-LOG | Decision log | 1.16.0 | draft | all | DECISION_LOG.md |
+| DOC-RESUME | Resume checkpoint | 1.19.0 | draft | all | RESUME.md |
+| DOC-TRACEABILITY | Finding to requirement to code to test traceability | 1.4.0 | draft | all | TRACEABILITY.md |
 | DOC-SA-STAGE | Slice S-A - remove fabricated values | 1.0.0 | draft | S-A | stages/S-A-honesty/STAGE.md |
 | DOC-SB-STAGE | Slice S-B - native memory safety | 1.0.0 | draft | S-B | stages/S-B-memory-safety/STAGE.md |
 | DOC-SC-STAGE | Slice S-C - ring buffer, dtype, and view lifetime | 1.0.0 | draft | S-C | stages/S-C-ring-and-lifetime/STAGE.md |
@@ -29,6 +29,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-UI-01-STAGE | Modernization of Intel Arc Model Studio UI & Telemetry | 1.0.0 | draft | UI-01 | stages/UI-01/STAGE.md |
 | DOC-TEST-01-STAGE | Multi-Agent Automated Test Architecture & Invariant Verification | 1.0.0 | draft | TEST-01 | stages/TEST-01/STAGE.md |
 | DOC-PERF-WP03-STAGE | WP-03 serial inference worker | 1.0.0 | draft | PERF-WP03 | stages/PERF-WP03/STAGE.md |
+| DOC-PERF-WP04-STAGE | WP-04 continuous batching scheduler | 1.0.0 | draft | PERF-WP04 | stages/PERF-WP04/STAGE.md |
 | DOC-R01-REVIEW | R01 - Independent review of the native C layer and ctypes bridge | 1.0.0 | draft | S-G | reviews/R01_c_native_review.md |
 | DOC-R02-REVIEW | R02 - STRIDE threat model with attack trees | 1.0.0 | draft | S-G | reviews/R02_threat_model.md |
 | DOC-R03-REVIEW | R03 SAST review: src/arc_runner (Python) and src/arc_runner/native (C) | 1.0.0 | draft | S-G | reviews/R03_sast.md |
@@ -39,7 +40,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-R09-REVIEW | R09 - Level Zero / Sysman / OpenVINO device handling: second opinion | 1.0.0 | draft | S-G | reviews/R09_gpu_driver_second_opinion.md |
 | DOC-R10-REVIEW | R10 Release-readiness review for v0.2.0 (nothing tagged, published or pushed) | 1.0.0 | draft | S-G | reviews/R10_release_readiness.md |
 | DOC-R07-REVIEW | R07 Faithfulness audit of repository claims | 1.0.0 | draft | S-G | reviews/R07_faithfulness_audit.md |
-| DOC-INDEX | Delivery document index | 1.34.0 | draft | all | INDEX.md |
+| DOC-INDEX | Delivery document index | 1.35.0 | draft | all | INDEX.md |
 
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
@@ -79,3 +80,4 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | 1.31.0 | 2026-10-31 | CLI session | DOC-DECISION-LOG to 1.14.0, DOC-TRACEABILITY to 1.2.0, DOC-RESUME to 1.16.0 | documentation sync after #49 (D1-D4 complete) | next revision |
 | 1.32.0 | 2026-10-31 | CLI session | DOC-RESUME to 1.17.0 — add Pending Items Tracker PT-01..PT-09 | surface benchmark inconsistencies and open test items for tracking | — |
 | 1.34.0 | 2026-10-31 | CLI session | Add DOC-PERF-WP03-STAGE v1.0.0, update DOC-DECISION-LOG v1.15.0, DOC-RESUME v1.18.0, DOC-TRACEABILITY v1.3.0 | WP-03 serial inference worker delivery | pending |
+| 1.35.0 | 2026-10-31 | CLI session | Add DOC-PERF-WP04-STAGE v1.0.0, update DOC-DECISION-LOG v1.16.0, DOC-RESUME v1.19.0, DOC-TRACEABILITY v1.4.0 | WP-04 continuous batching scheduler delivery | pending |

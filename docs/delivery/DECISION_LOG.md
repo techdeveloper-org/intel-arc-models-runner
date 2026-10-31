@@ -2,7 +2,7 @@
 doc_id: DOC-DECISION-LOG
 title: Decision log
 stage: all
-version: 1.15.0
+version: 1.16.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-31
@@ -118,6 +118,7 @@ Append-only. A changed decision gets a new entry that names the one it supersede
 | DL-100 | Synchronous stop() off-loop via executor | avoids deadlock during uvicorn lifespan shutdown | async stop() on event loop | PERF-WP03 |
 | DL-101 | _admit lock mutual exclusion scope | held only for submit flag-check+put and stop flag-set+put | lock held across jobs | PERF-WP03 |
 | DL-102 | LoadPhaseError lifecycle exception mapping | allows routes to distinguish engine-load 404/500 from execution errors | unlabelled exception propagation | PERF-WP03 |
+| DL-103 | ContinuousBatchingScheduler wrapping OpenVINO GenAI pipeline | thread-safe iteration batching with progress counter and dynamic concurrency cap | bare unbatched engine calls | PERF-WP04 |
 
 ## ADR detail: performance programme (DL-061..DL-096)
 
@@ -480,6 +481,14 @@ Status: DL-061..DL-070 were proposed on 2026-10-29 as part of plan section 23 an
 - Reversibility: high.
 - Source: WP-03 CC-4; `src/arc_runner/server/worker.py`, `src/arc_runner/server/errors.py`.
 
+### DL-103 ContinuousBatchingScheduler wrapping OpenVINO GenAI pipeline
+- Date: 2026-10-31
+- Context: Sequential FIFO processing bounds batch size to 1, leaving GPU compute units underutilized during memory-bound decode iterations.
+- Decision: Introduce ContinuousBatchingScheduler wrapping ov_genai.ContinuousBatchingPipeline with thread-safe request admission and step_until_done() progress checking up to CB_MAX_STEPS_WITHOUT_PROGRESS.
+- Consequences: Dynamic iteration-level continuous batching up to MAX_CONCURRENT_SEQUENCES=8 with dynamic concurrency capping for thermal safety (WP-07).
+- Reversibility: high.
+- Source: WP-04 CC-1..CC-4; src/arc_runner/engine/cb_scheduler.py.
+
 ## Revision history
 | Version | Date | Author | What changed | Why | Commit |
 |:--|:--|:--|:--|:--|:--|
@@ -499,3 +508,4 @@ Status: DL-061..DL-070 were proposed on 2026-10-29 as part of plan section 23 an
 | 1.13.0 | 2026-10-30 | main session | DL-096 added (round-11 corrections: the adoption procedure AD-1..AD-6 with `decide_adoption`, one 30-round repeat, the code baseline 1a4ccfe versus c3b69cb..1d0eb64, the measured u8 KV rejection, the owner's new result files, G1 T1-T6); leading markers on DL-095 (row and Status line); ADR heading updated; the 1.12.0 hash filled in | round-11 final checks G1 and G4 resolved, plan section 23.9.12 (v9.8, fix only) | 35b2dc3 |
 | 1.14.0 | 2026-10-31 | CLI session | DL-097 and DL-098 added (quick_v1 schema string vs int decision; 5-run quick benchmark protocol decision) | feat(benchmarks): document decisions for issue #49 quick benchmark | next revision |
 | 1.15.0 | 2026-10-31 | CLI session | DL-099..DL-102 added for WP-03 serial worker | Deliver WP-03 CC-1..CC-4 | pending |
+| 1.16.0 | 2026-10-31 | CLI session | DL-103 added for WP-04 continuous batching scheduler | Deliver WP-04 CC-1..CC-4 | pending |

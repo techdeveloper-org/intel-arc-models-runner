@@ -49,6 +49,7 @@ Model files are untrusted input. The Intel GPU driver provides a Level Zero load
 | FR-009 | The `arc_runner` package SHALL defer all heavy imports (OpenVINO, numpy, torch) until first attribute access via PEP 562 `__getattr__`, reducing cold-start latency without breaking existing import paths. | GitHub Issue #45 (WP-15) | `tests/test_lazy_imports.py` |
 | FR-010 | The system SHALL record and publish GPU decode throughput (tok/s) for supported models using both the 30-run harness protocol (schema-v1, `*.v1.json`) and the quick-API-benchmark protocol (schema `quick_v1`, `*.quick.json`). Published values SHALL be derived from measured result files only; no value is hardcoded or estimated. | GitHub Issue #49 | `docs/benchmarks/results/llm_*.json`, `scripts/validate_bench_json.py`, `tests/test_bench_results.py::TestQuickBenchSchema` |
 | FR-011 | The system SHALL serialise all engine calls through a single daemon thread (`arc-inference`) using `queue.SimpleQueue` and an admission lock, eliminating event-loop stall and token loss. | GitHub Issue #51 (WP-03) | `tests/test_serial_worker.py` |
+| FR-012 | The system SHALL provide dynamic iteration-level continuous batching via ContinuousBatchingScheduler wrapping OpenVINO GenAI iteration pipeline, with thread-safe admission control and dynamic concurrency cap. | GitHub Issue #52 (WP-04) | `tests/test_cb_scheduler.py` |
 
 ### 3.2 Non-functional requirements
 
@@ -77,3 +78,4 @@ Findings and their mapping to requirements: `docs/delivery/TRACEABILITY.md`.
 | 2026-10-31 | 0.2.0 | fix(scripts,hub): Windows test failures | Change log row only (fix type per rule 44 §3) | #45 |
 | 2026-10-31 | 0.2.0 | feat(benchmarks): publish GPU tok/s for qwen-2.5-1.5b and deepseek-r1-1.5b | Add FR-010: benchmark throughput publication via both full-harness and quick-API protocols | #49 |
 | 2026-10-31 | 0.2.1 | feat(server): WP-03 serial inference worker | Add FR-011: SerialWorker FIFO daemon thread and AsyncTokenStream | #51 |
+| 2026-10-31 | 0.2.2 | feat(engine): WP-04 continuous batching scheduler | Add FR-012: ContinuousBatchingScheduler dynamic iteration batching | #52 |
