@@ -15,7 +15,7 @@ flowchart TD
     subgraph ClientSubsystem ["Client & Tooling Layer"]
         CLI["arc-runner CLI (arc_runner.cli.main / Rich Terminal)"]
         WebUI["arc-runner Studio WebUI & Open WebUI (:11434)"]
-        IDE["Cursor / Continue.dev / LangChain / OpenAI SDK"]
+        IDE["Cursor / Claude Code / LangChain / OpenAI SDK"]
     end
 
     subgraph DaemonSubsystem ["arc-runner Daemon (:11434)"]

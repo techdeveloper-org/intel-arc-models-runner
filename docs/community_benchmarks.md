@@ -71,7 +71,7 @@ python scratch/run_live_video_benchmarks.py --model ltx-video --download
 ## 🛠️ Other Ways You Can Contribute
 
 1. **Quantized Models & Benchmarks**: Share NNCF INT4/INT8 benchmark profiles, custom calibration datasets, and accuracy evaluations.
-2. **Frontend Integrations**: Help expand test suites and verification for Open WebUI, Continue.dev, Cursor, and LangChain.
+2. **Frontend Integrations**: Help expand test suites and verification for Open WebUI, Cursor, Claude Code, and LangChain.
 3. **Core Optimization**: Assist in kernel tuning, Level Zero USM memory pool improvements, and dynamic $\gamma$ speculative decoding heuristics.
 
 Please review our [Contributing Guidelines](../CONTRIBUTING.md) and submit Pull Requests directly to the `main` branch.
