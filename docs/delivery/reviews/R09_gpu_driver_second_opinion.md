@@ -12,7 +12,7 @@ reviewers: [user]
 
 # R09 - Level Zero / Sysman / OpenVINO device handling: second opinion
 
-Reviewers (roles played): gpu-driver-engineer, kernel-driver-engineer (library agents).
+Reviewers (roles played): gpu driver engineer, kernel driver engineer (library agents).
 Scope: native/arc_level_zero_bridge.c, arc_ze_types.h, bridge.py (NativeLevelZeroBridge), devices/sysman.py,
 benchmark/power.py, flash_stream/device_stager.py, scratch/run_live_image|video_benchmarks.py,
 engine/openvino_engine.py, docs/benchmarks/results/*.json, probe.json.
@@ -23,9 +23,9 @@ result JSONs numerically. No hardware, no OpenVINO source, no Windows available 
 live driver behaviour is marked "suspected".
 
 ## Skills read (proof) and not read
-- gpu-driver-stack-core (lines 1-120 read; lines 160-170 and 660-700 only via grep): "**Windows TDR (WDDM):** the OS imposes a 2-second timeout on any GPU command." (line 164, text after the heading is on that line.)
-- kernel-driver-development-core (lines 1-80 read; DMA section only via grep): "### 6.3 DMA Coherent vs DMA Streaming" (line 893).
-- Not read: embedded-linux-core, bare-metal-architecture-core, embedded-c-core and all optional skills.
+- gpu driver stack core (lines 1-120 read; lines 160-170 and 660-700 only via grep): "**Windows TDR (WDDM):** the OS imposes a 2-second timeout on any GPU command." (line 164, text after the heading is on that line.)
+- kernel driver development core (lines 1-80 read; DMA section only via grep): "### 6.3 DMA Coherent vs DMA Streaming" (line 893).
+- Not read: embedded linux core, bare metal architecture core, embedded c core and all optional skills.
 
 ## Verdict table (answers to the asked questions)
 
@@ -82,7 +82,7 @@ Fix: chain `zes_power_ext_properties_t` (read its stype value from the header, d
 
 ### F6 - MED - timeout design: TDR constant, slice overshoot, copy runs on the compute engine
 Files: `arc_level_zero_bridge.h:33-34` (1500 / 1900 ms), `arc_level_zero_bridge.c:29,203-214,528-542`, `:283-288,293-299` (ordinal 0 / group 0).
-1. The clamp "below the TDR limit" is only true by luck: the loop calls Synchronize in fixed 250 ms slices and checks the deadline after each, so the real wait is `ceil(timeout/250)*250`. Default 1500 -> 1500 ms (OK); the maximum 1900 -> 2000 ms, i.e. at or over the 2 s WDDM TDR the skill cites (`gpu-driver-stack-core:164`). Fix: `slice = min(ARC_SYNC_SLICE_MS, deadline - now)`.
+1. The clamp "below the TDR limit" is only true by luck: the loop calls Synchronize in fixed 250 ms slices and checks the deadline after each, so the real wait is `ceil(timeout/250)*250`. Default 1500 -> 1500 ms (OK); the maximum 1900 -> 2000 ms, i.e. at or over the 2 s WDDM TDR the skill cites (`gpu driver stack core:164`). Fix: `slice = min(ARC_SYNC_SLICE_MS, deadline - now)`.
 2. 2 s is the Windows constant. On Linux hang detection is driver-configurable (skill lines 667/695), so an app timeout tied to "TDR" has no meaning there; a timeout is a policy, name it as such.
 3. Queue group ordinal 0 is whatever the driver exposes first (normally the compute/universal group), not a copy engine; `zeDeviceGetCommandQueueGroupProperties` is never queried. Staging copies therefore queue behind OpenVINO compute work on the same engine and can hit the app timeout without any hang (feeds F2). Fix: query groups, prefer a copy-only group; fall back to ordinal 0.
 4. After a failed `zeCommandQueueExecuteCommandLists` that is not DEVICE_LOST (`:522-526`) the list stays closed and `is_dead` stays false; every later append fails with an API error. Reset the list on that path.

@@ -6,7 +6,7 @@ version: 1.0.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-29
-authors: [c-cpp-systems-engineer (role applied by the main session), sast-engineer (tools only)]
+authors: [c cpp systems engineer (role applied by the main session), sast engineer (tools only)]
 reviewers: [user]
 inputs: [docs/plans/MASTER_PLAN_v4.md@v8.2 sections 17.3, 17.4, 17.5]
 related_issue: "not created yet"
@@ -20,7 +20,7 @@ Gate status: `cloud-green, local-pending` (the committed Windows DLL is not rebu
 Findings C1, C2, C3, C7, C8, C9, C10 plus ABI/sidecar gating, POSIX and Win32 parity, and a sanitizer harness. New finding G1 (GGUF parser) fixed here because the plan treats the parser as untrusted input.
 
 ## 2. Library use (honest record)
-Quotes used: "Pointer arithmetic beyond one-past-end is UB" (c-language-foundations-core 2.2); "INT30-C: ensure unsigned operations do not wrap (check before arithmetic)" and "ARR30-C: do not form or use out-of-bounds pointers" (embedded-c-core 25).
+Quotes used: "Pointer arithmetic beyond one-past-end is UB" (c language foundations core 2.2); "INT30-C: ensure unsigned operations do not wrap (check before arithmetic)" and "ARR30-C: do not form or use out-of-bounds pointers" (embedded c core 25).
 
 ## 3. Red evidence (before the fix, source at c7312e0)
 Program compiled against the old `arc_flash_stream_mmap.c` (offset = 2^64-4, size = 8, file 4096 bytes):

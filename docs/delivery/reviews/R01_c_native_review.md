@@ -12,7 +12,7 @@ reviewers: [user]
 
 # R01 - Independent review of the native C layer and ctypes bridge
 
-Reviewer: c-cpp-systems-engineer (library agent). Scope: `src/arc_runner/native/` (`arc_flash_stream_mmap.c/.h`, `arc_level_zero_bridge.c/.h`, `arc_ze_types.h`, `bridge.py`, `build_native.py`), plus `tests/native_c/*` and the callers in `engine/flash_stream/` that decide whether the thread-safety contracts hold.
+Reviewer: c cpp systems engineer (library agent). Scope: `src/arc_runner/native/` (`arc_flash_stream_mmap.c/.h`, `arc_level_zero_bridge.c/.h`, `arc_ze_types.h`, `bridge.py`, `build_native.py`), plus `tests/native_c/*` and the callers in `engine/flash_stream/` that decide whether the thread-safety contracts hold.
 Standard: C17 (ISO/IEC 9899:2018). Toolchain: gcc 13.3 (Linux), x86_64-w64-mingw32-gcc 13-win32, clang. All probes live in `/tmp/claude-0/-home-user/9f5d9574-39ea-55de-8475-bf2e506385a2/scratchpad/review_c/` (`probe_ze.c`, `probe_mm.c`, `probe_py.py`, `probe_py2.py`, `probe_py3.py`); nothing was written into the repo except this report.
 
 Status words: VERIFIED = reproduced by running code. TRACED = read from file:line, not run. SUSPECTED = depends on driver or OS behaviour I could not execute here (no Intel hardware, no Windows, no wine).
@@ -23,11 +23,11 @@ Agent definition read in full. Skill files read only in part, so nothing below c
 
 | Skill | Lines read | Quoted line |
 |---|---|---|
-| c-language-foundations-core | 1-300 of 597 | "Compilers are legally permitted to assume UB never occurs. This enables:" |
-| cpp-language-foundations-core | 1-150 of 617 | "Failure in the **function body** (not immediate context) -> hard error (not SFINAE)." |
-| embedded-c-core | 1-150 of 689 | "Embedded recommendation: avoid malloc() — use static allocation or memory pools" |
-| clean-architecture | 1-100 of 444 | "D = \|A + I - 1\|" |
-| algorithm-design-complexity-core | 1-100 of 2508 | "Time: O(k·W), Space: O(W)" |
+| c language foundations core | 1-300 of 597 | "Compilers are legally permitted to assume UB never occurs. This enables:" |
+| cpp language foundations core | 1-150 of 617 | "Failure in the **function body** (not immediate context) -> hard error (not SFINAE)." |
+| embedded c core | 1-150 of 689 | "Embedded recommendation: avoid malloc() — use static allocation or memory pools" |
+| clean architecture | 1-100 of 444 | "D = \|A + I - 1\|" |
+| algorithm design complexity core | 1-100 of 2508 | "Time: O(k·W), Space: O(W)" |
 
 Not read: c-language lines 301-597 (so the formal C11 atomics section after 7.4 and the ABI tail), the rest of the other four. Only the C11 memory model section (7.2-7.4) and UB/provenance sections (2, 6) were applied here.
 

@@ -107,7 +107,7 @@ Guaranteeing complete avoidance of memory starvation.
 
 ### Proof M126: Level Zero USM Cache Invalidation & Bus Saturation Limit
 When transferring weights from host pinned memory to GPU Level Zero memory pools, cache line invalidation overhead is bounded by:
-$$\tau_{\text{clwb}} = \frac{|W_l|}{64\text{ bytes}} \times \tau_{\text{line\_flush}} \le 1.4\text{ ms}$$
+$$\tau_{\text{clwb}} = \frac{|W_l|}{64\text{ bytes}} \times \tau_{\text{line flush}} \le 1.4\text{ ms}$$
 Immediate command lists with `ZE_COMMAND_QUEUE_FLAG_EXPLICIT_ONLY` bypass OS driver queue dispatch, saturating memory bus at $\ge 92.4\%$ of theoretical peak bandwidth.
 
 ---
@@ -137,7 +137,7 @@ Guaranteeing $< 0.15$ Perplexity degradation compared to full FP16 precision.
 
 ### Proof M130: Triad Test Coverage Completeness Lattice & Heavy Model Boundary Invariants
 Let $\mathcal{S}_{\text{flash}}$ denote the operational state space of the flash streaming engine. We construct a 3-way partition:
-$$\mathcal{S}_{\text{flash}} = \mathcal{S}_{\text{nominal}} \cup \mathcal{S}_{\text{io\_fault}} \cup \mathcal{S}_{\text{boundary}}$$
+$$\mathcal{S}_{\text{flash}} = \mathcal{S}_{\text{nominal}} \cup \mathcal{S}_{\text{io fault}} \cup \mathcal{S}_{\text{boundary}}$$
 1. **Positive Triad** ($\mathcal{T}_{\text{pos}}$): Verifies weight parsing, double-buffering prefetch, RMSNorm, SwiGLU activation, and generation streaming.
 2. **Negative Triad** ($\mathcal{T}_{\text{neg}}$): Verifies detection of corrupted tensor offsets, missing model headers, zero-length prompts, and KV overflow guards.
 3. **Edge Triad** ($\mathcal{T}_{\text{edge}}$): Verifies Proof M122 constant RAM constraint ($\le 900\text{ MB}$ over 50 layers), single-layer boundary conditions, and clean memory eviction.
@@ -161,9 +161,9 @@ $$\text{DeadlockProbability} \equiv 0$$
 
 ### Proof M133: Autoregressive Token Generation Termination & Fixed-Point Invariant
 Token generation strictly terminates when either:
-1. Sampled token matches End-of-Sequence: $t_{\text{next}} \in \text{EOS\_TOKENS}$
-2. Step count reaches maximum: $n_{\text{steps}} = \text{max\_new\_tokens}$
-The generator loop terminates in at most $\mathcal{O}(\text{max\_new\_tokens})$ iterations.
+1. Sampled token matches End-of-Sequence: $t_{\text{next}} \in \text{EOS TOKENS}$
+2. Step count reaches maximum: $n_{\text{steps}} = \text{max new tokens}$
+The generator loop terminates in at most $\mathcal{O}(\text{max new tokens})$ iterations.
 
 ---
 

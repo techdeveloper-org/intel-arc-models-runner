@@ -6,7 +6,7 @@ version: 1.0.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-29
-authors: [main session applying gpu-driver-engineer / llm-serving-engineer roles from the plan]
+authors: [main session applying gpu driver engineer / llm serving engineer roles from the plan]
 reviewers: [user]
 inputs: [DOC-SB-STAGE@1.0.0, docs/plans/MASTER_PLAN_v4.md sections 10.2, 10.5, 10.6]
 ---
@@ -19,7 +19,7 @@ Gate status: `cloud-green, local-pending` (Level Zero behaviour was tested again
 E2, E3, E4, E5 (documented counters), E6/E1 follow-ups, L3-L12, H7, plus new H8.
 
 ## 2. Library use (honest record)
-Agent files and skills of `gpu-driver-engineer`, `kernel-driver-engineer`, `llm-serving-engineer` were NOT read in this stage; the work follows the plan's section 10.2/10.5/10.6 and the upstream `ze_api.h` (downloaded read-only from oneapi-src/level-zero and used as the source of truth for constants and struct layouts).
+Agent files and skills of *gpu driver engineer*, *kernel driver engineer*, *llm serving engineer* were NOT read in this stage; the work follows the plan's section 10.2/10.5/10.6 and the upstream `ze_api.h` (downloaded read-only from oneapi-src/level-zero and used as the source of truth for constants and struct layouts).
 
 ## 3. Verified against ze_api.h (L3)
 | Constant | Old code | Real value |

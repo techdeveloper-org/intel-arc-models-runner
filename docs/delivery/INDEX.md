@@ -39,7 +39,7 @@ Every document under `docs/delivery/` is listed with its current version; `pytho
 | DOC-R03-REVIEW | R03 SAST review: src/arc_runner (Python) and src/arc_runner/native (C) | 1.0.0 | draft | S-G | reviews/R03_sast.md |
 | DOC-R04-REVIEW | R04 - Secrets scan and dependency audit | 1.0.0 | draft | S-G | reviews/R04_secrets_and_dependencies.md |
 | DOC-R05-REVIEW | R05 - TLA+ review of RingSlots against the ring-buffer weight streamer | 1.0.0 | draft | S-G | reviews/R05_tla_review.md |
-| DOC-R06-REVIEW | R06 Independent test authorship (integration-testing-engineer + testing-mathematics-expert) | 1.0.0 | draft | S-G | reviews/R06_independent_tests.md |
+| DOC-R06-REVIEW | R06 Independent test authorship (integration testing engineer + testing mathematics expert) | 1.0.0 | draft | S-G | reviews/R06_independent_tests.md |
 | DOC-R08-REVIEW | R08 Benchmark methodology review | 1.0.0 | draft | S-G | reviews/R08_benchmark_methodology.md |
 | DOC-R09-REVIEW | R09 - Level Zero / Sysman / OpenVINO device handling: second opinion | 1.0.0 | draft | S-G | reviews/R09_gpu_driver_second_opinion.md |
 | DOC-R10-REVIEW | R10 Release-readiness review for v0.2.0 (nothing tagged, published or pushed) | 1.0.0 | draft | S-G | reviews/R10_release_readiness.md |

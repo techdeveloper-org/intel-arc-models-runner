@@ -16,7 +16,7 @@ inputs: [docs/plans/MASTER_PLAN_v4.md section 18]
 Gate status: `cloud-green, local-pending`. No arc-runner or Ollama result file exists yet; every benchmark that needs the real hardware is the author's to run.
 
 ## 1. Library use (honest record)
-`hardware-performance-engineer`, `performance-testing-engineer` and `llm-benchmark-analyst` agent files and skills were not read; the work follows plan section 18.
+*hardware performance engineer*, *performance testing engineer* and *llm benchmark analyst* agent files and skills were not read; the work follows plan section 18.
 
 ## 2. New finding B11 (fixed)
 `BenchmarkRunner` looked up the Student-t multiplier in a table that skipped df 11-19 and rounded up to the next key (df 11 returned 2.086 instead of 2.201), and `MultiModelCoBenchmarker` used `table.get(df, 2.0)`. Both under-reported confidence intervals for 12-20 samples (a 5-8% too narrow half-width). Both now call one implementation (`arc_runner.benchmark.stats.student_t_ci95`) with the exact table.

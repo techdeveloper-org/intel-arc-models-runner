@@ -16,7 +16,7 @@ inputs: [docs/plans/MASTER_PLAN_v4.md sections 15, 17.4, 21]
 Gate status: `cloud-green`. Release (tag, merge, publish) is not done and needs the maintainer's explicit approval.
 
 ## 1. Library use (honest record)
-`technical-writer-agent`, `uml-from-code-engineer`, `mermaid-diagram-engineer`, `drawio-diagram-architect`, `devops-engineer`, `release-engineering-specialist` agent files and skills were not read; the work follows plan sections 15 and 17.
+*technical writer agent*, *uml from code engineer*, *mermaid diagram engineer*, *drawio diagram architect*, *devops engineer*, *release engineering specialist* agent files and skills were not read; the work follows plan sections 15 and 17.
 
 ## 2. Changes
 | Area | Change |

@@ -57,7 +57,7 @@ Before serializing the graph to XML, `OpenVINOGraphSynthesizer` executes **Kahn'
 2. Initializes a FIFO queue with all nodes where $\text{deg}[u] == 0$ (e.g. `Parameter`, `Const` weights).
 3. Dequeues node $u$, increments `visited_count`, and decrements the in-degree of all target nodes $v \in \text{adj}[u]$.
 4. If $\text{deg}[v] == 0$, enqueues $v$.
-5. Upon queue exhaustion, verifies $\text{visited\_count} == V$. If $\text{visited\_count} \ne V$, raises `CyclicGraphError` detailing the cyclic nodes.
+5. Upon queue exhaustion, verifies $\text{visited count} == V$. If $\text{visited count} \ne V$, raises `CyclicGraphError` detailing the cyclic nodes.
 
 ---
 

@@ -6,7 +6,7 @@ version: 1.0.0
 status: draft
 created: 2026-10-29
 updated: 2026-10-29
-authors: [main session applying tla-plus-specification-engineer and c-cpp-systems-engineer roles]
+authors: [main session applying tla plus specification engineer and c cpp systems engineer roles]
 reviewers: [user]
 inputs: [DOC-SB-STAGE@1.0.0, docs/plans/MASTER_PLAN_v4.md sections 10.4, 17.4]
 ---
@@ -19,7 +19,7 @@ Gate status: `cloud-green`. TLC itself was NOT run (see section 3).
 C4 (dtype), C5 (view lifetime), C6 (slot races, shutdown), X1 (LRU on cyclic scans), X2 (resident vs mapped memory), X3 (GGUF dimension order), C7 wiring left open.
 
 ## 2. Library use (honest record)
-Agent file read in this session: `tla-plus-specification-engineer` (uploaded by the user) and the library's `c-cpp-systems-engineer`. The skill `tla-plus-formal-methods-core` (60 KB) was NOT read; the spec follows the agent's rules from its agent file (canonical `Init /\ [][Next]_vars /\ Fairness`, stuttering wrapper, weak fairness on every process action, safety before liveness).
+Agent file read in this session: *tla plus specification engineer* (uploaded by the user) and the library's *c cpp systems engineer*. The skill *tla plus formal methods core* (60 KB) was NOT read; the spec follows the agent's rules from its agent file (canonical `Init /\ [][Next]_vars /\ Fairness`, stuttering wrapper, weak fairness on every process action, safety before liveness).
 
 ## 3. Formal model
 `docs/formal/RingSlots.tla` + `RingSlots.cfg`: direct-mapped slots (EMPTY/PENDING/READY), threads that hit, wait, or become the single loader, and a two-step close that joins loaders. Invariants: SingleLoader, DirectMapped, ServedMatches, NoConcurrentLoadsPerSlot, ClosedIsClean; property: every acquire ends in done or error.

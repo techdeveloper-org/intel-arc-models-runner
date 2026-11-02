@@ -280,8 +280,8 @@ $$\mathcal{H}(\text{Frames}(V(s))) = \mathcal{H}(\text{Frames}(V'(s)))$$
 where $\mathcal{H}$ is the cryptographic SHA-256 digest function. Bitwise reproducibility holds across runs on the same Level Zero hardware execution stream.
 
 #### 9. Proof M102 (Video Inference Throughput & Real-Time Factor Metric)
-For a synthesized video of duration $T_{\text{video\_duration}} = \frac{N_{\text{frames}}}{\text{FPS}}$ and wall generation time $T_{\text{wall}}$:
-$$\text{RTF}_{\text{video}} = \frac{T_{\text{wall}}}{T_{\text{video\_duration}}} = \frac{T_{\text{wall}} \cdot \text{FPS}}{N_{\text{frames}}}, \quad S_{\text{video}} = \frac{N_{\text{frames}}}{T_{\text{wall}}} \text{ [frames / sec]}$$
+For a synthesized video of duration $T_{\text{video duration}} = \frac{N_{\text{frames}}}{\text{FPS}}$ and wall generation time $T_{\text{wall}}$:
+$$\text{RTF}_{\text{video}} = \frac{T_{\text{wall}}}{T_{\text{video duration}}} = \frac{T_{\text{wall}} \cdot \text{FPS}}{N_{\text{frames}}}, \quad S_{\text{video}} = \frac{N_{\text{frames}}}{T_{\text{wall}}} \text{ [frames / sec]}$$
 On Intel Arc Xe-LPG, `ltx-video-int8` achieves $\text{RTF} = 0.12\times$ on Low tier ($8.33\times$ faster than real-time playback).
 
 #### 10. Proof M103 (Video Energy Yield Invariant per Kilowatt-Hour)
@@ -334,16 +334,16 @@ completely eliminating GPU Out-Of-Memory exceptions on integrated silicon.
 
 #### 18. Proof M111 (Physical Silicon: Level Zero Driver Command List Submission Latency)
 Batching iterative diffusion operations into Level Zero immediate command lists bounds dispatch overhead:
-$$\tau_{\text{submit}} = \tau_{\text{append}} + \tau_{\text{close}} + \tau_{\text{queue\_execute}} \le 2.1\,\mu\text{s}$$
+$$\tau_{\text{submit}} = \tau_{\text{append}} + \tau_{\text{close}} + \tau_{\text{queue execute}} \le 2.1\,\mu\text{s}$$
 representing $< 0.05\%$ overhead against typical $45\text{ ms}$ transformer denoising steps.
 
 #### 19. Proof M112 (Physical Silicon: AOT Model Compilation & Warm-Load Speedup Factor)
 Ahead-Of-Time compiled OpenVINO executable blobs cached in `.aot_cache/` deliver a warm startup speedup:
-$$\mathcal{S}_{\text{AOT}} = \frac{T_{\text{JIT\_compile}}}{T_{\text{AOT\_import}}} = \frac{184.6\text{ s}}{3.82\text{ s}} \approx 48.32\times$$
+$$\mathcal{S}_{\text{AOT}} = \frac{T_{\text{JIT compile}}}{T_{\text{AOT import}}} = \frac{184.6\text{ s}}{3.82\text{ s}} \approx 48.32\times$$
 
 #### 20. Proof M113 (Physical Silicon: Dynamic Frequency Scaling & Thermal Throttle Stability)
 At sustained 21W package TDP load, thermal dissipation across 10-minute continuous video generation satisfies:
-$$\Delta T = T_{\text{peak}} - T_{\text{ambient}} \le 12.4^\circ\text{C} \implies T_{\text{die}} \le 74.2^\circ\text{C} \ll T_{\text{junction\_max}} = 105^\circ\text{C}$$
+$$\Delta T = T_{\text{peak}} - T_{\text{ambient}} \le 12.4^\circ\text{C} \implies T_{\text{die}} \le 74.2^\circ\text{C} \ll T_{\text{junction max}} = 105^\circ\text{C}$$
 guaranteeing zero thermal throttling frequency step-downs on Intel Arc Xe-LPG.
 
 #### 21. Proof M114 (Physical Silicon: INT8/FP16 Mixed Precision Quantization SNR Loss Bound)
@@ -378,8 +378,8 @@ With empirical top-$k$ sparsity ratio $\sigma_{\text{FFN}} \approx 0.60$ and ker
 
 ### 4. Proof M124 (Circular Bounded Paged KV Buffer Allocation)
 To prevent linear memory growth during extended multi-turn dialogs:
-$$M_{\text{KV}}(N_{\text{ctx}}) = 2 \cdot L \cdot N_{\text{heads}} \cdot d_{\text{head}} \cdot \min(N_{\text{ctx}}, N_{\text{max\_ctx}}) \cdot \text{sizeof}(\text{FP16})$$
-When $N_{\text{ctx}} > N_{\text{max\_ctx}}$, older token KV projections are evicted using circular FIFO indexing, guaranteeing that KV memory consumption is strictly $O(1)$.
+$$M_{\text{KV}}(N_{\text{ctx}}) = 2 \cdot L \cdot N_{\text{heads}} \cdot d_{\text{head}} \cdot \min(N_{\text{ctx}}, N_{\text{max ctx}}) \cdot \text{sizeof}(\text{FP16})$$
+When $N_{\text{ctx}} > N_{\text{max ctx}}$, older token KV projections are evicted using circular FIFO indexing, guaranteeing that KV memory consumption is strictly $O(1)$.
 
 ### 5. Proof M125 (NPU Attention vs GPU SwiGLU Arithmetic Partitioning)
 Heterogeneous layer splitting allocates multi-head attention to the Intel AI Boost NPU and SwiGLU FFN to the Intel Arc Xe-LPG GPU based on operational arithmetic intensity:

@@ -60,7 +60,7 @@ Single-token generation is **100% memory-bandwidth constrained**. Prefill for pr
 
 ### M4: Level Zero Dispatch Latency Reduction
 Command submission overhead $\tau$ follows:
-$$\tau_{\text{total}} = \tau_{\text{host}} + \tau_{\text{driver}} + \tau_{\text{gpu\_front\_end}}$$
+$$\tau_{\text{total}} = \tau_{\text{host}} + \tau_{\text{driver}} + \tau_{\text{gpu front end}}$$
 - Standard OpenCL Command Queue: $\tau_{\text{total}} \approx 11.2\,\mu\text{s}$.
 - Standard Level Zero Command List: $\tau_{\text{total}} \approx 6.8\,\mu\text{s}$.
 - Level Zero Immediate Command List (`zeCommandListCreateImmediate`): $\tau_{\text{total}} \le \mathbf{2.1\,\mu\text{s}}$.

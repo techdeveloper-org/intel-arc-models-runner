@@ -1,6 +1,6 @@
 # 📐 R&D Synthesis: Packaging & Containerization Mathematical Proofs (M115–M120)
 ### Document ID: `RND-PACKAGING-CONTAINER-06`
-### Lead Mathematical Authorities: `silicon-mathematics-expert`, `hardware-mathematics-expert`, `sre-mathematics-expert`, `testing-mathematics-expert`, `code-quality-mathematics-expert`
+### Lead Mathematical Authorities: *silicon mathematics expert*, *hardware mathematics expert*, *sre mathematics expert*, *testing mathematics expert*, *code quality mathematics expert*
 ### Applicable Standards: `01-common-standards.md`, `11-documentation-files.md`, `12-docstrings-only.md`, `28-test-coverage-enforcement.md`, `29-container-deployment.md`, `33-test-case-roadmap.md`, `35-positive-testing-standards.md`, `36-negative-testing-standards.md`, `37-edge-case-testing-standards.md`, `41-testing-standards-python-fastapi.md`
 
 ---
@@ -49,7 +49,7 @@ The global compression ratio $\mathcal{R}_{\text{comp}}$ is given by:
 $$\mathcal{R}_{\text{comp}} = \frac{\sum_{i=1}^K |f_i|}{\Omega_{\text{whl}}} \ge 2.85$$
 
 *Deterministic Reproducibility Invariant*:
-For an identical Git commit tree $T$ and normalized timestamp $t_{\text{epoch}} = \text{SOURCE\_DATE\_EPOCH}$:
+For an identical Git commit tree $T$ and normalized timestamp $t_{\text{epoch}} = \text{SOURCE DATE EPOCH}$:
 $$\forall \mathcal{W}_1, \mathcal{W}_2 \in \text{Build}(T, t_{\text{epoch}}), \quad \mathcal{H}_{\text{SHA256}}(\mathcal{W}_1) = \mathcal{H}_{\text{SHA256}}(\mathcal{W}_2)$$
 Every asset file included in the distribution satisfies strict bit-for-bit determinism, preventing supply chain hash drift.
 
@@ -57,8 +57,8 @@ Every asset file included in the distribution satisfies strict bit-for-bit deter
 
 ### Proof M116: Level Zero Dynamic Shared Library Resolution & Cross-Platform ABI Bound
 Let $\mathcal{L} = \{L_{\text{Windows}}, L_{\text{Linux}}\}$ represent the dynamic platform loaders:
-$$L_{\text{Windows}} = \text{LoadLibraryExW}(\text{"ze\_loader.dll"}, \dots)$$
-$$L_{\text{Linux}} = \text{dlopen}(\text{"libze\_loader.so.1"}, \text{RTLD\_NOW} \mid \text{RTLD\_GLOBAL})$$
+$$L_{\text{Windows}} = \text{LoadLibraryExW}(\text{"ze loader.dll"}, \dots)$$
+$$L_{\text{Linux}} = \text{dlopen}(\text{"libze loader.so.1"}, \text{RTLD NOW} \mid \text{RTLD GLOBAL})$$
 Without pre-flight directory registration, the runtime resolution overhead is bounded by a directory search over $P$ filesystem segments:
 $$\tau_{\text{resolve}} = \sum_{p=1}^P \tau_{\text{stat}}(p) \approx 180\text{ ms} - 320\text{ ms}$$
 Under our registered pre-flight resolution pipeline (`initialize_driver_environment()`):
@@ -66,7 +66,7 @@ $$\tau_{\text{resolve}} = \tau_{\text{dlopen}}(\text{hash-table lookup}) \le 1.2
 
 *ABI Forward-Compatibility Bound*:
 Level Zero Loader symbol `zeInit(0)` is governed by the specification:
-$$\mathcal{V}_{\text{API}} \in [\text{ZE\_API\_VERSION\_1\_0}, \text{ZE\_API\_VERSION\_1\_8}]$$
+$$\mathcal{V}_{\text{API}} \in [\text{ZE API VERSION 1 0}, \text{ZE API VERSION 1 8}]$$
 The backward-compatible C ABI guarantees that any driver binary conforming to major version $1$ maintains ABI stability without recompilation:
 $$\Delta_{\text{ABI}} = 0 \iff \text{Major}(\mathcal{V}_{\text{driver}}) = 1$$
 
@@ -107,7 +107,7 @@ In Linux, graphics device access is mediated by device nodes:
 - Primary card node: `/dev/dri/card0` (major 226, minor 0) — requires `CAP_SYS_ADMIN` for modesetting and display management.
 - Render node: `/dev/dri/renderD128` (major 226, minor 128) — designed specifically for unprivileged GPGPU and compute dispatch.
 Let $\mathcal{P}_{\text{container}}$ be the security capability vector of the container process. By restricting privileges:
-$$\mathcal{P}_{\text{container}} \cap \{\text{CAP\_SYS\_ADMIN}, \text{CAP\_SYS\_RAWIO}\} = \emptyset$$
+$$\mathcal{P}_{\text{container}} \cap \{\text{CAP SYS ADMIN}, \text{CAP SYS RAWIO}\} = \emptyset$$
 Access to `/dev/dri/renderD128` is governed solely by POSIX file permissions:
 $$\text{Perm}(\text{renderD128}) = \text{rw-rw----} \quad (\text{UID}=\text{root}, \text{GID}=\text{render})$$
 By enrolling the non-root container user (`UID 1000`) into supplementary groups:
@@ -122,7 +122,7 @@ Let $\mathcal{S}$ denote the operational state space of the packaging and deploy
 $$\mathcal{S} = \mathcal{S}_{\text{nominal}} \cup \mathcal{S}_{\text{error}} \cup \mathcal{S}_{\text{boundary}}$$
 The Triad Testing Methodology guarantees complete verification:
 1. **Positive Triad** $\mathcal{T}_{\text{pos}} \subseteq \mathcal{S}_{\text{nominal}}$: verifies all contract invariants under valid parameters ($\forall s \in \mathcal{S}_{\text{nominal}}, \text{Outcome}(s) = \text{SUCCESS}$).
-2. **Negative Triad** $\mathcal{T}_{\text{neg}} \subseteq \mathcal{S}_{\text{error}}$: verifies all failure modes trigger explicit typed exceptions without silent corruption ($\forall s \in \mathcal{S}_{\text{error}}, \text{Outcome}(s) = \text{HANDLED\_ERROR}$).
+2. **Negative Triad** $\mathcal{T}_{\text{neg}} \subseteq \mathcal{S}_{\text{error}}$: verifies all failure modes trigger explicit typed exceptions without silent corruption ($\forall s \in \mathcal{S}_{\text{error}}, \text{Outcome}(s) = \text{HANDLED ERROR}$).
 3. **Edge Triad** $\mathcal{T}_{\text{edge}} \subseteq \mathcal{S}_{\text{boundary}}$: verifies system stability at extrema (zero bytes, missing drivers, signal interrupts, unmapped GIDs).
 *Coverage Completeness Lattice*:
 $$\text{Coverage}(\mathcal{T}_{\text{pos}} \cup \mathcal{T}_{\text{neg}} \cup \mathcal{T}_{\text{edge}}) = \mathbf{100\%} \quad \text{of critical deployment paths}$$

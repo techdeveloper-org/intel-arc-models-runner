@@ -12,20 +12,20 @@ reviewers: [user]
 
 # R10 Release-readiness review for v0.2.0 (nothing tagged, published or pushed)
 
-Reviewed at HEAD `f25e8b3` (branch claude/nice-volta-bs7mnf). Agents played: `release-engineering-specialist` (release engineering) and `technical-writer-agent` (README / deployment docs).
-Note on the master plan: it also lists `supply-chain-engineer`. That library agent is a warehouse/logistics agent (wrong domain), so it was NOT used.
+Reviewed at HEAD `f25e8b3` (branch claude/nice-volta-bs7mnf). Agents played: *release engineering specialist* (release engineering) and *technical writer agent* (README / deployment docs).
+Note on the master plan: it also lists *supply chain engineer*. That library agent is a warehouse/logistics agent (wrong domain), so it was NOT used.
 
 ## 0. Skill proof
 
 Read (first lines only, not the whole file), one exact line each:
-- release-versioning-management-core (lines 1-120 of 547): `bump(commits) = max_i( bump(commit_i) )   where MAJOR > MINOR > PATCH > none`
-- github-actions-ci (1-120 of 1090): `Total jobs = Π(dimension sizes) = 3 × 3 = 9 concurrent jobs`
-- linux-shell-scripting (1-80 of 866): `fork(): ~0.1-1ms (copy-on-write, fast)`
-- testing-core (1-80 of 808): `Statement coverage:    covered_statements / total_statements`
-- technical-writing-core (1-100 of 298): `FKGL = 0.39 * (total_words / total_sentences) + 11.8 * (total_syllables / total_words) - 15.59`
-- procedural-documentation-core (1-100 of 321): `A **migration guide** is a specialized, higher-stakes variant for a ONE-TIME, often irreversible transition`
+- release versioning management core (lines 1-120 of 547): `bump(commits) = max_i( bump(commit_i) )   where MAJOR > MINOR > PATCH > none`
+- github actions ci (1-120 of 1090): `Total jobs = Π(dimension sizes) = 3 × 3 = 9 concurrent jobs`
+- linux shell scripting (1-80 of 866): `fork(): ~0.1-1ms (copy-on-write, fast)`
+- testing core (1-80 of 808): `Statement coverage:    covered_statements / total_statements`
+- technical writing core (1-100 of 298): `FKGL = 0.39 * (total_words / total_sentences) + 11.8 * (total_syllables / total_words) - 15.59`
+- procedural documentation core (1-100 of 321): `A **migration guide** is a specialized, higher-stakes variant for a ONE-TIME, often irreversible transition`
 
-Not read: jenkins-pipeline, docker, devsecops-core, powershell-scripting (optional), requirements-traceability-core (optional), and the remainder of every file above (including all M1-M6 math). No readability formula (FKGL/Fog) was computed; the docs review below is about correctness of commands and claims, not grade level.
+Not read: jenkins pipeline, docker, devsecops core, powershell scripting (optional), requirements traceability core (optional), and the remainder of every file above (including all M1-M6 math). No readability formula (FKGL/Fog) was computed; the docs review below is about correctness of commands and claims, not grade level.
 
 ## 1. Verdict
 
@@ -47,7 +47,7 @@ Base dir `/tmp/claude-0/-home-user/9f5d9574-39ea-55de-8475-bf2e506385a2/scratchp
 Verified: `VERSION` = `0.2.0`; `src/arc_runner/_version.py:3` = `0.2.0`; `pyproject.toml:7` = `0.2.0`; CHANGELOG top released section `[0.2.0] - 2026-10-29`; `arc-runner --version` prints `arc-runner 0.2.0`; built wheel/sdist are 0.2.0. `scripts/check_docs_sync.py` enforces the four and passes.
 
 Findings:
-- **HIGH R10-1. CHANGELOG is not in a taggable state.** `CHANGELOG.md:7` has `## [UNRELEASED]` ABOVE `## [0.2.0]` (line 25) and it holds substantial feature work (Sysman power/frequency, schema-v1 workload/metrics, pin_resident_layers, USM staging, KV quality gate, Added entries for 5 runners). Tagging 0.2.0 now ships code whose notes sit under "UNRELEASED". Decide: fold UNRELEASED into 0.2.0 (nothing is published, so allowed) or cut 0.3.0 for the Added items (SemVer MINOR, `release-versioning-management-core` s2.1). The checker skips UNRELEASED by design (`check_docs_sync.py` "top released"), so CI will not catch it.
+- **HIGH R10-1. CHANGELOG is not in a taggable state.** `CHANGELOG.md:7` has `## [UNRELEASED]` ABOVE `## [0.2.0]` (line 25) and it holds substantial feature work (Sysman power/frequency, schema-v1 workload/metrics, pin_resident_layers, USM staging, KV quality gate, Added entries for 5 runners). Tagging 0.2.0 now ships code whose notes sit under "UNRELEASED". Decide: fold UNRELEASED into 0.2.0 (nothing is published, so allowed) or cut 0.3.0 for the Added items (SemVer MINOR, *release versioning management core* s2.1). The checker skips UNRELEASED by design (`check_docs_sync.py` "top released"), so CI will not catch it.
 - **MED R10-2. 0.2.0 section is stale and self-contradicting.** `CHANGELOG.md:27` says "Not published yet ... items under 'Needs a real machine' are not done"; lines 56-57 list "Rebuild and commit the Windows DLL, run probe_hardware, run the benchmark matrix". The DLL was rebuilt (commit 9cfb3ab), `probe.json` and 3 result JSONs exist (`docs/benchmarks/results/`). Still open per RESUME.md: TLC run, full `pytest -m hardware` pass, regression benchmark. Rewrite the section to the true remaining list before tagging.
 - LOW R10-3. Format drift from Keep a Changelog: `[UNRELEASED]` (spec: `[Unreleased]`), no compare-link footer, `[0.1.0]` has no date, an orphan bullet after a blank line (line 22), and a 0.2.0 entry that bundles breaking-looking changes (u8 KV default off, single `generate()` call form, shrunken sync timeout) with no "Breaking/Behavior change" marker. Pre-1.0, so MINOR is legitimate, but the 0.y.z notice (skill s1.3) should be explicit.
 - LOW R10-4. Version is stated in 4 hand-edited places (NFR-103 style duplication); `dynamic = ["version"]` reading `_version.py` would make it one. Optional.
@@ -69,7 +69,7 @@ Findings:
 - LOW R10-9. `pypa/gh-action-pypi-publish@release/v1` is a moving branch.
 
 ### 4.2 Action pinning
-All third-party actions are pinned by mutable tag, none by SHA: checkout@v4, setup-python@v5, setup-node@v4, upload-artifact@v4, docker/setup-buildx@v3, login@v3, metadata@v5, build-push@v5, pypa `@release/v1`. `release-engineering-specialist` rule: pin release-critical actions. MED for the two release workflows (publish + GHCR login hold write credentials), LOW for ci.yml. Runners are floating `ubuntu-latest`/`windows-latest`; Dockerfile base is `ubuntu:24.04` without digest. `npm install @mermaid-js/mermaid-cli@10.9.1` is pinned (good); `pip install build twine` in publish is unpinned.
+All third-party actions are pinned by mutable tag, none by SHA: checkout@v4, setup-python@v5, setup-node@v4, upload-artifact@v4, docker/setup-buildx@v3, login@v3, metadata@v5, build-push@v5, pypa `@release/v1`. *release engineering specialist* rule: pin release-critical actions. MED for the two release workflows (publish + GHCR login hold write credentials), LOW for ci.yml. Runners are floating `ubuntu-latest`/`windows-latest`; Dockerfile base is `ubuntu:24.04` without digest. `npm install @mermaid-js/mermaid-cli@10.9.1` is pinned (good); `pip install build twine` in publish is unpinned.
 
 ### 4.3 Matrix, caching, hygiene
 - Matrix: Linux 3.10 and 3.13 only; `pyproject` classifiers claim 3.11 and 3.12 (untested in CI, though the publish job builds on 3.12). Windows: 3.13 only. LOW/MED: add 3.11/3.12 or drop the classifiers.

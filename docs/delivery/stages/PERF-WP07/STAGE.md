@@ -20,7 +20,7 @@ Gate status: `PASS`. Reliability score: `0.99`. Red tests: `tests/test_thermal_m
 Under high-concurrency continuous batching (WP-04), Intel Arc GPU silicon can experience rapid thermal or electrical load escalation toward PL1 (sustained power TDP limit) or temperature limits ($80^\circ\text{C}$ / $90^\circ\text{C}$).
 - **Root cause:** Without proactive application-level scheduling governance, hardware or driver-level emergency throttling drops GPU clocks non-deterministically, spiking token generation latency.
 - **Remedy:** Implement proactive, closed-loop thermal and power monitoring with hysteresis:
-  1. `ThermalMonitor`: Background daemon thread (`arc-thermal-monitor`) querying Level Zero Sysman metrics every $\text{THERMAL\_POLL\_INTERVAL\_S} = 5.0\text{s}$.
+  1. `ThermalMonitor`: Background daemon thread (`arc-thermal-monitor`) querying Level Zero Sysman metrics every $\text{THERMAL POLL INTERVAL S} = 5.0\text{s}$.
   2. `ThrottlePolicy`: 3-state hysteresis control machine (`NORMAL` $\to$ cap 8; `WARN` $\to$ cap 4; `CRITICAL` $\to$ cap 1). The 5.0°C hysteresis window prevents rapid oscillation around threshold boundaries.
   3. Dynamic Concurrency Throttling: Automatically tunes `ContinuousBatchingScheduler.set_concurrency_cap()` to maintain safe thermal and power envelopes without dropping active connections.
   4. Telemetry Extension: Exposes `thermal` and `power` observations on `/health`.

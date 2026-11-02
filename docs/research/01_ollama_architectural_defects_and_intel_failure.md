@@ -165,12 +165,12 @@ For a standard CUDA binary:
 $$|V_{\text{CUDA}}| = 3 \quad (\text{kernel32, nvcuda, cublas64})$$
 $$\text{Relocation Complexity: } O(|V| + |E|) \approx O(3 + 2) = O(5)$$
 For an Intel oneAPI SYCL binary on Windows without static runtime packing:
-$$|V_{\text{SYCL}}| = 14 \quad (\text{ze\_loader, sycl7, svml\_dispmd, libiomp5md, pi\_level\_zero, msvcp140, vcruntime140...})$$
+$$|V_{\text{SYCL}}| = 14 \quad (\text{ze loader, sycl7, svml dispmd, libiomp5md, pi level zero, msvcp140, vcruntime140...})$$
 $$\text{Relocation Complexity: } O(|V| + |E|) \approx O(14 + 38) = O(52)$$
 
 If any single edge $e = (u, v) \in E$ fails to resolve at load time ($v \notin \text{PATH}$):
 $$\Pr(\text{Load Failure}) = 1 - \prod_{k=1}^{|V|} (1 - p_{\text{missing}}(k))$$
-Given that $p_{\text{missing}}(\text{svml\_dispmd}) \approx 0.95$ on standard Windows installations lacking the oneAPI SDK, the probability of failure on consumer machines approaches:
+Given that $p_{\text{missing}}(\text{svml dispmd}) \approx 0.95$ on standard Windows installations lacking the oneAPI SDK, the probability of failure on consumer machines approaches:
 $$\Pr(\text{Load Failure}) \ge 98.4\%$$
 This proves mathematically why Ollama's unbundled dynamic loading approach is fundamentally doomed on consumer PCs without a custom-engineered, self-contained runtime wrapper.
 

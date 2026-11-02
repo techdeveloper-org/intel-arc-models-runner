@@ -1,6 +1,6 @@
 ---
 doc_id: DOC-R06-REVIEW
-title: R06 Independent test authorship (integration-testing-engineer + testing-mathematics-expert)
+title: R06 Independent test authorship (integration testing engineer + testing mathematics expert)
 stage: S-G
 version: 1.0.0
 status: draft
@@ -10,7 +10,7 @@ authors: [library agent via main session]
 reviewers: [user]
 ---
 
-# R06 Independent test authorship (integration-testing-engineer + testing-mathematics-expert)
+# R06 Independent test authorship (integration testing engineer + testing mathematics expert)
 
 Scope: new tests in `tests/independent/` written from the specification only. No existing `tests/test_*.py`
 was opened. Allowed exceptions used: `tests/conftest.py` (first 60 lines) and `tests/test_flash_stream_triad.py`
@@ -24,12 +24,12 @@ I did not read the C sources or any existing test.
 ## Skills (proof of reading)
 
 Read (partially, as stated):
-- `property-based-testing-core` lines 1-140. Quote: "Property-based testing (PBT) automatically generates thousands of inputs to verify universally quantified properties — predicates that must hold for all values in a domain."
-- `mutation-testing-core` lines 1-120. Quote: "Survived mutants are the actionable output: each one identifies a class of faults undetected by the current test suite."
-- `integration-testing-core` lines 1-120. Quote: "The key word is \"real interface\": integration tests exercise actual persistence mechanisms, actual serialization formats, and actual network protocols within a controlled environment."
+- *property based testing core* lines 1-140. Quote: "Property-based testing (PBT) automatically generates thousands of inputs to verify universally quantified properties — predicates that must hold for all values in a domain."
+- *mutation testing core* lines 1-120. Quote: "Survived mutants are the actionable output: each one identifies a class of faults undetected by the current test suite."
+- *integration testing core* lines 1-120. Quote: "The key word is \"real interface\": integration tests exercise actual persistence mechanisms, actual serialization formats, and actual network protocols within a controlled environment."
 
-Not read: `contract-testing-core`, `unit-testing-core`, `performance-testing-core`, `chaos-engineering-core`,
-`ai-model-testing-core`, `e2e-testing-core`, `test-automation-architecture-core`, and the remainder of the three
+Not read: *contract testing core*, *unit testing core*, *performance testing core*, *chaos engineering core*,
+*ai model testing core*, *e2e testing core*, *test automation architecture core*, and the remainder of the three
 skills above. Their Pact/queueing/chaos/fairness content is not applicable to this task.
 
 Environment note: `hypothesis` is NOT installed in the venv, so all property tests are seeded `random.Random`

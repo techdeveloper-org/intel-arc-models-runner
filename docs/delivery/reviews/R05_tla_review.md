@@ -12,7 +12,7 @@ reviewers: [user]
 
 # R05 - TLA+ review of RingSlots against the ring-buffer weight streamer
 
-Reviewer: tla-plus-specification-engineer (library agent). Scope: `docs/formal/RingSlots.tla|cfg`,
+Reviewer: tla plus specification engineer (library agent). Scope: `docs/formal/RingSlots.tla|cfg`,
 `src/arc_runner/engine/flash_stream/weight_streamer.py` (WS), `scripts/check_ring_model.py` (CHK).
 Nothing in the repo was edited. Scratch artifacts (all in
 `/tmp/claude-0/-home-user/9f5d9574-39ea-55de-8475-bf2e506385a2/scratchpad/r05/`):
@@ -26,10 +26,10 @@ Nothing in the repo was edited. Scratch artifacts (all in
   is by reading, and about the model by running CHK, which is a separate Python re-implementation.
 - CHK was run unmodified: `ring model OK threads=3 layers=4 slots=2 max_ops=2 {'states': 750420,
   'transitions': 3606900, 'final_states': 1728}` (12 s).
-- Skill read: `tla-plus-formal-methods-core` (all 298 lines). Proof line: "Always state the canonical spec shape
+- Skill read: *tla plus formal methods core* (all 298 lines). Proof line: "Always state the canonical spec shape
   `Spec ≡ Init ∧ □[Next]_vars ∧ Fairness` explicitly when discussing what makes a formula a well-formed TLA+
-  specification of a reactive system". Not read: `dafny-verification-core`, `formal-methods-case-studies-core`
-  (optional). No delegation to formal-methods-mathematics-expert (no derivation needed beyond the acyclicity
+  specification of a reactive system". Not read: *dafny verification core*, *formal methods case studies core*
+  (optional). No delegation to formal methods mathematics expert (no derivation needed beyond the acyclicity
   argument in 2.3, which I checked by computation instead).
 - **Defect in the skill itself (library, not repo):** SKILL.md section 9 M5 (lines 213-214) defines
   `WF = []<>ENABLED => []<>taken` and `SF = <>[]ENABLED => []<>taken`. Lamport (Specifying Systems, ch. 8) has these

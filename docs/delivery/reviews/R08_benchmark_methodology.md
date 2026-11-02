@@ -12,19 +12,19 @@ reviewers: [user]
 
 # R08 Benchmark methodology review
 
-Reviewer roles: llm-benchmark-analyst + harness-evaluation-engineer. Scope: METHOD.md, `benchmark/{stats,results,workloads,nonllm,power,harness_common,kv_quality,runner,multimodal_runner}.py`, `scripts/bench_{regression,native_micro,kv_quality}.py`, `scripts/render_bench_docs.py`, `scratch/run_live_*`, and the three real result files. Everything below was read in code or reproduced; items I could not verify are marked SUSPECTED.
+Reviewer roles: llm benchmark analyst + harness evaluation engineer. Scope: METHOD.md, `benchmark/{stats,results,workloads,nonllm,power,harness_common,kv_quality,runner,multimodal_runner}.py`, `scripts/bench_{regression,native_micro,kv_quality}.py`, `scripts/render_bench_docs.py`, `scratch/run_live_*`, and the three real result files. Everything below was read in code or reproduced; items I could not verify are marked SUSPECTED.
 
 ## 0. Skills and agents (proof of reading)
 
 Read (first chunk only, not the M1-M6 derivation sections, which I did not need):
-- llm-benchmarking-core, lines 1-120: "- **Temperature**: 0.0 for deterministic evaluation (HumanEval pass@1, MMLU); only use temperature > 0 for self-consistency sampling."
-- model-capability-profiling-core, lines 1-60: "- **HumanEval**: 164 Python problems, greedy decoding (T=0), pass@1 strictly."
-- context-decay-analysis-core, lines 1-60: "Effective_Context_Length(M) = max L such that score(M, L) >= threshold" (the file has the unicode >= sign).
-- eval-harness-design-core, lines 1-120: "A bare pass-rate (`83%`) is uninterpretable without a sample size and an interval."
-- deterministic-replay-trace-core, lines 1-80: "1. **Determinism** — the same recorded run replays the same way every time, so a test asserts against a fixed baseline instead of a fresh stochastic sample."
-- agent-regression-harness-core, lines 1-80: "### 1.2 The Reframing: Pass-Rate, Not Pass/Fail"
+- llm benchmarking core, lines 1-120: "- **Temperature**: 0.0 for deterministic evaluation (HumanEval pass@1, MMLU); only use temperature > 0 for self-consistency sampling."
+- model capability profiling core, lines 1-60: "- **HumanEval**: 164 Python problems, greedy decoding (T=0), pass@1 strictly."
+- context decay analysis core, lines 1-60: "Effective_Context_Length(M) = max L such that score(M, L) >= threshold" (the file has the unicode >= sign).
+- eval harness design core, lines 1-120: "A bare pass-rate (`83%`) is uninterpretable without a sample size and an interval."
+- deterministic replay trace core, lines 1-80: "1. **Determinism** — the same recorded run replays the same way every time, so a test asserts against a fixed baseline instead of a fresh stochastic sample."
+- agent regression harness core, lines 1-80: "### 1.2 The Reframing: Pass-Rate, Not Pass/Fail"
 
-Not read: all optional skills; remaining lines of all six. The agents delegate statistics to `genai-routing-mathematician` / `harness-mathematics-expert`; I did not invoke them. Every statistic below was computed with the repo functions and re-computed independently (numpy bootstrap with 20000 resamples and a different seed; a delta-method log-ratio interval with a Welch t quantile that I integrated numerically). Treat that as my own check, not a delegated proof.
+Not read: all optional skills; remaining lines of all six. The agents delegate statistics to *genai routing mathematician* / *harness mathematics expert*; I did not invoke them. Every statistic below was computed with the repo functions and re-computed independently (numpy bootstrap with 20000 resamples and a different seed; a delta-method log-ratio interval with a Welch t quantile that I integrated numerically). Treat that as my own check, not a delegated proof.
 
 ## 1. What the three result files are
 

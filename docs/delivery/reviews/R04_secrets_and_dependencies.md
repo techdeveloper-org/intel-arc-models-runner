@@ -18,14 +18,14 @@ Repo visibility: **public** (`gh api repos/techdeveloper-org/intel-arc-models-ru
 ## 0. Skills read (proof)
 
 Read in part only (first 100-120 lines of each; the files are 495-1937 lines). Full files were NOT read.
-- devsecops-core (L1-120): "# DevSecOps Core Skill Instructions"
-- application-security-core (L1-100): "### M1: CVSS Scoring and Risk Quantification"
-- data-security-privacy-core (L1-100): "### 1.1 Four-Tier Classification Model"
-- india-cyber-regulatory-core (L1-100): "### 1.18 Section 70B -- CERT-In Functions and Powers"
-- vulnerability-management-core (L1-100): "### 1.1 Six-Phase Lifecycle"
-- security-testing-ci-core (L1-100): "**Evidence retention:** All scan artifacts in SARIF format, tagged with release version and NTP-sourced timestamp. Minimum 180 days per CERT-In Directions 2022."
+- devsecops core (L1-120): "# DevSecOps Core Skill Instructions"
+- application security core (L1-100): "### M1: CVSS Scoring and Risk Quantification"
+- data security privacy core (L1-100): "### 1.1 Four-Tier Classification Model"
+- india cyber regulatory core (L1-100): "### 1.18 Section 70B -- CERT-In Functions and Powers"
+- vulnerability management core (L1-100): "### 1.1 Six-Phase Lifecycle"
+- security testing ci core (L1-100): "**Evidence retention:** All scan artifacts in SARIF format, tagged with release version and NTP-sourced timestamp. Minimum 180 days per CERT-In Directions 2022."
 
-Not read: the remainder of all six skills, plus the Optional skill `cyber-risk-quantification-core` and the `cyber-mathematics-expert` delegate. No Bayesian/entropy derivation was delegated; see section A.3 for how I limited the claims accordingly.
+Not read: the remainder of all six skills, plus the Optional skill *cyber risk quantification core* and the *cyber mathematics expert* delegate. No Bayesian/entropy derivation was delegated; see section A.3 for how I limited the claims accordingly.
 
 ## A. Task A - Secrets detection
 
@@ -49,7 +49,7 @@ Raw count is inflated because the same line recurs across many commits and histo
 | draw.io compressed-diagram payloads inside `app.diagrams.net/?url=...#R7V...` links | README.md / docs/diagrams/README.md / docs/architecture.md (WT and history, ~1830 hits) | Diagram data embedded in a URL fragment |
 | snake_case test function names >32 chars | tests/test_nextgen_orchestration_triad.py (e.g. `test_qsv_encoder_should_selectH264Profile_when_invoked`) | Identifiers |
 | `/usr/lib/x86_64-linux-gnu/dri` | docker-compose.yml:16 (`LIBVA_DRIVERS_PATH`) | Filesystem path |
-I did not compute Bayesian posteriors (the agent delegates that to `cyber-mathematics-expert`, not invoked); the classification above rests on inspecting content, not on a probability. Because every candidate is explained by content, no suppression-list entry was needed.
+I did not compute Bayesian posteriors (the agent delegates that to *cyber mathematics expert*, not invoked); the classification above rests on inspecting content, not on a probability. Because every candidate is explained by content, no suppression-list entry was needed.
 
 ### A.4 Personal data and metadata
 | Item | Location | Assessment |

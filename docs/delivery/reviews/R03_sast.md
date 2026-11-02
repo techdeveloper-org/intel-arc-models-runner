@@ -12,17 +12,17 @@ reviewers: [user]
 
 # R03 SAST review: src/arc_runner (Python) and src/arc_runner/native (C)
 
-Agent: sast-engineer v1.0.0 (library agent definition read in full). Scope: `src/arc_runner` (22,456 Python lines), `src/arc_runner/native/*.c|h` (1,578 lines), plus `scripts/`, `scratch/`, Dockerfile and compose as requested ("scratch scripts", ffmpeg, build scripts).
-Severity is a qualitative rating (CRITICAL/HIGH/MED/LOW). No CVSS v4.0 vectors were scored (the delegate `cyber-mathematics-expert` is not available here), so no finding is rated CRITICAL.
+Agent: sast engineer v1.0.0 (library agent definition read in full). Scope: `src/arc_runner` (22,456 Python lines), `src/arc_runner/native/*.c|h` (1,578 lines), plus `scripts/`, `scratch/`, Dockerfile and compose as requested ("scratch scripts", ffmpeg, build scripts).
+Severity is a qualitative rating (CRITICAL/HIGH/MED/LOW). No CVSS v4.0 vectors were scored (the delegate *cyber mathematics expert* is not available here), so no finding is rated CRITICAL.
 India context: NO (DL-039 records no Indian personal data; no CERT-In, DPDP or IT Act 43A tags applied).
 
 ## Skills read (proof)
 Only the first 120 lines of each Mandatory skill were read (files are 1937, 917, 495, 1388 lines). The rest was not read.
-- devsecops-core: `**Architecture:** Pattern-based static analysis using lightweight rules written in YAML.`
-- application-security-core: `  False positive rate: FP / (TP + FP) × 100%`
-- security-testing-ci-core: `SAST analyzes source code without executing it, finding vulnerabilities through control flow and data flow analysis.`
-- india-cyber-regulatory-core: `- **Penalty**: Compensation up to Rs.5 crore (civil). No imprisonment.`
-- Not read: threat-modeling-core (Optional). No `threat_list.json` was supplied, so threat-model correlation was not done.
+- devsecops core: `**Architecture:** Pattern-based static analysis using lightweight rules written in YAML.`
+- application security core: `  False positive rate: FP / (TP + FP) × 100%`
+- security testing ci core: `SAST analyzes source code without executing it, finding vulnerabilities through control flow and data flow analysis.`
+- india cyber regulatory core: `- **Penalty**: Compensation up to Rs.5 crore (civil). No imprisonment.`
+- Not read: threat modeling core (Optional). No `threat_list.json` was supplied, so threat-model correlation was not done.
 
 ## Tools run (versions from the scratchpad venv)
 | Tool | Result |
@@ -92,7 +92,7 @@ Counts. Raw tool rows: ruff 54 (+10 syntax), bandit 69 (src+scripts) + 27 (scrat
 - Impact: the console entry point cannot start on 3.10 and 3.11, which the package metadata claims to support. (Ruff flagged it; `ast.parse(feature_version=(3,10))` on 3.13 wrongly says OK.)
 
 ### F11. Dependency findings routed (Operating Rule 8, not counted as SAST)
-pip-audit on the scratch venv listed `mcp 1.29.0` (4 CVEs) and `opentelemetry-api 1.37.0` (1 CVE). `mcp` is only required by semgrep, which I installed for this review, so it is not an arc-runner dependency. `opentelemetry-api` is also pulled in by semgrep in this venv, and the declared project dependencies (`pyproject.toml`) do not list it. Route to `dependency-vulnerability-analyst` against the real lockfile; I did not audit that.
+pip-audit on the scratch venv listed `mcp 1.29.0` (4 CVEs) and `opentelemetry-api 1.37.0` (1 CVE). `mcp` is only required by semgrep, which I installed for this review, so it is not an arc-runner dependency. `opentelemetry-api` is also pulled in by semgrep in this venv, and the declared project dependencies (`pyproject.toml`) do not list it. Route to *dependency vulnerability analyst* against the real lockfile; I did not audit that.
 
 ## Suspected, not reproduced
 - F7a. `arc_flash_stream_mmap.c:217` maps with `MAP_SHARED` and no write protection on the file. If another local process truncates the file after `fstat`, reads of the mapping raise SIGBUS and kill the process. The Windows branch (165) uses `FILE_SHARE_READ | FILE_SHARE_DELETE` without `FILE_SHARE_WRITE`, which blocks writers. I did not test truncation. Local denial of service only.

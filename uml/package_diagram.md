@@ -37,7 +37,7 @@ flowchart LR
 ## Mathematical Proofs & Invariants
 
 - **Proofs M1-M6, M8-M9, M15-M20, M29-M34, M50-M58**: Base LLM, speculative decoding, continuous batching, and quantization proofs.
-- **Proof M59**: Real-Time Factor invariant $\text{RTF} = \frac{\text{latency\_s}}{\text{duration\_s}} \le 1.0$ for real-time streaming audio.
+- **Proof M59**: Real-Time Factor invariant $\text{RTF} = \frac{\text{latency s}}{\text{duration s}} \le 1.0$ for real-time streaming audio.
 - **Proof M66**: Zero-disk residue invariant — transient audio buffers and compiled pipelines execute strictly in-memory without persistent disk cache pollution.
 - **Proof M67**: Level Zero immediate command list dispatch latency ceiling $\tau \le 2.1\,\mu\text{s}$ for audio pipeline submissions.
 - **Proof M68**: Linear PCM buffer bound $M \le 19.2\,\text{MB}$ ($300\,\text{s} \times 16000\,\text{Hz} \times 4\,\text{B}$) with zero memory leaks across successive pipeline invocations.

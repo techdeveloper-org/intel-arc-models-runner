@@ -101,7 +101,7 @@ The Intel Arc A770 delivers between **2.26× to 4.04× greater raw memory bandwi
 ---
 
 ### Proof E2: Continuous Inference Thermodynamic Power & Datacenter PUE OpEx
-Let $P_{\text{active}}$ represent the active inference electrical power draw in Watts, $P_{\text{idle}}$ the idle power draw, $\delta$ the active duty cycle ($0 \le \delta \le 1$), $\text{PUE}$ the Data Center Power Usage Effectiveness multiplier (industry standard: $\text{PUE} = 1.35$), and $C_{\text{kWh}}$ the industrial electricity cost ($C_{\text{kWh\_USD}} = \text{\$0.14/kWh}$, $C_{\text{kWh\_INR}} = \text{₹8.50/kWh}$).
+Let $P_{\text{active}}$ represent the active inference electrical power draw in Watts, $P_{\text{idle}}$ the idle power draw, $\delta$ the active duty cycle ($0 \le \delta \le 1$), $\text{PUE}$ the Data Center Power Usage Effectiveness multiplier (industry standard: $\text{PUE} = 1.35$), and $C_{\text{kWh}}$ the industrial electricity cost ($C_{\text{USD}} = \$0.14/\text{kWh}$, $C_{\text{INR}} = \text{₹}8.50/\text{kWh}$).
 
 The annual electrical operational expenditure ($\text{OpEx}_{\text{power}}$) is governed by:
 

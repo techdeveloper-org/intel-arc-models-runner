@@ -12,19 +12,19 @@ reviewers: [user]
 
 # R02 - STRIDE threat model with attack trees
 
-Branch `claude/nice-volta-bs7mnf`, run date 2026-10-29. Agent played: `threat-modeling-specialist` (Phase F.1 style).
+Branch `claude/nice-volta-bs7mnf`, run date 2026-10-29. Agent played: *threat modeling specialist* (Phase F.1 style).
 Verdict under the agent's own gate (any open HIGH/CRITICAL blocks): **REJECTED** (2 CRITICAL, 2 HIGH open).
 Method: read the code, then ran proof-of-concept inputs in temp dirs under `/tmp/claude-0/.../scratchpad/r02/` (scripts `poc_*.py`; nothing in the repo was modified). Every finding is tagged VERIFIED (reproduced by running) or TRACED (read, not executed).
 
 ## 0. Skills read (proof) and limits
 
 Read in part (first 100-200 lines of each; files are 492-1600 lines):
-- threat-modeling-core (L1-200): "### M1: Attack-Tree / Attack-Graph Formalism"
-- application-security-core (L1-120): "### M1: CVSS Scoring and Risk Quantification"
-- cyber-risk-quantification-core (L1-100): "### 1.1 Qualitative vs Quantitative Risk Assessment"
-- india-cyber-regulatory-core (L1-100): "### 1.18 Section 70B -- CERT-In Functions and Powers"
+- threat modeling core (L1-200): "### M1: Attack-Tree / Attack-Graph Formalism"
+- application security core (L1-120): "### M1: CVSS Scoring and Risk Quantification"
+- cyber risk quantification core (L1-100): "### 1.1 Qualitative vs Quantitative Risk Assessment"
+- india cyber regulatory core (L1-100): "### 1.18 Section 70B -- CERT-In Functions and Powers"
 
-Not read: M2-M6 of threat-modeling-core and the remainder of all four skills; optional `security-testing-ci-core`; `cyber-mathematics-expert` was NOT invoked. Consequence: **no numeric leaf probabilities, no RAM triple, no CVSS/FAIR numbers** are given (none could be sourced, and the task said qualitative ranking). Attack trees below are structural AND/OR with qualitative likelihood only. Ranking = likelihood x impact, qualitative. R04 (secrets, dependency CVEs) is not repeated here.
+Not read: M2-M6 of threat modeling core and the remainder of all four skills; optional *security testing ci core*; *cyber mathematics expert* was NOT invoked. Consequence: **no numeric leaf probabilities, no RAM triple, no CVSS/FAIR numbers** are given (none could be sourced, and the task said qualitative ranking). Attack trees below are structural AND/OR with qualitative likelihood only. Ranking = likelihood x impact, qualitative. R04 (secrets, dependency CVEs) is not repeated here.
 
 ## 1. Scope, DFD and trust boundaries
 
@@ -144,7 +144,7 @@ Assets: host files, GPU, RAM, disk, model integrity. Boundary TB1.
 
 **TM-01 (CRITICAL, VERIFIED)** `app.py:105-111`: `CORSMiddleware(allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])`. PoC via `TestClient`: a preflight from `Origin: https://evil.example` for `DELETE` with `content-type` returned 200 with `access-control-allow-origin: https://evil.example`, `allow-credentials: true`; the real response echoed the same origin. There is no authentication, no `TrustedHostMiddleware`, no token (grep for api_key/Authorization/Bearer found none). Consequence: any web page the user visits can call every route on `127.0.0.1:11434` (including state-changing GETs that need no preflight, see TM-04); any LAN host can when the Docker port is published (`docker-compose.yml:9-10` binds all interfaces; `Dockerfile:106` binds 0.0.0.0; `serve` accepts any `--host` with no warning). `/openapi.json` is still served although `docs_url` is disabled (`app.py:95`; route listed in PoC).
 Likelihood HIGH (drive-by needs only a visited page), impact = TM-02..05.
-Fix (recommend; design belongs to solution-architect): default CORS allowlist = `http://localhost:*`/`127.0.0.1` only, `allow_credentials=False`; `TrustedHostMiddleware` with localhost names (also stops DNS rebinding); require `Authorization: Bearer <token>` (generated at first start, stored 0600) on all non-health routes and refuse a non-loopback bind without a token; compose `127.0.0.1:8000:8000`; require `Content-Type: application/json` and reject cross-site `Sec-Fetch-Site` on mutating routes; move state-changing `GET /api/gguf/convert/stream` to POST.
+Fix (recommend; design belongs to solution architect): default CORS allowlist = `http://localhost:*`/`127.0.0.1` only, `allow_credentials=False`; `TrustedHostMiddleware` with localhost names (also stops DNS rebinding); require `Authorization: Bearer <token>` (generated at first start, stored 0600) on all non-health routes and refuse a non-loopback bind without a token; compose `127.0.0.1:8000:8000`; require `Content-Type: application/json` and reject cross-site `Sec-Fetch-Site` on mutating routes; move state-changing `GET /api/gguf/convert/stream` to POST.
 
 **TM-02 (CRITICAL, VERIFIED)** `HubManager.resolve_model_dir` (`hub/manager.py:64-66`): `clean_id = model_id.strip().split(":")[0]`; `(base / clean_id).resolve()` with an absolute `clean_id` discards `base`, and `..` escapes it; any existing directory is accepted; `delete` then runs `shutil.rmtree(target_dir)` (`:157`). PoC (unit and HTTP): `DELETE /api/delete {"name": "<abs dir>"}` -> 200 and the directory was gone; `"../other"` removed a sibling; `".."` removed the parent of the models dir. Reached from `routes_ollama.py:545-550`. The existing tests `test_hub.py:223` and `test_ui_endpoints.py:330` are named as traversal protection, pass today, and prove nothing: both only assert that a non-existent target is "not found" (I ran both: pass, while the PoC deletes).
 Fix: accept names matching `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$` (no separators, no colon beyond one tag split); after resolve require `target.parent == base_dir`; refuse to delete unless the directory contains `*.xml` + `*.bin`; log the deletion; write the test red-first with an existing out-of-tree directory.

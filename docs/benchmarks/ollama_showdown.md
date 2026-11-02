@@ -48,7 +48,7 @@ In experimental oneAPI or unoptimized GGML integer downscaling on AVX, unaligned
 
 ### Why `intel-arc-models-runner` Guarantees Clean, Readable Output:
 1. **Asymmetric INT4 NNCF with Group Size $G = 128$**: Preserves a Signal-to-Quantization-Noise Ratio of **$\text{SQNR} \ge 34.6\text{ dB}$**, eliminating quantization rounding drift.
-2. **Hardware DPAS FP16/FP32 Accumulators**: Accumulates dot products in high-precision buffers, guaranteeing $|z_i| < \text{FLT\_MAX}$ and mathematically non-divergent softmax ($\sum p_i \equiv 1.0000$).
+2. **Hardware DPAS FP16/FP32 Accumulators**: Accumulates dot products in high-precision buffers, guaranteeing $|z_i| < \text{FLT MAX}$ and mathematically non-divergent softmax ($\sum p_i \equiv 1.0000$).
 3. **Shannon Token Entropy ($H(X)$)**:
    - Ollama (100% CPU): $H(X) = \mathbf{4.45\text{ bits/token}}$ (Distinct Unigram Ratio: $0.67$)
    - Arc GPU Alone: $H(X) = \mathbf{4.36\text{ bits/token}}$ (Distinct Unigram Ratio: $0.66$)

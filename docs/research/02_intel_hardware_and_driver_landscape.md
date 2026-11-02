@@ -1,6 +1,6 @@
 # Silicon & Driver Landscape: Intel® Arc™ GPUs & Intel® NPUs
 ### Document ID: `RND-INTEL-HARDWARE-02`
-### Applicable Standards: `01-common-standards.md`, `11-documentation-files.md`, `46-architecture-documentation.md`, `intel-gpu-architecture-core`
+### Applicable Standards: `01-common-standards.md`, `11-documentation-files.md`, `46-architecture-documentation.md`, *intel gpu architecture core*
 
 ---
 
@@ -175,12 +175,12 @@ The fundamental obstacle for Intel developers is not hardware—it is the **frag
 
 ### 6.1 M1: Occupancy Bound on Xe-Core
 Let $T_{\text{active}}$ be the number of concurrent active threads on an Xe Core. It is bounded by three independent hardware resources:
-$$T_{\text{active}} = \min\left(T_{\text{reg\_limit}}, \; T_{\text{slm\_limit}}, \; T_{\text{max\_slots}}\right)$$
+$$T_{\text{active}} = \min\left(T_{\text{reg limit}}, \; T_{\text{slm limit}}, \; T_{\text{max slots}}\right)$$
 where:
-$$T_{\text{reg\_limit}} = \frac{\text{Total GRF Bytes}}{\text{Registers per Thread} \times 32 \text{ Bytes}}$$
-$$T_{\text{slm\_limit}} = \left\lfloor \frac{\text{Total SLM Capacity}}{\text{SLM Requested per Workgroup}} \right\rfloor \times \text{Workgroup Size}$$
-$$T_{\text{max\_slots}} = 64 \text{ threads per Xe Core}$$
-On Arc A770, setting thread register allocation to 128 registers guarantees $T_{\text{reg\_limit}} = \frac{64 \text{ KB}}{128 \times 32} = 16 \text{ threads per XVE} \times 8 = 128 \text{ threads} \ge 64$, ensuring **100% thread occupancy**.
+$$T_{\text{reg limit}} = \frac{\text{Total GRF Bytes}}{\text{Registers per Thread} \times 32 \text{ Bytes}}$$
+$$T_{\text{slm limit}} = \left\lfloor \frac{\text{Total SLM Capacity}}{\text{SLM Requested per Workgroup}} \right\rfloor \times \text{Workgroup Size}$$
+$$T_{\text{max slots}} = 64 \text{ threads per Xe Core}$$
+On Arc A770, setting thread register allocation to 128 registers guarantees $T_{\text{reg limit}} = \frac{64 \text{ KB}}{128 \times 32} = 16 \text{ threads per XVE} \times 8 = 128 \text{ threads} \ge 64$, ensuring **100% thread occupancy**.
 
 ### 6.2 M2: Peak GEMM Theoretical Ceiling
 For matrix multiplication $C = A \times B$ where $A \in \mathbb{R}^{M \times K}, B \in \mathbb{R}^{K \times N}$:
