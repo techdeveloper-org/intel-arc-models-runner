@@ -1,0 +1,43 @@
+<mxfile host="Electron" modified="2026-11-02T07:36:00.000Z" agent="Mozilla/5.0" version="21.0.0" type="device">
+  <diagram id="math-pipeline" name="Silicon Math Transpile Pipeline">
+    <mxGraphModel dx="1000" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="600" background="#ffffff">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="Raw GGUF Non-Native Weights&#xa;(Q4_0, Q4_K_M, Q5_K, Q8_0)&#xa;Asymmetric nibbles + sub-block scales" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="50" y="80" width="220" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="Stage 1: Dequantization&#xa;QuantizationMathEngine.dequantize_*&#xa;w_i = (nibble - 8) * d (FP32 vector in R^N)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="320" y="80" width="260" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="Stage 2: Symmetric INT4 Group 128 Repack&#xa;Delta_g = max(|w|) / 7&#xa;q_i = clamp(round(w_i / Delta_g), -8, 7)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="630" y="80" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="Stage 3: 32-Byte Cacheline Zero-Padding&#xa;L_padded = (L + 31) &amp; (~31)&#xa;Matches Intel Xe 256-bit DMA transactions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="630" y="240" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="Stage 4: Mathematical SQNR Validation&#xa;SQNR = 10 * log10(sum(w^2) / sum((w - w_tilde)^2))&#xa;Requires SQNR &gt;= 20.0 dB (INT4) / &gt;= 34.0 dB (INT8)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="320" y="240" width="260" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="Native Intel Arc (Xe XMX) &amp; NPU&#xa;Level Zero USM Page-Locked Buffer&#xa;Fast Hardware Matrix-Multiplication" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="50" y="240" width="220" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="2" target="3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="3" target="4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="4" target="5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="5" target="6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="6" target="7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

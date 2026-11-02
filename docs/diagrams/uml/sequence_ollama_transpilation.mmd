@@ -1,0 +1,37 @@
+sequenceDiagram
+    autonumber
+    actor User as Developer / CLI
+    participant CLI as arc-runner CLI
+    participant Importer as OllamaImporter
+    participant Registry as OllamaRegistryClient
+    participant Transpiler as GGUFTranspiler
+    participant Math as QuantizationMathEngine
+    participant Synth as OpenVINOGraphSynthesizer
+    participant Storage as Local Cache & Models
+
+    User->>CLI: arc-runner pull ollama:qwen2.5:3b
+    CLI->>Importer: pull_and_transpile("qwen2.5:3b")
+    Importer->>Registry: fetch_manifest("qwen2.5:3b")
+    Registry->>Registry: parse_model_tag -> library, qwen2.5, 3b
+    Registry->>Registry: get_bearer_token()
+    Registry-->>Importer: OllamaManifestResponseDto (layer digests & sizes)
+    Importer->>Registry: stream_blob(digest="sha256:...")
+    Registry->>Storage: Stream chunked bytes with Range header & SHA-256 verify
+    Storage-->>Importer: blob_path (.gguf container)
+    Importer->>Transpiler: transpile(blob_path, precision="int4")
+    loop For each GGUF tensor
+        Transpiler->>Math: dequantize non-native k-quant (Q4_0 / Q4_K) to FP32
+        Transpiler->>Math: repack_to_intel_symmetric_int4(Group 128)
+        Transpiler->>Math: align_to_cacheline(32 bytes)
+        Transpiler->>Math: calculate_sqnr() -> verify >= 20.0 dB
+        Transpiler->>Storage: Write aligned INT4 tensor to model.bin
+    end
+    Transpiler->>Synth: synthesize(tensor_layout, "openvino_model")
+    Synth->>Synth: _validate_kahn_topological_sort() O(V+E)
+    Synth->>Storage: Write openvino_model.xml (DAG Parameter -> SDPA -> Result)
+    Synth->>Storage: Write openvino_tokenizer.xml, detokenizer.xml
+    Synth->>Storage: Write generation_config.json, config.json
+    Synth-->>Transpiler: GraphSynthesisArtifactsDto
+    Transpiler-->>Importer: TranspilationResult
+    Importer-->>CLI: Model directory ready
+    CLI-->>User: [bold green] Model successfully pulled and transpiled!

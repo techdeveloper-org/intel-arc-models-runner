@@ -50,13 +50,17 @@ flowchart TD
             ImageEngine["ImageEngine (Text2ImagePipeline: SD 1.5, SDXL, LCM, Turbo via Level Zero, Proof M73)"]
             VideoEngine["VideoEngine (Text2VideoPipeline: LTX-Video, CogVideoX, AnimateDiff, SVD via Level Zero, Proof M94)"]
             EmbeddingEngine["EmbeddingEngine (NPU / GPU Embedding Pipeline, L2 Normalized Proof M1)"]
-            GGUFTranspiler["GGUFTranspiler (O(1) Streaming GGUF -> OpenVINO IR Transpiler Proof M15)"]
+            GGUFTranspiler["GGUFTranspiler & QuantizationMathEngine (Symmetric INT4/INT8 + OpenVINOGraphSynthesizer DAG)"]
+            StabilityGuardEngine["StabilityGuard (Win32 P-Core Pinning 0x00FF & GC Burst Gate)"]
+            FaithfulnessEngine["FaithfulnessGuard (KL Divergence <= 0.05 & Context Grounding Attribution)"]
+            SiliconTelemetry["SiliconTelemetryLogger & BottleneckAnalyzer (Roofline Profiling & Auto-Tuning)"]
         end
 
         ContBatcher -->|forward_batch| OVEngine
         ModelMgr -->|get_or_load_engine| OVEngine & SpeculativeEngine & VisionEngine & AudioEngine & ImageEngine & VideoEngine & EmbeddingEngine
         ModelMgr -->|apply_adapter| LoRAMgr
         GGUFTranspiler -.->|transpiled IR| ModelMgr
+        OVEngine --> StabilityGuardEngine & FaithfulnessEngine & SiliconTelemetry
     end
 
     subgraph SiliconLayer ["Physical Intel Silicon (Level Zero & OneAPI Drivers)"]

@@ -1,0 +1,146 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam monochrome true
+skinparam packageStyle rectangle
+
+package "hub" {
+    class OllamaRegistryClient {
+        + REGISTRY_BASE_URL: str
+        + AUTH_BASE_URL: str
+        + DEFAULT_CHUNK_SIZE: int
+        + parse_model_tag(model_tag: str): (str, str, str)
+        + get_bearer_token(namespace: str, model: str): str
+        + fetch_manifest(model_tag: str): OllamaManifestResponseDto
+        + stream_blob(namespace: str, model: str, digest: str): Path
+        + verify_blob_checksum(file_path: Path, expected_digest: str): bool
+    }
+
+    class OllamaManifestResponseDto {
+        + schema_version: int
+        + media_type: str
+        + config: OllamaManifestLayerDto
+        + layers: List[OllamaManifestLayerDto]
+        + total_size_bytes: int
+    }
+
+    class OllamaManifestLayerDto {
+        + media_type: str
+        + digest: str
+        + size: int
+    }
+}
+
+package "quant" {
+    class QuantizationMathEngine {
+        + INT4_MIN: int
+        + INT4_MAX: int
+        + CACHE_LINE_BYTES: int
+        + DEFAULT_GROUP_SIZE: int
+        + dequantize_q4_0(data_bytes: bytes, num_elements: int): ndarray
+        + dequantize_q4_k(data_bytes: bytes, num_elements: int): ndarray
+        + dequantize_q8_0(data_bytes: bytes, num_elements: int): ndarray
+        + repack_to_intel_symmetric_int4(weights_f32: ndarray, group_size: int): tuple
+        + repack_to_intel_symmetric_int8(weights_f32: ndarray, group_size: int): tuple
+        + align_to_cacheline(data: ndarray, alignment: int): ndarray
+        + calculate_sqnr(original: ndarray, reconstructed: ndarray): float
+    }
+
+    class OpenVINOGraphSynthesizer {
+        + SUPPORTED_FAMILIES: Set[str]
+        + synthesize(tensor_layout: list, model_name: str): GraphSynthesisArtifactsDto
+    }
+
+    class ArchitectureHyperparamsDto {
+        + family: str
+        + hidden_size: int
+        + num_layers: int
+        + num_heads: int
+        + num_kv_heads: int
+        + intermediate_size: int
+        + vocab_size: int
+        + context_window: int
+        + rms_norm_eps: float
+        + rope_freq_base: float
+    }
+
+    class GraphSynthesisArtifactsDto {
+        + xml_path: Path
+        + bin_path: Path
+        + tokenizer_xml: Path
+        + detokenizer_xml: Path
+        + generation_config_json: Path
+        + config_json: Path
+    }
+}
+
+package "engine" {
+    class StabilityGuard {
+        + P_CORE_LOGICAL_MASK: int
+        + enter_generation_scope(): void
+        + exit_generation_scope(): void
+    }
+
+    class FaithfulnessGuard {
+        + MAX_KL_DIVERGENCE: float
+        + MIN_GROUNDING_RATIO: float
+        + MIN_RELIABILITY_SCORE: float
+        + compute_kl_divergence(source: ndarray, target: ndarray): float
+        + audit_context_grounding(prompt: str, generated_text: str): float
+        + validate_output_contract(output_text: str, schema: dict): bool
+        + audit_reliability(): ReliabilityAuditResultDto
+    }
+
+    class ReliabilityAuditResultDto {
+        + kl_divergence: float
+        + grounding_ratio: float
+        + contract_valid: bool
+        + composite_reliability_score: float
+        + is_faithful: bool
+    }
+}
+
+package "benchmarks" {
+    class SiliconTelemetryLogger {
+        + start_benchmark(model_name: str, device: str): void
+        + record_prefill(duration_ms: float): void
+        + record_token_step(latency_ms: float): void
+        + finish_benchmark(): SiliconTelemetryMetricsDto
+        + persist_reports(output_dir: Path): (Path, Path, Path)
+    }
+
+    class SiliconTelemetryMetricsDto {
+        + model_name: str
+        + target_device: str
+        + tok_per_sec_mean: float
+        + tok_per_sec_stddev: float
+        + effective_memory_bandwidth_gbps: float
+        + p_core_residency_pct: float
+        + sqnr_average_db: float
+    }
+
+    class SiliconBottleneckAnalyzer {
+        + analyze_metrics(m: SiliconTelemetryMetricsDto): BottleneckDiagnosisDto
+        + analyze_file(report_json_path: Path): BottleneckDiagnosisDto
+        + format_diagnostic_report(d: BottleneckDiagnosisDto): str
+    }
+
+    class BottleneckDiagnosisDto {
+        + model_name: str
+        + status: str
+        + performance_score: float
+        + roofline_classification: str
+        + identified_bottlenecks: List[str]
+        + actionable_recommendations: List[str]
+    }
+}
+
+OllamaRegistryClient ..> OllamaManifestResponseDto : creates
+OllamaManifestResponseDto *-- OllamaManifestLayerDto
+OpenVINOGraphSynthesizer ..> ArchitectureHyperparamsDto : uses
+OpenVINOGraphSynthesizer ..> GraphSynthesisArtifactsDto : creates
+FaithfulnessGuard ..> ReliabilityAuditResultDto : creates
+SiliconTelemetryLogger ..> SiliconTelemetryMetricsDto : creates
+SiliconBottleneckAnalyzer ..> SiliconTelemetryMetricsDto : consumes
+SiliconBottleneckAnalyzer ..> BottleneckDiagnosisDto : creates
+
+@enduml

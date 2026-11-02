@@ -1,0 +1,38 @@
+@startuml
+autonumber
+skinparam monochrome true
+skinparam responseMessageBelowArrow true
+
+actor "Client" as Client
+participant "SerialWorker" as Worker
+participant "StabilityGuard" as Guard
+participant "OpenVINO GenAI" as Engine
+participant "SiliconTelemetryLogger" as Telemetry
+participant "FaithfulnessGuard" as Faith
+participant "SiliconBottleneckAnalyzer" as Analyzer
+
+Client -> Worker: Infer(prompt)
+Worker -> Guard: enter_generation_scope()
+Guard -> Guard: Win32 SetThreadAffinityMask(0x00FF)
+Guard -> Guard: SetThreadPriority(THREAD_PRIORITY_HIGHEST)
+Guard -> Guard: gc.disable()
+Worker -> Telemetry: start_benchmark(model, device)
+Worker -> Engine: Prefill(prompt)
+Engine --> Worker: TTFT
+Worker -> Telemetry: record_prefill(ttft_ms)
+loop For each generated token
+    Worker -> Engine: Step decode
+    Engine --> Worker: token, logits
+    Worker -> Telemetry: record_token_step(latency_ms)
+    Worker --> Client: SSE Token Event
+end
+Worker -> Faith: audit_reliability(logits, prompt, text)
+Faith --> Worker: ReliabilityAuditResultDto
+Worker -> Guard: exit_generation_scope()
+Guard -> Guard: gc.enable() & gc.collect(1)
+Guard -> Guard: Restore thread mask
+Worker -> Telemetry: persist_reports()
+Worker -> Analyzer: analyze_metrics(metrics)
+Analyzer --> Worker: BottleneckDiagnosisDto
+Worker --> Client: Inference Complete
+@enduml

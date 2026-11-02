@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    actor Client as Request Client
+    participant Worker as SerialWorker
+    participant Guard as StabilityGuard
+    participant Engine as OpenVINO GenAI
+    participant Telemetry as SiliconTelemetryLogger
+    participant Faith as FaithfulnessGuard
+    participant Analyzer as SiliconBottleneckAnalyzer
+
+    Client->>Worker: Submit Inference Request (prompt)
+    Worker->>Guard: enter_generation_scope()
+    Guard->>Guard: Win32 SetThreadAffinityMask(0x00FF) -> Dedicate P-cores
+    Guard->>Guard: SetThreadPriority(THREAD_PRIORITY_HIGHEST)
+    Guard->>Guard: gc.disable() -> Suppress cyclic GC pauses
+    Worker->>Telemetry: start_benchmark(model, device="GPU")
+    Worker->>Engine: Prefill (Prompt Tokens)
+    Engine-->>Worker: First Token (TTFT)
+    Worker->>Telemetry: record_prefill(ttft_ms)
+    loop Autoregressive Decode (N tokens)
+        Worker->>Engine: Generate next token
+        Engine-->>Worker: token_i, logits
+        Worker->>Telemetry: record_token_step(latency_ms, p_core_active=True)
+        Worker-->>Client: Stream token event (SSE)
+    end
+    Worker->>Faith: audit_reliability(logits, prompt, generated_text)
+    Faith-->>Worker: ReliabilityAuditResultDto (KL div <= 0.05, grounding >= 0.90)
+    Worker->>Guard: exit_generation_scope()
+    Guard->>Guard: gc.enable() & gc.collect(1) -> Bounded Gen-1 sweep
+    Guard->>Guard: Restore previous thread affinity
+    Worker->>Telemetry: finish_benchmark()
+    Telemetry->>Telemetry: persist_reports() -> JSON, MD, LOG
+    Worker->>Analyzer: analyze_metrics(metrics_dto)
+    Analyzer-->>Worker: BottleneckDiagnosisDto (Roofline saturation, jitter evaluation)
+    Worker-->>Client: Final Response Summary
