@@ -135,7 +135,7 @@ We expanded local Intel AI from single-turn text chat into a complete production
 Our long-term vision is to make local artificial intelligence universal, accessible, and independent of proprietary hardware taxes:
 
 1. **Every Intel PC is an Autonomous AI Node**: From ultrabooks with 15W Lunar Lake processors to gaming rigs with Arc Battlemage GPUs, every Intel machine will run production-grade LLMs, speech, vision, and video generation locally, privately, and indefinitely.
-2. **Ending the $2,000 GPU Requirement**: A consumer should not need to spend $2,000 on an enterprise NVIDIA card just to get 16 GB of VRAM. The Intel Arc A770 brought 16 GB of high-speed memory to consumer price points, and `intel-arc-models-runner` ensures every single byte of that hardware delivers maximum inference value.
+2. **Ending the \$2,000 GPU Requirement**: A consumer should not need to spend \$2,000 on an enterprise NVIDIA card just to get 16 GB of VRAM. The Intel Arc A770 brought 16 GB of high-speed memory to consumer price points, and `intel-arc-models-runner` ensures every single byte of that hardware delivers maximum inference value.
 3. **Unified Heterogeneous Computing**: The CPU, the iGPU, the dGPU, and the NPU should act as one harmonious neural fabric. Workloads should dynamically glide across compute blocks based on latency, thermal limits, and energy budgets.
 4. **Complete Ecosystem Interoperability**: 100% drop-in drop-out compatibility with the OpenAI REST API and Ollama endpoints, allowing developers to plug into Open WebUI, Cursor, Claude Code, LangChain, and AutoGen without changing a single line of client code.
 

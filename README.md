@@ -46,7 +46,7 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 
 > 🎯 **Our Core Mission**: Local AI should never be held hostage by the NVIDIA CUDA monopoly or proprietary hardware taxes. For years, millions of users with Intel® Arc™ GPUs and Intel® Core™ Ultra NPUs were denied first-class support—left with crashing runtimes, multi-gigabyte compiler prerequisites, or Ollama's infamous **"Silent CPU Fallback"** (burning CPU threads at 2–6 tok/s while the Arc GPU sat idle). `intel-arc-models-runner` was built to restore hardware dignity to Intel silicon: unlocking native Level Zero GPU acceleration, 5W NPU speculative decoding, and autonomous multi-modal generation with zero bloat and mathematical honesty.
 > 
-> 💰 **The Economic Advantage (70%–90% Server Cost Reduction)**: Model training is a one-time CapEx, but continuous inference accounts for 85%+ of ongoing AI OpEx. NVIDIA exploits this with 80%+ gross margins and artificially starved consumer VRAM. By running high-density Intel Arc servers (e.g. 4x Arc A770 16GB delivering 64GB aggregate VRAM for ~$1,200 / ₹1.13L) and 5W NPUs, enterprises achieve hardware payback in under 46 days compared to AWS cloud rentals, saving over **$165,000 USD (₹1.57 Crore INR)** over a 3-year horizon.
+> 💰 **The Economic Advantage (70%–90% Server Cost Reduction)**: Model training is a one-time CapEx, but continuous inference accounts for 85%+ of ongoing AI OpEx. NVIDIA exploits this with 80%+ gross margins and artificially starved consumer VRAM. By running high-density Intel Arc servers (e.g. 4x Arc A770 16GB delivering 64GB aggregate VRAM for ~\$1,200 / ₹1.13L) and 5W NPUs, enterprises achieve hardware payback in under 46 days compared to AWS cloud rentals, saving over **\$165,000 USD (₹1.57 Crore INR)** over a 3-year horizon.
 > 
 > 👉 *Read the full whitepapers: [**🎯 Mission & Vision Manifesto**](docs/mission_and_vision.md) • [**💰 Economic & Server Cost Analysis (FinOps Whitepaper)**](docs/economic_and_cost_analysis.md)*
 
@@ -305,7 +305,7 @@ claude /path/to/your/project
 ## 🖱️ Use with Cursor
 
 > **⚠️ Cursor Subscription Required for Custom Models.**
-> Cursor requires a **paid subscription (Pro, $20/month)** to use any custom or local model via a custom API key. On the **free plan**, Chat, Edit, and Agent modes all show the error *"Agent and Edit rely on custom models that require a paid subscription"* and **do not work** with a local server. The arc-runner server itself works correctly (the API responds normally — this is a Cursor-side plan restriction, not an arc-runner issue).
+> Cursor requires a **paid subscription (Pro, \$20/month)** to use any custom or local model via a custom API key. On the **free plan**, Chat, Edit, and Agent modes all show the error *"Agent and Edit rely on custom models that require a paid subscription"* and **do not work** with a local server. The arc-runner server itself works correctly (the API responds normally — this is a Cursor-side plan restriction, not an arc-runner issue).
 
 `arc-runner serve` exposes `POST /v1/chat/completions` (OpenAI-compatible). If you have a **Cursor Pro** subscription, you can point Cursor at it as follows.
 
@@ -354,7 +354,7 @@ If the chat test returns a response with `choices` and `usage`, the server is wo
 
 ### Cursor Feature Availability by Plan
 
-| Feature | Cursor Free | Cursor Pro ($20/mo) |
+| Feature | Cursor Free | Cursor Pro (\$20/mo) |
 |:---|:---:|:---:|
 | **Chat** (`Ctrl+L`) with custom local model | ❌ Blocked | ✅ Works |
 | **Edit** (inline code edit) with custom model | ❌ Blocked | ✅ Works |

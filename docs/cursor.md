@@ -1,7 +1,7 @@
 # Using Cursor with arc-runner
 
 > **⚠️ Cursor Subscription Required for Custom / Local Models.**
-> Cursor requires a **paid Pro subscription ($20/month)** to use any custom model via a custom API key — including local models served by arc-runner. On the **free plan**, all AI features (Chat, Edit, Agent, Tab autocomplete) show the error *"Agent and Edit rely on custom models that require a paid subscription"* and are **blocked**. The arc-runner server itself works correctly; this is a Cursor-side plan restriction.
+> Cursor requires a **paid Pro subscription (\$20/month)** to use any custom model via a custom API key — including local models served by arc-runner. On the **free plan**, all AI features (Chat, Edit, Agent, Tab autocomplete) show the error *"Agent and Edit rely on custom models that require a paid subscription"* and are **blocked**. The arc-runner server itself works correctly; this is a Cursor-side plan restriction.
 
 `arc-runner serve` exposes `POST /v1/chat/completions` (OpenAI-compatible endpoint). If you have a **Cursor Pro** subscription, Cursor can be pointed at it just like you would point it at a local Ollama or LM Studio server. The model is a local OpenVINO model running on your Intel Arc GPU or NPU — no OpenAI API key or internet connection is needed for inference.
 
@@ -179,7 +179,7 @@ Cursor primarily uses `POST /v1/chat/completions`. The server also answers `GET 
 
 ### Cursor Plan Restriction — Agent and Edit Require Paid Plan
 
-> **Important:** Cursor's **Agent mode** and **Edit mode** (Composer) require a **paid Cursor subscription ($20/month)** even when using a custom local model via a custom API key. On the Cursor Free plan, only **Chat mode** (`Ctrl+L`) works with a custom OpenAI-compatible endpoint. If you see the error *"Agent and Edit rely on custom models that require a paid subscription"*, this is expected Cursor behaviour and is unrelated to arc-runner.
+> **Important:** Cursor's **Agent mode** and **Edit mode** (Composer) require a **paid Cursor subscription (\$20/month)** even when using a custom local model via a custom API key. On the Cursor Free plan, only **Chat mode** (`Ctrl+L`) works with a custom OpenAI-compatible endpoint. If you see the error *"Agent and Edit rely on custom models that require a paid subscription"*, this is expected Cursor behaviour and is unrelated to arc-runner.
 
 ### Other Limitations
 
