@@ -8,7 +8,7 @@ created: 2026-10-29
 updated: 2026-10-29
 authors: [main session applying tla plus specification engineer and c cpp systems engineer roles]
 reviewers: [user]
-inputs: [DOC-SB-STAGE@1.0.0, docs/plans/MASTER_PLAN_v4.md sections 10.4, 17.4]
+inputs: [DOC-SB-STAGE@1.0.0, docs/architecture.md sections 10.4, 17.4]
 ---
 
 # Slice S-C: ring buffer, dtype, and view lifetime

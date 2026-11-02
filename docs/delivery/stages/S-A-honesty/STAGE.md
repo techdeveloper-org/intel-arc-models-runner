@@ -8,7 +8,7 @@ created: 2026-10-29
 updated: 2026-10-29
 authors: [main session]
 reviewers: [user]
-inputs: [docs/plans/MASTER_PLAN_v4.md sections 2.2, 2.3, 17.4, 21.1]
+inputs: [docs/architecture.md sections 2.2, 2.3, 17.4, 21.1]
 ---
 
 # Slice S-A: remove fabricated values

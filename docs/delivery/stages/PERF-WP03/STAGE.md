@@ -8,7 +8,7 @@ created: 2026-10-31
 updated: 2026-10-31
 authors: [CLI session]
 reviewers: [user]
-inputs: [docs/plans/MASTER_PLAN_v4.md section 23.5.1, C:\Users\techd\.claude\plans\snoopy-soaring-book.md]
+inputs: [docs/architecture.md section 23.5.1, C:\Users\techd\.claude\plans\snoopy-soaring-book.md]
 ---
 
 # WP-03 Serial Inference Worker

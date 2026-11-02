@@ -46,7 +46,7 @@ Date 2026-10-29. Roles applied: *hallucination detector* (claim extraction, per-
 | docs/delivery/TRACEABILITY.md | 5 | 0 | 3 | 0 |
 | docs/delivery/DECISION_LOG.md | 15 | 0 | 0 | 0 |
 | docs/delivery/stages/*/STAGE.md | 16 | 0 | 12 | 3 |
-| docs/plans/MASTER_PLAN_v4.md | 3 | 0 | 3 | 1 |
+| docs/architecture.md | 3 | 0 | 3 | 1 |
 
 ## 3. UNSUPPORTED and CONTRADICTED claims (file:line, evidence, suggested wording)
 Severity: HIGH = misleads a user or deployer; MED = wrong number/status in a headline place; LOW = stale or cosmetic. `drift` = true when written, stale now.
@@ -71,7 +71,7 @@ Severity: HIGH = misleads a user or deployer; MED = wrong number/status in a hea
 | M09 | docs/benchmarks/METHOD.md:31 | warmups until last 3 TTFT CV <= 5% (max 5) | CONTRADICTED | MED | exactly 3 warmups per group; stats.warmup_converged is never called; warm-up TTFT CV is 133% (GPU low) ... 6.4% (NPU hard), 8 of 9 groups above 5% | '3 fixed warmups discarded' |
 | M11 | docs/benchmarks/METHOD.md:31 | systems interleaved per iteration in seeded random order; 20 s cooldown | CONTRADICTED | MED | result files: all GPU samples, then NPU, then CPU (LLM) / GPU then CPU (audio, VLM); no cooldown code | 'systems are run in sequential blocks'; thermal/boost drift can bias GPU vs CPU |
 | M16 | docs/benchmarks/METHOD.md:38 | no-regression gate also requires resident memory growth <= 5% | UNSUPPORTED | MED | evaluate_noninferiority_gate (stats.py:346-382) has no memory term; bench_regression.py has none either | 'decode TPS and TTFT only; memory check not implemented' |
-| P04 | docs/plans/MASTER_PLAN_v4.md:1074 | open: probe, benchmark matrix, DLL rebuild | CONTRADICTED (drift) | MED | probe.json, 3 result files, rebuilt DLL present | update |
+| P04 | docs/architecture.md:1074 | open: probe, benchmark matrix, DLL rebuild | CONTRADICTED (drift) | MED | probe.json, 3 result files, rebuilt DLL present | update |
 | R01 | README.md:7 | badge: 569 tests passing (100%) | CONTRADICTED | MED | collect-only: 909 tests/58 modules; -m 'not hardware': 886 collected, 878 passed, 8 skipped, 0 failed | Tests-886%20collected%20(878%20passed%2C%208%20skipped)  or generate the badge from a run |
 | R02 | README.md:29 | 741 non-hardware tests (733 passed, 8 skipped, 0 failures) | CONTRADICTED | MED | same run: 886 / 878 passed; only '8 skipped' and '0 failures' hold | 886 non-hardware tests (878 passed, 8 skipped, 0 failures on Linux, <date>) |
 | R03 | README.md:373-375 | 533 automated tests across 33 modules, 100% passing | CONTRADICTED | MED | 58 modules, 909 tests collected | state the count measured by `pytest --collect-only` or drop the number |
@@ -107,8 +107,8 @@ Severity: HIGH = misleads a user or deployer; MED = wrong number/status in a hea
 | G24 | stages/S-F:26 | DECISION_LOG DL-001..053 | CONTRADICTED (drift) | LOW | DL-001..060 | 060 |
 | M10 | docs/benchmarks/METHOD.md:31 | timed runs extend up to 30 until CI half-width <= 3% | UNSUPPORTED | LOW | no extension logic; every group has exactly 10 timed samples | '10 timed runs' |
 | M13 | docs/benchmarks/METHOD.md:32 | row flagged non-normal when t and bootstrap intervals differ > 5% | UNSUPPORTED | LOW | no such flag in stats.py, results.py or render_bench_docs.py | remove or implement |
-| P02 | docs/plans/MASTER_PLAN_v4.md:1072 | L1-L12 'closed in code' | CONTRADICTED | LOW | L12 USM path has no consumer (TRACEABILITY:43, architecture.md:104); L11 'documentation only' | 'L1-L11 closed; L12 opt-in path, no consumer' |
-| P03 | docs/plans/MASTER_PLAN_v4.md:1073 | benchmarks B1-B6 'harness done, not run' | CONTRADICTED (drift) | LOW | LLM, audio STT, VLM runs exist (3 result files) | B1 LLM / B4 audio / B3 VLM run; others pending |
+| P02 | docs/architecture.md:1072 | L1-L12 'closed in code' | CONTRADICTED | LOW | L12 USM path has no consumer (TRACEABILITY:43, architecture.md:104); L11 'documentation only' | 'L1-L11 closed; L12 opt-in path, no consumer' |
+| P03 | docs/architecture.md:1073 | benchmarks B1-B6 'harness done, not run' | CONTRADICTED (drift) | LOW | LLM, audio STT, VLM runs exist (3 result files) | B1 LLM / B4 audio / B3 VLM run; others pending |
 | R11 | README.md:287 | lock_range 'not yet called by the streaming path' | CONTRADICTED | LOW | weight_streamer.py:370-386 `_pin_layer` calls native.lock_range (opt-in pin_resident_layers / ARC_PIN_RING=1, CHANGELOG [UNRELEASED]) | 'Called by the streaming path only when pin_resident_layers / ARC_PIN_RING=1 is set; effect not measured' |
 | R27 | README.md:365 | Whisper-Base 5.5x: Ollama CPU 1.944 s vs iGPU 0.354 s | CONTRADICTED | LOW | RTF 0.486 implies a 4.0 s clip, 28.2x RT at 0.354 s implies a 10.0 s clip; comparative_matrix.md:96-100 shows 1.944 s is the 4.0 s Low tier and 0.354 s the 10.0 s Medium tier (same-tier ratios 6.61x / 4.31x) | compare same-tier rows or drop the cell |
 | R34 | README.md:22,222,369 | 25 curated models | CONTRADICTED | LOW | ModelRegistry._MODELS has 34 entries (11 llm, 10 image, 5 stt, 5 video, 2 tts, 1 vision) | '34 registry entries' (generate from the registry) |
@@ -149,7 +149,7 @@ Severity: HIGH = misleads a user or deployer; MED = wrong number/status in a hea
 - **docs/delivery/TRACEABILITY.md** (5): X01 all symbols and test names found; X02 symbols and tests found; X03 symbols/tests found; X07 device_stager has no consumer; X08 all right-hand names exist
 - **docs/delivery/DECISION_LOG.md** (15): L01 build_native.py has no mavx2; L02 VERSION; L03 GGUF_MAX_DIMENSIONS=4; L04 <lib>.build.json files; L05 weight_streamer.py:526; L06 bridge.py:93,105; L07 header; L08 openvino_engine.py; L09 file exists; L10 file absent; L11 models.py:76-77; L12 scratch JSON model_kind; L13 ContextWindowExceededError tests; L14 ci.yml diagrams job; L15 13/13 stamps
 - **docs/delivery/stages/*/STAGE.md** (16): G03 re-run: checks=1000078 failures=0; G04 41 collected; G06 header _Static_assert and limits; G08 re-run identical; G10 SLOT_WAIT_TIMEOUT_SECONDS = 30.0; G11 arc_ze_types.h:24-33 equal the table (values themselves are external t; G12 header/source constants (1<<36 = 64 GiB); G16 2.201 is t(11); G22 ci.yml; G23 grep + Dockerfile:103; G25 weight_streamer.py:179,379,429; G26 55 in uml/*.md, architecture, diagrams README, research/*.md; G28 list_unverified_numbers.py: 6 files, 168 rows; G29 878 passed, 8 skipped (existing venv, tests/independent excluded); G30 22 in audit table + 2 same-name tests; G31 ci.yml:3-7 (plus workflow_dispatch)
-- **docs/plans/MASTER_PLAN_v4.md** (3): P01 run above; P05 test_honesty gate passes (15 tests); P07 openvino_engine opt-in
+- **docs/architecture.md** (3): P01 run above; P05 test_honesty gate passes (15 tests); P07 openvino_engine opt-in
 
 ## 7. UNVERIFIABLE-HERE (excluded from FactScore)
 - R07 README.md:376,26 those 21 run on live Intel silicon and pass -- needs Intel hardware; on this x86 Linux VM the same 21 give 15 passed, 5 skipped (no GPU/NPU), 1 failed (test_numerical_stability_cpu_vs_gpu_vs_npu, OpenVINO RuntimeError)
@@ -164,7 +164,7 @@ Severity: HIGH = misleads a user or deployer; MED = wrong number/status in a hea
 - G01 stages/S-A:16 13 failing tests at c7312e0; commits 23c2c60, 3102488 -- no VCS metadata here, cannot verify
 - G19 stages/S-E:40 flash_acquire ~280x faster than old ring -- needs the baseline commit (no VCS); stage itself calls it an artefact
 - G27 stages/S-G:28 all blocks render with mermaid-cli 10.9.1 -- mmdc not installed here
-- P06 docs/plans/MASTER_PLAN_v4.md:1075 five legacy result JSONs removed -- no VCS; one legacy JSON still present (H08)
+- P06 docs/architecture.md:1075 five legacy result JSONs removed -- no VCS; one legacy JSON still present (H08)
 
 Generator and claim table: `/tmp/claude-0/-home-user/9f5d9574-39ea-55de-8475-bf2e506385a2/scratchpad/gen_r07.py` (not part of the repo).
 

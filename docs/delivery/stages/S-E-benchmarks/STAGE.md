@@ -8,7 +8,7 @@ created: 2026-10-29
 updated: 2026-10-29
 authors: [main session applying the benchmark roles from the plan]
 reviewers: [user]
-inputs: [docs/plans/MASTER_PLAN_v4.md section 18]
+inputs: [docs/architecture.md section 18]
 ---
 
 # Slice S-E: benchmark protocol, statistics, and provenance

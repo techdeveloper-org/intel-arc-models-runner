@@ -8,7 +8,7 @@ created: 2026-10-29
 updated: 2026-10-29
 authors: [main session]
 reviewers: [user]
-inputs: [docs/plans/MASTER_PLAN_v4.md sections 15, 17.4, 21]
+inputs: [docs/architecture.md sections 15, 17.4, 21]
 ---
 
 # Slice S-F: documentation, version, CI, and checks

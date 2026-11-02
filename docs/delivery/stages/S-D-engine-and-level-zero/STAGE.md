@@ -8,7 +8,7 @@ created: 2026-10-29
 updated: 2026-10-29
 authors: [main session applying gpu driver engineer / llm serving engineer roles from the plan]
 reviewers: [user]
-inputs: [DOC-SB-STAGE@1.0.0, docs/plans/MASTER_PLAN_v4.md sections 10.2, 10.5, 10.6]
+inputs: [DOC-SB-STAGE@1.0.0, docs/architecture.md sections 10.2, 10.5, 10.6]
 ---
 
 # Slice S-D: engine context window and Level Zero bridge

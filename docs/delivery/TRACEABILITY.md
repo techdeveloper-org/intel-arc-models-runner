@@ -12,7 +12,7 @@ reviewers: [user]
 
 # Traceability
 
-Findings are defined in `docs/plans/MASTER_PLAN_v4.md` sections 2, 19.2 and 21.2. Status: closed, partial, open.
+Findings are defined in architecture and delivery specifications. Status: closed, partial, open.
 
 | Finding | Requirement | Code symbol | Test | Stage | Status |
 |:--|:--|:--|:--|:--|:--|

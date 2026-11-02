@@ -8,7 +8,7 @@ created: 2026-10-29
 updated: 2026-10-31
 authors: [main session, CLI session]
 reviewers: [user]
-inputs: [docs/delivery/RESUME.md open technical items, docs/plans/MASTER_PLAN_v4.md sections 21, 22]
+inputs: [docs/delivery/RESUME.md open technical items, docs/architecture.md sections 21, 22]
 ---
 
 # Slice S-G: remaining technical items

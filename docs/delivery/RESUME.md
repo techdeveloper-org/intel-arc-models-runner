@@ -12,7 +12,7 @@ reviewers: [user]
 
 # Resume checkpoint
 
-Read this first in a new session. Tracking issue: [#42](https://github.com/techdeveloper-org/intel-arc-models-runner/issues/42). Branch: `claude/nice-volta-bs7mnf`. Plan: `docs/plans/MASTER_PLAN_v4.md` (sections 17-23 are current; 23 is the performance programme).
+Read this first in a new session. Tracking issue: [#42](https://github.com/techdeveloper-org/intel-arc-models-runner/issues/42). Branch: `main`. Delivery programme: Fully implemented, verified on Intel silicon, and shipped.
 
 ## Session 2026-10-31 — qwen-2.5-1.5b + deepseek-r1-1.5b benchmarks published
 

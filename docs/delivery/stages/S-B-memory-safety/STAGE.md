@@ -8,7 +8,7 @@ created: 2026-10-29
 updated: 2026-10-29
 authors: [c cpp systems engineer (role applied by the main session), sast engineer (tools only)]
 reviewers: [user]
-inputs: [docs/plans/MASTER_PLAN_v4.md@v8.2 sections 17.3, 17.4, 17.5]
+inputs: [docs/architecture.md@v8.2 sections 17.3, 17.4, 17.5]
 related_issue: "not created yet"
 ---
 
