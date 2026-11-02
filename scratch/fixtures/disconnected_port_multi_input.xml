@@ -1,0 +1,39 @@
+<?xml version="1.0" ?>
+<net name="multi_port_test" version="10">
+	<layers>
+		<layer id="0" name="Input_0" type="Parameter" version="opset1">
+			<data element_type="f32" shape="1"/>
+			<output>
+				<port id="0" precision="FP32"><dim>1</dim></port>
+			</output>
+		</layer>
+		<layer id="1" name="Input_2" type="Parameter" version="opset1">
+			<data element_type="f32" shape="1"/>
+			<output>
+				<port id="0" precision="FP32"><dim>1</dim></port>
+			</output>
+		</layer>
+		<layer id="2" name="Concat_MissingPort1" type="Concat" version="opset1">
+			<data axis="0"/>
+			<input>
+				<port id="0"><dim>1</dim></port>
+				<port id="1"><dim>1</dim></port>
+				<port id="2"><dim>1</dim></port>
+			</input>
+			<output>
+				<port id="3" precision="FP32"><dim>3</dim></port>
+			</output>
+		</layer>
+		<layer id="3" name="Result_Node" type="Result" version="opset1">
+			<input>
+				<port id="0"><dim>3</dim></port>
+			</input>
+		</layer>
+	</layers>
+	<edges>
+		<edge from-layer="0" from-port="0" to-layer="2" to-port="0"/>
+		<!-- Port 1 is omitted! -->
+		<edge from-layer="1" from-port="0" to-layer="2" to-port="2"/>
+		<edge from-layer="2" from-port="3" to-layer="3" to-port="0"/>
+	</edges>
+</net>

@@ -26,7 +26,7 @@ This roadmap consolidates all 14 gaps into a single engineering authority docume
 | ID | Subsystem / Repo | Severity | Exact Issue / Symptom | Upstream Source Location | Proposed PR Scope |
 |:---|:---|:---:|:---|:---|:---|
 | **GAP-01** | `openvino::op` | **Critical** | Missing native `RMSNorm` in standard opsets | `src/core/include/openvino/op/` | PR-01: Native `RMSNorm` op with fused GPU/NPU kernels |
-| **GAP-02** | `xml_util` | **High** | Raw `i < m_inputs.size()` index out-of-range crash | `src/core/xml_util/src/xml_deserialize_util.cpp` | PR-02: Actionable disconnected port diagnostics |
+| **GAP-02** | `xml_util` | **High** | Raw `i < m_inputs.size()` index out-of-range crash | `src/core/xml_util/src/xml_deserialize_util.cpp` | **[RESOLVED & PR SUBMITTED]** [PR #39429](https://github.com/openvinotoolkit/openvino/pull/39429): Actionable disconnected port diagnostics |
 | **GAP-03** | `openvino::op::Const` | **Medium** | Cryptic shape/size mismatch without layer context | `src/core/src/op/constant.cpp` | PR-03: Layer name, shape, and byte delta in exception |
 | **GAP-04** | `openvino.genai` | **High** | Aborts with `invalid vector subscript` on invalid IR | `openvino_genai/src/llm_pipeline.cpp` | PR-04: DAG topological pre-flight validation |
 | **GAP-05** | `openvino.genai` | **Critical** | Zero native GGUF container ingestion | `openvino_genai/src/` | PR-05: Zero-dependency C++ GGUF container reader |
@@ -134,16 +134,24 @@ This roadmap consolidates all 14 gaps into a single engineering authority docume
   3. Add AVX2/AVX-512 CPU reference kernels and VPUX dialect mapping.
 
 ### PR-02: Defensive Diagnostics for Disconnected Ports in XML Deserializer
+- **Status**: **✅ RESOLVED & PR SUBMITTED**
+- **Upstream Pull Request**: [`openvinotoolkit/openvino#39429`](https://github.com/openvinotoolkit/openvino/pull/39429)
 - **Target Repo**: `openvinotoolkit/openvino`
-- **Subsystem**: `src/core/xml_util/src/xml_deserialize_util.cpp`
-- **Scope**: Replace unhandled index crash with structured diagnostic:
-  ```cpp
-  if (i >= node->get_input_size() || !node->input(i).get_source_output().get_node()) {
-      OPENVINO_THROW("OpenVINO IR Deserialization Error: Layer '", layer_name, 
-                     "' (type: ", layer_type, ", id: ", layer_id, 
-                     ") is missing an incoming edge on input port ", i);
-  }
-  ```
+- **Fork Branch**: [`techdeveloper-org/openvino:fix/xml-deserializer-port-diagnostics`](https://github.com/techdeveloper-org/openvino/tree/fix/xml-deserializer-port-diagnostics)
+- **Commit**: `f4395854` (`fix(core): add descriptive diagnostics for disconnected input ports in IR deserializer`)
+- **Subsystem**: `src/core/xml_util/src/xml_deserialize_util.cpp`, `src/core/src/node.cpp`
+- **Scope & Implementation**:
+  1. Inspect `p.params.inputPorts` vs connected incoming edges in `XmlDeserializer::parse_function` prior to node creation.
+  2. Emit crystal-clear diagnostic:
+     ```text
+     OpenVINO IR Deserialization Error: Layer 'Add_MissingEdge' (type: Add, id: 2) is missing an incoming edge on input port(s): [1]. Layer expects 2 connected input port(s), but only 1 edge(s) were found in the IR XML.
+     ```
+  3. Enrich `ov::Node::get_input_*` bounds checks with friendly name, type, requested index, and total port count.
+  4. Added C++ unit tests in `src/core/tests/xml_util/disconnected_port_diagnostic_test.cpp`.
+- **Physical Silicon Verification**:
+  - Built custom OpenVINO 2026.5.0 library locally with Visual Studio 18 2026 / CMake.
+  - Executed [`scratch/verify_gap02_disconnected_port.py`](file:///C:/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/intel-arc-models-runner/scratch/verify_gap02_disconnected_port.py) on physical Intel Core Ultra 5 125H silicon (Arc Xe-LPG iGPU & AI Boost NPU 3720).
+  - Validated 0 regressions against standard model inference (`add_abc.xml`).
 
 ### PR-03: Informative Diagnostics for `Const` Op Shape & Size Mismatches
 - **Target Repo**: `openvinotoolkit/openvino`

@@ -1,0 +1,47 @@
+<?xml version="1.0" ?>
+<net name="disconnected_port_model" version="10">
+	<layers>
+		<layer id="0" name="Input_A" type="Parameter" version="opset1">
+			<data element_type="f32" shape="1"/>
+			<output>
+				<port id="0" names="Input_A" precision="FP32">
+					<dim>1</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="1" name="Input_B" type="Parameter" version="opset1">
+			<data element_type="f32" shape="1"/>
+			<output>
+				<port id="0" names="Input_B" precision="FP32">
+					<dim>1</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="2" name="Add_MissingEdge" type="Add" version="opset1">
+			<input>
+				<port id="0">
+					<dim>1</dim>
+				</port>
+				<port id="1">
+					<dim>1</dim>
+				</port>
+			</input>
+			<output>
+				<port id="2" names="Output_Add" precision="FP32">
+					<dim>1</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="3" name="Result_Node" type="Result" version="opset1">
+			<input>
+				<port id="0">
+					<dim>1</dim>
+				</port>
+			</input>
+		</layer>
+	</layers>
+	<edges>
+		<edge from-layer="0" from-port="0" to-layer="2" to-port="0"/>
+		<edge from-layer="2" from-port="2" to-layer="3" to-port="0"/>
+	</edges>
+</net>
