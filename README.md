@@ -17,6 +17,7 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 
 | Guide / Document | Description | Key Topics |
 |:---|:---|:---|
+| [**🎯 Mission & Vision Manifesto**](docs/mission_and_vision.md) | Breaking CUDA Monopoly & Intel Hardware Liberation | The silicon democratization manifesto, solving Ollama's silent CPU fallback, 5W NPU matrix compute, and open-source credits. |
 | [**🎬 Arc MultiModal Studio**](docs/multimodal_studio.md) | Autonomous AI Production Studio & Co-Benchmarking | Flagship scenario, 5 bottlenecks solved, Cloud Cost-Killer ROI analysis, Studio CLI & REST API. |
 | [**🏗️ Architecture & Subsystems**](docs/architecture.md) | System Architecture & Hardware Interfaces | Subsystem deep-dive, Level Zero integration, Multi-LoRA hot-swapping, Continuous batching & paged KV cache. |
 | [**🌐 Universal Ollama Ingestion**](docs/OLLAMA_INGESTION.md) | Direct Remote Ollama Distribution Streaming | Download, cache, and run any model directly from `registry.ollama.ai` with Range resume and SHA-256 verification. |
@@ -41,6 +42,10 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 ---
 
 ## 🚀 Overview
+
+> 🎯 **Our Core Mission**: Local AI should never be held hostage by the NVIDIA CUDA monopoly or proprietary hardware taxes. For years, millions of users with Intel® Arc™ GPUs and Intel® Core™ Ultra NPUs were denied first-class support—left with crashing runtimes, multi-gigabyte compiler prerequisites, or Ollama's infamous **"Silent CPU Fallback"** (burning CPU threads at 2–6 tok/s while the Arc GPU sat idle). `intel-arc-models-runner` was built to restore hardware dignity to Intel silicon: unlocking native Level Zero GPU acceleration, 5W NPU speculative decoding, and autonomous multi-modal generation with zero bloat and mathematical honesty.
+> 
+> 👉 *Read our full manifesto: [**🎯 Mission & Vision Manifesto (docs/mission_and_vision.md)**](docs/mission_and_vision.md)*
 
 While mainstream local LLM tools like Ollama were designed with a CUDA-first and Apple Metal-first focus, `intel-arc-models-runner` treats Intel silicon as first-class citizens:
 
@@ -405,6 +410,52 @@ flowchart TD
 
 ---
 
+## 📁 Repository & Package Architecture
+
+The codebase is organized into modular, decoupled packages designed for high maintainability, strict typing, and zero circular dependencies:
+
+```
+intel-arc-models-runner/
+├── src/arc_runner/                     # Main Python application package
+│   ├── benchmark/                      # Automated inference & throughput benchmark harness
+│   ├── cli/                            # Rich terminal CLI interfaces (`arc-runner`, `intel-arc-models-runner`)
+│   ├── core/                           # Constants, custom exceptions, telemetry metrics & centralized logging
+│   ├── devices/                        # Silicon discovery, Intel Arc GPU/NPU detection & Level Zero Sysman telemetry
+│   ├── engine/                         # Inference engines (OpenVINO GenAI, continuous batching, speculative, audio, vision)
+│   ├── hub/                            # Model registry, Hugging Face downloader, and Ollama registry streaming importer
+│   ├── native/                         # Bare-metal C/C++ acceleration layer (pybind11 ABI v4, Win32 mmap, Level Zero USM)
+│   ├── orchestrator/                   # Autonomous MultiModal Studio Director, workers, and reactive media DAG
+│   ├── quant/                          # GGUF binary parser, model quantization math, and OpenVINO IR graph synthesizer
+│   ├── server/                         # FastAPI daemon (:11434, :8000), SSE streaming, and Ollama/OpenAI/Anthropic routes
+│   ├── testing/                        # Real silicon integration test harnesses and claim gate validators
+│   └── utils/                          # Windows DLL activation context loader, platform utils & helpers
+├── docs/                               # Comprehensive technical documentation & research whitepapers
+│   ├── benchmarks/                     # Quantitative benchmark methodology, result schemas, and empirical matrices
+│   ├── diagrams/                       # Master visual catalog (`README.md`) with embedded previews and browser editor links
+│   ├── research/                       # R&D whitepapers (Ollama defects, Intel silicon, solution blueprints, Flash-Stream)
+│   └── mission_and_vision.md           # The Silicon Democratization Manifesto & Open-Source Acknowledgments
+├── uml/                                # Canonical Level 2.3 UDM Architecture Diagrams (Mermaid format, Rule 45)
+│   ├── package_diagram.md              # 10 clean core packages & Level Zero bindings
+│   ├── component_diagram.md            # Subsystem interfaces, REST daemons & silicon drivers
+│   ├── sequence_diagram.md             # Speculative NPU-GPU execution & streaming lifecycle
+│   └── ... (13 total diagrams)         # Complete UML suite (activity, state, deployment, usecase, etc.)
+├── drawio/                             # 13 Synchronized editable .drawio XML diagrams (for diagrams.net instant editing)
+├── tests/                              # Comprehensive pytest suite (unit, integration, property-based, sanitizer harnesses)
+├── Dockerfile                          # Production Ubuntu 24.04 container with pre-baked Intel Level Zero drivers
+├── docker-compose.yml                  # Instant GPU pass-through container orchestration
+├── pyproject.toml                      # Modern PEP 621 / hatchling package metadata & build configuration
+├── SRS.md                              # Software Requirements Specification (Level 2.2 Canonical Root Doc)
+└── README.md                           # Project landing page & user guide
+```
+
+### 📐 Clarification: `uml/` & `drawio/` vs. `docs/diagrams/`
+To prevent confusion regarding the diagram directories:
+- **`uml/` (Repository Root)**: Contains the **13 canonical Level 2.3 Universal Diagram Model (UDM) diagrams** in GitHub Flavored Mermaid Markdown, authored in strict accordance with **Rule `11-documentation-files.md`** and **Rule `45-uml-diagram-lifecycle.md`**.
+- **`drawio/` (Repository Root)**: Contains the exact **13 editable `.drawio` XML files** paired 1-to-1 with `uml/`, enabling instant zero-auth browser editing in [app.diagrams.net](https://app.diagrams.net).
+- **`docs/diagrams/` (`docs/diagrams/README.md`)**: Acts as the **Master Visual Gallery & Catalog**. It embeds live visual previews of all 13 diagrams, provides direct one-click browser links, and stores specialized subsystem flows (such as compiler AST transpiler pipelines and closed-loop telemetry loops). Both root directories and `docs/diagrams/` work in synchronized harmony.
+
+---
+
 ## ⚡ Native System-Level C Acceleration Layer
 
 `intel-arc-models-runner` ships a bare-metal **native C/C++ acceleration layer** (`libarc_native_sys.dll` / `.so`) that bypasses Python overhead entirely for maximum throughput on Intel Arc silicon.
@@ -548,6 +599,23 @@ python -m pytest -m "not hardware"
   2. **Docker Container**: Ubuntu 24.04 Dockerfile (GHCR publication not verified) with pre-baked Intel Level Zero drivers, OpenVINO runtime, non-root user execution, and `/dev/dri` pass-through.
 
 👉 *Read the full status & deployment specs: [**Roadmap & Multi-Modal Evolution**](docs/roadmap.md) and [**Deployment Guide**](docs/deployment.md)*
+
+---
+
+## 🙏 Open-Source Ecosystem Acknowledgments & Credits
+
+`intel-arc-models-runner` stands on the shoulders of the global open-source AI community. We extend our deepest gratitude to the creators, maintainers, and foundations whose pioneering work powers this project:
+
+- **Intel® OpenVINO™ & Level Zero Teams**: For the high-performance C++ graph execution engine, NNCF quantization tools, and low-level Level Zero driver interfaces that unlock Intel Arc GPUs and NPUs.
+- **The Ollama Community**: For establishing the gold standard in local developer experience, intuitive CLI patterns, and the model registry distribution format that inspired our drop-in API compatibility.
+- **Georgi Gerganov & `llama.cpp` Contributors**: For revolutionizing quantized edge inference (GGUF) and proving that high-performance AI belongs on consumer hardware.
+- **Hugging Face & Optimum-Intel**: For the open model repository, transformer abstractions, and tokenizer runtimes that democratize open-weight models.
+- **Hexgrad (Kokoro-82M)**: For the groundbreaking, ultra-efficient 82M text-to-speech model powering local voice generation.
+- **Stability AI & Lightricks (LTX-Video)**: For open weights in visual generative diffusion and DiT video synthesis.
+- **FastAPI, Pydantic, & Rich**: Sebastián Ramírez (FastAPI), Samuel Colvin (Pydantic), and Will McGugan (Rich/Textual) for world-class web and terminal developer tooling.
+- **The Global Open-Source Community**: Every developer, tester, and enthusiast fighting against vendor lock-in and championing hardware freedom.
+
+👉 *Read our complete gratitude tribute: [**Open-Source Acknowledgments in Mission & Vision Manifesto**](docs/mission_and_vision.md#-standing-on-the-shoulders-of-giants-open-source-acknowledgments--gratitude)*
 
 ---
 
