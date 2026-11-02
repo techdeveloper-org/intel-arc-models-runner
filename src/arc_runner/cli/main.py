@@ -338,12 +338,13 @@ def handle_rm(model_id: str, base_dir: Optional[str] = None) -> int:
 
 
 def handle_benchmark(
-    model_id: str,
+    model_id: Optional[str] = None,
     device: str = "GPU",
     iterations: int = 5,
     warmup: int = 2,
     tokens: int = 64,
     json_output: bool = False,
+    analyze_path: Optional[str] = None,
 ) -> int:
     """Handle CLI command to execute hardware benchmark with statistical CI.
 
@@ -354,11 +355,28 @@ def handle_benchmark(
         warmup: Number of initial discarded runs.
         tokens: Number of completion tokens per iteration.
         json_output: Output JSON report if True.
+        analyze_path: Optional path to telemetry report JSON to diagnose bottlenecks.
 
     Returns:
         int: Process exit code.
     """
     console = Console()
+
+    if analyze_path:
+        from arc_runner.benchmarks.bottleneck_analyzer import SiliconBottleneckAnalyzer
+        try:
+            diagnosis = SiliconBottleneckAnalyzer.analyze_file(Path(analyze_path))
+            report_text = SiliconBottleneckAnalyzer.format_diagnostic_report(diagnosis)
+            console.print(report_text)
+            return 0
+        except Exception as exc:
+            console.print(f"[bold red]Bottleneck analysis failed:[/bold red] {exc}")
+            return 1
+
+    if not model_id:
+        console.print("[bold red]Error:[/bold red] Model identifier is required for benchmarking.")
+        return 1
+
     runner = BenchmarkRunner()
 
     try:
@@ -1647,6 +1665,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     bench_parser.add_argument("--warmup", type=int, default=2, help="Number of warmup runs to discard (default: 2)")
     bench_parser.add_argument("--tokens", type=int, default=64, help="Tokens to generate per run (default: 64)")
     bench_parser.add_argument("--json", action="store_true", help="Output benchmark metrics in JSON format")
+    bench_parser.add_argument("--analyze", default=None, help="Path to telemetry report JSON to diagnose hardware bottlenecks")
 
     gguf_parser_cmd = subparsers.add_parser("inspect-gguf", help="Inspect binary GGUF container headers and tensors")
     gguf_parser_cmd.add_argument("path", help="Path to .gguf file or Ollama blob")
@@ -1967,12 +1986,13 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.command == "benchmark":
         return handle_benchmark(
-            model_id=args.model,
+            model_id=getattr(args, "model", None),
             device=args.device,
             iterations=args.iterations,
             warmup=args.warmup,
             tokens=args.tokens,
             json_output=args.json,
+            analyze_path=getattr(args, "analyze", None),
         )
 
     if args.command == "devices" or args.command is None:
