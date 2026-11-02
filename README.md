@@ -18,6 +18,7 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 | Guide / Document | Description | Key Topics |
 |:---|:---|:---|
 | [**🎯 Mission & Vision Manifesto**](docs/mission_and_vision.md) | Breaking CUDA Monopoly & Intel Hardware Liberation | The silicon democratization manifesto, solving Ollama's silent CPU fallback, 5W NPU matrix compute, and open-source credits. |
+| [**💰 Economic & Server Cost Analysis**](docs/economic_and_cost_analysis.md) | Slashing AI Server OpEx by 70–90% & Breaking NVIDIA Tax | FinOps report, mathematical proofs E1–E4, dual USD/INR TCO matrix, multi-GPU rackmount servers, and 70B Flash-Stream economics. |
 | [**🎬 Arc MultiModal Studio**](docs/multimodal_studio.md) | Autonomous AI Production Studio & Co-Benchmarking | Flagship scenario, 5 bottlenecks solved, Cloud Cost-Killer ROI analysis, Studio CLI & REST API. |
 | [**🏗️ Architecture & Subsystems**](docs/architecture.md) | System Architecture & Hardware Interfaces | Subsystem deep-dive, Level Zero integration, Multi-LoRA hot-swapping, Continuous batching & paged KV cache. |
 | [**🌐 Universal Ollama Ingestion**](docs/OLLAMA_INGESTION.md) | Direct Remote Ollama Distribution Streaming | Download, cache, and run any model directly from `registry.ollama.ai` with Range resume and SHA-256 verification. |
@@ -45,7 +46,9 @@ To keep this landing page fast, readable, and executive, detailed technical docu
 
 > 🎯 **Our Core Mission**: Local AI should never be held hostage by the NVIDIA CUDA monopoly or proprietary hardware taxes. For years, millions of users with Intel® Arc™ GPUs and Intel® Core™ Ultra NPUs were denied first-class support—left with crashing runtimes, multi-gigabyte compiler prerequisites, or Ollama's infamous **"Silent CPU Fallback"** (burning CPU threads at 2–6 tok/s while the Arc GPU sat idle). `intel-arc-models-runner` was built to restore hardware dignity to Intel silicon: unlocking native Level Zero GPU acceleration, 5W NPU speculative decoding, and autonomous multi-modal generation with zero bloat and mathematical honesty.
 > 
-> 👉 *Read our full manifesto: [**🎯 Mission & Vision Manifesto (docs/mission_and_vision.md)**](docs/mission_and_vision.md)*
+> 💰 **The Economic Advantage (70%–90% Server Cost Reduction)**: Model training is a one-time CapEx, but continuous inference accounts for 85%+ of ongoing AI OpEx. NVIDIA exploits this with 80%+ gross margins and artificially starved consumer VRAM. By running high-density Intel Arc servers (e.g. 4x Arc A770 16GB delivering 64GB aggregate VRAM for ~$1,200 / ₹1.13L) and 5W NPUs, enterprises achieve hardware payback in under 46 days compared to AWS cloud rentals, saving over **$165,000 USD (₹1.57 Crore INR)** over a 3-year horizon.
+> 
+> 👉 *Read the full whitepapers: [**🎯 Mission & Vision Manifesto**](docs/mission_and_vision.md) • [**💰 Economic & Server Cost Analysis (FinOps Whitepaper)**](docs/economic_and_cost_analysis.md)*
 
 While mainstream local LLM tools like Ollama were designed with a CUDA-first and Apple Metal-first focus, `intel-arc-models-runner` treats Intel silicon as first-class citizens:
 
@@ -433,7 +436,8 @@ intel-arc-models-runner/
 │   ├── benchmarks/                     # Quantitative benchmark methodology, result schemas, and empirical matrices
 │   ├── diagrams/                       # Master visual catalog (`README.md`) with embedded previews and browser editor links
 │   ├── research/                       # R&D whitepapers (Ollama defects, Intel silicon, solution blueprints, Flash-Stream)
-│   └── mission_and_vision.md           # The Silicon Democratization Manifesto & Open-Source Acknowledgments
+│   ├── mission_and_vision.md           # The Silicon Democratization Manifesto & Open-Source Acknowledgments
+│   └── economic_and_cost_analysis.md   # Server cost crisis, FinOps TCO, dual USD/INR proofs & rackmount ROI
 ├── uml/                                # Canonical Level 2.3 UDM Architecture Diagrams (Mermaid format, Rule 45)
 │   ├── package_diagram.md              # 10 clean core packages & Level Zero bindings
 │   ├── component_diagram.md            # Subsystem interfaces, REST daemons & silicon drivers
