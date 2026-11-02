@@ -368,7 +368,7 @@ class GGUFTranspiler:
                 if i < len(tensor_layout)
             ]
             synthesizer = OpenVINOGraphSynthesizer(summary, self._output_dir, metadata=parser.metadata)
-            artifacts = synthesizer.synthesize(tensor_layout_tuples, model_name)
+            artifacts = synthesizer.synthesize(tensor_layout_tuples, "openvino_model")
             logger.info(f"OpenVINO computational graph successfully synthesized: {artifacts.xml_path}")
             graph_synthesized = True
         except Exception as exc:
@@ -496,7 +496,8 @@ class GGUFTranspiler:
             lines.append(
                 f'\t\t<layer id="{layer_id}" name={_xml_attr(t.name)} type="Const" version="opset1">'
             )
-            lines.append(f'\t\t\t<data element_type="{ov_elem}" offset="{bin_offset}" size="{byte_count}"/>')
+            shape_str = ",".join(str(d) for d in (dims or [1]))
+            lines.append(f'\t\t\t<data element_type="{ov_elem}" offset="{bin_offset}" size="{byte_count}" shape="{shape_str}"/>')
             lines.append('\t\t\t<output>')
             lines.append(f'\t\t\t\t<port id="0" precision="{ov_prec}" names={_xml_attr(t.name)}>')
             for dim in (dims or [1]):

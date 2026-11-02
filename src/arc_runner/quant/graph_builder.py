@@ -359,18 +359,50 @@ class OpenVINOGraphSynthesizer:
         embed_const_id = current_layer_id
         embed_offset = 0
         embed_size = hp.vocab_size * hp.hidden_size * 2
-        for name, off, sz, _ in tensor_layout:
+        actual_vocab_size = hp.vocab_size
+        embed_elem_type = "f16"
+        embed_prec = "FP16"
+        embed_shape_str = f"{hp.vocab_size},{hp.hidden_size}"
+        embed_dims_xml = f"\t\t\t\t\t<dim>{hp.vocab_size}</dim>\n\t\t\t\t\t<dim>{hp.hidden_size}</dim>"
+
+        for item in tensor_layout:
+            name, off, sz = item[0], item[1], item[2]
+            dims = item[3] if len(item) > 3 else ()
             if "embed" in name or "token_embd" in name:
                 embed_offset, embed_size = off, sz
+                if dims and len(dims) >= 2:
+                    dim1, dim2 = dims[0], dims[1]
+                    actual_vocab_size = max(dim1, dim2)
+                    hidden = min(dim1, dim2)
+                    total_elem = actual_vocab_size * hidden
+                    if sz == total_elem * 2:
+                        embed_elem_type = "f16"
+                        embed_prec = "FP16"
+                        embed_shape_str = f"{actual_vocab_size},{hidden}"
+                        embed_dims_xml = f"\t\t\t\t\t<dim>{actual_vocab_size}</dim>\n\t\t\t\t\t<dim>{hidden}</dim>"
+                    elif sz == total_elem * 4:
+                        embed_elem_type = "f32"
+                        embed_prec = "FP32"
+                        embed_shape_str = f"{actual_vocab_size},{hidden}"
+                        embed_dims_xml = f"\t\t\t\t\t<dim>{actual_vocab_size}</dim>\n\t\t\t\t\t<dim>{hidden}</dim>"
+                    elif sz == total_elem:
+                        embed_elem_type = "i8"
+                        embed_prec = "I8"
+                        embed_shape_str = f"{actual_vocab_size},{hidden}"
+                        embed_dims_xml = f"\t\t\t\t\t<dim>{actual_vocab_size}</dim>\n\t\t\t\t\t<dim>{hidden}</dim>"
+                    else:
+                        embed_elem_type = "u8"
+                        embed_prec = "U8"
+                        embed_shape_str = f"{sz}"
+                        embed_dims_xml = f"\t\t\t\t\t<dim>{sz}</dim>"
                 break
 
         add_layer(
             f'\t\t<layer id="{embed_const_id}" name="model.embed_tokens.weight" type="Const" version="opset1">\n'
-            f'\t\t\t<data element_type="f16" offset="{embed_offset}" size="{embed_size}"/>\n'
+            f'\t\t\t<data element_type="{embed_elem_type}" offset="{embed_offset}" size="{embed_size}" shape="{embed_shape_str}"/>\n'
             f'\t\t\t<output>\n'
-            f'\t\t\t\t<port id="0" precision="FP16">\n'
-            f'\t\t\t\t\t<dim>{hp.vocab_size}</dim>\n'
-            f'\t\t\t\t\t<dim>{hp.hidden_size}</dim>\n'
+            f'\t\t\t\t<port id="0" precision="{embed_prec}">\n'
+            f'{embed_dims_xml}\n'
             f'\t\t\t\t</port>\n'
             f'\t\t\t</output>\n'
             f'\t\t</layer>',
@@ -378,7 +410,26 @@ class OpenVINOGraphSynthesizer:
         )
         current_layer_id += 1
 
-        # Layer 2: Gather embedding
+        axis_id = current_layer_id
+        bin_path = self._output_dir / f"{model_name}.bin"
+        if bin_path.exists():
+            axis_offset = bin_path.stat().st_size
+            with open(bin_path, "ab") as f:
+                f.write(b"\x00" * 8)
+        else:
+            axis_offset = 0
+
+        add_layer(
+            f'\t\t<layer id="{axis_id}" name="embed_tokens_gather/axis" type="Const" version="opset1">\n'
+            f'\t\t\t<data element_type="i64" offset="{axis_offset}" size="8" shape=""/>\n'
+            f'\t\t\t<output>\n'
+            f'\t\t\t\t<port id="0" precision="I64"/>\n'
+            f'\t\t\t</output>\n'
+            f'\t\t</layer>',
+            axis_id,
+        )
+        current_layer_id += 1
+
         gather_id = current_layer_id
         add_layer(
             f'\t\t<layer id="{gather_id}" name="embed_tokens_gather" type="Gather" version="opset8">\n'
@@ -400,6 +451,7 @@ class OpenVINOGraphSynthesizer:
         )
         add_edge(embed_const_id, 0, gather_id, 0)
         add_edge(param_id, 0, gather_id, 1)
+        add_edge(axis_id, 0, gather_id, 2)
         current_layer_id += 1
 
         prev_activation_id = gather_id
@@ -567,7 +619,7 @@ class OpenVINOGraphSynthesizer:
             f'\t\t\t<data transpose_a="false" transpose_b="true"/>\n'
             f'\t\t\t<input>\n'
             f'\t\t\t\t<port id="0" precision="FP32"/>\n'
-            f'\t\t\t\t<port id="1" precision="FP16"/>\n'
+            f'\t\t\t\t<port id="1" precision="{embed_prec}"/>\n'
             f'\t\t\t</input>\n'
             f'\t\t\t<output>\n'
             f'\t\t\t\t<port id="2" precision="FP32">\n'
