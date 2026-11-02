@@ -1,0 +1,80 @@
+{
+  "platform": "Intel Core Ultra 5 125H (Meteor Lake) Arc Xe-LPG iGPU (Level Zero USM)",
+  "models": {
+    "qwen-2.5-1.5b": {
+      "tiers": {
+        "low": {
+          "name": "Factual Geography",
+          "old_tps": 43.04,
+          "old_ttft": 113.87,
+          "new_tps": 45.02,
+          "new_ttft": 78.17
+        },
+        "medium": {
+          "name": "Expand Palindrome",
+          "old_tps": 46.74,
+          "old_ttft": 61.48,
+          "new_tps": 46.04,
+          "new_ttft": 83.64
+        },
+        "hard": {
+          "name": "TCP FSM Architecture",
+          "old_tps": 46.81,
+          "old_ttft": 67.71,
+          "new_tps": 45.41,
+          "new_ttft": 81.78
+        }
+      }
+    },
+    "deepseek-r1-1.5b": {
+      "tiers": {
+        "low": {
+          "name": "Division by Zero Boundary",
+          "old_tps": 28.99,
+          "old_ttft": 214.97,
+          "new_tps": 34.45,
+          "new_ttft": 76.36
+        },
+        "medium": {
+          "name": "Warehouse Deductive Arithmetic",
+          "old_tps": 34.3,
+          "old_ttft": 69.88,
+          "new_tps": 34.2,
+          "new_ttft": 136.74
+        },
+        "hard": {
+          "name": "Cryptarithmetic SEND+MORE=MONEY",
+          "old_tps": 25.05,
+          "old_ttft": 69.98,
+          "new_tps": 34.98,
+          "new_ttft": 85.52
+        }
+      }
+    },
+    "llama-3.2-3b": {
+      "tiers": {
+        "low": {
+          "name": "Entity & Currency Extraction",
+          "old_tps": 26.99,
+          "old_ttft": 151.45,
+          "new_tps": 26.07,
+          "new_ttft": 178.11
+        },
+        "medium": {
+          "name": "Speculative Synthesis",
+          "old_tps": 27.26,
+          "old_ttft": 132.24,
+          "new_tps": 25.3,
+          "new_ttft": 182.16
+        },
+        "hard": {
+          "name": "USM DMA Architecture",
+          "old_tps": 27.19,
+          "old_ttft": 147.59,
+          "new_tps": 25.03,
+          "new_ttft": 181.81
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "qwen-2.5-1.5b": {
+    "low": {
+      "tokens_per_second": 32.39,
+      "ttft_ms": 91.33,
+      "tpot_ms": 30.87,
+      "total_tokens": 30,
+      "generation_time_s": 1.0,
+      "stability_score": 90.6,
+      "jitter_ms": 2.7,
+      "mean_cpu_load": 26.56,
+      "mean_ram_mb": 13310.89,
+      "disk_read_mb": 2.26
+    },
+    "medium": {
+      "tokens_per_second": 32.11,
+      "ttft_ms": 82.05,
+      "tpot_ms": 31.15,
+      "total_tokens": 160,
+      "generation_time_s": 5.04,
+      "stability_score": 91.8,
+      "jitter_ms": 0.77,
+      "mean_cpu_load": 22.2,
+      "mean_ram_mb": 13210.91,
+      "disk_read_mb": 9.33
+    },
+    "hard": {
+      "tokens_per_second": 35.74,
+      "ttft_ms": 103.04,
+      "tpot_ms": 27.98,
+      "total_tokens": 277,
+      "generation_time_s": 7.84,
+      "stability_score": 92.0,
+      "jitter_ms": 1.53,
+      "mean_cpu_load": 15.17,
+      "mean_ram_mb": 13223.16,
+      "disk_read_mb": 0.85
+    }
+  },
+  "deepseek-r1-1.5b": {
+    "low": {
+      "tokens_per_second": 35.45,
+      "ttft_ms": 97.4,
+      "tpot_ms": 28.21,
+      "total_tokens": 40,
+      "generation_time_s": 1.2,
+      "stability_score": 84.5,
+      "jitter_ms": 4.92,
+      "mean_cpu_load": 8.84,
+      "mean_ram_mb": 13183.01,
+      "disk_read_mb": 28.17
+    },
+    "medium": {
+      "tokens_per_second": 28.93,
+      "ttft_ms": 116.58,
+      "tpot_ms": 34.57,
+      "total_tokens": 160,
+      "generation_time_s": 5.62,
+      "stability_score": 90.3,
+      "jitter_ms": 2.79,
+      "mean_cpu_load": 10.1,
+      "mean_ram_mb": 13207.24,
+      "disk_read_mb": 71.54
+    },
+    "hard": {
+      "tokens_per_second": 30.56,
+      "ttft_ms": 101.28,
+      "tpot_ms": 32.72,
+      "total_tokens": 300,
+      "generation_time_s": 9.89,
+      "stability_score": 92.3,
+      "jitter_ms": 1.44,
+      "mean_cpu_load": 7.6,
+      "mean_ram_mb": 13160.0,
+      "disk_read_mb": 0.92
+    }
+  },
+  "llama-3.2-3b": {
+    "low": {
+      "tokens_per_second": 27.57,
+      "ttft_ms": 165.95,
+      "tpot_ms": 36.28,
+      "total_tokens": 37,
+      "generation_time_s": 1.48,
+      "stability_score": 79.1,
+      "jitter_ms": 6.73,
+      "mean_cpu_load": 9.03,
+      "mean_ram_mb": 12700.46,
+      "disk_read_mb": 1.21
+    },
+    "medium": {
+      "tokens_per_second": 28.5,
+      "ttft_ms": 137.25,
+      "tpot_ms": 35.09,
+      "total_tokens": 160,
+      "generation_time_s": 5.73,
+      "stability_score": 89.4,
+      "jitter_ms": 2.95,
+      "mean_cpu_load": 8.38,
+      "mean_ram_mb": 12694.72,
+      "disk_read_mb": 0.54
+    },
+    "hard": {
+      "tokens_per_second": 28.2,
+      "ttft_ms": 161.6,
+      "tpot_ms": 35.46,
+      "total_tokens": 300,
+      "generation_time_s": 10.77,
+      "stability_score": 90.4,
+      "jitter_ms": 2.9,
+      "mean_cpu_load": 8.57,
+      "mean_ram_mb": 12628.04,
+      "disk_read_mb": 6.54
+    }
+  }
+}
