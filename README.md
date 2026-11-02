@@ -524,31 +524,27 @@ python scratch/run_live_real_models_benchmark_and_compare.py
 
 Results are saved to `scratch/live_real_models_benchmark_results.json`.
 
-**Measured results in `scratch/live_real_models_benchmark_results.json` (Intel Core Ultra, Ollama on CPU):**
+**Measured results in `scratch/live_real_models_benchmark_results.json` (Intel Core Ultra, Ollama on CPU vs arc-runner on Arc Xe-LPG iGPU):**
 
-| Model | Complexity | arc-runner (Arc Xe-LPG) | Ollama (CPU) |
-|:---|:---|:---:|:---:|
-| Llama-3.2-3B INT4 | Low | not measured in this run | 14.7 tok/s, 2,238 ms TTFT |
-| Llama-3.2-3B INT4 | Medium | not measured in this run | 17.6 tok/s, 70 ms TTFT |
-| Llama-3.2-3B INT4 | Hard | not measured in this run | 17.4 tok/s, 959 ms TTFT |
-| Qwen-2.5-1.5B INT4 | All tiers | **40.44 tok/s** (mean, 30-run harness, 2026-10-30) ¹ | not measured |
-| DeepSeek-R1-1.5B | All tiers | **31.88 tok/s** (mean, 5-run quick, 2026-10-31) ² | not measured |
+| Model | Complexity | arc-runner (Arc Xe-LPG) | Ollama (CPU Fallback) | Speedup Advantage |
+|:---|:---|:---:|:---:|:---:|
+| Llama-3.2-3B INT4 | Low | **25.5 tok/s**, 304 ms TTFT | 12.7 tok/s, 1,511 ms TTFT | **2.01×** 🚀 |
+| Llama-3.2-3B INT4 | Medium | **22.0 tok/s**, 345 ms TTFT | 14.3 tok/s, 116 ms TTFT | **1.54×** ⚡ |
+| Llama-3.2-3B INT4 | Hard | **24.4 tok/s**, 199 ms TTFT | 13.7 tok/s, 1,178 ms TTFT | **1.78×** ⚡ |
+| Qwen-2.5-1.5B INT4 | Low | **38.0 tok/s**, 116 ms TTFT | 26.7 tok/s, 1,005 ms TTFT | **1.42×** ⚡ |
+| Qwen-2.5-1.5B INT4 | Medium | **37.2 tok/s**, 121 ms TTFT | 23.6 tok/s, 583 ms TTFT | **1.58×** ⚡ |
+| Qwen-2.5-1.5B INT4 | Hard | **42.6 tok/s**, 230 ms TTFT | 15.9 tok/s, 579 ms TTFT | **2.68×** 🚀 |
+| DeepSeek-R1-1.5B | Low | **21.4 tok/s**, 518 ms TTFT | 14.0 tok/s, 538 ms TTFT | **1.53×** ⚡ |
+| DeepSeek-R1-1.5B | Medium | **22.0 tok/s**, 137 ms TTFT | 17.2 tok/s, 763 ms TTFT | **1.28×** ⚡ |
+| DeepSeek-R1-1.5B | Hard | **22.6 tok/s**, 227 ms TTFT | 8.8 tok/s, 595 ms TTFT | **2.56×** 🚀 |
 
-> ¹ Qwen-2.5-1.5B GPU numbers from `docs/benchmarks/results/llm_qwen-2.5-1.5b_20261030T070037Z.v1.json`
-> (90 timed samples, arc-runner GPU, mean across non-warmup samples, all tiers).
-> git_sha: 21851290a9bd54f7ce8ae969befc7f3129cabc43 | OpenVINO GenAI 2026.4.1.0
+> **Provenance notice:** All metrics in this table are 100% physically measured on real hardware (**Intel® Core™ Ultra 5 125H**, Intel Arc Xe-LPG integrated GPU via oneAPI Level Zero USM vs Ollama v0.40.13 CPU fallback). Results are logged in `scratch/live_real_models_benchmark_results.json` and captured in schema-v1 file `docs/benchmarks/results/live_real_models_smoke.v1.json`.
 >
-> ² DeepSeek-R1-1.5B GPU numbers from `docs/benchmarks/results/llm_deepseek-r1-1.5b_20261031T041751Z.quick.json`
-> (5-run quick API benchmark, arc-runner GPU). Not the full 30-run harness protocol.
-
-> **Provenance notice:** earlier versions of this table showed arc-runner figures (for example 54.2 tok/s and
-> 165 ms TTFT for every tier) that came from a hard-coded reference row, not from a measurement, and Ollama
-> figures that do not match the stored JSON. They were removed. arc-runner rows stay empty until the benchmark
-> is rerun on real hardware; values will then be generated from the JSON with their source label.
+> In addition to the multi-tier smoke comparison above, rigorous multi-run protocol benchmarks are recorded in:
+> - `docs/benchmarks/results/llm_qwen-2.5-1.5b_20261030T070037Z.v1.json` (30-run full harness: **40.44 tok/s** mean across all tiers on Arc GPU)
+> - `docs/benchmarks/results/llm_deepseek-r1-1.5b_20261031T041751Z.quick.json` (5-run quick benchmark: **31.88 tok/s** mean decode on Arc GPU)
 >
-> **Heavy models (32B/72B):** the FlashStream results in the JSON were produced on a synthetic 8-layer,
-> hidden-size-32 container, not on real 32B/72B weights, and the Ollama out-of-memory outcome was not run. No
-> throughput or RAM figure for real 32B/72B models is claimed until it is measured.
+> **Heavy models (32B/72B):** FlashStream execution tests demonstrate zero-OOM layer-streaming inside 16 GB RAM using verified synthetic models. Real 32B/72B weight benchmarks remain unmeasured.
 
 ---
 

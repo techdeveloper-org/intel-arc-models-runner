@@ -8,13 +8,13 @@ disk storage to guarantee zero-disk-exhaustion.
 
 import gc
 import json
-from pathlib import Path
 import shutil
 import sys
 import time
-from typing import Any, Dict, List, Optional
-import urllib.request
 import urllib.error
+import urllib.request
+from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -39,10 +39,10 @@ logger = get_logger("benchmark.real_models")
 MODEL_EVALUATION_MATRIX = {
     "llama-3.2-3b": {
         "alias": "llama-3.2-3b",
-        "repo_id": "OpenVINO/Llama-3.2-3B-Instruct-int4-ov",
+        "repo_id": "AIFunOver/Llama-3.2-3B-Instruct-openvino-4bit",
         "ollama_name": "llama3.2:3b",
         "device": "GPU",
-        "size_bytes": 1820000000,
+        "size_bytes": 1914000000,
         "tiers": {
             "low": {
                 "name": "Entity & Currency Extraction",
@@ -85,27 +85,27 @@ MODEL_EVALUATION_MATRIX = {
             },
         },
     },
-    "tinyllama-1.1b": {
-        "alias": "tinyllama-1.1b",
-        "repo_id": "OpenVINO/TinyLlama-1.1B-Chat-v1.0-int4-ov",
-        "ollama_name": "tinyllama:latest",
+    "deepseek-r1-1.5b": {
+        "alias": "deepseek-r1-1.5b",
+        "repo_id": "OpenVINO/DeepSeek-R1-Distill-Qwen-1.5B-int4-ov",
+        "ollama_name": "deepseek-r1:1.5b",
         "device": "GPU",
-        "size_bytes": 637000000,
+        "size_bytes": 1396000000,
         "tiers": {
             "low": {
                 "name": "Division by Zero & Mathematical Boundary",
-                "prompt": "Calculate 1250 divided by 0 in real arithmetic. State the exact mathematical theorem explaining why the result is undefined.",
-                "max_tokens": 50,
+                "prompt": "What is 750 divided by 0? State the exact mathematical result.",
+                "max_tokens": 40,
             },
             "medium": {
-                "name": "Deductive Inventory Arithmetic",
-                "prompt": "Solve step-by-step with chain-of-thought: A warehouse receives 48 crates of microchips with 64 units per crate. 12.5% of crates are held for customs inspection. From the remaining crates, 39 chips fail quality assurance. How many usable chips are released to the factory floor?",
-                "max_tokens": 250,
+                "name": "Warehouse Multi-Step Deductive Arithmetic",
+                "prompt": "Solve step-by-step: A warehouse has 45 boxes with 12 items each. They receive an extra 256 items divided evenly into 8 cartons, but find that 47 items are damaged. How many undamaged items remain?",
+                "max_tokens": 200,
             },
             "hard": {
                 "name": "Cryptarithmetic SEND+MORE=MONEY Deduction",
-                "prompt": "Deduce the unique digit mapping for the cryptarithmetic puzzle SEND + MORE = MONEY step-by-step. Prove why M must be 1, deduce S, O, E, N, R, D, Y, and verify the final arithmetic sum.",
-                "max_tokens": 450,
+                "prompt": "Solve the cryptarithmetic puzzle SEND + MORE = MONEY step by step. What digit does each letter represent? Show the logical deduction for M, S, and O.",
+                "max_tokens": 400,
             },
         },
     },
@@ -179,7 +179,7 @@ class LiveSequentialBenchmarkRunner:
         self.results_path = Path(__file__).resolve().parent / "live_real_models_benchmark_results.json"
         total_ram = total_memory_bytes()
         ram_gb = round(total_ram / 1e9, 2) if total_ram is not None else None
-        self.results_data: Dict[str, Any] = {
+        self.results_data: dict[str, Any] = {
             "testbed": {
                 "cpu": self.topology.host_cpu_model,
                 "gpu": "Intel Arc Graphics (Xe-LPG, 7 Xe-cores, Level Zero USM)",
@@ -191,7 +191,7 @@ class LiveSequentialBenchmarkRunner:
             "flash_stream_heavy_models": {},
         }
 
-    def query_ollama(self, model: str, prompt: str, max_tokens: int) -> Optional[Dict[str, Any]]:
+    def query_ollama(self, model: str, prompt: str, max_tokens: int) -> dict[str, Any] | None:
         """Query Ollama daemon on localhost:11434 for physical CPU fallback comparison.
 
         Args:
@@ -247,7 +247,7 @@ class LiveSequentialBenchmarkRunner:
                 "status": "UNAVAILABLE",
                 "error": str(err),
             }
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             return {
                 "model": model,
                 "status": "ERROR",
@@ -287,8 +287,8 @@ class LiveSequentialBenchmarkRunner:
     def run_arc_runner_model(
         self,
         alias: str,
-        spec: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        spec: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute multi-tier physical benchmarks for an OpenVINO model on Intel Arc GPU.
 
         Args:
@@ -298,16 +298,23 @@ class LiveSequentialBenchmarkRunner:
         Returns:
             Dictionary containing compiled benchmark metrics across all tiers.
         """
-        existing_model_dir = Path("models") / alias
+        candidate_paths = [
+            Path("models") / alias,
+            Path("models") / f"{alias}-ov",
+            Path("models") / alias.replace("-1.1b", "-openvino"),
+        ]
         dest_dir = None
         is_temporary = False
         dl_time = 0.0
 
-        if existing_model_dir.exists() and (existing_model_dir / "openvino_model.bin").exists():
-            dest_dir = existing_model_dir
-            is_temporary = False
-            self.console.print(f"\n[bold cyan]1. Using existing local model {alias} at {dest_dir}...[/bold cyan]")
-        else:
+        for cand in candidate_paths:
+            if cand.exists() and (cand / "openvino_model.bin").exists():
+                dest_dir = cand
+                is_temporary = False
+                self.console.print(f"\n[bold cyan]1. Using existing local model {alias} at {dest_dir}...[/bold cyan]")
+                break
+
+        if dest_dir is None:
             potential_dir = self.temp_dir / alias
             self.console.print(f"\n[bold cyan]1. Checking/Staging {alias} ({spec['repo_id']})...[/bold cyan]")
             try:
@@ -315,7 +322,7 @@ class LiveSequentialBenchmarkRunner:
                 dest_dir = potential_dir
                 is_temporary = True
                 self.console.print(f"  [green]✔ Staged in {dl_time:.2f}s[/green]")
-            except Exception as dl_err:
+            except Exception as dl_err:  # noqa: BLE001
                 self.console.print(f"  [yellow]Notice: HF download not available ({dl_err}). Running Ollama CPU reference metrics...[/yellow]")
                 dest_dir = None
 
@@ -328,7 +335,7 @@ class LiveSequentialBenchmarkRunner:
             compile_time = time.perf_counter() - t_compile
             self.console.print(f"  [green]✔ Compiled on Intel Arc Xe-LPG GPU (Level Zero USM) in {compile_time:.2f}s[/green]")
 
-        model_results: Dict[str, Any] = {
+        model_results: dict[str, Any] = {
             "alias": alias,
             "repo_id": spec["repo_id"],
             "compile_time_s": round(compile_time, 2),
@@ -407,8 +414,8 @@ class LiveSequentialBenchmarkRunner:
     def run_flash_stream_heavy_model(
         self,
         alias: str,
-        spec: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        spec: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute Flash-Stream layer ring-buffered streaming for heavy models inside 16GB RAM.
 
         Args:
@@ -430,7 +437,7 @@ class LiveSequentialBenchmarkRunner:
         engine = FlashStreamInferenceEngine()
         engine.load_model(temp_gguf, device="GPU", ring_buffer_slots=3)
 
-        heavy_results: Dict[str, Any] = {
+        heavy_results: dict[str, Any] = {
             "alias": alias,
             "architecture_layers": spec["layers"],
             "int4_weights_size_gb": spec["int4_weights_gb"],
@@ -446,8 +453,8 @@ class LiveSequentialBenchmarkRunner:
 
                 t0 = time.perf_counter()
                 cfg = GenerationConfig(max_new_tokens=min(t_spec["max_tokens"], 16))
-                chunks = list(engine.generate_stream(t_spec["prompt"], config=cfg))
-                elapsed = time.perf_counter() - t0
+                _ = list(engine.generate_stream(t_spec["prompt"], config=cfg))
+                _ = time.perf_counter() - t0
 
                 telemetry = engine.get_telemetry()
                 mem_report = engine.get_working_memory_report()
@@ -471,7 +478,7 @@ class LiveSequentialBenchmarkRunner:
 
         return heavy_results
 
-    def collect_schema_v1_samples(self) -> List[BenchSample]:
+    def collect_schema_v1_samples(self) -> list[BenchSample]:
         """Convert the single-run tier results into schema-v1 samples with honest provenance.
 
         arc-runner rows are `measured` only when they came from engine perf_metrics; stream wall-clock
@@ -482,7 +489,7 @@ class LiveSequentialBenchmarkRunner:
         Returns:
             List[BenchSample]: Samples for every tier that produced a value.
         """
-        samples: List[BenchSample] = []
+        samples: list[BenchSample] = []
         for alias, model in self.results_data["evaluated_models"].items():
             for tier, data in model.get("tiers", {}).items():
                 arc = data.get("arc_runner", {})
@@ -506,11 +513,11 @@ class LiveSequentialBenchmarkRunner:
         if not samples:
             return
         protocol = {
-            "warmup_runs": 0, "timed_runs": 1, "temperature": 0.0, "max_new_tokens": 0,
+            "warmup_runs": 0, "timed_runs": 1, "temperature": 0.0, "max_new_tokens": 200,
             "labels": {"arc-runner": "OpenVINO on the detected device", "ollama": "Ollama CPU"},
         }
         document = build_result("live-real-models-smoke", samples, protocol, capture_environment(Path(__file__).resolve().parents[1]))
-        target = Path(__file__).resolve().parents[1] / "docs" / "benchmarks" / "results" / "live_real_models_smoke.v1.json"
+        target = Path(__file__).resolve().parent / "live_real_models_smoke.v1.json"
         write_result(target, document)
         self.console.print(f"[green]Wrote schema-v1 results to {target}[/green]")
 
@@ -533,7 +540,7 @@ class LiveSequentialBenchmarkRunner:
             try:
                 res = self.run_arc_runner_model(alias, spec)
                 self.results_data["evaluated_models"][alias] = res
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self.console.print(f"  [bold red]Error benchmarking {alias}: {e}[/bold red]")
 
         # 2. Benchmark heavy flash-stream models (OOM elimination)
@@ -541,7 +548,7 @@ class LiveSequentialBenchmarkRunner:
             try:
                 res = self.run_flash_stream_heavy_model(alias, spec)
                 self.results_data["flash_stream_heavy_models"][alias] = res
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self.console.print(f"  [bold red]Error benchmarking {alias}: {e}[/bold red]")
 
         with open(self.results_path, "w", encoding="utf-8") as f:

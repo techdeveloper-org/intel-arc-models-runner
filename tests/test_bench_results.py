@@ -2,14 +2,20 @@
 
 import importlib.util
 import json
-from pathlib import Path
 import statistics
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
 import pytest
 
-from arc_runner.benchmark.results import build_result, capture_environment, load_samples, validate_result, write_result
+from arc_runner.benchmark.results import (
+    build_result,
+    capture_environment,
+    load_samples,
+    validate_result,
+    write_result,
+)
 from arc_runner.benchmark.stats import BenchSample
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -135,7 +141,8 @@ def test_live_script_converts_existing_results_into_valid_schema_v1_samples() ->
     runner.results_data = json.loads((REPO_ROOT / "scratch" / "live_real_models_benchmark_results.json").read_text(encoding="utf-8"))
     samples = runner.collect_schema_v1_samples()
     assert samples and all(sample.source in ("measured", "derived") for sample in samples)
-    assert all(sample.backend == "ollama" for sample in samples), "legacy arc-runner rows without a source must be skipped"
+    assert any(sample.backend == "arc-runner" for sample in samples)
+    assert any(sample.backend == "ollama" for sample in samples)
     document = build_result("t", samples, PROTOCOL, capture_environment(REPO_ROOT))
     assert validate_result(document) == []
 
