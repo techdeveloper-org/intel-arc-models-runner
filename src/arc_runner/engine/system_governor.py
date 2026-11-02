@@ -227,6 +227,7 @@ class WindowsSystemGovernor:
         self._working_set_locked: bool = False
         self._affinity_set: bool = False
         self._kernel32 = _init_kernel32_signatures()
+        self._active_context: Optional[Any] = None
 
     @property
     def is_active(self) -> bool:
@@ -472,3 +473,26 @@ class WindowsSystemGovernor:
                 service_ctx.__exit__(None, None, None)
             self.revert_mmcss()
             self.revert_multimedia_timer(1)
+
+    def __enter__(self) -> "WindowsSystemGovernor":
+        """Enter governor context applying performance isolation and MMCSS scheduling.
+
+        Returns:
+            WindowsSystemGovernor: Active governor instance.
+        """
+        self._active_context = self.benchmark_isolation()
+        return self._active_context.__enter__()
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit governor context reverting MMCSS and timer overrides.
+
+        Args:
+            exc_type: Exception type if raised.
+            exc_val: Exception instance if raised.
+            exc_tb: Traceback if raised.
+        """
+        if self._active_context is not None:
+            ctx = self._active_context
+            self._active_context = None
+            ctx.__exit__(exc_type, exc_val, exc_tb)
+

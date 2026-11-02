@@ -311,15 +311,30 @@ def create_app(
 
     @app.get("/api/devices")
     async def get_devices() -> Dict[str, Any]:
-        """Hardware topology telemetry endpoint returning live silicon states.
+        """Hardware topology telemetry endpoint returning live silicon states and silicon tier profile.
 
         Returns:
-            Dictionary containing detected GPU, NPU, and CPU capabilities.
+            Dictionary containing detected GPU, NPU, CPU capabilities and SiliconProfile tier.
         """
+        from arc_runner.hardware.silicon_profiles import SiliconProfiler
+
         detector = DeviceDetector()
         topology = await asyncio.to_thread(detector.detect_topology)
+        profile = SiliconProfiler().detect_profile()
+
         return {
             "status": "healthy",
+            "silicon_tier": profile.tier.value,
+            "silicon_profile": {
+                "tier": profile.tier.value,
+                "gpu_name": profile.gpu_name,
+                "npu_present": profile.npu_present,
+                "npu_architecture": profile.npu_architecture,
+                "theoretical_bandwidth_gb_s": profile.theoretical_bandwidth_gb_s,
+                "recommended_gamma": profile.recommended_gamma,
+                "recommended_kv_cache_precision": profile.recommended_kv_cache_precision,
+                "supports_heterogeneous_fusion": profile.supports_heterogeneous_fusion,
+            },
             "device_summary": topology.model_dump(),
             "usm_shared_memory_ready": any(d.has_usm for d in topology.devices if d.device_type == DeviceType.GPU),
             "npu_boost_ready": topology.has_intel_npu,

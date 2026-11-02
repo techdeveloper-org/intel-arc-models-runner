@@ -11,7 +11,7 @@ import time
 from typing import Any, AsyncIterator, Dict, List, Optional
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
 from arc_runner.server.prefix_probe import match_prefix_with_real_tokens
@@ -226,6 +226,7 @@ def _stream_failure(exc: BaseException, model: str) -> BaseException:
 async def chat_completions(
     request: OpenAIChatCompletionRequest,
     raw_request: Request,
+    response: Response,
     manager: ModelManager = Depends(get_model_manager),
 ) -> Any:
     """Execute chat completion compliant with OpenAI POST /v1/chat/completions.
@@ -266,9 +267,12 @@ async def chat_completions(
         stream = AsyncTokenStream()
 
         def run_stream(ctx: JobContext) -> None:
-            """Generate on the worker thread and push every token into the stream."""
+            """Generate on the worker thread with governor active and push every token into the stream."""
+            from arc_runner.engine.system_governor import WindowsSystemGovernor
+
             try:
-                engine = load_engine(ctx)
+                with WindowsSystemGovernor():
+                    engine = load_engine(ctx)
                 finish_reason: Optional[str] = None
                 for chunk in engine.generate_stream(chat_prompt, gen_config):
                     if stream.is_cancelled:
@@ -325,10 +329,13 @@ async def chat_completions(
         return StreamingResponse(sse_generator(), media_type="text/event-stream")
 
     def run(ctx: JobContext) -> Any:
-        """Generate the full completion on the worker thread."""
-        engine = load_engine(ctx)
-        text = engine.generate(chat_prompt, gen_config)
-        return text, engine.get_telemetry()
+        """Generate the full completion on the worker thread with governor active."""
+        from arc_runner.engine.system_governor import WindowsSystemGovernor
+
+        with WindowsSystemGovernor():
+            engine = load_engine(ctx)
+            text = engine.generate(chat_prompt, gen_config)
+            return text, engine.get_telemetry()
 
     try:
         text, telemetry = await worker.submit(run)
@@ -338,6 +345,15 @@ async def chat_completions(
     usage = measured_usage(telemetry)
     if telemetry.metrics_source != "unavailable":
         manager.record_generation_metrics(telemetry.total_tokens)
+
+    if telemetry.tokens_per_second > 0:
+        response.headers["X-Tokens-Per-Second"] = f"{telemetry.tokens_per_second:.2f}"
+    if telemetry.ttft_ms > 0:
+        response.headers["X-TTFT-Ms"] = f"{telemetry.ttft_ms:.2f}"
+    if telemetry.fused_silicon_tier:
+        response.headers["X-Silicon-Tier"] = telemetry.fused_silicon_tier
+    if telemetry.is_speculative and telemetry.draft_device:
+        response.headers["X-Draft-Device"] = telemetry.draft_device
 
     return OpenAIChatCompletionResponse(
         id=completion_id,
