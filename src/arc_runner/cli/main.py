@@ -220,8 +220,33 @@ def handle_pull(model_id: str, base_dir: Optional[str] = None) -> int:
         int: Process exit code.
     """
     console = Console()
+
+    if model_id.startswith("ollama:"):
+        clean_tag = model_id[7:]
+        console.print(f"[bold cyan]Pulling Ollama model from registry.ollama.ai:[/bold cyan] {clean_tag}")
+        try:
+            importer = OllamaImporter()
+            dest_dir = importer.pull_and_transpile(clean_tag)
+            console.print(f"[bold green]Model '{clean_tag}' successfully pulled, transpiled to Intel Arc INT4 OpenVINO IR, and cached in '{dest_dir}'.[/bold green]")
+            return 0
+        except Exception as exc:
+            console.print(f"[bold red]Failed to pull and transpile Ollama model '{clean_tag}':[/bold red] {exc}")
+            return 1
+
     hub = HubManager(base_models_dir=base_dir)
-    info = ModelRegistry.resolve(model_id)
+    try:
+        info = ModelRegistry.resolve(model_id)
+    except Exception:
+        if ":" in model_id or "/" in model_id:
+            console.print(f"[bold cyan]Resolving model from registry.ollama.ai:[/bold cyan] {model_id}")
+            try:
+                importer = OllamaImporter()
+                dest_dir = importer.pull_and_transpile(model_id)
+                console.print(f"[bold green]Model '{model_id}' successfully pulled and transpiled to Intel Arc OpenVINO IR in '{dest_dir}'.[/bold green]")
+                return 0
+            except Exception as exc:
+                console.print(f"[bold red]Failed to pull from Ollama registry:[/bold red] {exc}")
+        raise
 
     console.print(f"[bold cyan]Pulling model:[/bold cyan] {info.alias} [dim]({info.repo_id})[/dim]")
     try:

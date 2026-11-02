@@ -359,24 +359,40 @@ class GGUFTranspiler:
                         sha256_partial=hasher.hexdigest()[:8],
                     )
 
-        xml_content = self._generate_ir_xml(
-            model_name=model_name,
-            tensors=tensors,
-            tensor_layout=tensor_layout,
-        )
-        xml_path.write_text(xml_content, encoding="utf-8")
+        graph_synthesized = False
+        try:
+            from arc_runner.quant.graph_builder import OpenVINOGraphSynthesizer
+            tensor_layout_tuples = [
+                (t.name, tensor_layout[i][0], tensor_layout[i][1], getattr(t, "dimensions", ()))
+                for i, t in enumerate(tensors)
+                if i < len(tensor_layout)
+            ]
+            synthesizer = OpenVINOGraphSynthesizer(summary, self._output_dir, metadata=parser.metadata)
+            artifacts = synthesizer.synthesize(tensor_layout_tuples, model_name)
+            logger.info(f"OpenVINO computational graph successfully synthesized: {artifacts.xml_path}")
+            graph_synthesized = True
+        except Exception as exc:
+            logger.warning(f"Graph synthesizer fallback to base IR XML: {exc}")
 
-        config_path = self._output_dir / "config.json"
-        config_data = {
-            "model_type": summary.architecture,
-            "quantization": precision,
-            "target_device": target_device,
-            "context_window": summary.context_length,
-            "tensor_count": summary.tensor_count,
-            "source_file": self._input_path.name,
-            "sha256": hasher.hexdigest(),
-        }
-        config_path.write_text(json.dumps(config_data, indent=2), encoding="utf-8")
+        if not graph_synthesized:
+            xml_content = self._generate_ir_xml(
+                model_name=model_name,
+                tensors=tensors,
+                tensor_layout=tensor_layout,
+            )
+            xml_path.write_text(xml_content, encoding="utf-8")
+
+            config_path = self._output_dir / "config.json"
+            config_data = {
+                "model_type": summary.architecture,
+                "quantization": precision,
+                "target_device": target_device,
+                "context_window": summary.context_length,
+                "tensor_count": summary.tensor_count,
+                "source_file": self._input_path.name,
+                "sha256": hasher.hexdigest(),
+            }
+            config_path.write_text(json.dumps(config_data, indent=2), encoding="utf-8")
 
         t_elapsed = (time.perf_counter() - t_start) * 1000.0
         final_sha256 = hasher.hexdigest()

@@ -183,3 +183,55 @@ class OllamaImporter:
                 pass
 
         return None
+
+    def pull_and_transpile(
+        self,
+        model_identifier: str,
+        target_device: str = "GPU",
+        precision: str = "int4",
+        output_dir: Optional[Path] = None,
+    ) -> Path:
+        """Download model directly from registry.ollama.ai and transpile to Intel Arc OpenVINO IR.
+
+        Args:
+            model_identifier: Ollama model tag e.g. 'qwen2.5:3b' or 'ollama:qwen2.5:3b'.
+            target_device: Hardware execution target ('GPU', 'NPU', 'CPU').
+            precision: Quantization precision ('int4', 'int8', 'fp16').
+            output_dir: Optional custom destination directory.
+
+        Returns:
+            Path: Directory containing compiled OpenVINO IR and configuration.
+
+        Raises:
+            OllamaClientError: If downloading manifest or layer fails.
+            TranspilationError: If transpilation to OpenVINO IR fails.
+        """
+        from arc_runner.core.constants import DEFAULT_MODELS_DIR
+        from arc_runner.hub.ollama_client import OllamaClientError, OllamaRegistryClient
+        from arc_runner.quant.transpiler import GGUFTranspiler
+
+        client = OllamaRegistryClient()
+        manifest_dto = client.fetch_manifest(model_identifier)
+
+        model_layer = None
+        for layer in manifest_dto.layers:
+            if "model" in layer.media_type:
+                model_layer = layer
+                break
+
+        if not model_layer:
+            raise OllamaClientError(f"No model weight layer discovered in manifest for {model_identifier}")
+
+        ns, model_name, tag = client.parse_model_tag(model_identifier)
+        logger.info(f"Streaming model layer blob for {model_name}:{tag} ({model_layer.size / (1024*1024):.1f} MB)...")
+        blob_path = client.stream_blob(ns, model_name, model_layer.digest)
+
+        slug = f"{model_name}-{tag}-{precision}".replace(":", "-").replace(".", "_")
+        dest_dir = Path(output_dir) if output_dir else (DEFAULT_MODELS_DIR / slug)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Transpiling GGUF blob to Intel Arc OpenVINO IR in {dest_dir}...")
+        transpiler = GGUFTranspiler(input_path=blob_path, output_dir=dest_dir)
+        transpiler.transpile(precision=precision, target_device=target_device)
+
+        return dest_dir
