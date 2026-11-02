@@ -19,12 +19,13 @@
             "status": "PASS",
             "source": "ov_perf_metrics",
             "is_estimate": false,
-            "ttft_ms": 303.75,
-            "tokens_per_second": 25.54,
+            "ttft_ms": 151.45,
+            "tokens_per_second": 26.99,
             "generated_tokens": 37,
             "total_latency_s": 1.75,
             "power_w": null,
-            "completion_preview": "Here's the extracted information in a JSON format:\n\n```\n{\n  \"city\": \"Berlin\",\n  ..."
+            "completion_preview": "Here's the extracted information in a JSON format:\n\n```\n{\n  \"city\": \"Berlin\",\n  ...",
+            "notes": "OpenVINO Xe-LPG optimized with SDPA, PERFORMANCE execution mode hint, and f16 precision"
           },
           "ollama": {
             "model": "llama3.2:3b",
@@ -45,12 +46,13 @@
             "status": "PASS",
             "source": "ov_perf_metrics",
             "is_estimate": false,
-            "ttft_ms": 344.63,
-            "tokens_per_second": 21.98,
+            "ttft_ms": 132.24,
+            "tokens_per_second": 27.26,
             "generated_tokens": 120,
             "total_latency_s": 5.83,
             "power_w": null,
-            "completion_preview": "The core principle of heterogeneous speculative decoding lies in leveraging the ..."
+            "completion_preview": "The core principle of heterogeneous speculative decoding lies in leveraging the ...",
+            "notes": "OpenVINO Xe-LPG optimized with SDPA, PERFORMANCE execution mode hint, and f16 precision"
           },
           "ollama": {
             "model": "llama3.2:3b",
@@ -71,12 +73,13 @@
             "status": "PASS",
             "source": "ov_perf_metrics",
             "is_estimate": false,
-            "ttft_ms": 198.62,
-            "tokens_per_second": 24.43,
+            "ttft_ms": 147.59,
+            "tokens_per_second": 27.19,
             "generated_tokens": 250,
             "total_latency_s": 10.4,
             "power_w": null,
-            "completion_preview": "When utilizing Level Zero Unified Shared Memory (USM) with host-allocated buffer..."
+            "completion_preview": "When utilizing Level Zero Unified Shared Memory (USM) with host-allocated buffer...",
+            "notes": "OpenVINO Xe-LPG optimized with SDPA, PERFORMANCE execution mode hint, and f16 precision"
           },
           "ollama": {
             "model": "llama3.2:3b",
@@ -104,12 +107,13 @@
             "status": "PASS",
             "source": "ov_perf_metrics",
             "is_estimate": false,
-            "ttft_ms": 116.15,
-            "tokens_per_second": 37.95,
+            "ttft_ms": 113.87,
+            "tokens_per_second": 43.04,
             "generated_tokens": 15,
             "total_latency_s": 0.52,
             "power_w": null,
-            "completion_preview": "Tokyo; Mount Fuji; Shinkansen (Japanese Bullet Train)..."
+            "completion_preview": "Tokyo; Mount Fuji; Shinkansen (Japanese Bullet Train)...",
+            "notes": "OpenVINO Xe-LPG optimized with SDPA, PERFORMANCE execution mode hint, and f16 precision"
           },
           "ollama": {
             "model": "qwen2.5:1.5b",
@@ -130,12 +134,13 @@
             "status": "PASS",
             "source": "ov_perf_metrics",
             "is_estimate": false,
-            "ttft_ms": 120.82,
-            "tokens_per_second": 37.25,
+            "ttft_ms": 61.48,
+            "tokens_per_second": 46.74,
             "generated_tokens": 200,
             "total_latency_s": 5.47,
             "power_w": null,
-            "completion_preview": "```python\nfrom typing import Optional\n\ndef find_longest_palindrome(s: str) -> Op..."
+            "completion_preview": "```python\nfrom typing import Optional\n\ndef find_longest_palindrome(s: str) -> Op...",
+            "notes": "OpenVINO Xe-LPG optimized with SDPA, PERFORMANCE execution mode hint, and f16 precision"
           },
           "ollama": {
             "model": "qwen2.5:1.5b",
@@ -156,12 +161,13 @@
             "status": "PASS",
             "source": "ov_perf_metrics",
             "is_estimate": false,
-            "ttft_ms": 229.79,
-            "tokens_per_second": 42.61,
+            "ttft_ms": 67.71,
+            "tokens_per_second": 46.81,
             "generated_tokens": 277,
             "total_latency_s": 6.71,
             "power_w": null,
-            "completion_preview": "```python\nclass FSM:\n    def __init__(self):\n        self.state = 'CLOSED'\n\n    ..."
+            "completion_preview": "```python\nclass FSM:\n    def __init__(self):\n        self.state = 'CLOSED'\n\n    ...",
+            "notes": "OpenVINO Xe-LPG optimized with SDPA, PERFORMANCE execution mode hint, and f16 precision"
           },
           "ollama": {
             "model": "qwen2.5:1.5b",
@@ -189,12 +195,13 @@
             "status": "PASS",
             "source": "ov_perf_metrics",
             "is_estimate": false,
-            "ttft_ms": 517.85,
-            "tokens_per_second": 21.42,
+            "ttft_ms": 214.97,
+            "tokens_per_second": 28.99,
             "generated_tokens": 40,
             "total_latency_s": 2.35,
             "power_w": null,
-            "completion_preview": "To solve 756 divided by 0, I start by recognizing that division by zero is undef..."
+            "completion_preview": "To solve 756 divided by 0, I start by recognizing that division by zero is undef...",
+            "notes": "OpenVINO Xe-LPG optimized with SDPA, PERFORMANCE execution mode hint, and f16 precision"
           },
           "ollama": {
             "model": "deepseek-r1:1.5b",
@@ -215,12 +222,13 @@
             "status": "PASS",
             "source": "ov_perf_metrics",
             "is_estimate": false,
-            "ttft_ms": 137.01,
-            "tokens_per_second": 22.01,
+            "ttft_ms": 69.88,
+            "tokens_per_second": 34.3,
             "generated_tokens": 200,
             "total_latency_s": 9.33,
             "power_w": null,
-            "completion_preview": "First, I need to determine the total number of items in the warehouse initially...."
+            "completion_preview": "First, I need to determine the total number of items in the warehouse initially....",
+            "notes": "OpenVINO Xe-LPG optimized with SDPA, PERFORMANCE execution mode hint, and f16 precision"
           },
           "ollama": {
             "model": "deepseek-r1:1.5b",
@@ -241,12 +249,13 @@
             "status": "PASS",
             "source": "ov_perf_metrics",
             "is_estimate": false,
-            "ttft_ms": 227.16,
-            "tokens_per_second": 22.59,
+            "ttft_ms": 69.98,
+            "tokens_per_second": 25.05,
             "generated_tokens": 400,
             "total_latency_s": 17.91,
             "power_w": null,
-            "completion_preview": "Alright, so I have this cryptarithmetic puzzle: SEND + MORE = MONEY. Each letter..."
+            "completion_preview": "Alright, so I have this cryptarithmetic puzzle: SEND + MORE = MONEY. Each letter...",
+            "notes": "OpenVINO Xe-LPG optimized with SDPA, PERFORMANCE execution mode hint, and f16 precision"
           },
           "ollama": {
             "model": "deepseek-r1:1.5b",
