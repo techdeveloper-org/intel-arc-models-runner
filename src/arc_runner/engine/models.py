@@ -110,6 +110,8 @@ class EngineTelemetry(BaseModel):
     kv_cache_precision: str = Field(default="", description="KV cache precision requested for the pipeline, empty for the runtime default")
     governor_active: bool = Field(default=False, description="True if WindowsSystemGovernor was active during execution")
     circuit_breaker_tripped: bool = Field(default=False, description="True if low acceptance rate triggered pure autoregressive fallback")
+    npu_active: bool = Field(default=False, description="True if Intel NPU is actively engaged in draft or fused execution")
+    fused_silicon_tier: str = Field(default="", description="Detected heterogeneous silicon execution profile")
 
 
 class SpeculativeConfig(BaseModel):
@@ -128,6 +130,9 @@ class SpeculativeConfig(BaseModel):
     colocate_on_gpu: bool = Field(default=False, description="Co-locate draft and verifier on Arc GPU for zero-copy memory transfers")
     gpu_queue_throttle: str = Field(default="LOW", description="GPU command queue throttling hint (LOW, MEDIUM, HIGH)")
     circuit_breaker_threshold: float = Field(default=0.55, ge=0.0, le=1.0, description="Rolling acceptance rate threshold below which speculative mode falls back to autoregression")
+    npu_target: bool = Field(default=True, description="Attempt draft offload to Intel AI Boost NPU when detected")
+    npu_fallback_to_cpu: bool = Field(default=True, description="Gracefully fall back to CPU pinned threads if NPU compilation fails")
+    npu_quantization_mode: str = Field(default="AUTO", description="Quantization expectation for NPU: INT4_SYM, INT8, or AUTO")
 
 
 

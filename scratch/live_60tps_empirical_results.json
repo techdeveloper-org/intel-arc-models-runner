@@ -1,0 +1,47 @@
+{
+  "platform": "Intel Core Ultra 5 125H (Meteor Lake) Arc Xe-LPG iGPU",
+  "configuration": "Zero-Copy GPU In-Engine Speculative Decoding + Native Governor",
+  "target_model": "Qwen-2.5-1.5B INT4",
+  "draft_model": "Qwen-2.5-0.5B INT4",
+  "tiers": {
+    "low": {
+      "name": "Factual Geography",
+      "tokens": 10,
+      "elapsed_sec": 0.528,
+      "measured_tps": 19.68,
+      "old_baseline_tps": 45.02,
+      "delta_pct": -56.3,
+      "ttft_ms": 69.72,
+      "gamma": 3,
+      "acceptance_rate": 0.0,
+      "circuit_breaker_tripped": false,
+      "completion_preview": "The tallest mountain in Japan is Mount Fuji."
+    },
+    "medium": {
+      "name": "TCP FSM Architecture",
+      "tokens": 60,
+      "elapsed_sec": 2.739,
+      "measured_tps": 22.14,
+      "old_baseline_tps": 46.04,
+      "delta_pct": -51.9,
+      "ttft_ms": 72.01,
+      "gamma": 3,
+      "acceptance_rate": 0.0,
+      "circuit_breaker_tripped": false,
+      "completion_preview": "The TCP (Transmission Control Protocol) protocol is used for reliable data transfer over the internet. When establishing"
+    },
+    "hard": {
+      "name": "Cryptarithmetic Logic",
+      "tokens": 80,
+      "elapsed_sec": 3.548,
+      "measured_tps": 22.71,
+      "old_baseline_tps": 45.41,
+      "delta_pct": -50.0,
+      "ttft_ms": 68.05,
+      "gamma": 3,
+      "acceptance_rate": 0.0,
+      "circuit_breaker_tripped": false,
+      "completion_preview": "To solve the cryptarithmetic puzzle \"SEND + MORE = MONEY\", we need to assign digits 0 through 9 to letters S, M, E, N, D"
+    }
+  }
+}

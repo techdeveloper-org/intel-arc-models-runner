@@ -1,0 +1,10 @@
+{
+  "tier": "LAPTOP_UMA",
+  "gpu_name": "Intel(R) Arc(TM) Graphics (iGPU)",
+  "npu_present": true,
+  "npu_architecture": "3720",
+  "bandwidth_gb_s": 89.6,
+  "recommended_gamma": 3,
+  "fused_supported": true,
+  "npu_report_compatible": false
+}

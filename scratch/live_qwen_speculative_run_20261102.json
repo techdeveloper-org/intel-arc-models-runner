@@ -1,0 +1,20 @@
+{
+  "Low (Entity Extraction)": {
+    "tokens": 50,
+    "ttft_ms": 98.38,
+    "tps": 13.67,
+    "elapsed_s": 3.659
+  },
+  "Medium (Technical Explanation)": {
+    "tokens": 50,
+    "ttft_ms": 166.51,
+    "tps": 16.79,
+    "elapsed_s": 2.978
+  },
+  "Hard (Algorithmic Reasoning)": {
+    "tokens": 50,
+    "ttft_ms": 423.59,
+    "tps": 20.31,
+    "elapsed_s": 2.462
+  }
+}

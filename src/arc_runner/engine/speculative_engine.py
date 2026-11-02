@@ -197,8 +197,23 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
         last_error: Optional[Exception] = None
         for dev in candidates:
             dev_props = dict(props)
-            if dev.startswith("GPU"):
-                dev_props.setdefault("PERFORMANCE_HINT", "LATENCY")
+            if dev == "NPU":
+                from arc_runner.engine.npu_adapter import NpuModelAdapter
+
+                adapter = NpuModelAdapter()
+                report = adapter.inspect_model_compatibility(draft_path)
+                if not report.is_compatible:
+                    logger.warning(
+                        "Draft model at %s is not NPU-compatible: %s. Falling back to CPU.",
+                        draft_path,
+                        report.rejection_reason,
+                    )
+                    continue
+                if props:
+                    dev_props.setdefault("PERFORMANCE_HINT", "LATENCY")
+            elif dev.startswith("GPU"):
+                if props:
+                    dev_props.setdefault("PERFORMANCE_HINT", "LATENCY")
                 dev_props.setdefault("EXECUTION_MODE_HINT", "PERFORMANCE")
                 dev_props.setdefault("INFERENCE_PRECISION_HINT", "f16")
                 dev_props.setdefault("GPU_ENABLE_SDPA_OPTIMIZATION", True)
@@ -515,6 +530,8 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
 
         self._telemetry.prompt_tokens = prompt_tokens or 0
         self._telemetry.circuit_breaker_tripped = self._circuit_breaker_tripped
+        self._telemetry.npu_active = (self._draft_device == "NPU")
+        self._telemetry.fused_silicon_tier = "LAPTOP_UMA_FUSED" if self._draft_device == "NPU" else "STANDARD"
         return text_result
 
     def generate_stream(
@@ -660,6 +677,8 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
         )
         self._telemetry.prompt_tokens = prompt_tokens or 0
         self._telemetry.circuit_breaker_tripped = self._circuit_breaker_tripped
+        self._telemetry.npu_active = (self._draft_device == "NPU")
+        self._telemetry.fused_silicon_tier = "LAPTOP_UMA_FUSED" if self._draft_device == "NPU" else "STANDARD"
 
         finish_reason = (
             "length" if generated_count >= cfg.max_new_tokens else "stop"

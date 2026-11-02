@@ -230,8 +230,15 @@ class OllamaImporter:
         dest_dir = Path(output_dir) if output_dir else (DEFAULT_MODELS_DIR / slug)
         dest_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Transpiling GGUF blob to Intel Arc OpenVINO IR in {dest_dir}...")
-        transpiler = GGUFTranspiler(input_path=blob_path, output_dir=dest_dir)
-        transpiler.transpile(precision=precision, target_device=target_device)
+        logger.info(f"Transpiling GGUF blob to Intel Arc OpenVINO IR in {dest_dir} targeting {target_device}...")
+        from arc_runner.quant.model_transpiler import HardwareCompatibilityTranspiler
+
+        compatibility_transpiler = HardwareCompatibilityTranspiler(target_device=target_device)
+        compatibility_transpiler.transpile(
+            source_model_path=blob_path,
+            output_dir=dest_dir,
+            target_device=target_device,
+            precision="INT4_SYM" if target_device.upper() == "NPU" else precision,
+        )
 
         return dest_dir

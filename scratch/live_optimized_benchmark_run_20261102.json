@@ -1,0 +1,62 @@
+{
+  "llama-3.2-3b": {
+    "Low (Entity Extraction)": {
+      "tokens": 50,
+      "ttft_ms": 151.45,
+      "tps": 26.99,
+      "elapsed_s": 1.852
+    },
+    "Medium (Technical Explanation)": {
+      "tokens": 50,
+      "ttft_ms": 132.24,
+      "tps": 27.26,
+      "elapsed_s": 1.834
+    },
+    "Hard (Algorithmic Reasoning)": {
+      "tokens": 50,
+      "ttft_ms": 147.59,
+      "tps": 27.19,
+      "elapsed_s": 1.839
+    }
+  },
+  "qwen-2.5-1.5b": {
+    "Low (Entity Extraction)": {
+      "tokens": 50,
+      "ttft_ms": 113.87,
+      "tps": 43.04,
+      "elapsed_s": 1.162
+    },
+    "Medium (Technical Explanation)": {
+      "tokens": 50,
+      "ttft_ms": 61.48,
+      "tps": 46.74,
+      "elapsed_s": 1.07
+    },
+    "Hard (Algorithmic Reasoning)": {
+      "tokens": 50,
+      "ttft_ms": 67.71,
+      "tps": 46.81,
+      "elapsed_s": 1.068
+    }
+  },
+  "deepseek-r1-1.5b": {
+    "Low (Entity Extraction)": {
+      "tokens": 50,
+      "ttft_ms": 214.97,
+      "tps": 28.99,
+      "elapsed_s": 1.725
+    },
+    "Medium (Technical Explanation)": {
+      "tokens": 50,
+      "ttft_ms": 69.88,
+      "tps": 34.3,
+      "elapsed_s": 1.458
+    },
+    "Hard (Algorithmic Reasoning)": {
+      "tokens": 50,
+      "ttft_ms": 69.98,
+      "tps": 25.05,
+      "elapsed_s": 1.996
+    }
+  }
+}
