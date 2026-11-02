@@ -108,8 +108,8 @@ class EngineTelemetry(BaseModel):
         description="(generated tokens - 1) / (generate duration - TTFT), derived only from documented engine counters; 0 if not derivable",
     )
     kv_cache_precision: str = Field(default="", description="KV cache precision requested for the pipeline, empty for the runtime default")
-    acceptance_rate: float = Field(default=0.0, description="Empirical draft token acceptance rate alpha in speculative decoding")
-    speculative_speedup: float = Field(default=1.0, description="Empirical speedup ratio over standalone autoregressive baseline")
+    governor_active: bool = Field(default=False, description="True if WindowsSystemGovernor was active during execution")
+    circuit_breaker_tripped: bool = Field(default=False, description="True if low acceptance rate triggered pure autoregressive fallback")
 
 
 class SpeculativeConfig(BaseModel):
@@ -125,6 +125,9 @@ class SpeculativeConfig(BaseModel):
     prompt_lookup: bool = Field(default=False, description="Enable prompt-lookup n-gram speculative decoding without a separate draft model")
     max_ngram_size: int = Field(default=3, ge=1, le=8, description="Maximum n-gram size for prompt lookup speculative proposals")
     draft_properties: Dict[str, Any] = Field(default_factory=dict, description="Device compilation properties specific to the draft model")
+    colocate_on_gpu: bool = Field(default=False, description="Co-locate draft and verifier on Arc GPU for zero-copy memory transfers")
+    gpu_queue_throttle: str = Field(default="LOW", description="GPU command queue throttling hint (LOW, MEDIUM, HIGH)")
+    circuit_breaker_threshold: float = Field(default=0.55, ge=0.0, le=1.0, description="Rolling acceptance rate threshold below which speculative mode falls back to autoregression")
 
 
 

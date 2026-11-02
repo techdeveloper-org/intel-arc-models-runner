@@ -4,6 +4,7 @@ Coordinates low-power INT4 draft token generation on the Intel NPU with parallel
 matrix verification on the Intel Arc GPU via Level Zero and OpenVINO GenAI C++ kernels.
 """
 
+import collections
 import logging
 import queue
 import threading
@@ -60,6 +61,10 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
         self._telemetry: EngineTelemetry = EngineTelemetry()
         self._spec_config: Optional[SpeculativeConfig] = None
         self._current_gamma: int = 4
+        self._circuit_breaker_tripped: bool = False
+        self._circuit_breaker_threshold: float = 0.55
+        self._tokens_since_trip: int = 0
+        self._acceptance_history: collections.deque = collections.deque(maxlen=15)
         self.kv_manager: KVCacheManager = kv_cache_manager or KVCacheManager()
 
     @property
@@ -192,9 +197,20 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
         last_error: Optional[Exception] = None
         for dev in candidates:
             dev_props = dict(props)
-            if not dev.startswith("GPU"):
+            if dev.startswith("GPU"):
+                dev_props.setdefault("PERFORMANCE_HINT", "LATENCY")
+                dev_props.setdefault("EXECUTION_MODE_HINT", "PERFORMANCE")
+                dev_props.setdefault("INFERENCE_PRECISION_HINT", "f16")
+                dev_props.setdefault("GPU_ENABLE_SDPA_OPTIMIZATION", True)
+                dev_props.setdefault("GPU_HOST_TASK_PRIORITY", "HIGH")
+                dev_props.setdefault("GPU_QUEUE_PRIORITY", "HIGH")
+                dev_props.setdefault("GPU_QUEUE_THROTTLE", "LOW")
+            else:
                 dev_props.pop("GPU_ENABLE_SDPA_OPTIMIZATION", None)
                 dev_props.pop("EXECUTION_MODE_HINT", None)
+                dev_props.pop("GPU_HOST_TASK_PRIORITY", None)
+                dev_props.pop("GPU_QUEUE_PRIORITY", None)
+                dev_props.pop("GPU_QUEUE_THROTTLE", None)
             try:
                 if dev_props:
                     draft_handle = ov_genai.draft_model(str(draft_path), dev, **dev_props)
@@ -243,6 +259,8 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
 
         draft_handle: Optional[Any] = None
         if speculative_config:
+            if speculative_config.circuit_breaker_threshold:
+                self._circuit_breaker_threshold = speculative_config.circuit_breaker_threshold
             if speculative_config.prompt_lookup:
                 self._spec_config = speculative_config
                 self._current_gamma = speculative_config.num_assistant_tokens
@@ -254,9 +272,14 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
                     "Draft model",
                 )
                 self._sync_draft_tokenizer(target_path, draft_path)
+                requested_device = (
+                    "GPU"
+                    if getattr(speculative_config, "colocate_on_gpu", False) and normalized_target_device.startswith("GPU")
+                    else speculative_config.draft_device.upper()
+                )
                 draft_handle = self._create_draft_model(
                     draft_path,
-                    speculative_config.draft_device.upper(),
+                    requested_device,
                     speculative_config.draft_properties,
                 )
                 self._spec_config = speculative_config
@@ -275,11 +298,18 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
             import openvino_genai as ov_genai
 
             pipeline_kwargs = dict(kwargs)
+            if pipeline_kwargs and normalized_target_device.startswith("GPU"):
+                pipeline_kwargs.setdefault("PERFORMANCE_HINT", "LATENCY")
+                pipeline_kwargs.setdefault("EXECUTION_MODE_HINT", "PERFORMANCE")
+                pipeline_kwargs.setdefault("INFERENCE_PRECISION_HINT", "f16")
+                pipeline_kwargs.setdefault("GPU_ENABLE_SDPA_OPTIMIZATION", True)
+                pipeline_kwargs.setdefault("GPU_HOST_TASK_PRIORITY", "HIGH")
+                pipeline_kwargs.setdefault("GPU_QUEUE_PRIORITY", "HIGH")
+                pipeline_kwargs.setdefault("GPU_QUEUE_THROTTLE", "LOW")
+                pipeline_kwargs.setdefault("GPU_ENABLE_LOOP_UNROLLING", True)
+
             if draft_handle is not None:
                 pipeline_kwargs["draft_model"] = draft_handle
-                if self._draft_device == "CPU":
-                    pipeline_kwargs.pop("GPU_ENABLE_SDPA_OPTIMIZATION", None)
-                    pipeline_kwargs.pop("EXECUTION_MODE_HINT", None)
 
             self._pipeline = ov_genai.LLMPipeline(
                 str(target_path),
@@ -327,7 +357,9 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
             ov_cfg.top_k = config.top_k
             ov_cfg.repetition_penalty = config.repetition_penalty
 
-            if self._spec_config:
+            if self._circuit_breaker_tripped:
+                ov_cfg.num_assistant_tokens = 0
+            elif self._spec_config:
                 if self._spec_config.prompt_lookup:
                     ov_cfg.num_assistant_tokens = self._current_gamma
                     ov_cfg.max_ngram_size = self._spec_config.max_ngram_size
@@ -347,21 +379,42 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
             raise ConfigurationError(f"native generation config rejected: {exc}") from exc
 
     def _adapt_gamma(self, accepted_count: int, draft_count: int) -> None:
-        """Update active lookahead horizon gamma based on empirical acceptance rate.
+        """Update active lookahead horizon gamma based on empirical acceptance rate with circuit breaker.
 
         Args:
             accepted_count: Number of proposed draft tokens accepted by target.
             draft_count: Total draft tokens proposed in the iteration.
         """
-        if not self._spec_config or not self._spec_config.dynamic_gamma:
-            return
-
         if draft_count <= 0:
             return
 
         alpha = accepted_count / float(draft_count)
-        new_gamma = self._current_gamma
+        self._acceptance_history.append(alpha)
+        rolling_alpha = sum(self._acceptance_history) / float(len(self._acceptance_history))
 
+        if rolling_alpha < self._circuit_breaker_threshold and len(self._acceptance_history) >= 5:
+            if not self._circuit_breaker_tripped:
+                logger.info(
+                    "Speculative acceptance rate %.2f dropped below threshold %.2f; tripping circuit breaker to autoregressive fallback.",
+                    rolling_alpha,
+                    self._circuit_breaker_threshold,
+                )
+                self._circuit_breaker_tripped = True
+                self._tokens_since_trip = 0
+            return
+
+        if self._circuit_breaker_tripped:
+            self._tokens_since_trip += draft_count
+            if self._tokens_since_trip >= 20:
+                self._circuit_breaker_tripped = False
+                self._current_gamma = 2
+                logger.info("Circuit breaker half-open probe: testing gamma=2.")
+                return
+
+        if not self._spec_config or not self._spec_config.dynamic_gamma:
+            return
+
+        new_gamma = self._current_gamma
         if alpha >= 0.75:
             new_gamma += 1
         elif alpha <= 0.40:
@@ -371,6 +424,24 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
             self._spec_config.min_gamma,
             min(self._spec_config.max_gamma, new_gamma),
         )
+
+    def get_speculative_stats(self) -> Dict[str, Any]:
+        """Return real-time speculative execution status including gamma and circuit breaker state.
+
+        Returns:
+            Dict[str, Any]: Current speculative parameters and acceptance metrics.
+        """
+        rolling_alpha = (
+            sum(self._acceptance_history) / float(len(self._acceptance_history))
+            if self._acceptance_history
+            else 0.0
+        )
+        return {
+            "current_gamma": self._current_gamma,
+            "rolling_acceptance_rate": rolling_alpha,
+            "draft_device": self._draft_device,
+            "circuit_breaker_tripped": self._circuit_breaker_tripped,
+        }
 
     def generate(
         self,
@@ -443,6 +514,7 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
             )
 
         self._telemetry.prompt_tokens = prompt_tokens or 0
+        self._telemetry.circuit_breaker_tripped = self._circuit_breaker_tripped
         return text_result
 
     def generate_stream(
@@ -587,6 +659,7 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
             draft_device=self._draft_device if is_spec else "",
         )
         self._telemetry.prompt_tokens = prompt_tokens or 0
+        self._telemetry.circuit_breaker_tripped = self._circuit_breaker_tripped
 
         finish_reason = (
             "length" if generated_count >= cfg.max_new_tokens else "stop"
