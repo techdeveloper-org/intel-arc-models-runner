@@ -263,6 +263,10 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
             props.setdefault("EXECUTION_MODE_HINT", "PERFORMANCE")
             props.setdefault("INFERENCE_PRECISION_HINT", "f16")
             props.setdefault("GPU_ENABLE_SDPA_OPTIMIZATION", True)
+            props.setdefault("GPU_HOST_TASK_PRIORITY", "HIGH")
+            props.setdefault("GPU_QUEUE_PRIORITY", "HIGH")
+            props.setdefault("GPU_QUEUE_THROTTLE", "LOW")
+            props.setdefault("GPU_ENABLE_LOOP_UNROLLING", True)
         else:
             props.pop("GPU_ENABLE_SDPA_OPTIMIZATION", None)
         if device.startswith("NPU"):
@@ -390,11 +394,21 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
 
         start_time = time.monotonic()
         try:
+            from arc_runner.native.governor import ProcessGovernor
+            governor = ProcessGovernor()
+            governor.boost()
+        except Exception:
+            governor = None
+
+        try:
             raw_result = self._invoke_pipeline(prompt, ov_config)
         except Exception as exc:
             if self._device.startswith("NPU") and _NPU_OVER_CAP_LIBRARY_MSG in str(exc):
                 raise PromptCapExceededError(prompt_tokens or len(prompt.split()), NPU_MAX_PROMPT_LEN) from exc
             raise
+        finally:
+            if governor is not None:
+                governor.restore()
         elapsed_sec = max(time.monotonic() - start_time, 1e-6)
 
         if hasattr(raw_result, "texts") and hasattr(raw_result, "perf_metrics"):

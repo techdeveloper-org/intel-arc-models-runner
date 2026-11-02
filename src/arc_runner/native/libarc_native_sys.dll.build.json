@@ -8,6 +8,16 @@
       "-Wall",
       "-Wextra",
       "-Werror",
+      "-DARC_EXPORTS",
+      "-Wpedantic"
+    ],
+    "arc_governor.c": [
+      "-O2",
+      "-std=c17",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-DARC_EXPORTS",
       "-Wpedantic"
     ],
     "arc_level_zero_bridge.c": [
@@ -16,14 +26,24 @@
       "-Wall",
       "-Wextra",
       "-Werror",
+      "-DARC_EXPORTS",
+      "-Wpedantic"
+    ],
+    "arc_usm_ring_buffer.c": [
+      "-O2",
+      "-std=c17",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-DARC_EXPORTS",
       "-Wpedantic"
     ]
   },
-  "git_sha": "ef42a3fd441701bd3ed140dea300ecfc4e40ecf7",
+  "git_sha": "a600d5ef9df1b89160958f87cb7a0b2b0e5cd167",
   "host": "Windows-11-10.0.26220-SP0",
   "link_flags": [
     "-shared",
     "-Wl,--no-undefined"
   ],
-  "sha256": "cc284e47e760c3e5a1b0d097a598fa779ec0361ecdc4199d8487320f1819770b"
+  "sha256": "ed4c7336f97c86f2eec62f5dd6699ac8170d3e8d5b1fb229e0c14df4d5baa125"
 }

@@ -20,7 +20,9 @@ ABI_VERSION = 4
 BUILD_INFO_SUFFIX = ".build.json"
 MMAP_SOURCE = "arc_flash_stream_mmap.c"
 LEVEL_ZERO_SOURCE = "arc_level_zero_bridge.c"
-COMMON_FLAGS = ["-O2", "-std=c17", "-Wall", "-Wextra", "-Werror"]
+GOVERNOR_SOURCE = "arc_governor.c"
+RING_BUFFER_SOURCE = "arc_usm_ring_buffer.c"
+COMMON_FLAGS = ["-O2", "-std=c17", "-Wall", "-Wextra", "-Werror", "-DARC_EXPORTS"]
 STRICT_FLAGS = ["-Wpedantic"]
 LINK_FLAGS = ["-shared", "-Wl,--no-undefined"]
 
@@ -70,6 +72,8 @@ def _object_flags(is_windows: bool) -> Dict[str, List[str]]:
     return {
         MMAP_SOURCE: COMMON_FLAGS + STRICT_FLAGS + position_independent,
         LEVEL_ZERO_SOURCE: COMMON_FLAGS + STRICT_FLAGS + position_independent,
+        GOVERNOR_SOURCE: COMMON_FLAGS + STRICT_FLAGS + position_independent,
+        RING_BUFFER_SOURCE: COMMON_FLAGS + STRICT_FLAGS + position_independent,
     }
 
 
@@ -111,7 +115,7 @@ def compile_library(output: Path, compiler: Optional[str] = None, target_windows
             objects.append(obj)
 
         staged = Path(tmp) / output.name
-        link_libs = [] if is_windows else ["-ldl"]
+        link_libs = ["-lwinmm"] if is_windows else ["-ldl"]
         _run([cc, *LINK_FLAGS, *objects, *link_libs, "-o", str(staged)])
         pending = output.with_name(output.name + ".tmp")
         shutil.copyfile(staged, pending)
