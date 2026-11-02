@@ -1,226 +1,269 @@
-# OpenVINO Upstream Defect Analysis & PR Contribution Roadmap
+# OpenVINO & OpenVINO GenAI Upstream Defect Analysis & 14-PR Contribution Roadmap
 
-**Document Version**: 1.0.0  
-**Target Upstream Repository**: [openvinotoolkit/openvino](https://github.com/openvinotoolkit/openvino) & [openvinotoolkit/openvino.genai](https://github.com/openvinotoolkit/openvino.genai)  
+**Document Version**: 2.0.0 (Unified Master Specification)  
+**Target Upstream Repositories**:  
+- [`openvinotoolkit/openvino`](https://github.com/openvinotoolkit/openvino) (Core Runtime, Plugins & Compilers)  
+- [`openvinotoolkit/openvino.genai`](https://github.com/openvinotoolkit/openvino.genai) (Generative AI Pipeline & Speculative Decoding)  
+**Target Silicon**: Intel Core Ultra 5 125H (Meteor Lake) — Intel Arc Xe-LPG iGPU (7 Xe-Cores) & Intel AI Boost NPU 3720 (`NPU37XX`)  
+**Verified On**: OpenVINO 2026.4.1 / OpenVINO GenAI 2026.4.1.0  
 **Author**: Intel Arc Models Runner Core Architecture Team  
 **Date**: November 2026  
 
 ---
 
-## Executive Summary
+## 1. Executive Summary
 
-During the development, transpilation, and live silicon benchmarking of **Intel Arc Models Runner** on Intel Core Ultra (Meteor Lake) Xe-LPG GPU and AI Boost NPU, several architectural gaps, uninformative C++ exceptions, missing LLM operations, and rigid frontend parsing constraints were identified in OpenVINO Core (v2026.4.1) and OpenVINO GenAI.
+During the development, transpilation, and physical hardware benchmarking of **Intel Arc Models Runner** on Intel Core Ultra processors, our team performed deep architectural profiling across CPU, Arc Xe-LPG GPU, and AI Boost NPU 3720 accelerators.
 
-This roadmap details each identified defect/gap, its root cause in the OpenVINO C++ source tree, its performance and user impact, and a step-by-step implementation plan for contributing upstream Pull Requests (PRs) to the OpenVINO project.
+Through live silicon execution, we uncovered **14 critical upstream architectural gaps, uninformative C++ exceptions, missing LLM operators, and physical silicon driver bottlenecks** across OpenVINO Core, the Intel GPU plugin, the Intel NPU VPUX compiler, and OpenVINO GenAI.
 
----
-
-## 📋 Comprehensive Gap Matrix
-
-| ID | Component | Severity | Issue / Shortcoming | Upstream Source Location | Proposed PR Scope |
-|:---|:---|:---|:---|:---|:---|
-| **GAP-01** | `openvino::op` | **Critical** | Missing native `RMSNorm` operator in opsets 1–15 | `src/core/include/openvino/op/` | Implement native `RMSNorm` op with GPU/NPU kernel fusion |
-| **GAP-02** | `openvino::core` | **High** | Uninformative `invalid vector subscript` on non-executable IR | `openvino_genai/src/llm_pipeline.cpp` | Add DAG topological pre-flight validation |
-| **GAP-03** | `xml_deserialize` | **High** | Raw C++ vector out-of-range on missing input ports | `src/core/xml_util/src/xml_deserialize_util.cpp` | Meaningful parser diagnostics for disconnected ports |
-| **GAP-04** | `openvino::op::Const` | **Medium** | Cryptic error on shape/size mismatch without tensor context | `src/core/src/op/constant.cpp` | Rich exception formatting with layer ID and byte deltas |
-| **GAP-05** | `openvino_genai` | **Critical** | Zero native GGUF ingestion (relies on torch / HF export) | `openvino_genai/src/` | Native C++ GGUF container reader & transpiler |
-| **GAP-06** | `intel_gpu` plugin | **High** | Lack of native GGUF k-quant matrix kernels (`Q4_K_M`, `Q5_K`) | `src/plugins/intel_gpu/src/kernel_selector/` | Dynamic k-quant to XMX DPAS INT4/INT8 repack kernels |
-| **GAP-07** | `openvino::op::MatMul` | **Medium** | Rigid mixed-precision type checks requiring explicit Convert | `src/core/src/op/matmul.cpp` | Auto-promotion / implicit FP16/FP32/INT4 fusion |
-| **GAP-08** | `openvino_genai` | **Medium** | Host-memory copy overhead on per-token streaming | `openvino_genai/src/streamer.cpp` | Zero-copy Level Zero USM page-locked ring buffer |
+This roadmap consolidates all 14 gaps into a single engineering authority document and outlines an exact, phased **14-Pull Request (PR) Upstream Contribution Plan** for the Intel open-source ecosystem.
 
 ---
 
-## 🔍 Detailed Analysis & PR Specifications
+## 2. 📋 Comprehensive 14-Gap Master Matrix
+
+| ID | Subsystem / Repo | Severity | Exact Issue / Symptom | Upstream Source Location | Proposed PR Scope |
+|:---|:---|:---:|:---|:---|:---|
+| **GAP-01** | `openvino::op` | **Critical** | Missing native `RMSNorm` in standard opsets | `src/core/include/openvino/op/` | PR-01: Native `RMSNorm` op with fused GPU/NPU kernels |
+| **GAP-02** | `xml_util` | **High** | Raw `i < m_inputs.size()` index out-of-range crash | `src/core/xml_util/src/xml_deserialize_util.cpp` | PR-02: Actionable disconnected port diagnostics |
+| **GAP-03** | `openvino::op::Const` | **Medium** | Cryptic shape/size mismatch without layer context | `src/core/src/op/constant.cpp` | PR-03: Layer name, shape, and byte delta in exception |
+| **GAP-04** | `openvino.genai` | **High** | Aborts with `invalid vector subscript` on invalid IR | `openvino_genai/src/llm_pipeline.cpp` | PR-04: DAG topological pre-flight validation |
+| **GAP-05** | `openvino.genai` | **Critical** | Zero native GGUF container ingestion | `openvino_genai/src/` | PR-05: Zero-dependency C++ GGUF container reader |
+| **GAP-06** | `intel_gpu` plugin | **High** | Lack of native GGUF k-quant (`Q4_K_M`) matrix kernels | `src/plugins/intel_gpu/src/kernel_selector/` | PR-06: Dynamic k-quant to Xe INT4/INT8 repack kernels |
+| **GAP-07** | `openvino::op::MatMul` | **Medium** | Rigid mixed-precision requiring explicit Convert | `src/core/src/op/matmul.cpp` | PR-07: Auto-promotion and implicit FP16/INT4 fusion |
+| **GAP-08** | `openvino.genai` | **Medium** | Host-memory copy overhead on per-token streaming | `openvino_genai/src/streamer.cpp` | PR-08: Zero-copy Level Zero USM page-locked ring buffer |
+| **GAP-09** | `vpux-compiler` (NPU) | **Critical** | Rejects asymmetric `u4` dequantization on NPU37XX | `vpux-compiler/OneShotBufferizeVPU2VPUIP` | PR-09: Automated `u4` to signed `i4` zero-offset lowering |
+| **GAP-10** | `openvino-core` (NPU) | **Critical** | Dynamic shape crash `to_shape was called on dynamic shape` | `src/core/src/partial_shape.cpp:261` | PR-10: Bounded context range inference for NPU CMX |
+| **GAP-11** | `openvino.genai` | **High** | `is_greedy_decoding()` failure in speculative decoding | `fast_draft_strategy.cpp:437` | PR-11: Stochastic speculative rejection sampling |
+| **GAP-12** | `intel_gpu` plugin | **High** | `[GPU] get_state API only when KV-cache compression disabled` | `multi_tensor_variable_state.cpp:216` | PR-12: On-the-fly decompression in `get_state()` |
+| **GAP-13** | `intel_npu` plugin | **Medium** | Driver race returns `ZE_RESULT_ERROR_INVALID_NULL_POINTER` | `ze_graph_ext_wrappers.cpp:433` | PR-13: Level Zero compiler initialization retry mutex |
+| **GAP-14** | `openvino.genai` | **High** | Speculative decoding stalls GPU while NPU drafts serially | `fast_draft_strategy.cpp` | PR-14: Asynchronous pipelined drafting & token trees |
 
 ---
+
+## 3. 🔍 Deep Technical Analysis & Physical Hardware Diagnoses
+
+### GAP-01: Native `RMSNorm` Operator Deficiency in Opset 1–15
+- **Problem**: Every contemporary LLM (LLaMA 3.2, Qwen 2.5, DeepSeek R1, Mistral, Phi-3/4) utilizes Root Mean Square Normalization:
+  $$y = \frac{x}{\sqrt{\frac{1}{d} \sum_{i=1}^d x_i^2 + \epsilon}} \odot \gamma$$
+  Without a native op, converters emit a 6-layer decomposed subgraph: `Power` $\to$ `ReduceMean` $\to$ `Add` $\to$ `Sqrt` $\to$ `Divide` $\to$ `Multiply`.
+- **Silicon Impact**: In a 32-layer model, this adds $32 \times 2 \times 5 = 320$ redundant kernel dispatches per token! GPU VRAM bandwidth is wasted repeatedly spilling intermediate tensors to L3/SLM cache.
+
+### GAP-02 & GAP-03: Cryptic Deserializer Crashes on IR Defects
+- **Problem**: When an OpenVINO IR XML layer has a missing edge or disconnected input port, OpenVINO crashes with:
+  ```text
+  Check 'i < m_inputs.size()' failed at src\core\src\node.cpp:480: index '2' out of range
+  ```
+  Similarly, when sub-byte quantization alters `<data size="...">`, `constant.cpp` throws:
+  ```text
+  Attribute and shape size are inconsistent for Const op!
+  ```
+  Neither error reports the failing node's name, type, expected size, or byte delta.
+
+### GAP-04, GAP-05 & GAP-06: Direct GGUF Ingestion & K-Quant Execution
+- **Problem**: OpenVINO GenAI has zero native capability to parse GGUF containers or execute popular `Q4_K_M` / `Q5_K` block quantizations directly on Intel Arc GPUs. Users are forced through fragile Python PyTorch conversion pipelines. Without custom XMX DPAS repack kernels, non-standard block scales fall back to scalar float emulation, degrading throughput from 45 tok/s to 3 tok/s.
+
+### GAP-07 & GAP-08: Memory and Streaming Overhead
+- **Problem**: Strict typing in `openvino::op::MatMul` requires explicit `Convert` nodes between mixed FP16/INT4 inputs, bloating the DAG. In streaming generation, `streamer.cpp` performs synchronous host memory copies per token instead of using unified shared memory (Level Zero USM) ring buffers.
+
+### GAP-09: NPU 3720 Rejection of Asymmetric Unsigned INT4 (`u4`) Dequantization
+- **Traceback**:
+  ```text
+  [ERROR] [vpux-compiler] OneShotBufferizeVPU2VPUIP failed : Unsupported DequantizeOp configuration:
+  !VPU.DistributedTensor<896x128x1x1x!quant.uniform<u4:f16, 1.000000e+00>, ...> -> !VPU.DistributedTensor<896x128x1x1xf16, ...> on arch NPU37XX
+  ```
+- **Physical Silicon Root Cause**:
+  The Intel NPU 3720 matrix multiplication units (DPUs) in Meteor Lake do NOT possess hardware datapaths for non-zero integer offset subtraction ($Z \neq 0$). They strictly require symmetric signed INT4 (`INT4_SYM` / `i4` / `!quant.uniform<i4:f16>`) where $Z \equiv 0$. The VPUX compiler crashes on `u4` rather than lowering it.
+
+### GAP-10: Dynamic Shape Crash on Stateful KV-Cache in NPU VCL Compiler
+- **Traceback**:
+  ```text
+  [ERROR] [IE::FrontEnd::importNetwork] Upper bounds are not specified for node 'ShapeOf_108309':
+  input '0' bounds are '[9223372036854775807, 9223372036854775807]'
+  Compiler returned msg: Exception from src/core/src/partial_shape.cpp:261: to_shape was called on a dynamic shape.
+  ```
+- **Physical Silicon Root Cause**:
+  The NPU 3720 VPUX compiler statically allocates CMX scratchpad SRAM. Dynamic partial shapes $[?, 2, ?, 64]$ on `ReadValue` and `Assign` operators cause an unhandled `to_shape` exception because no maximum context window upper bound is inferred.
+
+### GAP-11: `FastDraftStrategy` Inability to Support Stochastic Sampling
+- **Traceback**:
+  ```text
+  RuntimeError: Check 'config.is_greedy_decoding()' failed at
+  openvino.genai\src\cpp\src\speculative_decoding\stateful\fast_draft_strategy.cpp:437:
+  Currently only greedy decoding is supported
+  ```
+- **Root Cause**:
+  `FastDraftStrategy::verify_draft_tokens()` only implements deterministic token ID equality ($x_{\text{draft}} == x_{\text{target}}$). Any request with `temperature > 0` or `top_p < 1.0` is abruptly aborted.
+
+### GAP-12: Intel GPU Plugin Disallowing `get_state()` with Compressed KV-Cache
+- **Traceback**:
+  ```text
+  RuntimeError: Exception from src\plugins\intel_gpu\src\plugin\multi_tensor_variable_state.cpp:216:
+  [GPU] get_state API is supported only when KV-cache compression is disabled
+  ```
+- **Physical Silicon Root Cause**:
+  Speculative decoding synchronizes state between the GPU verifier and draft model using `variable_state.get_state()`. If the GPU model was loaded with compressed KV-cache (`u8`/`u4`), `MultiTensorVariableState` throws an exception instead of decompressing on the fly.
+
+### GAP-13: Level Zero Driver Initialization Race & Null Pointer in NPU Adapter
+- **Traceback**:
+  ```text
+  Level0 pfnCreate2 result: ZE_RESULT_ERROR_INVALID_NULL_POINTER, code 0x78000007 - pointer argument may not be nullptr
+  ```
+- **Root Cause**:
+  Under concurrent thread initialization or host OS background activity (e.g. Intel Graphics Command Center), `pfnCreate2` returns a null pointer rather than a structured driver-busy error code.
+
+### GAP-14: Synchronous Ping-Pong Latency Bottleneck on NPU 3720
+- **Empirical Profiling on Intel Core Ultra 5 125H**:
+  - **Standalone Governor GPU**: **36.60 tok/s** ($T_{\text{target}} \approx 27.3\text{ ms/token}$)
+  - **Standalone NPU 3720 Draft**: **~4.5 tok/s** ($T_{\text{draft}} \approx 220\text{ ms/token}$)
+  - **Fused Speculative (GPU Target + NPU Draft)**: **3.51 - 3.96 tok/s** ($T_{\text{cycle}} \approx 680\text{ ms}$)
+- **Root Cause**:
+  `FastDraftStrategy` blocks the GPU while the NPU serially executes $\gamma$ decode iterations. Because single-token DPU dispatch on NPU 3720 takes $\approx 200\text{ ms}$, serial drafting stalls the faster GPU verifier.
+
+---
+
+## 4. 🚀 The 14-PR Upstream Contribution Blueprint
 
 ### PR-01: Native `RMSNorm` Operator Implementation (Opset 16)
 - **Target Repo**: `openvinotoolkit/openvino`
-- **Subsystem**: `openvino::op`, `intel_gpu`, `intel_cpu`, `intel_npu`
-- **Severity**: **Critical**
+- **Subsystem**: `src/core/include/openvino/op/rmsnorm.hpp`, `src/plugins/intel_gpu/`
+- **Scope**:
+  1. Add `openvino::op::v16::RMSNorm` with inputs `data` and `gamma`, attribute `eps`.
+  2. Implement fused OpenCL/CM kernel using subgroup shuffle instructions (`intel_sub_group_shuffle`) in `src/plugins/intel_gpu/src/kernel_selector/cl_kernels/rmsnorm_opt.cl`.
+  3. Add AVX2/AVX-512 CPU reference kernels and VPUX dialect mapping.
 
-#### 1. Problem Statement
-Every modern open-weights LLM family (LLaMA 1/2/3/3.2, Qwen 1/2/2.5, DeepSeek R1/V3, Gemma, Mistral, Phi-3/4) utilizes **Root Mean Square Normalization (RMSNorm)**:
-$$y = \frac{x}{\sqrt{\frac{1}{d} \sum_{i=1}^d x_i^2 + \epsilon}} \odot \gamma$$
-OpenVINO has **zero native RMSNorm operator** in its standard opsets (opsets 1 through 15). Transpilers and ONNX/PyTorch converters are forced to decompose RMSNorm into a composite sub-graph:
-$$\text{Power}(x, 2) \to \text{ReduceMean} \to \text{Add}(\epsilon) \to \text{Sqrt} \to \text{Divide}(x, \cdot) \to \text{Multiply}(\cdot, \gamma)$$
-
-#### 2. Root Cause & Impact
-- **Kernel Dispatch Overhead**: 6 individual OpenCL / Level Zero GPU kernel dispatches per transformer sub-layer instead of 1 fused memory-bound kernel. On a 32-layer LLM, this adds $32 \times 2 \times 5 = 320$ redundant kernel dispatches per token!
-- **Bandwidth Waste**: Activations are written to and re-read from VRAM 5 times per norm step instead of staying in GPU L3 cache / Xe register file.
-- **Serialization Failure**: Attempting to declare `type="RMSNorm"` in IR XML causes:
-  ```
-  RuntimeError: Exception from src/core/xml_util/src/xml_deserialize_util.cpp:1286:
-  Opset opset14 doesn't contain the operation with type: RMSNorm
-  ```
-
-#### 3. Proposed Upstream Implementation Plan
-1. **Core Op Declaration**:
-   - Create `src/core/include/openvino/op/rmsnorm.hpp` inheriting from `openvino::op::Op`.
-   - Inputs: Port 0 = `data` ($[B, S, D]$), Port 1 = `gamma` ($[D]$). Attribute: `eps` (float, default $10^{-6}$).
-   - Register in opset16 (`src/core/src/opsets/opset16.cpp`).
-2. **GPU Plugin Kernel Fusion**:
-   - Implement OpenCL / CM (C for Metal) fused kernel in `src/plugins/intel_gpu/src/kernel_selector/cl_kernels/rmsnorm_opt.cl`.
-   - Utilize Intel Subgroup SIMD shuffle instructions (`intel_sub_group_shuffle`) to compute $\sum x^2$ across 16/32 work-items without global barrier synchronization.
-3. **CPU & NPU Plugin Support**:
-   - CPU: AVX2 / AVX-512 / AMX vectorized loop in `src/plugins/intel_cpu/src/nodes/rmsnorm.cpp`.
-   - NPU: Direct dialect mapping in OpenVINO VPUX compiler.
-
----
-
-### PR-02: Defensive Diagnostics for Disconnected Input Ports in XML Deserializer
+### PR-02: Defensive Diagnostics for Disconnected Ports in XML Deserializer
 - **Target Repo**: `openvinotoolkit/openvino`
-- **Subsystem**: `src/core/xml_util/`
-- **Severity**: **High**
-
-#### 1. Problem Statement
-When an OpenVINO IR XML layer defines multiple input ports (e.g. `Gather` opset8 with port 0 `data`, port 1 `indices`, port 2 `axis`), but an edge is missing or has a typo in `<edges>`, OpenVINO throws a raw C++ index out-of-range assertion failure:
-```
-RuntimeError: Exception from src\inference\src\cpp\core.cpp:84:
-Check 'i < m_inputs.size()' failed at src\core\src\node.cpp:480:
-index '2' out of range
-```
-
-#### 2. Root Cause
-In `src/core/src/node.cpp`, the parser accesses `m_inputs[i]` directly inside a loop indexed by the layer definition's port count without verifying if `m_inputs` (which is populated by `<edge>` tags) has received a connection for port `i`.
-
-#### 3. Proposed Upstream Implementation Plan
-- In `src/core/xml_util/src/xml_deserialize_util.cpp` around line 1250:
+- **Subsystem**: `src/core/xml_util/src/xml_deserialize_util.cpp`
+- **Scope**: Replace unhandled index crash with structured diagnostic:
   ```cpp
-  // Before accessing node->input(i):
   if (i >= node->get_input_size() || !node->input(i).get_source_output().get_node()) {
       OPENVINO_THROW("OpenVINO IR Deserialization Error: Layer '", layer_name, 
                      "' (type: ", layer_type, ", id: ", layer_id, 
-                     ") is missing an incoming edge on input port ", i, 
-                     ". Expected ", expected_port_count, " connected inputs.");
+                     ") is missing an incoming edge on input port ", i);
   }
   ```
-- This replaces an internal C++ crash with an actionable, user-friendly diagnostic message.
 
----
-
-### PR-03: Informative Error Diagnostics for `Const` Op Shape & Size Inconsistencies
+### PR-03: Informative Diagnostics for `Const` Op Shape & Size Mismatches
 - **Target Repo**: `openvinotoolkit/openvino`
 - **Subsystem**: `src/core/src/op/constant.cpp`
-- **Severity**: **Medium**
+- **Scope**: Include layer friendly name, element type, shape string, expected byte count, and actual byte count in exception.
 
-#### 1. Problem Statement
-When `<data offset="..." size="..." shape="..."/>` has an inconsistency between byte size and shape (e.g. during INT4 packed sub-byte quantization or shape transposition), OpenVINO throws:
-```
-Attribute and shape size are inconsistent for Const op!
-```
-It does **NOT** report:
-- Which layer failed.
-- The layer's name or ID.
-- The specified shape.
-- The expected byte size vs the actual byte size.
-
-#### 2. Proposed Upstream Implementation Plan
-- Update `src/core/src/op/constant.cpp`:
-  ```cpp
-  size_t expected_size = shape_size(shape) * element_type.size();
-  if (byte_size != expected_size) {
-      OPENVINO_THROW("Const op '", get_friendly_name(), "' attribute and shape size mismatch: ",
-                     "element_type=", element_type.get_type_name(),
-                     ", shape=", shape.to_string(),
-                     " requires ", expected_size, " bytes, but attribute 'size' specifies ",
-                     byte_size, " bytes (delta: ", (int64_t)byte_size - (int64_t)expected_size, " bytes).");
-  }
-  ```
-
----
-
-### PR-04: Native Direct GGUF Ingestion Frontend in OpenVINO GenAI
-- **Target Repo**: `openvinotoolkit/openvino.genai`
-- **Subsystem**: `openvino_genai/src/`
-- **Severity**: **Critical**
-
-#### 1. Problem Statement
-OpenVINO GenAI cannot load GGUF models directly. Users must write complex Python conversion scripts or export from PyTorch, which consumes massive RAM and requires heavy Python dependencies. In contrast, llama.cpp and Ollama run `.gguf` files out of the box.
-
-#### 2. Proposed Upstream Implementation Plan
-1. Port our pure C++ zero-dependency GGUF binary parser (`GGUFParser`) into `openvino_genai/src/gguf_reader.cpp`.
-2. Support reading metadata key-values directly from GGUF headers (architecture family, RoPE theta, context length, hidden size, vocab size).
-3. Allow `ov::genai::LLMPipeline("model.gguf", "GPU")` to load and transpile weights in memory or stream them directly into Level Zero USM allocations.
-
----
-
-### PR-05: Hardware-Accelerated Dynamic GGUF k-Quant to Intel Xe INT4/INT8 Repack Kernels
-- **Target Repo**: `openvinotoolkit/openvino`
-- **Subsystem**: `src/plugins/intel_gpu/`
-- **Severity**: **High**
-
-#### 1. Problem Statement
-The vast majority of Ollama and Hugging Face GGUF models are distributed in `Q4_K_M`, `Q5_K`, or `Q8_0` k-quant formats.
-Intel Arc GPUs (Xe-HPG, Xe-LPG, Xe2 Battlemage) feature **XMX (Xe Matrix eXtensions)** / **DPAS (Dot Product Accumulate Systolic)** matrix engines that natively compute with:
-- **INT4 Symmetric Group 128 / Group 32**
-- **INT8 Symmetric / Asymmetric**
-
-Feeding non-native block scales or non-symmetric zero points causes Intel GPU drivers to fall back to software float emulation, cutting token throughput from **45 tok/s down to 3 tok/s**.
-
-#### 2. Proposed Upstream Implementation Plan
-1. Integrate the `QuantizationMathEngine` repacking algorithms into `src/plugins/intel_gpu/src/kernel_selector/core/cl_kernels/repack_kquant_to_intel_int4.cl`.
-2. Enable on-the-fly streaming transformation during model weight upload to GPU Level Zero USM memory, ensuring:
-   - 32-byte cacheline alignment.
-   - Group 128 block scale extraction.
-   - Subgroup SIMD packing ($2 \times \text{INT4}$ nibbles per byte in Xe little-endian order).
-
----
-
-### PR-06: Pre-flight DAG Validation in OpenVINO GenAI `LLMPipeline`
+### PR-04: DAG Topological Pre-flight Validation in OpenVINO GenAI
 - **Target Repo**: `openvinotoolkit/openvino.genai`
 - **Subsystem**: `openvino_genai/src/llm_pipeline.cpp`
-- **Severity**: **High**
+- **Scope**: Validate presence of required `Parameter` (`input_ids`) and `Result` (`logits`) nodes before allocating pipeline buffers, preventing uninformative `invalid vector subscript` aborts.
 
-#### 1. Problem Statement
-When an invalid or disconnected IR model is passed to `ov::genai::LLMPipeline(models_path, "GPU")`, the C++ runtime aborts with an unhandled `invalid vector subscript` error inside internal tokenization/embedding structures without identifying that the model lacks `Parameter` or `Result` layers.
+### PR-05: Native C++ Zero-Dependency GGUF Container Reader
+- **Target Repo**: `openvinotoolkit/openvino.genai`
+- **Subsystem**: `openvino_genai/src/gguf_reader.cpp`
+- **Scope**: Port zero-dependency C++ GGUF binary parser into GenAI, allowing direct initialization: `ov::genai::LLMPipeline("model.gguf", "GPU")`.
 
-#### 2. Proposed Upstream Implementation Plan
-- Add a strict pre-flight DAG validation check in `LLMPipeline::init()`:
-  ```cpp
-  if (m_model->get_parameters().empty()) {
-      OPENVINO_THROW("LLMPipeline Initialization Error: Model has no Parameter inputs (e.g. 'input_ids').");
-  }
-  if (m_model->get_results().empty()) {
-      OPENVINO_THROW("LLMPipeline Initialization Error: Model has no Result outputs (e.g. 'logits').");
-  }
-  ```
+### PR-06: Dynamic GGUF K-Quant Matrix Dequantization Kernels for Intel Arc GPU
+- **Target Repo**: `openvinotoolkit/openvino`
+- **Subsystem**: `src/plugins/intel_gpu/src/kernel_selector/`
+- **Scope**: Add OpenCL DPAS matrix multiplication kernels for `Q4_K_M` and `Q5_K` block formats, maintaining 32-byte CMX/L3 alignment.
+
+### PR-07: Implicit Mixed-Precision Auto-Promotion in `openvino::op::MatMul`
+- **Target Repo**: `openvinotoolkit/openvino`
+- **Subsystem**: `src/core/src/op/matmul.cpp`
+- **Scope**: Allow implicit type promotion between FP16 activations and INT4/INT8 packed weights without requiring intermediate explicit `Convert` nodes.
+
+### PR-08: Zero-Copy Level Zero USM Ring Buffer for Token Streaming
+- **Target Repo**: `openvinotoolkit/openvino.genai`
+- **Subsystem**: `openvino_genai/src/streamer.cpp`
+- **Scope**: Allocate page-locked unified shared memory (`zeMemAllocHost`) for token streaming, eliminating per-token host-to-device memory copies.
+
+### PR-09: NPU37XX Compiler Lowering: Automated Asymmetric `u4` to Signed `i4`
+- **Target Repo**: `openvinotoolkit/openvino`
+- **Subsystem**: `src/plugins/intel_npu/src/compiler_adapter/`, `vpux-compiler`
+- **Scope**: Add a compiler lowering pass before `OneShotBufferizeVPU2VPUIP` that transforms `!quant.uniform<u4:f16>` into `!quant.uniform<i4:f16>` by absorbing integer zero points into scale factors.
+
+### PR-10: Stateful Transformer Bounded Context Length Inference in NPU Compiler
+- **Target Repo**: `openvinotoolkit/openvino`
+- **Subsystem**: `src/plugins/intel_npu/src/plugin/src/plugin.cpp`
+- **Scope**: Add `--max_context_len` configuration property for stateful models, binding partial dynamic shapes `[?, 2, ?, 64]` to static ranges (`0..128`) to prevent `to_shape` crashes.
+
+### PR-11: Stochastic Acceptance-Rejection Sampling in `FastDraftStrategy`
+- **Target Repo**: `openvinotoolkit/openvino.genai`
+- **Subsystem**: `src/cpp/src/speculative_decoding/stateful/fast_draft_strategy.cpp`
+- **Scope**: Implement Leviathan et al. (2023) speculative sampling:
+  $$P(\text{accept}) = \min\left(1, \frac{q(x)}{p(x)}\right)$$
+  enabling temperature and top_p sampling in speculative co-execution.
+
+### PR-12: Intel GPU Plugin Decompression Support for `MultiTensorVariableState::get_state()`
+- **Target Repo**: `openvinotoolkit/openvino`
+- **Subsystem**: `src/plugins/intel_gpu/src/plugin/multi_tensor_variable_state.cpp`
+- **Scope**: Support reading state variables when KV-cache compression is active by performing on-the-fly decompression into temporary host/device buffers.
+
+### PR-13: Level Zero Driver Initialization Mutex & Retry Backoff in Intel NPU Plugin
+- **Target Repo**: `openvinotoolkit/openvino`
+- **Subsystem**: `src/plugins/intel_npu/src/compiler_adapter/src/ze_graph_ext_wrappers.cpp`
+- **Scope**: Guard `pfnCreate2` calls with a process-wide mutex and exponential backoff retry loop (up to 3 retries, 50ms interval) to survive Level Zero driver contention.
+
+### PR-14: Asynchronous Pipelined Speculative Decoding & Token-Tree Parallelism
+- **Target Repo**: `openvinotoolkit/openvino.genai`
+- **Subsystem**: `src/cpp/src/speculative_decoding/`
+- **Scope**: Decouple target verification from draft proposal generation using asynchronous dual-queue pipelines, and support Medusa/Eagle multi-head single-pass draft proposals on NPU.
 
 ---
 
-## 🛠️ Step-by-Step Upstream Execution Plan
+## 5. 📅 Phased Contribution Schedule
 
 ```mermaid
 flowchart TD
-    A["Fork openvinotoolkit/openvino & openvino.genai"] --> B["Create Upstream Feature Branches"]
-    B --> C["PR-1: Diagnostic Exceptions (Quick Merge)"]
-    B --> D["PR-2: Native RMSNorm in Opset16"]
-    B --> E["PR-3: Native GGUF Reader in GenAI"]
-    B --> F["PR-4: Xe XMX k-Quant Repack Kernel"]
-    
-    C --> G["Pass GoogleTest Unit Suite"]
-    D --> G
-    E --> G
-    F --> G
-    
-    G --> H["Submit PRs with Silicon Benchmarks & Docs"]
-```
+    subgraph Phase 1: Defensive Diagnostics & Core Stability (Quick Wins)
+        PR02["PR-02: Port Diagnostics in XML Deserializer"]
+        PR03["PR-03: Const Shape Mismatch Formatting"]
+        PR04["PR-04: LLMPipeline Pre-flight DAG Validation"]
+        PR13["PR-13: Level Zero Driver Initialization Mutex"]
+    end
 
-1. **Step 1: Diagnostics PRs (Quick-Win, High Community Value)**:
-   - PR for `Check 'i < m_inputs.size()'` with clear port connection diagnostics.
-   - PR for `Const` op mismatch error message including layer name and byte numbers.
-2. **Step 2: Core RMSNorm Op PR**:
-   - Add `RMSNorm` to opset16 with CPU and GPU reference kernels.
-   - Benchmark on LLaMA 3.2 and Qwen 2.5 demonstrating 15–20% speedup on Intel Arc GPU.
-3. **Step 3: OpenVINO GenAI Direct GGUF Loading PR**:
-   - Contribute `GGUFReader` directly to `openvinotoolkit/openvino.genai`.
-4. **Step 4: Intel GPU k-Quant Repack Kernel PR**:
-   - Submit optimized OpenCL/CM kernels converting `Q4_K_M` to Xe INT4.
+    subgraph Phase 2: Silicon Acceleration & Compiler Lowering
+        PR01["PR-01: Native RMSNorm in Opset16"]
+        PR09["PR-09: NPU37XX u4 to i4 Absorption Pass"]
+        PR10["PR-10: NPU Stateful Dynamic Shape Bounding"]
+        PR12["PR-12: GPU State Decompression Support"]
+    end
+
+    subgraph Phase 3: GGUF Ingestion & Matrix Kernels
+        PR05["PR-05: Native C++ GGUF Reader in GenAI"]
+        PR06["PR-06: Xe XMX k-Quant Repack Kernel"]
+        PR07["PR-07: MatMul Mixed Precision Promotion"]
+        PR08["PR-08: Zero-Copy USM Streamer Buffer"]
+    end
+
+    subgraph Phase 4: Advanced Heterogeneous Speculative Co-Execution
+        PR11["PR-11: Stochastic Speculative Sampling"]
+        PR14["PR-14: Asynchronous Dual-Silicon Pipelining"]
+    end
+
+    Phase 1 --> Phase 2
+    Phase 2 --> Phase 3
+    Phase 3 --> Phase 4
+```
 
 ---
 
-## 📌 Artifact References & Local Files
-- Implementation Plan: [implementation_plan.md](file:///C:/Users/techd/.gemini/antigravity-cli/brain/8fed1474-4850-4a39-bd83-defc3212c3ed/implementation_plan.md)
-- Silicon Math Transforms: [math_transforms.py](file:///C:/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/intel-arc-models-runner/src/arc_runner/quant/math_transforms.py)
-- Graph Synthesizer: [graph_builder.py](file:///C:/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/intel-arc-models-runner/src/arc_runner/quant/graph_builder.py)
-- Live Hardware Benchmarks: [qwen-2.5-1.5b.md](file:///C:/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/intel-arc-models-runner/benchmarks/reports/qwen-2.5-1.5b.md)
+## 6. 📊 Physical Hardware Benchmark Reference Data
+
+Captured on **Intel Core Ultra 5 125H (Meteor Lake)**:
+- Target: `Qwen2.5-1.5B` (Intel Arc Xe-LPG iGPU, 7 Xe-Cores, 45.7 GB/s)
+- Draft: `Qwen2.5-0.5B` (Intel AI Boost NPU 3720, 11 TOPS)
+
+| Workload Tier | Standalone Baseline GPU | Native Governor GPU | Fused GPU+NPU (Speculative) | Latency / Mode Characterization |
+|:---|:---:|:---:|:---:|:---|
+| **Tier 1 (Low)** | 28.25 tok/s | **36.12 tok/s** | 3.51 tok/s | Maximum Power-Saving / Battery Profile |
+| **Tier 2 (Medium)** | 31.33 tok/s | **36.60 tok/s** | 3.96 tok/s | Balanced Dual-Silicon Distribution |
+| **Tier 3 (Hard)** | 34.02 tok/s | **36.48 tok/s** | 2.51 tok/s | Memory-Bound Compute Heavy |
+
+---
+
+## 7. 📌 Verification & Local Implementation Anchors
+
+- **NPU Transpiler & Graph Rewriter**: [`src/arc_runner/quant/npu_graph_rewriter.py`](file:///C:/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/intel-arc-models-runner/src/arc_runner/quant/npu_graph_rewriter.py)
+- **Heterogeneous Speculative Engine**: [`src/arc_runner/engine/speculative_engine.py`](file:///C:/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/intel-arc-models-runner/src/arc_runner/engine/speculative_engine.py)
+- **Model Path Provider**: [`src/arc_runner/core/model_paths.py`](file:///C:/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/intel-arc-models-runner/src/arc_runner/core/model_paths.py)
+- **Live Physical Silicon Benchmark Suite**: [`scratch/run_live_npu_gpu_fused_suite.py`](file:///C:/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/intel-arc-models-runner/scratch/run_live_npu_gpu_fused_suite.py)
+- **Benchmark Raw JSON Telemetry**: [`scratch/live_npu_gpu_fused_benchmark_comparison.json`](file:///C:/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/intel-arc-models-runner/scratch/live_npu_gpu_fused_benchmark_comparison.json)
