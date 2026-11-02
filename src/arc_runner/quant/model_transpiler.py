@@ -20,6 +20,7 @@ from arc_runner.core.exceptions import ArcRunnerError
 from arc_runner.core.logging import get_logger
 from arc_runner.quant.gguf_parser import GGUFParser
 from arc_runner.quant.models import GGMLType, GGUFSummary
+from arc_runner.quant.npu_graph_rewriter import NpuGraphRewriter, NpuGraphRewriterError
 from arc_runner.quant.transpiler import GGUFTranspiler, TranspilationError, TranspilationResult, UnsupportedBitWidthError
 
 logger = get_logger("arc_runner.quant.model_transpiler")
@@ -295,3 +296,44 @@ class HardwareCompatibilityTranspiler:
         npu_manifest_path.write_text(json.dumps(npu_manifest_data, indent=2), encoding="utf-8")
 
         return result
+
+    def prepare_npu_certified_model(
+        self,
+        source_model_dir: Union[Path, str],
+        output_dir: Union[Path, str],
+        max_context_len: int = 128,
+        batch_size: int = 1,
+    ) -> Path:
+        """Transpile and certify an existing OpenVINO model directory for Intel NPU37XX.
+
+        Applies NpuGraphRewriter to strip asymmetric zero-point Subtract layers,
+        freeze dynamic KV cache shapes, and synchronize tokenizer assets.
+
+        Args:
+            source_model_dir: Directory containing source OpenVINO IR files.
+            output_dir: Directory where certified NPU IR files and assets will be stored.
+            max_context_len: Static sequence length bound for CMX scratchpad buffer allocation.
+            batch_size: Execution batch size.
+
+        Returns:
+            Path: Resolved output directory containing certified NPU model assets.
+
+        Raises:
+            TranspilationError: If required source files are missing or graph rewrite fails.
+        """
+        src = Path(source_model_dir).resolve()
+        dst = Path(output_dir).resolve()
+
+        if not src.exists():
+            raise TranspilationError(f"Source model directory does not exist: {src}")
+
+        try:
+            rewriter = NpuGraphRewriter(
+                source_dir=src,
+                output_dir=dst,
+                max_context_len=max_context_len,
+                batch_size=batch_size,
+            )
+            return rewriter.rewrite()
+        except NpuGraphRewriterError as exc:
+            raise TranspilationError(f"NPU graph rewrite failed: {exc}") from exc

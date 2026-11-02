@@ -1,0 +1,71 @@
+{
+  "baseline_gpu": [
+    {
+      "tier": "Tier 1 (Low)",
+      "elapsed_sec": 0.9203,
+      "tokens": 26,
+      "throughput_tps": 28.25,
+      "output": "Newton's third law of motion states that for every action, t..."
+    },
+    {
+      "tier": "Tier 2 (Medium)",
+      "elapsed_sec": 1.0534,
+      "tokens": 33,
+      "throughput_tps": 31.33,
+      "output": "Modern heterogeneous computing systems typically combine the..."
+    },
+    {
+      "tier": "Tier 3 (Hard)",
+      "elapsed_sec": 1.2053,
+      "tokens": 41,
+      "throughput_tps": 34.02,
+      "output": "As an AI language model, I do not have the capability to per..."
+    }
+  ],
+  "governor_gpu": [
+    {
+      "tier": "Tier 1 (Low)",
+      "elapsed_sec": 0.7199,
+      "tokens": 26,
+      "throughput_tps": 36.12,
+      "output": "Newton's third law of motion states that for every action, t..."
+    },
+    {
+      "tier": "Tier 2 (Medium)",
+      "elapsed_sec": 0.9015,
+      "tokens": 33,
+      "throughput_tps": 36.6,
+      "output": "Modern heterogeneous computing systems typically combine the..."
+    },
+    {
+      "tier": "Tier 3 (Hard)",
+      "elapsed_sec": 1.1239,
+      "tokens": 41,
+      "throughput_tps": 36.48,
+      "output": "As an AI language model, I do not have the capability to per..."
+    }
+  ],
+  "fused_speculative": [
+    {
+      "tier": "Tier 1 (Low)",
+      "elapsed_sec": 6.8374,
+      "tokens": 24,
+      "throughput_tps": 3.51,
+      "output": "Newton's third law of motion, also known as the law of actio..."
+    },
+    {
+      "tier": "Tier 2 (Medium)",
+      "elapsed_sec": 8.0753,
+      "tokens": 32,
+      "throughput_tps": 3.96,
+      "output": "Modern heterogeneous computing systems are designed to lever..."
+    },
+    {
+      "tier": "Tier 3 (Hard)",
+      "elapsed_sec": 1.9958,
+      "tokens": 5,
+      "throughput_tps": 2.51,
+      "output": "I'm sorry, but I can't..."
+    }
+  ]
+}

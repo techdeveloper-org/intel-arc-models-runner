@@ -26,6 +26,7 @@ from arc_runner.core.exceptions import (
     DraftModelCompilationError,
     PropertyIsolationError,
 )
+from arc_runner.core.model_paths import ENV_MODELS_DIR, ModelPathProvider
 from arc_runner.core.logging import (
     clear_request_context,
     get_logger,
@@ -35,6 +36,8 @@ from arc_runner.core.logging import (
 )
 
 __all__: List[str] = [
+    "ENV_MODELS_DIR",
+    "ModelPathProvider",
     "DEFAULT_CONTEXT_WINDOW",
     "DEFAULT_MAX_NEW_TOKENS",
     "DEFAULT_TEMPERATURE",

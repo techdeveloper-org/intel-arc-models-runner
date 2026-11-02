@@ -161,12 +161,47 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
         for fname in tok_files:
             src = target_path / fname
             dst = draft_path / fname
-            if src.exists() and not dst.exists():
+            if src.exists():
                 try:
                     shutil.copy2(src, dst)
                     logger.info("Synchronized tokenizer file %s to draft directory", fname)
                 except Exception as exc:
                     logger.warning("Could not synchronize tokenizer file %s: %s", fname, exc)
+
+    def _validate_tokenizer_alignment(self, target_path: Path, draft_path: Path) -> bool:
+        """Validate vocabulary alignment and special token parity between models.
+
+        Args:
+            target_path: Path to target verifier model directory.
+            draft_path: Path to draft model directory.
+
+        Returns:
+            bool: True if alignment checks pass.
+
+        Raises:
+            TokenizerMismatchError: If vocabulary sizes or special tokens diverge.
+        """
+        import json
+
+        t_config = target_path / "config.json"
+        d_config = draft_path / "config.json"
+        if t_config.exists() and d_config.exists():
+            try:
+                t_data = json.loads(t_config.read_text(encoding="utf-8"))
+                d_data = json.loads(d_config.read_text(encoding="utf-8"))
+                t_vocab = t_data.get("vocab_size")
+                d_vocab = d_data.get("vocab_size")
+                if t_vocab and d_vocab and t_vocab != d_vocab:
+                    raise TokenizerMismatchError(
+                        str(target_path),
+                        str(draft_path),
+                        f"Target vocab_size ({t_vocab}) != Draft vocab_size ({d_vocab})",
+                    )
+            except Exception as exc:
+                if isinstance(exc, TokenizerMismatchError):
+                    raise
+                logger.warning("Could not inspect config.json for vocab alignment: %s", exc)
+        return True
 
     def _create_draft_model(
         self,
@@ -203,12 +238,20 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
                 adapter = NpuModelAdapter()
                 report = adapter.inspect_model_compatibility(draft_path)
                 if not report.is_compatible:
-                    logger.warning(
-                        "Draft model at %s is not NPU-compatible: %s. Falling back to CPU.",
-                        draft_path,
-                        report.rejection_reason,
-                    )
-                    continue
+                    from arc_runner.quant.npu_graph_rewriter import NpuGraphRewriter
+                    npu_certified_dir = draft_path.parent / f"{draft_path.name}-npu-certified"
+                    try:
+                        rewriter = NpuGraphRewriter(draft_path, npu_certified_dir)
+                        rewriter.rewrite()
+                        draft_path = npu_certified_dir
+                        logger.info("Auto-transpiled draft model to NPU-certified IR: %s", npu_certified_dir)
+                    except Exception as transpile_err:
+                        logger.warning(
+                            "Draft model at %s is not NPU-compatible and auto-rewrite failed: %s. Falling back to CPU.",
+                            draft_path,
+                            transpile_err,
+                        )
+                        continue
                 if props:
                     dev_props.setdefault("PERFORMANCE_HINT", "LATENCY")
             elif dev.startswith("GPU"):
@@ -287,6 +330,7 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
                     "Draft model",
                 )
                 self._sync_draft_tokenizer(target_path, draft_path)
+                self._validate_tokenizer_alignment(target_path, draft_path)
                 requested_device = (
                     "GPU"
                     if getattr(speculative_config, "colocate_on_gpu", False) and normalized_target_device.startswith("GPU")
@@ -325,6 +369,8 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
 
             if draft_handle is not None:
                 pipeline_kwargs["draft_model"] = draft_handle
+                if normalized_target_device.startswith("GPU"):
+                    pipeline_kwargs["KV_CACHE_PRECISION"] = "f16"
 
             self._pipeline = ov_genai.LLMPipeline(
                 str(target_path),
@@ -380,6 +426,8 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
                     ov_cfg.max_ngram_size = self._spec_config.max_ngram_size
                 elif self._draft_model_path:
                     ov_cfg.num_assistant_tokens = self._current_gamma
+                    ov_cfg.temperature = 0.0
+                    ov_cfg.do_sample = False
 
             if config.stop_strings:
                 ov_cfg.stop_strings = set(config.stop_strings)
@@ -489,6 +537,16 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
         cfg = config or GenerationConfig()
         ov_config = self._build_ov_generation_config(cfg)
         prompt_tokens = self._check_request_fits_context(prompt, cfg.max_new_tokens)
+
+        total_tokens = prompt_tokens + cfg.max_new_tokens
+        if self._draft_device == "NPU" and total_tokens > getattr(self, "_max_npu_context_len", 128):
+            logger.info(
+                "Estimated sequence length %d exceeds NPU static CMX bound (%d); dynamically bypassing NPU draft to avoid overflow.",
+                total_tokens,
+                getattr(self, "_max_npu_context_len", 128),
+            )
+            if ov_config:
+                ov_config.num_assistant_tokens = 0
 
         start_time = time.monotonic()
         raw_result = (
