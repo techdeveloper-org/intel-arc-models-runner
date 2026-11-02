@@ -9,7 +9,7 @@ import queue
 import threading
 import time
 from pathlib import Path
-from typing import Any, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 from arc_runner.core.constants import STREAM_BUFFER_SIZE
 from arc_runner.core.exceptions import (
@@ -17,8 +17,11 @@ from arc_runner.core.exceptions import (
     ConfigurationError,
     ContextWindowExceededError,
     DeviceNotFoundError,
+    DraftModelCompilationError,
     ModelLoadError,
     ModelNotFoundError,
+    SpeculativeDecodingError,
+    TokenizerMismatchError,
 )
 from arc_runner.engine.base import BaseEngine
 from arc_runner.engine.context_budget import ContextBudgetMixin
@@ -131,22 +134,53 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
             raise ModelNotFoundError(f"{label} path not found: {path_str}", str(path))
         return path
 
+    def _sync_draft_tokenizer(self, target_path: Path, draft_path: Path) -> None:
+        """Ensure the draft model directory contains tokenizer IR files matching the target.
+
+        Args:
+            target_path: Path to the target OpenVINO IR model directory.
+            draft_path: Path to the draft model directory.
+        """
+        import shutil
+
+        tok_files = [
+            "openvino_tokenizer.xml",
+            "openvino_tokenizer.bin",
+            "openvino_detokenizer.xml",
+            "openvino_detokenizer.bin",
+        ]
+        target_has_tok = (target_path / "openvino_tokenizer.xml").exists()
+        if not target_has_tok:
+            return
+
+        for fname in tok_files:
+            src = target_path / fname
+            dst = draft_path / fname
+            if src.exists() and not dst.exists():
+                try:
+                    shutil.copy2(src, dst)
+                    logger.info("Synchronized tokenizer file %s to draft directory", fname)
+                except Exception as exc:
+                    logger.warning("Could not synchronize tokenizer file %s: %s", fname, exc)
+
     def _create_draft_model(
         self,
         draft_path: Path,
         preferred_device: str,
+        draft_properties: Optional[Dict[str, Any]] = None,
     ) -> Optional[Any]:
         """Attempt to instantiate an openvino_genai.draft_model with hardware fallback.
 
         Args:
             draft_path: Filesystem path to the draft model directory.
             preferred_device: Requested hardware target for the draft model.
+            draft_properties: Optional device-specific compilation properties.
 
         Returns:
             Optional[Any]: Compiled draft model wrapper, or None if fallback exhausted.
 
         Raises:
-            ModelLoadError: If draft compilation fails on all eligible devices.
+            DraftModelCompilationError: If draft compilation fails on all eligible devices.
         """
         import openvino_genai as ov_genai
 
@@ -154,10 +188,18 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
         if preferred_device != "CPU":
             candidates.append("CPU")
 
+        props = dict(draft_properties or {})
         last_error: Optional[Exception] = None
         for dev in candidates:
+            dev_props = dict(props)
+            if not dev.startswith("GPU"):
+                dev_props.pop("GPU_ENABLE_SDPA_OPTIMIZATION", None)
+                dev_props.pop("EXECUTION_MODE_HINT", None)
             try:
-                draft_handle = ov_genai.draft_model(str(draft_path), dev)
+                if dev_props:
+                    draft_handle = ov_genai.draft_model(str(draft_path), dev, **dev_props)
+                else:
+                    draft_handle = ov_genai.draft_model(str(draft_path), dev)
                 self._draft_device = dev
                 return draft_handle
             except Exception as exc:
@@ -169,10 +211,10 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
                 )
 
         if last_error:
-            raise ModelLoadError(
-                f"Failed to initialize draft model on candidate devices: {candidates}",
+            raise DraftModelCompilationError(
                 str(draft_path),
-                preferred_device,
+                candidates,
+                str(last_error),
             ) from last_error
         return None
 
@@ -194,23 +236,36 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
         Raises:
             ModelNotFoundError: If target or draft directories do not exist.
             ModelLoadError: If OpenVINO runtime compilation fails.
+            TokenizerMismatchError: If tokenizers differ between target and draft models.
         """
         target_path = self._validate_path(model_path, "Target model")
         normalized_target_device = device.upper()
 
         draft_handle: Optional[Any] = None
         if speculative_config:
-            draft_path = self._validate_path(
-                speculative_config.draft_model_path,
-                "Draft model",
-            )
-            draft_handle = self._create_draft_model(
-                draft_path,
-                speculative_config.draft_device.upper(),
-            )
-            self._spec_config = speculative_config
-            self._current_gamma = speculative_config.num_assistant_tokens
-            self._draft_model_path = str(draft_path)
+            if speculative_config.prompt_lookup:
+                self._spec_config = speculative_config
+                self._current_gamma = speculative_config.num_assistant_tokens
+                self._draft_model_path = ""
+                self._draft_device = "PROMPT_LOOKUP"
+            elif speculative_config.draft_model_path:
+                draft_path = self._validate_path(
+                    speculative_config.draft_model_path,
+                    "Draft model",
+                )
+                self._sync_draft_tokenizer(target_path, draft_path)
+                draft_handle = self._create_draft_model(
+                    draft_path,
+                    speculative_config.draft_device.upper(),
+                    speculative_config.draft_properties,
+                )
+                self._spec_config = speculative_config
+                self._current_gamma = speculative_config.num_assistant_tokens
+                self._draft_model_path = str(draft_path)
+            else:
+                self._spec_config = None
+                self._draft_model_path = ""
+                self._draft_device = ""
         else:
             self._spec_config = None
             self._draft_model_path = ""
@@ -222,6 +277,9 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
             pipeline_kwargs = dict(kwargs)
             if draft_handle is not None:
                 pipeline_kwargs["draft_model"] = draft_handle
+                if self._draft_device == "CPU":
+                    pipeline_kwargs.pop("GPU_ENABLE_SDPA_OPTIMIZATION", None)
+                    pipeline_kwargs.pop("EXECUTION_MODE_HINT", None)
 
             self._pipeline = ov_genai.LLMPipeline(
                 str(target_path),
@@ -233,6 +291,13 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
             self._device = normalized_target_device
         except Exception as exc:
             self.unload()
+            exc_str = str(exc)
+            if "Tokenizers for draft and main models are different" in exc_str:
+                raise TokenizerMismatchError(
+                    str(target_path),
+                    self._draft_model_path,
+                    exc_str,
+                ) from exc
             raise ModelLoadError(
                 f"Failed to load target model pipeline: {exc}",
                 str(target_path),
@@ -262,11 +327,12 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
             ov_cfg.top_k = config.top_k
             ov_cfg.repetition_penalty = config.repetition_penalty
 
-            if self._spec_config and self._draft_model_path:
-                ov_cfg.num_assistant_tokens = self._current_gamma
-                ov_cfg.assistant_confidence_threshold = (
-                    self._spec_config.assistant_confidence_threshold
-                )
+            if self._spec_config:
+                if self._spec_config.prompt_lookup:
+                    ov_cfg.num_assistant_tokens = self._current_gamma
+                    ov_cfg.max_ngram_size = self._spec_config.max_ngram_size
+                elif self._draft_model_path:
+                    ov_cfg.num_assistant_tokens = self._current_gamma
 
             if config.stop_strings:
                 ov_cfg.stop_strings = set(config.stop_strings)
@@ -340,17 +406,26 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
 
         start_time = time.monotonic()
         raw_result = (
-            self._pipeline.generate(prompt, ov_config)
+            self._pipeline.generate([prompt], ov_config)
             if ov_config
-            else self._pipeline.generate(prompt)
+            else self._pipeline.generate([prompt])
         )
         elapsed_sec = max(time.monotonic() - start_time, 1e-6)
 
-        is_spec = bool(self._spec_config and self._draft_model_path)
+        is_spec = bool(self._spec_config and (self._draft_model_path or self._spec_config.prompt_lookup))
         if hasattr(raw_result, "texts") and hasattr(raw_result, "perf_metrics"):
             text_result = raw_result.texts[0] if raw_result.texts else ""
             self._telemetry = telemetry_from_perf_metrics(
                 raw_result.perf_metrics,
+                self._model_path,
+                self._device,
+                elapsed_sec,
+                is_speculative=is_spec,
+                draft_device=self._draft_device if is_spec else "",
+            )
+        elif isinstance(raw_result, (list, tuple)) and len(raw_result) > 0:
+            text_result = str(raw_result[0])
+            self._telemetry = telemetry_unavailable(
                 self._model_path,
                 self._device,
                 elapsed_sec,

@@ -5,7 +5,7 @@ hardware telemetry, and key-value memory allocations.
 """
 
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from arc_runner.core.constants import (
@@ -108,18 +108,24 @@ class EngineTelemetry(BaseModel):
         description="(generated tokens - 1) / (generate duration - TTFT), derived only from documented engine counters; 0 if not derivable",
     )
     kv_cache_precision: str = Field(default="", description="KV cache precision requested for the pipeline, empty for the runtime default")
+    acceptance_rate: float = Field(default=0.0, description="Empirical draft token acceptance rate alpha in speculative decoding")
+    speculative_speedup: float = Field(default=1.0, description="Empirical speedup ratio over standalone autoregressive baseline")
 
 
 class SpeculativeConfig(BaseModel):
     """Configuration parameters for heterogeneous dual-silicon speculative decoding."""
 
-    draft_model_path: str = Field(..., description="Filesystem directory containing OpenVINO IR draft model")
+    draft_model_path: str = Field(default="", description="Filesystem directory containing OpenVINO IR draft model; empty if prompt_lookup is True")
     draft_device: str = Field(default="NPU", description="Silicon target for draft generation (NPU, GPU, CPU)")
     num_assistant_tokens: int = Field(default=4, ge=1, le=16, description="Lookahead gamma count of draft tokens to propose per step")
     assistant_confidence_threshold: float = Field(default=0.5, ge=0.0, le=1.0, description="Early stopping probability threshold for draft predictions")
     dynamic_gamma: bool = Field(default=True, description="Whether to dynamically adapt gamma based on acceptance rate")
     min_gamma: int = Field(default=1, ge=1, le=8, description="Minimum allowable lookahead horizon under dynamic adaptation")
     max_gamma: int = Field(default=8, ge=2, le=16, description="Maximum allowable lookahead horizon under dynamic adaptation")
+    prompt_lookup: bool = Field(default=False, description="Enable prompt-lookup n-gram speculative decoding without a separate draft model")
+    max_ngram_size: int = Field(default=3, ge=1, le=8, description="Maximum n-gram size for prompt lookup speculative proposals")
+    draft_properties: Dict[str, Any] = Field(default_factory=dict, description="Device compilation properties specific to the draft model")
+
 
 
 class KVAllocation(BaseModel):

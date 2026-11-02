@@ -1,0 +1,16 @@
+[
+  {
+    "tier": "Low Tier",
+    "tokens": 40,
+    "elapsed_sec": 2.0265149000006204,
+    "tps": 19.98,
+    "ttft_ms": 72.57
+  },
+  {
+    "tier": "Medium Tier",
+    "tokens": 60,
+    "elapsed_sec": 2.9729435999979614,
+    "tps": 20.35,
+    "ttft_ms": 71.62
+  }
+]

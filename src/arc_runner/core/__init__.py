@@ -21,6 +21,10 @@ from arc_runner.core.exceptions import (
     ContextWindowExceededError,
     VRAMExhaustedError,
     InferenceTimeoutError,
+    SpeculativeDecodingError,
+    TokenizerMismatchError,
+    DraftModelCompilationError,
+    PropertyIsolationError,
 )
 from arc_runner.core.logging import (
     clear_request_context,
@@ -48,6 +52,10 @@ __all__: List[str] = [
     "ContextWindowExceededError",
     "VRAMExhaustedError",
     "InferenceTimeoutError",
+    "SpeculativeDecodingError",
+    "TokenizerMismatchError",
+    "DraftModelCompilationError",
+    "PropertyIsolationError",
     "setup_logging",
     "get_logger",
     "set_request_context",

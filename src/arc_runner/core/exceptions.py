@@ -303,3 +303,80 @@ class PromptCapExceededError(ArcRunnerError):
         )
         self.prompt_tokens = prompt_tokens
         self.cap = cap
+
+
+class SpeculativeDecodingError(ArcRunnerError):
+    """Base exception for speculative decoding execution anomalies."""
+
+    def __init__(self, message: str, error_code: str = "SPECULATIVE_DECODING_ERROR", status_code: int = 500) -> None:
+        """Initialize the speculative decoding error.
+
+        Args:
+            message: Failure reason details.
+            error_code: Application specific error code identifier.
+            status_code: HTTP response status code mapping.
+        """
+        super().__init__(message, error_code, status_code)
+
+
+class TokenizerMismatchError(SpeculativeDecodingError):
+    """Raised when target and draft models do not share an identical vocabulary or tokenizer."""
+
+    def __init__(self, target_model: str, draft_model: str, details: str = "") -> None:
+        """Initialize the tokenizer mismatch exception.
+
+        Args:
+            target_model: Path or identifier of the target model.
+            draft_model: Path or identifier of the candidate draft model.
+            details: Optional diagnostic details from tokenizer comparison.
+        """
+        super().__init__(
+            f"Tokenizer mismatch between target '{target_model}' and draft '{draft_model}'. "
+            f"Draft and target models must share an identical vocabulary for speculative decoding. {details}".strip(),
+            "TOKENIZER_MISMATCH",
+            400,
+        )
+        self.target_model = target_model
+        self.draft_model = draft_model
+
+
+class DraftModelCompilationError(ModelLoadError, SpeculativeDecodingError):
+    """Raised when compilation of the speculative draft model fails across candidate devices."""
+
+    def __init__(self, draft_path: str, candidates: list[str], reason: str = "") -> None:
+        """Initialize the draft model compilation failure exception.
+
+        Args:
+            draft_path: Filesystem path to the draft model directory.
+            candidates: Candidate silicon devices evaluated for fallback.
+            reason: Specific compiler diagnostic message.
+        """
+        super().__init__(
+            f"Failed to initialize draft model at '{draft_path}' across candidates {candidates}: {reason}".strip(),
+            draft_path,
+            ", ".join(candidates),
+        )
+        self.draft_path = draft_path
+        self.candidates = candidates
+
+
+
+class PropertyIsolationError(ConfigurationError):
+    """Raised when a device-incompatible compiler property is passed to an OpenVINO plugin."""
+
+    def __init__(self, property_key: str, device: str, reason: str = "") -> None:
+        """Initialize the property isolation configuration exception.
+
+        Args:
+            property_key: Key name of the rejected compiler property.
+            device: Accelerator device plugin name.
+            reason: Diagnostic explanation of the incompatibility.
+        """
+        super().__init__(
+            f"Property '{property_key}' is incompatible with device plugin '{device}': {reason}".strip(),
+            "INCOMPATIBLE_DEVICE_PROPERTY",
+            400,
+        )
+        self.property_key = property_key
+        self.device = device
+

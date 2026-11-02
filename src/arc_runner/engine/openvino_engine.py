@@ -260,7 +260,11 @@ class OpenVINOGenAIEngine(ContextBudgetMixin, BaseEngine):
                 props["CACHE_DIR"] = str(cache_dir)
         if device.startswith("GPU"):
             props.setdefault("PERFORMANCE_HINT", "LATENCY")
+            props.setdefault("EXECUTION_MODE_HINT", "PERFORMANCE")
+            props.setdefault("INFERENCE_PRECISION_HINT", "f16")
             props.setdefault("GPU_ENABLE_SDPA_OPTIMIZATION", True)
+        else:
+            props.pop("GPU_ENABLE_SDPA_OPTIMIZATION", None)
         if device.startswith("NPU"):
             props.setdefault("MAX_PROMPT_LEN", NPU_MAX_PROMPT_LEN)
             props.setdefault("MIN_RESPONSE_LEN", NPU_MIN_RESPONSE_LEN)

@@ -174,3 +174,28 @@ def get_logger(name: str) -> logging.Logger:
     if name.startswith("arc_runner"):
         return logging.getLogger(name)
     return logging.getLogger(f"arc_runner.{name}")
+
+
+def log_benchmark_telemetry(logger: logging.Logger, telemetry: Any) -> None:
+    """Emit a structured benchmark telemetry log event compliant with Rule 27 standards.
+
+    Args:
+        logger: Target logger instance.
+        telemetry: EngineTelemetry or object carrying performance measurements.
+    """
+    data = {
+        "event": "benchmark_telemetry",
+        "model_id": getattr(telemetry, "model_id", ""),
+        "device": getattr(telemetry, "device", ""),
+        "tokens_per_second": getattr(telemetry, "tokens_per_second", 0.0),
+        "ttft_ms": getattr(telemetry, "ttft_ms", 0.0),
+        "tpot_ms": getattr(telemetry, "tpot_ms", 0.0),
+        "prompt_tokens": getattr(telemetry, "prompt_tokens", 0),
+        "completion_tokens": getattr(telemetry, "completion_tokens", 0),
+        "total_time_sec": getattr(telemetry, "total_time_sec", 0.0),
+        "is_speculative": getattr(telemetry, "is_speculative", False),
+        "acceptance_rate": getattr(telemetry, "acceptance_rate", None),
+        "speculative_speedup": getattr(telemetry, "speculative_speedup", None),
+    }
+    logger.info("Benchmark telemetry captured", extra=data)
+
