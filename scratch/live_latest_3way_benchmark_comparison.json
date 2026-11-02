@@ -1,0 +1,23 @@
+{
+  "platform": "Intel Core Ultra 5 125H (Meteor Lake) Arc Xe-LPG iGPU",
+  "disk_cleaned_gb": 39.9,
+  "c_drive_free_gb": 41.3,
+  "timestamp": "2026-11-02T21:03:00+05:30",
+  "comparisons": {
+    "qwen-2.5-1.5b": {
+      "low": { "old_tps": 43.04, "prev_tps": 45.02, "latest_tps": 44.09, "old_ttft": 113.87, "latest_ttft": 89.94, "stability": 89.4 },
+      "medium": { "old_tps": 46.74, "prev_tps": 46.04, "latest_tps": 46.01, "old_ttft": 61.48, "latest_ttft": 77.11, "stability": 92.4 },
+      "hard": { "old_tps": 46.81, "prev_tps": 45.41, "latest_tps": 39.45, "old_ttft": 67.71, "latest_ttft": 84.60, "stability": 88.2 }
+    },
+    "deepseek-r1-1.5b": {
+      "low": { "old_tps": 28.99, "prev_tps": 34.45, "latest_tps": 34.46, "old_ttft": 214.97, "latest_ttft": 97.05, "stability": 89.8 },
+      "medium": { "old_tps": 34.30, "prev_tps": 34.20, "latest_tps": 31.97, "old_ttft": 69.88, "latest_ttft": 107.32, "stability": 88.5 },
+      "hard": { "old_tps": 25.05, "prev_tps": 34.98, "latest_tps": 30.73, "old_ttft": 69.98, "latest_ttft": 92.83, "stability": 89.9 }
+    },
+    "llama-3.2-3b": {
+      "low": { "old_tps": 26.99, "prev_tps": 26.07, "latest_tps": 25.23, "old_ttft": 151.45, "latest_ttft": 222.99, "stability": 92.9 },
+      "medium": { "old_tps": 27.26, "prev_tps": 25.30, "latest_tps": 24.95, "old_ttft": 132.24, "latest_ttft": 156.61, "stability": 92.7 },
+      "hard": { "old_tps": 27.19, "prev_tps": 25.03, "latest_tps": 24.81, "old_ttft": 147.59, "latest_ttft": 189.69, "stability": 93.5 }
+    }
+  }
+}
