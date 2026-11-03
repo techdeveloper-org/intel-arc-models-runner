@@ -27,7 +27,7 @@ This roadmap consolidates all 14 gaps into a single engineering authority docume
 |:---|:---|:---:|:---|:---|:---|
 | **GAP-01** | `openvino::op` | **Critical** | Missing native `RMSNorm` in standard opsets | `src/core/include/openvino/op/` | PR-01: Native `RMSNorm` op with fused GPU/NPU kernels |
 | **GAP-02** | `xml_util` | **High** | Raw `i < m_inputs.size()` index out-of-range crash | `src/core/xml_util/src/xml_deserialize_util.cpp` | **[RESOLVED & PR SUBMITTED]** [PR #39429](https://github.com/openvinotoolkit/openvino/pull/39429): Actionable disconnected port diagnostics |
-| **GAP-03** | `openvino::op::Const` | **Medium** | Cryptic shape/size mismatch without layer context | `src/core/src/op/constant.cpp` | PR-03: Layer name, shape, and byte delta in exception |
+| **GAP-03** | `openvino::op::Const` | **Medium** | Cryptic shape/size mismatch without layer context | `src/core/src/op/constant.cpp`, `src/core/xml_util/` | **[RESOLVED & PR SUBMITTED]** [PR #39448](https://github.com/openvinotoolkit/openvino/pull/39448): Actionable Constant shape & size diagnostics |
 | **GAP-04** | `openvino.genai` | **High** | Aborts with `invalid vector subscript` on invalid IR | `openvino_genai/src/llm_pipeline.cpp` | PR-04: DAG topological pre-flight validation |
 | **GAP-05** | `openvino.genai` | **Critical** | Zero native GGUF container ingestion | `openvino_genai/src/` | PR-05: Zero-dependency C++ GGUF container reader |
 | **GAP-06** | `intel_gpu` plugin | **High** | Lack of native GGUF k-quant (`Q4_K_M`) matrix kernels | `src/plugins/intel_gpu/src/kernel_selector/` | PR-06: Dynamic k-quant to Xe INT4/INT8 repack kernels |
@@ -154,9 +154,21 @@ This roadmap consolidates all 14 gaps into a single engineering authority docume
   - Validated 0 regressions against standard model inference (`add_abc.xml`).
 
 ### PR-03: Informative Diagnostics for `Const` Op Shape & Size Mismatches
+- **Status**: **✅ RESOLVED & PR SUBMITTED**
+- **Upstream Pull Request**: [`openvinotoolkit/openvino#39448`](https://github.com/openvinotoolkit/openvino/pull/39448)
 - **Target Repo**: `openvinotoolkit/openvino`
-- **Subsystem**: `src/core/src/op/constant.cpp`
-- **Scope**: Include layer friendly name, element type, shape string, expected byte count, and actual byte count in exception.
+- **Fork Branch**: [`techdeveloper-org/openvino:fix/const-shape-mismatch-diagnostics`](https://github.com/techdeveloper-org/openvino/tree/fix/const-shape-mismatch-diagnostics)
+- **Commit**: `4ae4537f` (`fix(core): add descriptive diagnostics for constant op shape and size mismatches`)
+- **Subsystem**: `src/core/xml_util/src/xml_deserialize_util.cpp`, `src/core/src/op/constant.cpp`, `src/core/tests/xml_util/custom_ir.cpp`
+- **Scope & Implementation**:
+  1. Enhanced `XmlDeserializer::set_constant_num_buffer` to extract layer friendly name, layer ID, shape, element type, expected minimum buffer bytes, actual attribute size, and exact byte delta.
+  2. Integrated defensive safe fallbacks (`[Unnamed Constant Node]` and `[Unknown ID]`) for malformed or hand-edited XML nodes where attributes are empty.
+  3. Enriched `ov::op::v0::Constant` constructor and reshape assertions with element type, shape dimensions, and byte delta.
+  4. Added comprehensive unit test suite in `src/frontends/ir/tests/const_shape_mismatch_diagnostic_test.cpp` registered under `ov_ir_frontend_tests`.
+- **Physical Silicon Verification**:
+  - Built custom OpenVINO 2026.5.0 runtime locally with Visual Studio 18 2026 / CMake (`openvino.dll` and `openvino_ir_frontend.dll`).
+  - Executed [`scratch/verify_gap03_const_diagnostics.py`](file:///C:/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/intel-arc-models-runner/scratch/verify_gap03_const_diagnostics.py) on physical Intel Core Ultra 5 125H silicon (Arc Xe-LPG iGPU & AI Boost NPU 3720).
+  - Validated 100% pass on negative diagnostic tests (undersized FP32 buffer, safe unnamed fallbacks, sub-byte U4 bitwidth ceiling delta) and 0 regressions on full-scale production models (`qwen-2.5-1.5b` with 2,059 constants and `deepseek-r1-1.5b` with 1,973 constants).
 
 ### PR-04: DAG Topological Pre-flight Validation in OpenVINO GenAI
 - **Target Repo**: `openvinotoolkit/openvino.genai`

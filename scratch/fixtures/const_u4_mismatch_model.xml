@@ -1,0 +1,48 @@
+<?xml version="1.0" ?>
+<net name="const_u4_mismatch_model" version="10">
+	<layers>
+		<layer id="0" name="Input_Param" type="Parameter" version="opset1">
+			<data element_type="u4" shape="6"/>
+			<output>
+				<port id="0" names="Input_Param" precision="U4">
+					<dim>6</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="99" name="q4_weights_node" type="Const" version="opset1">
+			<data element_type="u4" shape="6" offset="0" size="1"/>
+			<output>
+				<port id="0" names="q4_weights_node" precision="U4">
+					<dim>6</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="2" name="Add_Node" type="Add" version="opset1">
+			<input>
+				<port id="0" precision="U4">
+					<dim>6</dim>
+				</port>
+				<port id="1" precision="U4">
+					<dim>6</dim>
+				</port>
+			</input>
+			<output>
+				<port id="2" precision="U4">
+					<dim>6</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="3" name="Output_Result" type="Result" version="opset1">
+			<input>
+				<port id="0" precision="U4">
+					<dim>6</dim>
+				</port>
+			</input>
+		</layer>
+	</layers>
+	<edges>
+		<edge from-layer="0" from-port="0" to-layer="2" to-port="0"/>
+		<edge from-layer="99" from-port="0" to-layer="2" to-port="1"/>
+		<edge from-layer="2" from-port="2" to-layer="3" to-port="0"/>
+	</edges>
+</net>
