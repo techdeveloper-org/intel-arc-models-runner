@@ -158,8 +158,8 @@ This roadmap consolidates all 14 gaps into a single engineering authority docume
 - **Upstream Pull Request**: [`openvinotoolkit/openvino#39448`](https://github.com/openvinotoolkit/openvino/pull/39448)
 - **Target Repo**: `openvinotoolkit/openvino`
 - **Fork Branch**: [`techdeveloper-org/openvino:fix/const-shape-mismatch-diagnostics`](https://github.com/techdeveloper-org/openvino/tree/fix/const-shape-mismatch-diagnostics)
-- **Commit**: `4ae4537f` (`fix(core): add descriptive diagnostics for constant op shape and size mismatches`)
-- **Subsystem**: `src/core/xml_util/src/xml_deserialize_util.cpp`, `src/core/src/op/constant.cpp`, `src/core/tests/xml_util/custom_ir.cpp`
+- **Commit**: `57bc1949` (`fix(core): add descriptive diagnostics for constant op shape and size mismatches`)
+- **Subsystem**: `src/core/xml_util/src/xml_deserialize_util.cpp`, `src/core/src/op/constant.cpp`, `src/core/tests/constant.cpp`, `src/core/tests/xml_util/custom_ir.cpp`
 - **Scope & Implementation**:
   1. Enhanced `XmlDeserializer::set_constant_num_buffer` to extract layer friendly name, layer ID, shape, element type, expected minimum buffer bytes, actual attribute size, and exact byte delta.
   2. Integrated defensive safe fallbacks (`[Unnamed Constant Node]` and `[Unknown ID]`) for malformed or hand-edited XML nodes where attributes are empty.
