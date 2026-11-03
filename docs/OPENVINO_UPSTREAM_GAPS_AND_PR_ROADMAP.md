@@ -28,7 +28,7 @@ This roadmap consolidates all 14 gaps into a single engineering authority docume
 | **GAP-01** | `openvino::op` | **Critical** | Missing native `RMSNorm` in standard opsets | `src/core/include/openvino/op/` | PR-01: Native `RMSNorm` op with fused GPU/NPU kernels |
 | **GAP-02** | `xml_util` | **High** | Raw `i < m_inputs.size()` index out-of-range crash | `src/core/xml_util/src/xml_deserialize_util.cpp` | **[RESOLVED & PR SUBMITTED]** [PR #39429](https://github.com/openvinotoolkit/openvino/pull/39429): Actionable disconnected port diagnostics |
 | **GAP-03** | `openvino::op::Const` | **Medium** | Cryptic shape/size mismatch without layer context | `src/core/src/op/constant.cpp`, `src/core/xml_util/` | **[RESOLVED & PR SUBMITTED]** [PR #39448](https://github.com/openvinotoolkit/openvino/pull/39448): Actionable Constant shape & size diagnostics |
-| **GAP-04** | `openvino.genai` | **High** | Aborts with `invalid vector subscript` on invalid IR | `openvino_genai/src/llm_pipeline.cpp` | **[RUNNER ENFORCED / RFC IN PROGRESS]** [PR #4807](https://github.com/openvinotoolkit/openvino.genai/pull/4807) (Upstream closed; enforced in runner; RFC issue drafted) |
+| **GAP-04** | `openvino.genai` | **High** | Aborts with `invalid vector subscript` on invalid IR | `openvino_genai/src/llm_pipeline.cpp` | **[OFFICIAL RFC SUBMITTED]** [Issue #4809](https://github.com/openvinotoolkit/openvino.genai/issues/4809) (Upstream proposal live; scrubbed patch ready on fork) |
 | **GAP-05** | `openvino.genai` | **Critical** | Zero native GGUF container ingestion | `openvino_genai/src/` | PR-05: Zero-dependency C++ GGUF container reader |
 | **GAP-06** | `intel_gpu` plugin | **High** | Lack of native GGUF k-quant (`Q4_K_M`) matrix kernels | `src/plugins/intel_gpu/src/kernel_selector/` | PR-06: Dynamic k-quant to Xe INT4/INT8 repack kernels |
 | **GAP-07** | `openvino::op::MatMul` | **Medium** | Rigid mixed-precision requiring explicit Convert | `src/core/src/op/matmul.cpp` | PR-07: Auto-promotion and implicit FP16/INT4 fusion |
@@ -171,15 +171,15 @@ This roadmap consolidates all 14 gaps into a single engineering authority docume
   - Validated 100% pass on negative diagnostic tests (undersized FP32 buffer, safe unnamed fallbacks, sub-byte U4 bitwidth ceiling delta) and 0 regressions on full-scale production models (`qwen-2.5-1.5b` with 2,059 constants and `deepseek-r1-1.5b` with 1,973 constants).
 
 ### PR-04: DAG Topological Pre-flight Validation in OpenVINO GenAI
-- **Status**: **⚠️ RUNNER PROTECTED | UPSTREAM RFC DRAFTED**
-- **Upstream PR**: [openvinotoolkit/openvino.genai#4807](https://github.com/openvinotoolkit/openvino.genai/pull/4807) (Closed upstream by maintainer `as-suvorov`)
+- **Status**: **🚀 OFFICIAL UPSTREAM RFC SUBMITTED & PATCH READY**
+- **Upstream Discussion Issue**: [`openvinotoolkit/openvino.genai#4809`](https://github.com/openvinotoolkit/openvino.genai/issues/4809)
 - **Fork Branch**: [`techdeveloper-org/openvino.genai:fix/llm-pipeline-dag-preflight-validation`](https://github.com/techdeveloper-org/openvino.genai/tree/fix/llm-pipeline-dag-preflight-validation)
 - **Local Enforcement**: Fully operational & silicon-verified in `intel-arc-models-runner` execution pipeline
-- **Upstream Closure Analysis**:
-  1. **External Issue Reference**: PR body referenced external personal repo ticket (`#63`), triggering maintainer anti-spam heuristics.
-  2. **Internal Defect Tags**: Exception messages leaked internal roadmap codes (`[GAP-04]`), violating upstream OpenVINO error formatting standards.
-  3. **Architectural Scope**: OpenVINO maintains a lean `LLMPipeline` constructor; maintainers require an upstream issue/RFC discussion prior to introducing constructor-level topological BFS traversals.
-- **Commit**: `8a4add3` (`feat(llm-pipeline): add DAG topological pre-flight validation`)
+- **Upstream Resolution Strategy**:
+  1. **Formal Issue Alignment**: Submitted upstream RFC [Issue #4809](https://github.com/openvinotoolkit/openvino.genai/issues/4809) presenting the issue cleanly without external repository links.
+  2. **Code Standards Scrubbing**: Fully scrubbed all internal tracking identifiers (`[GAP-04]`) from C++ runtime assertions in `src/cpp/src/utils.cpp` and test files, standardizing error formatting to `[LLMPipeline] Pre-flight validation failed`.
+  3. **Signed-off Commit Ready**: Prepared clean commit `6996acf` on fork branch referencing `Fixes #4809` with DCO sign-off, ready for formal PR submission upon maintainer consensus.
+- **Commit**: `6996acf` (`feat(llm-pipeline): add DAG topological pre-flight validation`)
 - **Subsystem**: `src/cpp/src/utils.hpp`, `src/cpp/src/utils.cpp`, `src/cpp/src/llm/pipeline_stateful.cpp`, `src/cpp/src/llm/pipeline_static.cpp`, `tests/cpp/test_llm_pipeline_preflight.cpp`
 - **Scope & Implementation**:
   1. Implemented `ov::genai::utils::validate_llm_model_dag` with Gate 0 (Null guard), Gate A (Role-based parameter whitelist for PRIMARY_LLM and DRAFT/EAGLE3 models), Gate B (Fuzzy logit name heuristics), and Gate C (Dual-root backward BFS from Results and Sinks).
