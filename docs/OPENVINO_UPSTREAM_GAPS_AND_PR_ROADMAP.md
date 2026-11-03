@@ -176,7 +176,7 @@ This roadmap consolidates all 14 gaps into a single engineering authority docume
 - **Upstream PR**: [openvinotoolkit/openvino.genai#4807](https://github.com/openvinotoolkit/openvino.genai/pull/4807)
 - **Fork Branch**: [`techdeveloper-org/openvino.genai:fix/llm-pipeline-dag-preflight-validation`](https://github.com/techdeveloper-org/openvino.genai/tree/fix/llm-pipeline-dag-preflight-validation)
 - **Tracking Issue**: [`techdeveloper-org/intel-arc-models-runner#63`](https://github.com/techdeveloper-org/intel-arc-models-runner/issues/63)
-- **Commit**: `8784531` (`feat(llm-pipeline): add DAG topological pre-flight validation (GAP-04)`), `965ad4f` (`test(llm-pipeline): fix Variable initialization in preflight gtest suite`)
+- **Commit**: `8a4add3` (`feat(llm-pipeline): add DAG topological pre-flight validation (GAP-04)`)
 - **Subsystem**: `src/cpp/src/utils.hpp`, `src/cpp/src/utils.cpp`, `src/cpp/src/llm/pipeline_stateful.cpp`, `src/cpp/src/llm/pipeline_static.cpp`, `tests/cpp/test_llm_pipeline_preflight.cpp`
 - **Scope & Implementation**:
   1. Implemented `ov::genai::utils::validate_llm_model_dag` with Gate 0 (Null guard), Gate A (Role-based parameter whitelist for PRIMARY_LLM and DRAFT/EAGLE3 models), Gate B (Fuzzy logit name heuristics), and Gate C (Dual-root backward BFS from Results and Sinks).
