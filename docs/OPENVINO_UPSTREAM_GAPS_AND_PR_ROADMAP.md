@@ -171,9 +171,17 @@ This roadmap consolidates all 14 gaps into a single engineering authority docume
   - Validated 100% pass on negative diagnostic tests (undersized FP32 buffer, safe unnamed fallbacks, sub-byte U4 bitwidth ceiling delta) and 0 regressions on full-scale production models (`qwen-2.5-1.5b` with 2,059 constants and `deepseek-r1-1.5b` with 1,973 constants).
 
 ### PR-04: DAG Topological Pre-flight Validation in OpenVINO GenAI
+- **Status**: **✅ RESOLVED & PR BRANCH READY**
 - **Target Repo**: `openvinotoolkit/openvino.genai`
-- **Subsystem**: `openvino_genai/src/llm_pipeline.cpp`
-- **Scope**: Validate presence of required `Parameter` (`input_ids`) and `Result` (`logits`) nodes before allocating pipeline buffers, preventing uninformative `invalid vector subscript` aborts.
+- **Fork Branch**: [`techdeveloper-org/openvino.genai:fix/llm-pipeline-dag-preflight-validation`](https://github.com/techdeveloper-org/openvino.genai/tree/fix/llm-pipeline-dag-preflight-validation)
+- **Tracking Issue**: [`techdeveloper-org/intel-arc-models-runner#63`](https://github.com/techdeveloper-org/intel-arc-models-runner/issues/63)
+- **Commit**: `8784531` (`feat(llm-pipeline): add DAG topological pre-flight validation (GAP-04)`)
+- **Subsystem**: `src/cpp/src/utils.hpp`, `src/cpp/src/utils.cpp`, `src/cpp/src/llm/pipeline_stateful.cpp`, `src/cpp/src/llm/pipeline_static.cpp`, `tests/cpp/test_llm_pipeline_preflight.cpp`
+- **Scope & Implementation**:
+  1. Implemented `ov::genai::utils::validate_llm_model_dag` with Gate 0 (Null guard), Gate A (Role-based parameter whitelist for PRIMARY_LLM and DRAFT/EAGLE3 models), Gate B (Fuzzy logit name heuristics), and Gate C (Dual-root backward BFS from Results and Sinks).
+  2. Integrated defensive pre-flight hook in `StatefulLLMPipeline` and `StaticLLMPipeline` before device compilation, preventing uninformative `invalid vector subscript` aborts.
+  3. Added comprehensive GTest suite `tests/cpp/test_llm_pipeline_preflight.cpp` auto-discovered by CMake.
+  4. Executed physical silicon verification harness `scratch/verify_gap04_dag_preflight.py` on Intel Core Ultra 5 125H silicon (Arc Xe-LPG iGPU & AI Boost NPU 3720), proving 0 regressions on `qwen-2.5-1.5b`, `deepseek-r1-1.5b`, and `qwen-0.5b-npu-certified`.
 
 ### PR-05: Native C++ Zero-Dependency GGUF Container Reader
 - **Target Repo**: `openvinotoolkit/openvino.genai`
