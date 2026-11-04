@@ -1,0 +1,41 @@
+{
+  "n_per_arm": 2000,
+  "alpha": 0.001,
+  "prompt": "Once upon a time",
+  "plain_seconds": 322.0,
+  "spec_seconds": 2084.3,
+  "tests": {
+    "token_1_marginal": {
+      "statistic": 23.115399504450384,
+      "dof": 16,
+      "bins": 17,
+      "p_value": 0.11068425456090117
+    },
+    "token_2_marginal": {
+      "statistic": 76.5252970980783,
+      "dof": 22,
+      "bins": 23,
+      "p_value": 5.988707310280231e-08
+    },
+    "token_3_marginal": {
+      "statistic": 45.51993161197568,
+      "dof": 42,
+      "bins": 43,
+      "p_value": 0.32774411509264884
+    },
+    "joint_first_3": {
+      "statistic": 111.20548085322426,
+      "dof": 41,
+      "bins": 42,
+      "p_value": 2.1384509135320705e-08
+    }
+  },
+  "plain_distinct_joint": 416,
+  "spec_distinct_joint": 401,
+  "rejected_at_alpha": {
+    "token_1_marginal": false,
+    "token_2_marginal": true,
+    "token_3_marginal": false,
+    "joint_first_3": true
+  }
+}

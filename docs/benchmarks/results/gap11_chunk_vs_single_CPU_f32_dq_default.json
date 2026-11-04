@@ -1,0 +1,52 @@
+{
+  "device": "CPU",
+  "kv_precision": "f32",
+  "properties": [
+    "INFERENCE_PRECISION_HINT=f32"
+  ],
+  "rows": [
+    {
+      "prompt": "Once upon a time",
+      "max_abs_logit_diff": 0.31502866744995117,
+      "tv_distance": 0.019713789412532014,
+      "single_vs_single_max_diff": 0.0,
+      "argmax_equal": true
+    },
+    {
+      "prompt": "The capital of France is",
+      "max_abs_logit_diff": 0.390472412109375,
+      "tv_distance": 0.013513928120418607,
+      "single_vs_single_max_diff": 0.0,
+      "argmax_equal": true
+    },
+    {
+      "prompt": "In machine learning, a neural network",
+      "max_abs_logit_diff": 0.4701530933380127,
+      "tv_distance": 0.007052856790477532,
+      "single_vs_single_max_diff": 0.0,
+      "argmax_equal": true
+    },
+    {
+      "prompt": "Explain why the sky is blue and",
+      "max_abs_logit_diff": 0.6820991039276123,
+      "tv_distance": 0.019145353624278477,
+      "single_vs_single_max_diff": 0.0,
+      "argmax_equal": true
+    },
+    {
+      "prompt": "def fibonacci(n):",
+      "max_abs_logit_diff": 0.5198682546615601,
+      "tv_distance": 0.010245855220431664,
+      "single_vs_single_max_diff": 0.0,
+      "argmax_equal": true
+    },
+    {
+      "prompt": "The quick brown fox jumps over the lazy dog and then",
+      "max_abs_logit_diff": 0.5139486789703369,
+      "tv_distance": 0.024858456241956227,
+      "single_vs_single_max_diff": 0.0,
+      "argmax_equal": false
+    }
+  ],
+  "mean_tv": 0.01575503990168242
+}

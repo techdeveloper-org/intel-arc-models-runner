@@ -1,0 +1,71 @@
+{
+  "label": "baseline",
+  "genai_version": "2026.4.1.0-3408-ab01d1771e4",
+  "genai_file": "C:\\Lib\\site-packages\\openvino_genai\\__init__.py",
+  "target_device": "GPU",
+  "draft_device": "NPU",
+  "prompt": "Explain in two sentences why the sky is blue.",
+  "results": [
+    {
+      "case": "greedy_a",
+      "status": "ok",
+      "text": "The sky appears blue because the sun's light scatters in the Earth's atmosphere, and blue light is scattered more than other colors. This scattering is more intense closer to the Earth's surface, making",
+      "elapsed_sec": 7.373
+    },
+    {
+      "case": "greedy_b",
+      "status": "ok",
+      "text": "The sky appears blue because the sun's light scatters in the Earth's atmosphere, and blue light is scattered more than other colors. This scattering is more intense closer to the Earth's surface, making",
+      "elapsed_sec": 6.802
+    },
+    {
+      "case": "stochastic_seed1_a",
+      "status": "raised",
+      "error_type": "RuntimeError",
+      "error": "Check 'config.is_greedy_decoding()' failed at C:\\Jenkins\\workspace\\private-ci\\ie\\build-windows-vs2022\\b\\repos\\openvino.genai\\src\\cpp\\src\\speculative_decoding\\stateful\\fast_draft_strategy.cpp:437:\nCurrently only greedy decoding is supported\n",
+      "elapsed_sec": 0.001
+    },
+    {
+      "case": "stochastic_seed1_b",
+      "status": "raised",
+      "error_type": "RuntimeError",
+      "error": "Check 'config.is_greedy_decoding()' failed at C:\\Jenkins\\workspace\\private-ci\\ie\\build-windows-vs2022\\b\\repos\\openvino.genai\\src\\cpp\\src\\speculative_decoding\\stateful\\fast_draft_strategy.cpp:437:\nCurrently only greedy decoding is supported\n",
+      "elapsed_sec": 0.001
+    },
+    {
+      "case": "stochastic_seed2",
+      "status": "raised",
+      "error_type": "RuntimeError",
+      "error": "Check 'config.is_greedy_decoding()' failed at C:\\Jenkins\\workspace\\private-ci\\ie\\build-windows-vs2022\\b\\repos\\openvino.genai\\src\\cpp\\src\\speculative_decoding\\stateful\\fast_draft_strategy.cpp:437:\nCurrently only greedy decoding is supported\n",
+      "elapsed_sec": 0.0
+    },
+    {
+      "case": "stochastic_temp_only",
+      "status": "raised",
+      "error_type": "RuntimeError",
+      "error": "Check 'config.is_greedy_decoding()' failed at C:\\Jenkins\\workspace\\private-ci\\ie\\build-windows-vs2022\\b\\repos\\openvino.genai\\src\\cpp\\src\\speculative_decoding\\stateful\\fast_draft_strategy.cpp:437:\nCurrently only greedy decoding is supported\n",
+      "elapsed_sec": 0.001
+    },
+    {
+      "case": "stochastic_top_k1",
+      "status": "raised",
+      "error_type": "RuntimeError",
+      "error": "Check 'config.is_greedy_decoding()' failed at C:\\Jenkins\\workspace\\private-ci\\ie\\build-windows-vs2022\\b\\repos\\openvino.genai\\src\\cpp\\src\\speculative_decoding\\stateful\\fast_draft_strategy.cpp:437:\nCurrently only greedy decoding is supported\n",
+      "elapsed_sec": 0.0
+    },
+    {
+      "case": "unsupported_repetition_penalty",
+      "status": "raised",
+      "error_type": "RuntimeError",
+      "error": "Check 'config.is_greedy_decoding()' failed at C:\\Jenkins\\workspace\\private-ci\\ie\\build-windows-vs2022\\b\\repos\\openvino.genai\\src\\cpp\\src\\speculative_decoding\\stateful\\fast_draft_strategy.cpp:437:\nCurrently only greedy decoding is supported\n",
+      "elapsed_sec": 0.0
+    }
+  ],
+  "checks": {
+    "greedy_deterministic": true,
+    "same_seed_identical": false,
+    "different_seed_differs": false,
+    "top_k1_equals_greedy": false,
+    "unsupported_option_rejected": true
+  }
+}

@@ -50,7 +50,9 @@ def _format(values: List[float]) -> str:
 
 
 def render_tables() -> str:
-    """Build the markdown summary from every result file.
+    """Build the markdown summary from every benchmark-schema result file.
+
+    JSON files without ``samples`` and ``protocol`` (statistical audit outputs) are skipped.
 
     Returns:
         str: LLM table and, where non-LLM results exist, a metric table; or a sentence stating that
@@ -62,6 +64,8 @@ def render_tables() -> str:
         if path.name.endswith(".quick.json"):
             continue
         document = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(document, dict) or "samples" not in document or "protocol" not in document:
+            continue
         grouped: Dict[Tuple[str, str, str], List[BenchSample]] = {}
         for sample in load_samples(document):
             if not sample.is_warmup:

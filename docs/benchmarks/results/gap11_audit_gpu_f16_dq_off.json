@@ -1,0 +1,146 @@
+{
+  "device": "GPU",
+  "kv_precision": "f16",
+  "properties": [
+    "DYNAMIC_QUANTIZATION_GROUP_SIZE=0"
+  ],
+  "prompts": [
+    {
+      "prompt": "Once upon a time",
+      "tokens": 4,
+      "sweep": {
+        "2": {
+          "tv": 0.07392113680858434,
+          "max_logit_diff": 2.7578125
+        },
+        "3": {
+          "tv": 0.07392113680858434,
+          "max_logit_diff": 2.7578125
+        }
+      },
+      "later_token": {
+        "max_logit_diff_row0": 2.7578125,
+        "max_tv_row0": 0.07392113680858434
+      },
+      "single_vs_reference": {
+        "tv": 0.02185509486498316,
+        "max_logit_diff": 0.286639928817749
+      }
+    },
+    {
+      "prompt": "The capital of France is",
+      "tokens": 5,
+      "sweep": {
+        "2": {
+          "tv": 0.027159152265562238,
+          "max_logit_diff": 0.412353515625
+        },
+        "3": {
+          "tv": 0.027159152265562238,
+          "max_logit_diff": 0.412353515625
+        }
+      },
+      "later_token": {
+        "max_logit_diff_row0": 0.412353515625,
+        "max_tv_row0": 0.027159152265562238
+      },
+      "single_vs_reference": {
+        "tv": 0.09280920540637606,
+        "max_logit_diff": 1.3999247550964355
+      }
+    },
+    {
+      "prompt": "In machine learning, a neural network is",
+      "tokens": 37,
+      "sweep": {
+        "2": {
+          "tv": 0.006145166986995479,
+          "max_logit_diff": 0.3515625
+        },
+        "3": {
+          "tv": 0.006145166986995479,
+          "max_logit_diff": 0.3515625
+        },
+        "8": {
+          "tv": 0.006145166986995479,
+          "max_logit_diff": 0.3515625
+        },
+        "32": {
+          "tv": 0.006145166986995479,
+          "max_logit_diff": 0.3515625
+        }
+      },
+      "later_token": {
+        "max_logit_diff_row0": 0.3515625,
+        "max_tv_row0": 0.006145166986995479
+      },
+      "single_vs_reference": {
+        "tv": 0.050478338585033734,
+        "max_logit_diff": 2.1063711643218994
+      }
+    },
+    {
+      "prompt": "def fibonacci(n):",
+      "tokens": 4,
+      "sweep": {
+        "2": {
+          "tv": 0.014882813279419978,
+          "max_logit_diff": 0.138427734375
+        },
+        "3": {
+          "tv": 0.011530445539984868,
+          "max_logit_diff": 0.1171875
+        }
+      },
+      "later_token": {
+        "max_logit_diff_row0": 0.138427734375,
+        "max_tv_row0": 0.014882813279419978
+      },
+      "single_vs_reference": {
+        "tv": 0.004662621113090969,
+        "max_logit_diff": 0.07329082489013672
+      }
+    },
+    {
+      "prompt": "Explain why the sky is blue and why suns",
+      "tokens": 33,
+      "sweep": {
+        "2": {
+          "tv": 0.044107245687903994,
+          "max_logit_diff": 0.345703125
+        },
+        "3": {
+          "tv": 0.044107245687903994,
+          "max_logit_diff": 0.345703125
+        },
+        "8": {
+          "tv": 0.044107245687903994,
+          "max_logit_diff": 0.345703125
+        },
+        "32": {
+          "tv": 0.04153110240410067,
+          "max_logit_diff": 0.35546875
+        }
+      },
+      "later_token": {
+        "max_logit_diff_row0": 0.345703125,
+        "max_tv_row0": 0.044107245687903994
+      },
+      "single_vs_reference": {
+        "tv": 0.16097369277923626,
+        "max_logit_diff": 1.9370088577270508
+      }
+    }
+  ],
+  "summary": {
+    "max_later_token_logit_diff_row0": 2.7578125,
+    "max_later_token_tv_row0": 0.07392113680858434,
+    "max_single_vs_reference_tv": 0.16097369277923626,
+    "max_sweep_tv": {
+      "2": 0.07392113680858434,
+      "3": 0.07392113680858434,
+      "8": 0.044107245687903994,
+      "32": 0.04153110240410067
+    }
+  }
+}

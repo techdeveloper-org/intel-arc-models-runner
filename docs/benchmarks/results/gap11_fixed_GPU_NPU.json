@@ -1,0 +1,66 @@
+{
+  "label": "fixed",
+  "genai_version": "2026.5.0.0-5-96503d40a9e-fix/stateful-speculative-stochastic-sampling",
+  "genai_file": "C:\\Users\\techd\\Documents\\workspace-spring-tool-suite-4-4.27.0-new\\openvino.genai\\build-pip\\openvino_genai\\__init__.py",
+  "target_device": "GPU",
+  "draft_device": "NPU",
+  "prompt": "Explain in two sentences why the sky is blue.",
+  "results": [
+    {
+      "case": "greedy_a",
+      "status": "ok",
+      "text": "The sky appears blue because the sun's light scatters in the Earth's atmosphere, and blue light is scattered more than other colors. This scattering is more intense closer to the Earth's surface, making",
+      "elapsed_sec": 10.805
+    },
+    {
+      "case": "greedy_b",
+      "status": "ok",
+      "text": "The sky appears blue because the sun's light scatters in the Earth's atmosphere, and blue light is scattered more than other colors. This scattering is more intense closer to the Earth's surface, making",
+      "elapsed_sec": 13.93
+    },
+    {
+      "case": "stochastic_seed1_a",
+      "status": "ok",
+      "text": "The sky is blue because sunlight passes through the Earth's atmosphere and scatters light in all directions, but blue light is scattered more than other colors because it travels shorter distances and is more energetic, so",
+      "elapsed_sec": 10.85
+    },
+    {
+      "case": "stochastic_seed1_b",
+      "status": "ok",
+      "text": "The sky is blue because sunlight passes through the Earth's atmosphere and scatters light in all directions, but blue light is scattered more than other colors because it travels shorter distances and is more energetic, so",
+      "elapsed_sec": 11.028
+    },
+    {
+      "case": "stochastic_seed2",
+      "status": "ok",
+      "text": "The sky is blue due to a process called Rayleigh scattering. When sunlight hits the Earth's atmosphere, shorter blue wavelengths scatter more easily in all directions, creating the blue sky we see. This phenomenon",
+      "elapsed_sec": 10.854
+    },
+    {
+      "case": "stochastic_temp_only",
+      "status": "ok",
+      "text": "The sky appears blue because the Earth's sunlight scatters with more blue light in the atmosphere, making the sun appear bluer and causing the sky to appear blue from the observer's point of on Earth",
+      "elapsed_sec": 10.43
+    },
+    {
+      "case": "stochastic_top_k1",
+      "status": "ok",
+      "text": "The sky appears blue because the sun's light scatters in the Earth's atmosphere, and blue light is scattered more than other colors. This scattering is more intense closer to the Earth's surface, making",
+      "elapsed_sec": 10.944
+    },
+    {
+      "case": "unsupported_repetition_penalty",
+      "status": "raised",
+      "error_type": "RuntimeError",
+      "error": "Check 'config.repetition_penalty == 1.0f' failed at C:\\Users\\techd\\Documents\\workspace-spring-tool-suite-4-4.27.0-new\\openvino.genai\\src\\cpp\\src\\speculative_decoding\\stateful\\fast_draft_sampling.cpp:71:\nSpeculative sampling does not support 'repetition_penalty'\n",
+      "elapsed_sec": 0.01
+    }
+  ],
+  "checks": {
+    "greedy_deterministic": true,
+    "same_seed_identical": true,
+    "different_seed_differs": true,
+    "top_k1_equals_greedy": true,
+    "unsupported_option_rejected": true
+  }
+}

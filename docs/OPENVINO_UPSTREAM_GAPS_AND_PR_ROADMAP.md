@@ -35,7 +35,7 @@ This roadmap consolidates all 14 gaps into a single engineering authority docume
 | **GAP-08** | `openvino.genai` | **Medium** | Host-memory copy overhead on per-token streaming | `openvino_genai/src/streamer.cpp` | PR-08: Zero-copy Level Zero USM page-locked ring buffer |
 | **GAP-09** | `vpux-compiler` (NPU) | **Critical** | Rejects asymmetric `u4` dequantization on NPU37XX | `vpux-compiler/OneShotBufferizeVPU2VPUIP` | PR-09: Automated `u4` to signed `i4` zero-offset lowering |
 | **GAP-10** | `openvino-core` (NPU) | **Critical** | Dynamic shape crash `to_shape was called on dynamic shape` | `src/core/src/partial_shape.cpp:261` | PR-10: Bounded context range inference for NPU CMX |
-| **GAP-11** | `openvino.genai` | **High** | `is_greedy_decoding()` failure in speculative decoding | `fast_draft_strategy.cpp:437` | PR-11: Stochastic speculative rejection sampling |
+| **GAP-11** | `openvino.genai` | **High** | `is_greedy_decoding()` failure in speculative decoding | `fast_draft_strategy.cpp:436-437` | **[FIX IMPLEMENTED LOCALLY - NOT SUBMITTED]** PR-11: Stochastic speculative rejection sampling (see GAP-11 section for evidence and limits) |
 | **GAP-12** | `intel_gpu` plugin | **High** | `[GPU] get_state API only when KV-cache compression disabled` | `multi_tensor_variable_state.cpp:216` | PR-12: On-the-fly decompression in `get_state()` |
 | **GAP-13** | `intel_npu` plugin | **Medium** | Driver race returns `ZE_RESULT_ERROR_INVALID_NULL_POINTER` | `ze_graph_ext_wrappers.cpp:433` | PR-13: Level Zero compiler initialization retry mutex |
 | **GAP-14** | `openvino.genai` | **High** | Speculative decoding stalls GPU while NPU drafts serially | `fast_draft_strategy.cpp` | PR-14: Asynchronous pipelined drafting & token trees |
@@ -95,6 +95,15 @@ This roadmap consolidates all 14 gaps into a single engineering authority docume
   ```
 - **Root Cause**:
   `FastDraftStrategy::verify_draft_tokens()` only implements deterministic token ID equality ($x_{\text{draft}} == x_{\text{target}}$). Any request with `temperature > 0` or `top_p < 1.0` is abruptly aborted.
+
+- **Status**: **FIX IMPLEMENTED LOCALLY, NOT SUBMITTED.** Stochastic (`temperature`, `top_k`, `top_p`) speculative sampling now runs in the stateful FastDraft pipeline (new `fast_draft_sampling.{hpp,cpp}`; the greedy path is unchanged). It accepts a candidate with probability `min(1, q/p)` and resamples from `norm(max(0, q-p))` on rejection.
+- **Evidence (all numbers from `docs/benchmarks/results/gap11_*`)**:
+  - Hermetic scripted-model gate: the shared draft/verify code reproduces the analytic law at 1e6 trials (p = 0.329) and kills 6/6 wiring mutants.
+  - Batch-invariant target (CPU, f32, dynamic quantization off) with NPU draft, N = 3000 per arm, alpha = 1e-3: no rejection in the one-sample tests against the exact laws, nor in the plain-vs-speculative tests per token (p = 0.96, 0.77, 0.43) and joint (p = 0.93).
+- **Known limits (do not claim otherwise)**:
+  - The int4 GPU target is not chunk-invariant (mean TV 0.056 between chunk-of-3 and single-token laws; row 0 depends on later draft tokens), so speculative sampling there is not exact. The GPU+NPU sanity run rejects the token-2 marginal (N = 5000, p = 3.8e-42); this is consistent with that finding but the magnitude has not been decomposed.
+  - No speedup is claimed; the NPU draft was slower than plain decoding in the CPU-target run.
+  - Repetition, presence and frequency penalties are not supported in stochastic speculative mode in v1.
 
 ### GAP-12: Intel GPU Plugin Disallowing `get_state()` with Compressed KV-Cache
 - **Traceback**:

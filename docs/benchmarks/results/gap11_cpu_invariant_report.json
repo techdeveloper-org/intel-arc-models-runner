@@ -1,0 +1,73 @@
+{
+  "alpha": 0.001,
+  "n": {
+    "plain": 3000,
+    "spec": 3000
+  },
+  "props": {
+    "INFERENCE_PRECISION_HINT": "f32",
+    "DYNAMIC_QUANTIZATION_GROUP_SIZE": 0,
+    "KV_CACHE_PRECISION": "f32"
+  },
+  "k": 3,
+  "tests": {
+    "plain_token1_vs_exact_law": {
+      "n": 3000,
+      "statistic": 17.544832989345803,
+      "dof": 14,
+      "p_value": 0.22830388055541437,
+      "impossible_hits": 0
+    },
+    "plain_token2_marginal_vs_exact_law": {
+      "n": 3000,
+      "statistic": 34.39542912835217,
+      "dof": 33,
+      "p_value": 0.4007925823924445,
+      "impossible_hits": 0
+    },
+    "spec_token1_vs_exact_law": {
+      "n": 3000,
+      "statistic": 8.129953748733895,
+      "dof": 14,
+      "p_value": 0.8824463512914047,
+      "impossible_hits": 0
+    },
+    "spec_token2_marginal_vs_exact_law": {
+      "n": 3000,
+      "statistic": 38.23336315261903,
+      "dof": 33,
+      "p_value": 0.24380382781103424,
+      "impossible_hits": 0
+    },
+    "plain_vs_spec_token1": {
+      "statistic": 8.237152027244374,
+      "dof": 17,
+      "p_value": 0.9612094173082643
+    },
+    "plain_vs_spec_token2": {
+      "statistic": 26.83384590611281,
+      "dof": 33,
+      "p_value": 0.7669022164371123
+    },
+    "plain_vs_spec_token3": {
+      "statistic": 54.21986722472112,
+      "dof": 53,
+      "p_value": 0.42768372311603364
+    },
+    "plain_vs_spec_joint": {
+      "statistic": 54.16035625997058,
+      "dof": 71,
+      "p_value": 0.9313965028216605
+    }
+  },
+  "rejected_at_alpha": {
+    "plain_token1_vs_exact_law": false,
+    "plain_token2_marginal_vs_exact_law": false,
+    "spec_token1_vs_exact_law": false,
+    "spec_token2_marginal_vs_exact_law": false,
+    "plain_vs_spec_token1": false,
+    "plain_vs_spec_token2": false,
+    "plain_vs_spec_token3": false,
+    "plain_vs_spec_joint": false
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "alpha": 0.001,
+  "n": {
+    "spec": 5000
+  },
+  "props": {
+    "KV_CACHE_PRECISION": "f16"
+  },
+  "k": 3,
+  "tests": {
+    "spec_token1_vs_exact_law": {
+      "n": 5000,
+      "statistic": 14.194329381322838,
+      "dof": 19,
+      "p_value": 0.7722473030935636,
+      "impossible_hits": 0
+    },
+    "spec_token2_marginal_vs_exact_law": {
+      "n": 5000,
+      "statistic": 305.46817130284694,
+      "dof": 41,
+      "p_value": 3.81186079324742e-42,
+      "impossible_hits": 8
+    }
+  },
+  "rejected_at_alpha": {
+    "spec_token1_vs_exact_law": false,
+    "spec_token2_marginal_vs_exact_law": true
+  }
+}
