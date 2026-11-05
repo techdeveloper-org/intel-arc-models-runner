@@ -1,0 +1,11 @@
+{
+ "n": 50,
+ "tpot_p50": 37.65745735168457,
+ "tpot_p95": 43.39751758575439,
+ "tpot_mean": 38.84906494140625,
+ "ttft_p50": 627.1567993164062,
+ "raw_infer_n": 1200,
+ "raw_p50": 36643.0,
+ "raw_p95": 51547.2,
+ "raw_unit_note": "as reported by raw_metrics.token_infer_durations"
+}

@@ -1,0 +1,15 @@
+{
+  "kind": "derived_estimate_not_end_to_end",
+  "formula": "sampling_ms = 3*draft_row_ms + lazy_verify_ms + 0.5; overhead = sampling_ms / (gpu_target_4tok_chunk_ms + 3*npu_draft_step_ms)",
+  "npu_draft_step_ms": 37.66,
+  "inputs_source": ["gap11_step_times_gpu.json", "gap11_step_times_npu_draft.json", "scratchpad opt_lazy/bench_out3.txt (acceptance 0.17-0.22 per candidate)"],
+  "row_ms": {"top_k=20": 0.20, "top_p_only": 2.8, "plain_softmax": 1.9},
+  "lazy_verify_ms": {"top_k=20": 0.40, "top_p_only": 2.9, "plain_softmax": 1.75},
+  "gpu_p50_overhead_percent": {
+    "P5":   {"top_k=20": 0.95, "top_p_only": 7.48, "plain_softmax": 5.04},
+    "P100": {"top_k=20": 0.87, "top_p_only": 6.82, "plain_softmax": 4.59}
+  },
+  "old_all_rows_worst_case_percent_P5": {"top_k=20": 1.20, "top_p_only": 12.74, "plain_softmax": 8.75},
+  "gate": "5 percent",
+  "verdict": "top_p_only fails the gate on GPU target; plain_softmax borderline; acceptance on silicon not measured with the fixed build"
+}
