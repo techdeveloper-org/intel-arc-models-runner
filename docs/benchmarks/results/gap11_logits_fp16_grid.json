@@ -1,0 +1,152 @@
+{
+  "status": "measured",
+  "device": "GPU",
+  "output_dtypes": [
+    "<Type: 'float32'>"
+  ],
+  "rows": [
+    {
+      "prompt_id": 0,
+      "step": 0,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 0,
+      "step": 1,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 0,
+      "step": 2,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 0,
+      "step": 3,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 0,
+      "step": 4,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 1,
+      "step": 0,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 1,
+      "step": 1,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 1,
+      "step": 2,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 1,
+      "step": 3,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 1,
+      "step": 4,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 2,
+      "step": 0,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 2,
+      "step": 1,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 2,
+      "step": 2,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 2,
+      "step": 3,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 2,
+      "step": 4,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 3,
+      "step": 0,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 3,
+      "step": 1,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 3,
+      "step": 2,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 3,
+      "step": 3,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    },
+    {
+      "prompt_id": 3,
+      "step": 4,
+      "vocab": 151936,
+      "off_grid": 0,
+      "non_finite": 0
+    }
+  ],
+  "rows_checked": 20,
+  "total_off_grid": 0,
+  "all_rows_on_fp16_grid": true
+}
