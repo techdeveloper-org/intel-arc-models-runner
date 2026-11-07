@@ -11,8 +11,14 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 import pytest
+from hypothesis import HealthCheck, given, settings, strategies as st
 
-from arc_runner.quant.npu_graph_rewriter import NpuGraphRewriter, NpuGraphRewriterError
+from arc_runner.quant.npu_graph_rewriter import (
+    NpuGraphRewriter,
+    NpuGraphRewriterError,
+    freeze_kv_variable_shape,
+    parse_dim,
+)
 
 
 class TestNpuGraphRewriter:
@@ -168,3 +174,289 @@ class TestNpuGraphRewriter:
         assert manifest["precision"] == "INT4_SYM"
         assert manifest["zero_points_stripped"] == 1
         assert manifest["kv_shapes_frozen"] == 1
+
+
+UNBOUNDED = float("inf")
+
+
+def _parse_dim(token: str) -> tuple:
+    """Parse one OpenVINO partial dimension token into an inclusive (low, high) pair.
+
+    Independent oracle for the tests: it shares no code with the implementation.
+
+    Args:
+        token: One of "?", "N" or "A..B".
+
+    Returns:
+        Inclusive bounds, with an unbounded high end for a fully dynamic dimension.
+    """
+    token = token.strip()
+    if token == "?":
+        return (0, UNBOUNDED)
+    if ".." in token:
+        low, high = token.split("..")
+        return (int(low) if low else 0, int(high) if high else UNBOUNDED)
+    return (int(token), int(token))
+
+
+def _contains(outer: str, inner: str) -> bool:
+    """Return True when every dimension interval of inner lies inside outer.
+
+    Args:
+        outer: Comma separated partial shape that must relax inner.
+        inner: Comma separated partial shape of the initialisation subgraph.
+
+    Returns:
+        True when the shapes have equal rank and outer extends inner on every dimension.
+    """
+    outer_dims = [_parse_dim(t) for t in outer.split(",")]
+    inner_dims = [_parse_dim(t) for t in inner.split(",")]
+    if len(outer_dims) != len(inner_dims):
+        return False
+    return all(o[0] <= i[0] and i[1] <= o[1] for o, i in zip(outer_dims, inner_dims))
+
+
+def _kv_model_xml(variable_shape: str, heads: int = 8, head_dim: int = 128, rank: int = 4) -> str:
+    """Build a minimal IR with one stateful KV ReadValue and its Assign.
+
+    Args:
+        variable_shape: The variable_shape attribute of the ReadValue.
+        heads: KV head count used in the port dimensions.
+        head_dim: Head dimension used in the port dimensions.
+        rank: Rank of the state; 4 builds [batch, heads, seq, head_dim].
+
+    Returns:
+        IR XML text.
+    """
+    if rank == 4:
+        init = f"<dim>-1</dim><dim>{heads}</dim><dim>0</dim><dim>{head_dim}</dim>"
+        out = f"<dim>-1</dim><dim>{heads}</dim><dim>-1</dim><dim>{head_dim}</dim>"
+    else:
+        init = "<dim>-1</dim><dim>0</dim><dim>16</dim>"
+        out = "<dim>-1</dim><dim>-1</dim><dim>16</dim>"
+    return f"""<?xml version="1.0"?>
+<net name="kv_net" version="11">
+    <layers>
+        <layer id="0" name="kv_read" type="ReadValue" version="opset6">
+            <data variable_id="past_kv" variable_type="f32" variable_shape="{variable_shape}"/>
+            <input><port id="0" precision="FP32">{init}</port></input>
+            <output><port id="1" precision="FP32">{out}</port></output>
+        </layer>
+        <layer id="1" name="kv_assign" type="Assign" version="opset6">
+            <data variable_id="past_kv"/>
+            <input><port id="0" precision="FP32">{out}</port></input>
+        </layer>
+    </layers>
+    <edges>
+        <edge from-layer="0" from-port="1" to-layer="1" to-port="0"/>
+    </edges>
+</net>
+"""
+
+
+def _rewrite_kv(tmp_path: Path, xml_text: str, max_context_len: int = 128) -> ET.Element:
+    """Run the rewriter on a one-layer KV model and return the parsed output root.
+
+    Args:
+        tmp_path: Pytest temporary directory.
+        xml_text: Source IR XML.
+        max_context_len: Static sequence bound given to the rewriter.
+
+    Returns:
+        Root element of the rewritten IR.
+    """
+    source_dir = tmp_path / "src_model"
+    out_dir = tmp_path / "out_model"
+    source_dir.mkdir(parents=True, exist_ok=True)
+    (source_dir / "openvino_model.xml").write_text(xml_text, encoding="utf-8")
+    (source_dir / "openvino_model.bin").write_bytes(b"\x00" * 16)
+    (source_dir / "config.json").write_text("{}", encoding="utf-8")
+    NpuGraphRewriter(source_dir=source_dir, output_dir=out_dir, max_context_len=max_context_len).rewrite()
+    return ET.parse(out_dir / "openvino_model.xml").getroot()
+
+
+def _read_value_shape(root: ET.Element) -> str:
+    """Return the variable_shape of the first ReadValue layer.
+
+    Args:
+        root: Root element of an IR document.
+
+    Returns:
+        The variable_shape attribute text.
+    """
+    layer = next(l for l in root.find("layers") if l.get("type") == "ReadValue")
+    return layer.find("data").get("variable_shape")
+
+
+class TestKvShapeFreezing:
+    """Freezing must derive KV geometry from the model, never from a fixed constant."""
+
+    @pytest.mark.parametrize(
+        "heads,head_dim",
+        [(2, 64), (8, 128), (4, 128), (8, 64), (1, 256), (32, 128)],
+    )
+    def test_rewrite_kv_geometry_preserves_heads_and_head_dim(self, tmp_path, heads, head_dim):
+        """Heads and head_dim from the source state must survive unchanged."""
+        xml = _kv_model_xml(f"?,{heads},?,{head_dim}", heads, head_dim)
+        shape = _read_value_shape(_rewrite_kv(tmp_path, xml))
+        assert shape == f"?,{heads},0..128,{head_dim}"
+
+    def test_rewrite_qwen3_geometry_output_relaxes_initialisation_shape(self, tmp_path):
+        """OpenVINO requires the Variable shape to extend the initialisation shape."""
+        xml = _kv_model_xml("?,8,?,128", 8, 128)
+        shape = _read_value_shape(_rewrite_kv(tmp_path, xml))
+        assert _contains(shape, "?,8,0,128")
+
+    def test_rewrite_max_context_len_sets_sequence_upper_bound(self, tmp_path):
+        """The sequence bound must come from max_context_len."""
+        xml = _kv_model_xml("?,8,?,128", 8, 128)
+        shape = _read_value_shape(_rewrite_kv(tmp_path, xml, max_context_len=256))
+        assert shape == "?,8,0..256,128"
+
+    def test_rewrite_static_sequence_dimension_is_relaxed_to_contain_zero(self, tmp_path):
+        """A static non-zero sequence dim would not contain the empty init state, so it is relaxed."""
+        xml = _kv_model_xml("?,8,32,128", 8, 128)
+        shape = _read_value_shape(_rewrite_kv(tmp_path, xml))
+        assert shape == "?,8,0..128,128"
+        assert _contains(shape, "?,8,0,128")
+
+    def test_rewrite_static_sequence_dimension_above_limit_keeps_its_upper_bound(self, tmp_path):
+        """A static sequence larger than max_context_len must stay reachable."""
+        xml = _kv_model_xml("?,8,512,128", 8, 128)
+        assert _read_value_shape(_rewrite_kv(tmp_path, xml, max_context_len=128)) == "?,8,0..512,128"
+
+    def test_rewrite_non_kv_rank_state_is_not_counted_as_frozen(self, tmp_path):
+        """The manifest must count only layers that were actually rewritten."""
+        source_dir = tmp_path / "src_model"
+        out_dir = tmp_path / "out_model"
+        source_dir.mkdir(parents=True)
+        (source_dir / "openvino_model.xml").write_text(_kv_model_xml("?,?,16", rank=3), encoding="utf-8")
+        (source_dir / "openvino_model.bin").write_bytes(b"\x00" * 16)
+        NpuGraphRewriter(source_dir=source_dir, output_dir=out_dir).rewrite()
+        manifest = json.loads((out_dir / "npu_manifest.json").read_text(encoding="utf-8"))
+        assert manifest["kv_shapes_frozen"] == 0
+
+    def test_rewrite_is_idempotent_on_certified_output(self, tmp_path):
+        """Rewriting an already certified model must not change the state shape."""
+        first = _rewrite_kv(tmp_path / "a", _kv_model_xml("?,8,?,128", 8, 128))
+        again = _kv_model_xml(_read_value_shape(first), 8, 128)
+        second = _rewrite_kv(tmp_path / "b", again)
+        assert _read_value_shape(second) == _read_value_shape(first)
+
+    def test_rewrite_dynamic_head_count_raises_structured_error(self, tmp_path):
+        """A dynamic head count cannot be frozen without inventing a value."""
+        xml = _kv_model_xml("?,?,?,128", 8, 128)
+        with pytest.raises(NpuGraphRewriterError):
+            _rewrite_kv(tmp_path, xml)
+
+    def test_rewrite_dynamic_head_dim_raises_structured_error(self, tmp_path):
+        """A dynamic head dimension cannot be frozen without inventing a value."""
+        xml = _kv_model_xml("?,8,?,?", 8, 128)
+        with pytest.raises(NpuGraphRewriterError):
+            _rewrite_kv(tmp_path, xml)
+
+    def test_rewrite_variable_shape_disagreeing_with_init_ports_raises(self, tmp_path):
+        """A variable_shape whose heads differ from the init port dims is an inconsistent model."""
+        xml = _kv_model_xml("?,2,?,64", heads=8, head_dim=128)
+        with pytest.raises(NpuGraphRewriterError):
+            _rewrite_kv(tmp_path, xml)
+
+    def test_rewrite_non_kv_rank_state_is_left_untouched(self, tmp_path):
+        """A rank 3 state is not a KV cache and keeps its original shape."""
+        xml = _kv_model_xml("?,?,16", rank=3)
+        assert _read_value_shape(_rewrite_kv(tmp_path, xml)) == "?,?,16"
+
+    def test_rewrite_port_dims_keep_heads_and_head_dim(self, tmp_path):
+        """Only batch and sequence port dimensions may be made static."""
+        root = _rewrite_kv(tmp_path, _kv_model_xml("?,8,?,128", 8, 128))
+        layer = next(l for l in root.find("layers") if l.get("type") == "ReadValue")
+        dims = [d.text for d in layer.find("output/port").findall("dim")]
+        assert dims[1] == "8" and dims[3] == "128"
+
+
+class TestKvShapeEdgeCases:
+    """Direct tests of the dimension parser and of the remaining freezing rules."""
+
+    @pytest.mark.parametrize(
+        "token,expected",
+        [("?", (0, None)), ("-1", (0, None)), ("7", (7, 7)), ("0..128", (0, 128)),
+         ("2..", (2, None)), ("..9", (0, 9)), (" 5 ", (5, 5))],
+    )
+    def test_parse_dim_valid_token_returns_inclusive_bounds(self, token, expected):
+        """Every supported spelling of a partial dimension maps to its exact bounds."""
+        assert parse_dim(token) == expected
+
+    @pytest.mark.parametrize("token", ["", "abc", "-3", "1..x", "1.5"])
+    def test_parse_dim_invalid_token_raises_structured_error(self, token):
+        """Malformed or negative tokens must raise, never be guessed."""
+        with pytest.raises(NpuGraphRewriterError):
+            parse_dim(token)
+
+    def test_freeze_variable_shape_head_range_raises(self):
+        """A range of head counts is not one model fact, so it cannot be frozen."""
+        with pytest.raises(NpuGraphRewriterError):
+            freeze_kv_variable_shape("?,2..8,?,128", 128)
+
+    def test_freeze_variable_shape_head_dim_range_raises(self):
+        """A range of head dimensions is not one model fact, so it cannot be frozen."""
+        with pytest.raises(NpuGraphRewriterError):
+            freeze_kv_variable_shape("?,8,?,64..128", 128)
+
+    def test_freeze_variable_shape_rank_other_than_four_returns_none(self):
+        """Only rank 4 states are KV caches."""
+        assert freeze_kv_variable_shape("?,?,16", 128) is None
+        assert freeze_kv_variable_shape("?,8,?,128,1", 128) is None
+
+    def test_freeze_variable_shape_open_interval_uses_context_bound(self):
+        """An interval with no upper end is bounded by max_context_len."""
+        assert freeze_kv_variable_shape("?,8,3..,128", 96) == "?,8,0..96,128"
+
+    def test_rewrite_init_heads_below_variable_heads_raises(self, tmp_path):
+        """Init heads smaller than the variable heads cannot be relaxed by the variable."""
+        xml = _kv_model_xml("?,8,?,128", heads=4, head_dim=128)
+        with pytest.raises(NpuGraphRewriterError):
+            _rewrite_kv(tmp_path, xml)
+
+    def test_rewrite_assign_port_dims_become_static(self, tmp_path):
+        """The Assign that writes the state back is frozen consistently with the ReadValue."""
+        root = _rewrite_kv(tmp_path, _kv_model_xml("?,8,?,128", 8, 128))
+        assign = next(l for l in root.find("layers") if l.get("type") == "Assign")
+        dims = [d.text for d in assign.find("input/port").findall("dim")]
+        assert dims == ["1", "8", "128", "128"]
+
+    def test_rewrite_assign_of_non_kv_state_is_left_dynamic(self, tmp_path):
+        """A rank 3 Assign keeps its dynamic dimensions."""
+        root = _rewrite_kv(tmp_path, _kv_model_xml("?,?,16", rank=3))
+        assign = next(l for l in root.find("layers") if l.get("type") == "Assign")
+        dims = [d.text for d in assign.find("input/port").findall("dim")]
+        assert dims == ["-1", "-1", "16"]
+
+
+class TestKvShapeFreezingProperties:
+    """Property based check of invariants I1 to I5 against an independent oracle."""
+
+    @settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @given(
+        heads=st.integers(min_value=1, max_value=64),
+        head_dim=st.sampled_from([32, 64, 96, 128, 192, 256]),
+        context=st.integers(min_value=64, max_value=4096),
+        seq_dynamic=st.booleans(),
+        seq_static=st.integers(min_value=0, max_value=512),
+    )
+    def test_rewrite_output_contains_initialisation_shape_for_any_geometry(
+        self, tmp_path_factory, heads, head_dim, context, seq_dynamic, seq_static
+    ):
+        """Output contains the init shape, keeps geometry, and is idempotent."""
+        tmp_path = tmp_path_factory.mktemp("prop")
+        seq = "?" if seq_dynamic else str(seq_static)
+        shape_in = f"?,{heads},{seq},{head_dim}"
+        root = _rewrite_kv(tmp_path / "a", _kv_model_xml(shape_in, heads, head_dim), context)
+        shape_out = _read_value_shape(root)
+        assert _contains(shape_out, f"?,{heads},0,{head_dim}")
+        assert _parse_dim(shape_out.split(",")[2])[1] >= max(context, 0 if seq_dynamic else seq_static)
+        out_dims = shape_out.split(",")
+        assert out_dims[1] == str(heads) and out_dims[3] == str(head_dim)
+        again = _read_value_shape(
+            _rewrite_kv(tmp_path / "b", _kv_model_xml(shape_out, heads, head_dim), context)
+        )
+        assert again == shape_out

@@ -38,6 +38,66 @@ class NpuGraphRewriterError(ArcRunnerError):
         self.details = details or {}
 
 
+def parse_dim(token: str) -> Tuple[int, Optional[int]]:
+    """Parse one OpenVINO partial dimension into inclusive bounds.
+
+    Args:
+        token: "?", "-1", "N" or an interval "A..B" where either end may be empty.
+
+    Returns:
+        Pair (low, high); high is None when the dimension has no upper bound.
+
+    Raises:
+        NpuGraphRewriterError: If the token is not a valid dimension.
+    """
+    text = token.strip()
+    try:
+        if text in ("?", "-1"):
+            return 0, None
+        if ".." in text:
+            low_text, high_text = text.split("..", 1)
+            return (int(low_text) if low_text else 0), (int(high_text) if high_text else None)
+        value = int(text)
+    except ValueError as exc:
+        raise NpuGraphRewriterError(f"Invalid dimension token: {token!r}", {"token": token}) from exc
+    if value < 0:
+        raise NpuGraphRewriterError(f"Invalid dimension token: {token!r}", {"token": token})
+    return value, value
+
+
+def freeze_kv_variable_shape(shape_text: str, max_context_len: int) -> Optional[str]:
+    """Bound the sequence axis of a rank 4 KV state and keep every model fact.
+
+    For source shape (s0, s1, s2, s3) the result is (s0, s1, 0..U, s3) with
+    U = max(max_context_len, upper bound of s2). Heads (s1) and head dimension (s3) are copied,
+    so a Variable shape always extends an initialisation shape of the form (b, s1, 0, s3).
+    Applying the function to its own output with the same bound returns the same text.
+
+    Args:
+        shape_text: The variable_shape attribute, comma separated.
+        max_context_len: Static sequence bound for the NPU.
+
+    Returns:
+        The frozen shape text, or None when the state is not rank 4 (not a KV cache).
+
+    Raises:
+        NpuGraphRewriterError: If heads or head dimension is not a single fixed value.
+    """
+    tokens = shape_text.split(",")
+    if len(tokens) != 4:
+        return None
+    dims = [parse_dim(token) for token in tokens]
+    for axis, name in ((1, "kv heads"), (3, "head dimension")):
+        low, high = dims[axis]
+        if high is None or low != high:
+            raise NpuGraphRewriterError(
+                f"Cannot freeze KV state: {name} is not a fixed value",
+                {"variable_shape": shape_text, "axis": axis},
+            )
+    upper = max(max_context_len, dims[2][1] or 0)
+    return f"{tokens[0].strip()},{tokens[1].strip()},0..{upper},{tokens[3].strip()}"
+
+
 class NpuGraphRewriter:
     """Orchestrates computational DAG mutations to certify models for Intel NPU37XX."""
 
@@ -189,33 +249,108 @@ class NpuGraphRewriter:
             return 0
 
         frozen_count = 0
+        skipped_count = 0
         for l in layers_elem:
             layer_type = l.get("type")
 
             if layer_type == "ReadValue":
-                data = l.find("data")
-                if data is not None and "variable_shape" in data.attrib:
-                    data.attrib["variable_shape"] = f"?,2,0..{self.max_context_len},64"
-                for port in l.findall(".//port"):
-                    dims = port.findall("dim")
-                    if len(dims) == 4:
-                        if dims[0].text == "-1":
-                            dims[0].text = str(self.batch_size)
-                        if dims[2].text == "-1":
-                            dims[2].text = str(self.max_context_len)
-                frozen_count += 1
+                if self._freeze_read_value(l):
+                    frozen_count += 1
+                else:
+                    skipped_count += 1
 
             elif layer_type == "Assign":
-                for port in l.findall(".//port"):
-                    dims = port.findall("dim")
-                    if len(dims) == 4:
-                        if dims[0].text == "-1":
-                            dims[0].text = str(self.batch_size)
-                        if dims[2].text == "-1":
-                            dims[2].text = str(self.max_context_len)
-                frozen_count += 1
+                if self._freeze_port_dims(l, self.max_context_len):
+                    frozen_count += 1
 
+        logger.info(
+            "KV state shapes frozen",
+            extra={
+                "frozen_layers": frozen_count,
+                "skipped_non_kv_states": skipped_count,
+                "max_context_len": self.max_context_len,
+            },
+        )
         return frozen_count
+
+    def _freeze_read_value(self, layer: ET.Element) -> bool:
+        """Freeze one ReadValue state to a bounded shape derived from its own source shape.
+
+        Args:
+            layer: A ReadValue layer element.
+
+        Returns:
+            bool: True when a rank 4 state was rewritten, False when it is not a KV cache.
+
+        Raises:
+            NpuGraphRewriterError: If the shape cannot be frozen without inventing a model
+                fact, or if the frozen shape would not contain the initialisation shape.
+        """
+        data = layer.find("data")
+        if data is None or "variable_shape" not in data.attrib:
+            return False
+        source_shape = data.attrib["variable_shape"]
+        frozen_shape = freeze_kv_variable_shape(source_shape, self.max_context_len)
+        if frozen_shape is None:
+            return False
+        self._assert_contains_init_shape(layer, frozen_shape)
+        data.attrib["variable_shape"] = frozen_shape
+        upper = parse_dim(frozen_shape.split(",")[2])[1]
+        self._freeze_port_dims(layer, upper if upper is not None else self.max_context_len)
+        return True
+
+    def _freeze_port_dims(self, layer: ET.Element, sequence_bound: int) -> bool:
+        """Make the batch and sequence dimensions of rank 4 ports static.
+
+        Heads and head dimension are never touched.
+
+        Args:
+            layer: A ReadValue or Assign layer element.
+            sequence_bound: Static value written over a dynamic sequence dimension.
+
+        Returns:
+            bool: True when at least one port dimension was changed.
+        """
+        changed = False
+        for port in layer.findall(".//port"):
+            dims = port.findall("dim")
+            if len(dims) != 4:
+                continue
+            if dims[0].text == "-1":
+                dims[0].text = str(self.batch_size)
+                changed = True
+            if dims[2].text == "-1":
+                dims[2].text = str(sequence_bound)
+                changed = True
+        return changed
+
+    @staticmethod
+    def _assert_contains_init_shape(layer: ET.Element, frozen_shape: str) -> None:
+        """Check that the frozen Variable shape extends the shape of the init subgraph.
+
+        This is the condition OpenVINO enforces in ReadValue validation.
+
+        Args:
+            layer: The ReadValue layer whose input port carries the init shape.
+            frozen_shape: Candidate variable_shape text.
+
+        Raises:
+            NpuGraphRewriterError: If a static init dimension lies outside the frozen one.
+        """
+        frozen_dims = [parse_dim(token) for token in frozen_shape.split(",")]
+        for port in layer.findall("./input/port"):
+            init_dims = [dim.text for dim in port.findall("dim")]
+            if len(init_dims) != len(frozen_dims):
+                continue
+            for axis, text in enumerate(init_dims):
+                if text is None or int(text) < 0:
+                    continue
+                low, high = frozen_dims[axis]
+                if not (low <= int(text) and (high is None or int(text) <= high)):
+                    raise NpuGraphRewriterError(
+                        "Frozen KV state shape does not extend the initialisation shape",
+                        {"variable_shape": frozen_shape, "init_dims": init_dims, "axis": axis},
+                    )
 
     def _synchronize_tokenizer_assets(self) -> None:
         """Copy tokenizer weights, configurations, and vocabularies from source directory."""
