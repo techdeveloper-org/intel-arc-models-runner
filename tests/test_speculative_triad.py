@@ -262,3 +262,43 @@ def test_tc_e05_zero_draft_acceptance_fallback(tmp_path: Path) -> None:
     engine._current_gamma = 4
     engine._adapt_gamma(accepted_count=0, draft_count=4)
     assert engine._current_gamma == 3
+
+
+class TestDraftRewriteFallback:
+    """Issue #69: the NPU draft rewrite failure must be visible, typed and bounded."""
+
+    @staticmethod
+    def _incompatible_adapter():
+        report = mock.Mock(is_compatible=False)
+        return mock.patch(
+            "arc_runner.engine.npu_adapter.NpuModelAdapter.inspect_model_compatibility",
+            return_value=report,
+        )
+
+    def test_create_draft_model_rewriter_error_records_reason_and_uses_cpu(self, tmp_path, caplog):
+        from arc_runner.quant.npu_graph_rewriter import NpuGraphRewriterError
+
+        draft_dir = tmp_path / "draft"
+        draft_dir.mkdir()
+        error = NpuGraphRewriterError("bad range", {"layer": "w1"})
+        with self._incompatible_adapter(), mock.patch(
+            "arc_runner.quant.npu_graph_rewriter.NpuGraphRewriter.rewrite", side_effect=error
+        ), mock.patch("openvino_genai.draft_model", return_value="handle") as draft:
+            engine = HybridSpeculativeEngine()
+            with caplog.at_level("ERROR"):
+                handle = engine._create_draft_model(draft_dir, "NPU")
+        assert handle == "handle"
+        assert draft.call_args.args[1] == "CPU"
+        assert engine.draft_device == "CPU"
+        assert engine.draft_fallback_reason == "NPU_GRAPH_REWRITE_ERROR: bad range"
+        assert any(r.levelname == "ERROR" for r in caplog.records)
+
+    def test_create_draft_model_unexpected_rewriter_exception_is_not_swallowed(self, tmp_path):
+        draft_dir = tmp_path / "draft"
+        draft_dir.mkdir()
+        with self._incompatible_adapter(), mock.patch(
+            "arc_runner.quant.npu_graph_rewriter.NpuGraphRewriter.rewrite", side_effect=ZeroDivisionError("bug")
+        ), mock.patch("openvino_genai.draft_model", return_value="handle"):
+            engine = HybridSpeculativeEngine()
+            with pytest.raises(ZeroDivisionError):
+                engine._create_draft_model(draft_dir, "NPU")

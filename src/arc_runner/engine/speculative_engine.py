@@ -58,6 +58,7 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
         self._draft_model_path: str = ""
         self._device: str = "GPU"
         self._draft_device: str = "NPU"
+        self._draft_fallback_reason: str = ""
         self._telemetry: EngineTelemetry = EngineTelemetry()
         self._spec_config: Optional[SpeculativeConfig] = None
         self._current_gamma: int = 4
@@ -111,6 +112,15 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
             str: Hardware device string (e.g. 'NPU', 'CPU', 'GPU').
         """
         return self._draft_device
+
+    @property
+    def draft_fallback_reason(self) -> str:
+        """Return why the NPU draft was abandoned, or an empty string when it was not.
+
+        Returns:
+            str: Error code and message of the last NPU graph rewrite failure.
+        """
+        return self._draft_fallback_reason
 
     @property
     def current_gamma(self) -> int:
@@ -238,18 +248,25 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
                 adapter = NpuModelAdapter()
                 report = adapter.inspect_model_compatibility(draft_path)
                 if not report.is_compatible:
-                    from arc_runner.quant.npu_graph_rewriter import NpuGraphRewriter
+                    from arc_runner.quant.npu_graph_rewriter import NpuGraphRewriter, NpuGraphRewriterError
                     npu_certified_dir = draft_path.parent / f"{draft_path.name}-npu-certified"
                     try:
                         rewriter = NpuGraphRewriter(draft_path, npu_certified_dir)
                         rewriter.rewrite()
                         draft_path = npu_certified_dir
                         logger.info("Auto-transpiled draft model to NPU-certified IR: %s", npu_certified_dir)
-                    except Exception as transpile_err:
-                        logger.warning(
-                            "Draft model at %s is not NPU-compatible and auto-rewrite failed: %s. Falling back to CPU.",
-                            draft_path,
-                            transpile_err,
+                    except NpuGraphRewriterError as transpile_err:
+                        self._draft_fallback_reason = (
+                            f"{transpile_err.error_code}: {transpile_err.message}"
+                        )
+                        logger.error(
+                            "Draft model is not NPU-compatible and auto-rewrite failed; falling back to CPU",
+                            extra={
+                                "draft_model": draft_path.name,
+                                "error_code": transpile_err.error_code,
+                                "details": transpile_err.details,
+                            },
+                            exc_info=True,
                         )
                         continue
                 if props:
