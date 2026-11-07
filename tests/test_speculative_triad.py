@@ -275,7 +275,14 @@ class TestDraftRewriteFallback:
             return_value=report,
         )
 
-    def test_create_draft_model_rewriter_error_records_reason_and_uses_cpu(self, tmp_path, caplog):
+    @staticmethod
+    def _compatible_adapter():
+        return mock.patch(
+            "arc_runner.engine.npu_adapter.NpuModelAdapter.inspect_model_compatibility",
+            return_value=mock.Mock(is_compatible=True),
+        )
+
+    def test_create_draft_model_rewriter_error_records_reason_and_uses_gpu(self, tmp_path, caplog):
         from arc_runner.quant.npu_graph_rewriter import NpuGraphRewriterError
 
         draft_dir = tmp_path / "draft"
@@ -288,8 +295,8 @@ class TestDraftRewriteFallback:
             with caplog.at_level("ERROR"):
                 handle = engine._create_draft_model(draft_dir, "NPU")
         assert handle == "handle"
-        assert draft.call_args.args[1] == "CPU"
-        assert engine.draft_device == "CPU"
+        assert draft.call_args.args[1] == "GPU"
+        assert engine.draft_device == "GPU"
         assert engine.draft_fallback_reason == "NPU_GRAPH_REWRITE_ERROR: bad range"
         assert any(r.levelname == "ERROR" for r in caplog.records)
 
@@ -302,3 +309,68 @@ class TestDraftRewriteFallback:
             engine = HybridSpeculativeEngine()
             with pytest.raises(ZeroDivisionError):
                 engine._create_draft_model(draft_dir, "NPU")
+
+
+class TestDraftDeviceChain:
+    """NPU falls back to GPU, GPU falls back to CPU, CPU is the last tier."""
+
+    @pytest.mark.parametrize(
+        "preferred,expected",
+        [("NPU", ["NPU", "GPU", "CPU"]), ("GPU", ["GPU", "CPU"]), ("GPU.0", ["GPU.0", "CPU"]),
+         ("CPU", ["CPU"]), ("AUTO", ["AUTO", "CPU"])],
+    )
+    def test_draft_device_chain_returns_ordered_tiers(self, preferred, expected):
+        assert HybridSpeculativeEngine._draft_device_chain(preferred) == expected
+
+    def test_create_draft_model_npu_compile_failure_falls_back_to_gpu(self, tmp_path):
+        draft_dir = tmp_path / "draft"
+        draft_dir.mkdir()
+        calls = []
+
+        def fake(path, dev, **kw):
+            calls.append(dev)
+            if dev == "NPU":
+                raise RuntimeError("npu compile failed")
+            return "handle"
+
+        with TestDraftRewriteFallback._compatible_adapter(), mock.patch("openvino_genai.draft_model", side_effect=fake):
+            engine = HybridSpeculativeEngine()
+            assert engine._create_draft_model(draft_dir, "NPU") == "handle"
+        assert calls == ["NPU", "GPU"]
+        assert engine.draft_device == "GPU"
+        assert "NPU" in engine.draft_fallback_reason
+
+    def test_create_draft_model_npu_and_gpu_fail_falls_back_to_cpu(self, tmp_path):
+        draft_dir = tmp_path / "draft"
+        draft_dir.mkdir()
+        calls = []
+
+        def fake(path, dev, **kw):
+            calls.append(dev)
+            if dev != "CPU":
+                raise RuntimeError(f"{dev} failed")
+            return "handle"
+
+        with TestDraftRewriteFallback._compatible_adapter(), mock.patch("openvino_genai.draft_model", side_effect=fake):
+            engine = HybridSpeculativeEngine()
+            assert engine._create_draft_model(draft_dir, "NPU") == "handle"
+        assert calls == ["NPU", "GPU", "CPU"]
+        assert engine.draft_device == "CPU"
+
+    def test_create_draft_model_gpu_receives_original_path_not_npu_certified_copy(self, tmp_path):
+        draft_dir = tmp_path / "draft"
+        draft_dir.mkdir()
+        seen = {}
+
+        def fake(path, dev, **kw):
+            seen[dev] = path
+            if dev == "NPU":
+                raise RuntimeError("npu compile failed")
+            return "handle"
+
+        with TestDraftRewriteFallback._incompatible_adapter(), mock.patch(
+            "arc_runner.quant.npu_graph_rewriter.NpuGraphRewriter.rewrite"
+        ), mock.patch("openvino_genai.draft_model", side_effect=fake):
+            HybridSpeculativeEngine()._create_draft_model(draft_dir, "NPU")
+        assert seen["NPU"].endswith("draft-npu-certified")
+        assert seen["GPU"] == str(draft_dir)

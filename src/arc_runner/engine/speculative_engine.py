@@ -213,6 +213,21 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
                 logger.warning("Could not inspect config.json for vocab alignment: %s", exc)
         return True
 
+    @staticmethod
+    def _draft_device_chain(preferred_device: str) -> List[str]:
+        """Return the draft devices to try in order: NPU, then GPU, then CPU.
+
+        Args:
+            preferred_device: Requested draft device.
+
+        Returns:
+            List[str]: The preferred device followed by every lower tier, without duplicates.
+        """
+        order = ["NPU", "GPU", "CPU"]
+        tier = next((i for i, name in enumerate(order) if preferred_device.startswith(name)), None)
+        chain = [preferred_device] + [name for name in (order[tier + 1:] if tier is not None else ["CPU"])]
+        return list(dict.fromkeys(chain))
+
     def _create_draft_model(
         self,
         draft_path: Path,
@@ -234,14 +249,14 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
         """
         import openvino_genai as ov_genai
 
-        candidates = [preferred_device]
-        if preferred_device != "CPU":
-            candidates.append("CPU")
+        candidates = self._draft_device_chain(preferred_device)
+        original_path = draft_path
 
         props = dict(draft_properties or {})
         last_error: Optional[Exception] = None
         for dev in candidates:
             dev_props = dict(props)
+            draft_path = original_path
             if dev == "NPU":
                 from arc_runner.engine.npu_adapter import NpuModelAdapter
 
@@ -295,10 +310,10 @@ class HybridSpeculativeEngine(ContextBudgetMixin, BaseEngine):
                 return draft_handle
             except Exception as exc:
                 last_error = exc
+                self._draft_fallback_reason = f"{dev}: {type(exc).__name__}: {exc}"
                 logger.warning(
-                    "Draft model failed on device %s: %s. Attempting fallback.",
-                    dev,
-                    exc,
+                    "Draft model failed on device; trying next tier",
+                    extra={"device": dev, "error_type": type(exc).__name__, "error": str(exc)},
                 )
 
         if last_error:
