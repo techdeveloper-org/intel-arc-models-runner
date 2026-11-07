@@ -17,6 +17,7 @@ from arc_runner.quant.npu_graph_rewriter import (
     NpuGraphRewriter,
     NpuGraphRewriterError,
     freeze_kv_variable_shape,
+    verify_bounded,
     parse_dim,
 )
 
@@ -287,6 +288,13 @@ def _read_value_shape(root: ET.Element) -> str:
     return layer.find("data").get("variable_shape")
 
 
+def _static_state_xml() -> str:
+    """Build a model whose rank 3 state has a fixed shape and therefore never grows."""
+    xml = _kv_model_xml("?,4,16", rank=3)
+    xml = xml.replace("<dim>0</dim>", "<dim>4</dim>").replace("<dim>-1</dim><dim>-1</dim>", "<dim>-1</dim><dim>4</dim>")
+    return xml
+
+
 class TestKvShapeFreezing:
     """Freezing must derive KV geometry from the model, never from a fixed constant."""
 
@@ -324,16 +332,21 @@ class TestKvShapeFreezing:
         xml = _kv_model_xml("?,8,512,128", 8, 128)
         assert _read_value_shape(_rewrite_kv(tmp_path, xml, max_context_len=128)) == "?,8,0..512,128"
 
-    def test_rewrite_non_kv_rank_state_is_not_counted_as_frozen(self, tmp_path):
-        """The manifest must count only layers that were actually rewritten."""
+    def test_rewrite_non_growing_state_is_not_counted_as_frozen(self, tmp_path):
+        """A state with no zero-sized initial axis does not grow and is not counted."""
         source_dir = tmp_path / "src_model"
         out_dir = tmp_path / "out_model"
         source_dir.mkdir(parents=True)
-        (source_dir / "openvino_model.xml").write_text(_kv_model_xml("?,?,16", rank=3), encoding="utf-8")
+        (source_dir / "openvino_model.xml").write_text(_static_state_xml(), encoding="utf-8")
         (source_dir / "openvino_model.bin").write_bytes(b"\x00" * 16)
         NpuGraphRewriter(source_dir=source_dir, output_dir=out_dir).rewrite()
         manifest = json.loads((out_dir / "npu_manifest.json").read_text(encoding="utf-8"))
         assert manifest["kv_shapes_frozen"] == 0
+
+    def test_rewrite_rank_three_growing_state_is_frozen_on_its_growth_axis(self, tmp_path):
+        """A rank 3 latent cache [batch, seq, dim] grows on axis 1 and must be bounded there."""
+        root = _rewrite_kv(tmp_path, _kv_model_xml("?,?,16", rank=3))
+        assert _read_value_shape(root) == "?,0..128,16"
 
     def test_rewrite_is_idempotent_on_certified_output(self, tmp_path):
         """Rewriting an already certified model must not change the state shape."""
@@ -360,10 +373,10 @@ class TestKvShapeFreezing:
         with pytest.raises(NpuGraphRewriterError):
             _rewrite_kv(tmp_path, xml)
 
-    def test_rewrite_non_kv_rank_state_is_left_untouched(self, tmp_path):
-        """A rank 3 state is not a KV cache and keeps its original shape."""
-        xml = _kv_model_xml("?,?,16", rank=3)
-        assert _read_value_shape(_rewrite_kv(tmp_path, xml)) == "?,?,16"
+    def test_rewrite_non_growing_state_is_left_untouched(self, tmp_path):
+        """A fixed-shape state keeps its original variable shape."""
+        xml = _static_state_xml()
+        assert _read_value_shape(_rewrite_kv(tmp_path, xml)) == "?,4,16"
 
     def test_rewrite_port_dims_keep_heads_and_head_dim(self, tmp_path):
         """Only batch and sequence port dimensions may be made static."""
@@ -423,13 +436,19 @@ class TestKvShapeEdgeCases:
         dims = [d.text for d in assign.find("input/port").findall("dim")]
         assert dims == ["1", "8", "128", "128"]
 
-    def test_rewrite_assign_of_non_kv_state_is_left_dynamic(self, tmp_path):
-        """A rank 3 Assign keeps its dynamic dimensions."""
-        root = _rewrite_kv(tmp_path, _kv_model_xml("?,?,16", rank=3))
+    def test_rewrite_assign_of_growing_rank_three_state_uses_the_read_value_bound(self, tmp_path):
+        """The Assign growth dimension gets the bound chosen for its ReadValue."""
+        root = _rewrite_kv(tmp_path, _kv_model_xml("?,512,16", rank=3))
         assign = next(l for l in root.find("layers") if l.get("type") == "Assign")
         dims = [d.text for d in assign.find("input/port").findall("dim")]
-        assert dims == ["-1", "-1", "16"]
+        assert dims == ["1", "512", "16"]
 
+    def test_rewrite_assign_of_non_growing_state_is_left_dynamic(self, tmp_path):
+        """An Assign whose ReadValue does not grow keeps its dimensions."""
+        root = _rewrite_kv(tmp_path, _static_state_xml())
+        assign = next(l for l in root.find("layers") if l.get("type") == "Assign")
+        dims = [d.text for d in assign.find("input/port").findall("dim")]
+        assert dims == ["-1", "4", "16"]
 
 class TestKvShapeFreezingProperties:
     """Property based check of invariants I1 to I5 against an independent oracle."""
@@ -459,3 +478,114 @@ class TestKvShapeFreezingProperties:
             _rewrite_kv(tmp_path / "b", _kv_model_xml(shape_out, heads, head_dim), context)
         )
         assert again == shape_out
+
+
+def _concat_model_xml(variable_shape: str, init_dims: str, out_dims: str, axis: int, rank_marker: str = "") -> str:
+    """Build ReadValue -> Gather -> Concat(axis) -> Assign with explicit dimensions."""
+    return f"""<?xml version="1.0"?>
+<net name="cc" version="11">
+    <layers>
+        <layer id="0" name="rv" type="ReadValue" version="opset6">
+            <data variable_id="v" variable_type="f32" variable_shape="{variable_shape}"/>
+            <input><port id="0" precision="FP32">{init_dims}</port></input>
+            <output><port id="1" precision="FP32">{out_dims}</port></output>
+        </layer>
+        <layer id="1" name="g" type="Gather" version="opset8">
+            <data batch_dims="0"/>
+            <output><port id="2" precision="FP32">{out_dims}</port></output>
+        </layer>
+        <layer id="2" name="cat" type="Concat" version="opset1">
+            <data axis="{axis}"/>
+            <output><port id="3" precision="FP32">{out_dims}</port></output>
+        </layer>
+        <layer id="3" name="as" type="Assign" version="opset6">
+            <data variable_id="v"/>
+            <input><port id="0" precision="FP32">{out_dims}</port></input>
+        </layer>
+    </layers>
+    <edges>
+        <edge from-layer="0" from-port="1" to-layer="1" to-port="0"/>
+        <edge from-layer="1" from-port="2" to-layer="2" to-port="0"/>
+        <edge from-layer="2" from-port="3" to-layer="3" to-port="0"/>
+    </edges>
+</net>
+"""
+
+
+class TestGrowthAxisFromGraph:
+    """The growth axis comes from the init shape and the Concat, never from rank or position."""
+
+    INIT = "<dim>-1</dim><dim>0</dim><dim>16</dim><dim>0</dim>"
+    OUT = "<dim>-1</dim><dim>-1</dim><dim>16</dim><dim>-1</dim>"
+
+    def test_rewrite_negative_concat_axis_selects_the_matching_candidate(self, tmp_path):
+        init = "<dim>-1</dim><dim>8</dim><dim>0</dim><dim>128</dim>"
+        out = "<dim>-1</dim><dim>8</dim><dim>-1</dim><dim>128</dim>"
+        root = _rewrite_kv(tmp_path, _concat_model_xml("?,8,?,128", init, out, -2))
+        assert _read_value_shape(root) == "?,8,0..128,128"
+
+    def test_rewrite_sequence_first_layout_freezes_axis_one(self, tmp_path):
+        init = "<dim>-1</dim><dim>0</dim><dim>8</dim><dim>128</dim>"
+        out = "<dim>-1</dim><dim>-1</dim><dim>8</dim><dim>128</dim>"
+        root = _rewrite_kv(tmp_path, _concat_model_xml("?,?,8,128", init, out, 1))
+        assert _read_value_shape(root) == "?,0..128,8,128"
+
+    def test_rewrite_concat_axis_not_matching_growth_candidate_raises(self, tmp_path):
+        init = "<dim>-1</dim><dim>8</dim><dim>0</dim><dim>128</dim>"
+        out = "<dim>-1</dim><dim>8</dim><dim>-1</dim><dim>128</dim>"
+        with pytest.raises(NpuGraphRewriterError):
+            _rewrite_kv(tmp_path, _concat_model_xml("?,8,?,128", init, out, 1))
+
+    def test_rewrite_two_zero_sized_axes_without_concat_raises(self, tmp_path):
+        xml = _kv_model_xml("?,?,?,128", 8, 128).replace(
+            "<dim>8</dim><dim>0</dim>", "<dim>0</dim><dim>0</dim>"
+        )
+        with pytest.raises(NpuGraphRewriterError):
+            _rewrite_kv(tmp_path, xml)
+
+    def test_rewrite_non_numeric_init_dimension_raises_structured_error(self, tmp_path):
+        xml = _kv_model_xml("?,8,?,128", 8, 128).replace("<dim>0</dim>", "<dim>zero</dim>", 1)
+        with pytest.raises(NpuGraphRewriterError):
+            _rewrite_kv(tmp_path, xml)
+
+
+def _save_stateful_model(path: Path, sequence: str) -> None:
+    """Serialise a one-state OpenVINO model whose variable sequence dimension is given."""
+    import openvino as ov
+    from openvino import opset13 as ops
+
+    x = ops.parameter(ov.PartialShape([1, 2, 0, 4]), ov.Type.f32, name="x")
+    dims = {"unbounded": ov.Dimension(), "bounded": ov.Dimension(0, 16)}
+    var_shape = ov.PartialShape([ov.Dimension(), ov.Dimension(2), dims[sequence], ov.Dimension(4)])
+    info = ov.op.util.VariableInfo()
+    info.data_shape = var_shape
+    info.data_type = ov.Type.f32
+    info.variable_id = "past"
+    variable = ov.op.util.Variable(info)
+    read = ops.read_value(x, variable)
+    assign = ops.assign(read, variable)
+    model = ov.Model([ops.result(read)], [assign], [x])
+    ov.save_model(model, str(path / "openvino_model.xml"))
+
+
+class TestVerifyBounded:
+    """verify_bounded reads the rewritten model back with OpenVINO."""
+
+    def test_verify_bounded_unbounded_sequence_variable_is_reported(self, tmp_path):
+        pytest.importorskip("openvino")
+        _save_stateful_model(tmp_path, "unbounded")
+        report = verify_bounded(tmp_path / "openvino_model.xml")
+        assert report.variables_checked == 1
+        assert report.unbounded_variables == ["past"]
+
+    def test_verify_bounded_bounded_sequence_variable_passes_with_dynamic_batch(self, tmp_path):
+        pytest.importorskip("openvino")
+        _save_stateful_model(tmp_path, "bounded")
+        report = verify_bounded(tmp_path / "openvino_model.xml")
+        assert report.unbounded_variables == []
+
+    def test_verify_bounded_unreadable_model_raises_structured_error(self, tmp_path):
+        pytest.importorskip("openvino")
+        (tmp_path / "openvino_model.xml").write_text("<net>", encoding="utf-8")
+        with pytest.raises(NpuGraphRewriterError):
+            verify_bounded(tmp_path / "openvino_model.xml")

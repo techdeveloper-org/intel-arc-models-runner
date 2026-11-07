@@ -77,37 +77,104 @@ def parse_dim(token: str) -> Tuple[int, Optional[int]]:
     return value, value
 
 
-def freeze_kv_variable_shape(shape_text: str, max_context_len: int) -> Optional[str]:
-    """Bound the sequence axis of a rank 4 KV state and keep every model fact.
+def freeze_state_variable_shape(shape_text: str, growth_axis: int, max_context_len: int) -> str:
+    """Bound the growth axis of a stateful variable and keep every other model fact.
 
-    For source shape (s0, s1, s2, s3) the result is (s0, s1, 0..U, s3) with
-    U = max(max_context_len, upper bound of s2). Heads (s1) and head dimension (s3) are copied,
-    so a Variable shape always extends an initialisation shape of the form (b, s1, 0, s3).
-    Applying the function to its own output with the same bound returns the same text.
+    The growth axis becomes 0..U with U = max(max_context_len, its own upper bound).
+    Dimension 0 (batch) is copied. Every other dimension must be a single fixed value, because
+    freezing it would otherwise invent a model fact.
+
+    Args:
+        shape_text: The variable_shape attribute, comma separated.
+        growth_axis: Index of the axis along which the state grows.
+        max_context_len: Static sequence bound for the NPU.
+
+    Returns:
+        The frozen shape text.
+
+    Raises:
+        NpuGraphRewriterError: If the axis is out of range or a non-batch, non-growth
+            dimension is not a fixed value.
+    """
+    tokens = [token.strip() for token in shape_text.split(",")]
+    if not 0 <= growth_axis < len(tokens):
+        raise NpuGraphRewriterError(
+            "Growth axis lies outside the variable rank",
+            {"variable_shape": shape_text, "axis": growth_axis},
+        )
+    dims = [parse_dim(token) for token in tokens]
+    for axis, (low, high) in enumerate(dims):
+        if axis in (0, growth_axis):
+            continue
+        if high is None or low != high:
+            raise NpuGraphRewriterError(
+                "Cannot freeze state: a non-growth dimension is not a fixed value",
+                {"variable_shape": shape_text, "axis": axis},
+            )
+    upper = max(max_context_len, dims[growth_axis][1] or 0)
+    tokens[growth_axis] = f"0..{upper}"
+    return ",".join(tokens)
+
+
+def freeze_kv_variable_shape(shape_text: str, max_context_len: int) -> Optional[str]:
+    """Bound the sequence axis (axis 2) of a rank 4 KV state.
+
+    Kept for the common [batch, heads, sequence, head_dim] layout; the rewriter itself uses
+    freeze_state_variable_shape with an axis derived from the graph.
 
     Args:
         shape_text: The variable_shape attribute, comma separated.
         max_context_len: Static sequence bound for the NPU.
 
     Returns:
-        The frozen shape text, or None when the state is not rank 4 (not a KV cache).
+        The frozen shape text, or None when the state is not rank 4.
 
     Raises:
         NpuGraphRewriterError: If heads or head dimension is not a single fixed value.
     """
-    tokens = shape_text.split(",")
-    if len(tokens) != 4:
+    if len(shape_text.split(",")) != 4:
         return None
-    dims = [parse_dim(token) for token in tokens]
-    for axis, name in ((1, "kv heads"), (3, "head dimension")):
-        low, high = dims[axis]
-        if high is None or low != high:
-            raise NpuGraphRewriterError(
-                f"Cannot freeze KV state: {name} is not a fixed value",
-                {"variable_shape": shape_text, "axis": axis},
-            )
-    upper = max(max_context_len, dims[2][1] or 0)
-    return f"{tokens[0].strip()},{tokens[1].strip()},0..{upper},{tokens[3].strip()}"
+    return freeze_state_variable_shape(shape_text, 2, max_context_len)
+
+
+def find_growth_axis(
+    variable_dims: List[Tuple[int, Optional[int]]],
+    init_dims: List[Optional[int]],
+    concat_axis: Optional[int],
+) -> Optional[int]:
+    """Pick the axis along which a state grows, from the graph rather than from its rank.
+
+    A candidate axis (never axis 0) has a static initial size of 0. When the ReadValue feeds a Concat, that Concat axis must be the candidate.
+
+    Args:
+        variable_dims: Parsed (low, high) bounds of every variable dimension.
+        init_dims: Static size of every initialisation dimension, None when dynamic.
+        concat_axis: Normalised Concat axis downstream of the ReadValue, or None.
+
+    Returns:
+        The growth axis, or None when the state does not grow (not a cache).
+
+    Raises:
+        NpuGraphRewriterError: If the candidates are ambiguous or disagree with the Concat axis.
+    """
+    candidates = [
+        axis
+        for axis in range(len(variable_dims))
+        if axis > 0 and init_dims[axis] == 0
+    ]
+    if concat_axis is not None and candidates:
+        if concat_axis in candidates:
+            return concat_axis
+        raise NpuGraphRewriterError(
+            "Concat axis does not match the growing dimension of the state",
+            {"concat_axis": concat_axis, "candidates": candidates},
+        )
+    if len(candidates) > 1:
+        raise NpuGraphRewriterError(
+            "Several dimensions of the state could be the growth axis",
+            {"candidates": candidates},
+        )
+    return candidates[0] if candidates else None
 
 
 CONVERSION_MODES = ("lossy", "exact", "off")
@@ -309,6 +376,76 @@ def read_const_info(layer: ET.Element, bin_length: int) -> _ConstInfo:
     return info
 
 
+@dataclass
+class BoundednessReport:
+    """Result of reading a rewritten model back and checking every state dimension.
+
+    Attributes:
+        variables_checked: Number of state variables inspected.
+        unbounded_variables: Variable ids with a non-batch dimension that has no finite maximum.
+        unbounded_parameters: Names of model inputs with a dimension without a finite maximum;
+            informational, because inputs are bounded at run time by reshaping.
+    """
+
+    variables_checked: int
+    unbounded_variables: List[str]
+    unbounded_parameters: List[str]
+
+
+def _has_unbounded_dimension(partial_shape: Any, skip_batch: bool = False) -> bool:
+    """Tell whether any dimension of an OpenVINO PartialShape lacks a finite maximum.
+
+    Args:
+        partial_shape: The shape to inspect.
+        skip_batch: Ignore axis 0, which the rewriter copies unchanged by design.
+
+    Returns:
+        True when the rank is dynamic or a checked dimension has no finite maximum.
+    """
+    if partial_shape.rank.is_dynamic:
+        return True
+    dims = list(partial_shape)[1:] if skip_batch else list(partial_shape)
+    return any((not dim.is_static) and dim.get_max_length() < 0 for dim in dims)
+
+
+def verify_bounded(model_xml: Path) -> BoundednessReport:
+    """Read a rewritten IR back with OpenVINO and check that every state is bounded.
+
+    This is a structural check on the parsed model. It does not compile for the NPU and is
+    therefore not a guarantee that the NPU compiler accepts the model.
+
+    Args:
+        model_xml: Path to the rewritten openvino_model.xml.
+
+    Returns:
+        The boundedness report.
+
+    Raises:
+        NpuGraphRewriterError: If OpenVINO is unavailable or the model cannot be read.
+    """
+    try:
+        import openvino as ov
+    except ImportError as exc:
+        raise NpuGraphRewriterError("OpenVINO is required to verify boundedness", {}) from exc
+    try:
+        model = ov.Core().read_model(str(model_xml))
+    except RuntimeError as exc:
+        raise NpuGraphRewriterError(
+            f"OpenVINO could not read the rewritten model: {exc}", {"xml_path": str(model_xml)}
+        ) from exc
+    variables = list(model.get_variables())
+    unbounded_variables = [
+        variable.get_info().variable_id
+        for variable in variables
+        if _has_unbounded_dimension(variable.get_info().data_shape, skip_batch=True)
+    ]
+    unbounded_parameters = [
+        port.get_any_name() for port in model.inputs if _has_unbounded_dimension(port.get_partial_shape())
+    ]
+    del model
+    return BoundednessReport(len(variables), unbounded_variables, unbounded_parameters)
+
+
 class NpuGraphRewriter:
     """Orchestrates computational DAG mutations to certify models for Intel NPU37XX."""
 
@@ -319,6 +456,7 @@ class NpuGraphRewriter:
         max_context_len: int = 128,
         batch_size: int = 1,
         conversion_mode: Optional[str] = None,
+        verify: bool = False,
     ) -> None:
         """Initialize the graph rewriter with source model path and hardware constraints.
 
@@ -330,6 +468,8 @@ class NpuGraphRewriter:
             conversion_mode: lossy (exact where possible, requantise otherwise), exact (raise
                 on an asymmetric zero-point) or off (leave weights alone). When None the
                 environment variable ARC_NPU_CONVERSION_MODE is used, default lossy.
+            verify: Read the rewritten model back with OpenVINO and fail when any state
+                variable is still unbounded.
 
         Raises:
             NpuGraphRewriterError: If the conversion mode is unknown.
@@ -339,6 +479,7 @@ class NpuGraphRewriter:
         self.max_context_len = max(64, int(max_context_len))
         self.batch_size = max(1, int(batch_size))
         self.conversion_mode = conversion_mode_from_env(conversion_mode)
+        self.verify = bool(verify)
 
     def rewrite(self) -> Path:
         """Execute complete graph rewriting pass and serialize certified NPU artifacts.
@@ -397,6 +538,8 @@ class NpuGraphRewriter:
                     report = self._convert_weight_groups(root, bin_data)
             frozen_count = self._freeze_dynamic_kv_shapes(root)
             tree.write(stage / "openvino_model.xml", encoding="utf-8", xml_declaration=True)
+            if self.verify:
+                self._verify_stage(stage / "openvino_model.xml")
             self._synchronize_tokenizer_assets(stage)
             self._write_npu_manifest(report, frozen_count, stage, signature)
             shutil.rmtree(self.output_dir, ignore_errors=True)
@@ -731,51 +874,125 @@ class NpuGraphRewriter:
 
 
     def _freeze_dynamic_kv_shapes(self, root: ET.Element) -> int:
-        """Replace dynamic KV cache shapes and parameters with bounded static dimensions.
+        """Bound every growing state variable (and its Assign) to a static sequence length.
+
+        The growth axis is derived from the graph per ReadValue, and the bound chosen for a
+        variable is reused for its Assign so both ends agree.
 
         Args:
             root: Root element of the parsed OpenVINO IR XML document.
 
         Returns:
-            int: Number of KV cache and parameter layers modified.
+            int: Number of state layers modified.
+
+        Raises:
+            NpuGraphRewriterError: If a growth axis is ambiguous or a model fact would have to
+                be invented to freeze a state.
         """
-        layers_elem = root.find("layers")
-        if layers_elem is None:
+        index = _GraphIndex(root)
+        if index.layers_elem is None:
             return 0
 
+        bounds: Dict[str, Tuple[int, int]] = {}
         frozen_count = 0
         skipped_count = 0
-        for l in layers_elem:
-            layer_type = l.get("type")
+        for layer in index.layers_elem:
+            if layer.get("type") != "ReadValue":
+                continue
+            result = self._freeze_read_value(layer, index)
+            if result is None:
+                skipped_count += 1
+                continue
+            data = layer.find("data")
+            bounds[data.get("variable_id", "") if data is not None else ""] = result
+            frozen_count += 1
 
-            if layer_type == "ReadValue":
-                if self._freeze_read_value(l):
-                    frozen_count += 1
-                else:
-                    skipped_count += 1
-
-            elif layer_type == "Assign":
-                if self._freeze_port_dims(l, self.max_context_len):
-                    frozen_count += 1
+        for layer in index.layers_elem:
+            if layer.get("type") != "Assign":
+                continue
+            data = layer.find("data")
+            known = bounds.get(data.get("variable_id", "") if data is not None else "")
+            if known is not None and self._freeze_port_dims(layer, known[0], known[1]):
+                frozen_count += 1
 
         logger.info(
-            "KV state shapes frozen",
+            "State shapes frozen",
             extra={
                 "frozen_layers": frozen_count,
-                "skipped_non_kv_states": skipped_count,
+                "skipped_non_growing_states": skipped_count,
                 "max_context_len": self.max_context_len,
             },
         )
         return frozen_count
 
-    def _freeze_read_value(self, layer: ET.Element) -> bool:
-        """Freeze one ReadValue state to a bounded shape derived from its own source shape.
+    @staticmethod
+    def _concat_axis_downstream(index: _GraphIndex, layer: ET.Element, rank: int) -> Optional[int]:
+        """Find the axis of the Concat that appends to a state, looking through Gather/Convert.
+
+        Args:
+            index: Graph index of the document.
+            layer: A ReadValue layer.
+            rank: Rank of the state, used to normalise a negative axis.
+
+        Returns:
+            The non-negative Concat axis, or None when no Concat follows the state.
+
+        Raises:
+            NpuGraphRewriterError: If the axis attribute is not an integer or out of range.
+        """
+        frontier = [layer.get("id", "")]
+        for _ in range(4):
+            next_frontier: List[str] = []
+            for layer_id in frontier:
+                for edge in index.outgoing.get(layer_id, []):
+                    target = index.layers.get(edge.get("to-layer", ""))
+                    if target is None:
+                        continue
+                    if target.get("type") == "Concat":
+                        return NpuGraphRewriter._normalise_axis(target, rank)
+                    if target.get("type") in ("Gather", "Convert"):
+                        next_frontier.append(target.get("id", ""))
+            frontier = next_frontier
+        return None
+
+    @staticmethod
+    def _normalise_axis(concat: ET.Element, rank: int) -> int:
+        """Return the Concat axis as a non-negative index.
+
+        Args:
+            concat: A Concat layer.
+            rank: Rank of the concatenated tensors.
+
+        Returns:
+            The normalised axis.
+
+        Raises:
+            NpuGraphRewriterError: If the axis is missing, not an integer or out of range.
+        """
+        data = concat.find("data")
+        text = data.get("axis", "") if data is not None else ""
+        try:
+            axis = int(text)
+        except ValueError as exc:
+            raise NpuGraphRewriterError(
+                "Concat axis is not an integer", {"layer": concat.get("name"), "axis": text}
+            ) from exc
+        axis = axis + rank if axis < 0 else axis
+        if not 0 <= axis < rank:
+            raise NpuGraphRewriterError(
+                "Concat axis lies outside the state rank", {"layer": concat.get("name"), "rank": rank}
+            )
+        return axis
+
+    def _freeze_read_value(self, layer: ET.Element, index: _GraphIndex) -> Optional[Tuple[int, int]]:
+        """Freeze one ReadValue state to a bounded shape derived from the graph.
 
         Args:
             layer: A ReadValue layer element.
+            index: Graph index of the document.
 
         Returns:
-            bool: True when a rank 4 state was rewritten, False when it is not a KV cache.
+            (growth axis, sequence bound) when the state was rewritten, None when it does not grow.
 
         Raises:
             NpuGraphRewriterError: If the shape cannot be frozen without inventing a model
@@ -783,25 +1000,62 @@ class NpuGraphRewriter:
         """
         data = layer.find("data")
         if data is None or "variable_shape" not in data.attrib:
-            return False
+            return None
         source_shape = data.attrib["variable_shape"]
-        frozen_shape = freeze_kv_variable_shape(source_shape, self.max_context_len)
-        if frozen_shape is None:
-            return False
+        tokens = source_shape.split(",")
+        variable_dims = [parse_dim(token) for token in tokens]
+        init_dims = self._init_dims(layer, len(tokens))
+        concat_axis = self._concat_axis_downstream(index, layer, len(tokens))
+        axis = find_growth_axis(variable_dims, init_dims, concat_axis)
+        if axis is None:
+            return None
+        frozen_shape = freeze_state_variable_shape(source_shape, axis, self.max_context_len)
         self._assert_contains_init_shape(layer, frozen_shape)
         data.attrib["variable_shape"] = frozen_shape
-        upper = parse_dim(frozen_shape.split(",")[2])[1]
-        self._freeze_port_dims(layer, upper if upper is not None else self.max_context_len)
-        return True
+        upper = parse_dim(frozen_shape.split(",")[axis])[1]
+        bound = upper if upper is not None else self.max_context_len
+        self._freeze_port_dims(layer, axis, bound)
+        return axis, bound
 
-    def _freeze_port_dims(self, layer: ET.Element, sequence_bound: int) -> bool:
-        """Make the batch and sequence dimensions of rank 4 ports static.
+    @staticmethod
+    def _init_dims(layer: ET.Element, rank: int) -> List[Optional[int]]:
+        """Read the static sizes of the initialisation port, None where dynamic or unknown.
 
-        Heads and head dimension are never touched.
+        Args:
+            layer: A ReadValue layer element.
+            rank: Rank of the variable shape.
+
+        Returns:
+            One entry per axis.
+
+        Raises:
+            NpuGraphRewriterError: If a dimension is not an integer.
+        """
+        dims: List[Optional[int]] = [None] * rank
+        for port in layer.findall("./input/port"):
+            texts = [dim.text for dim in port.findall("dim")]
+            if len(texts) != rank:
+                continue
+            for axis, text in enumerate(texts):
+                try:
+                    value = int(text) if text is not None else -1
+                except ValueError as exc:
+                    raise NpuGraphRewriterError(
+                        "Initialisation dimension is not an integer",
+                        {"layer": layer.get("name"), "axis": axis},
+                    ) from exc
+                dims[axis] = value if value >= 0 else None
+        return dims
+
+    def _freeze_port_dims(self, layer: ET.Element, growth_axis: int, sequence_bound: int) -> bool:
+        """Make the batch and growth dimensions of the state ports static.
+
+        Every other dimension is never touched.
 
         Args:
             layer: A ReadValue or Assign layer element.
-            sequence_bound: Static value written over a dynamic sequence dimension.
+            growth_axis: Axis that receives sequence_bound when dynamic.
+            sequence_bound: Static value written over a dynamic growth dimension.
 
         Returns:
             bool: True when at least one port dimension was changed.
@@ -809,13 +1063,13 @@ class NpuGraphRewriter:
         changed = False
         for port in layer.findall(".//port"):
             dims = port.findall("dim")
-            if len(dims) != 4:
+            if len(dims) <= growth_axis:
                 continue
             if dims[0].text == "-1":
                 dims[0].text = str(self.batch_size)
                 changed = True
-            if dims[2].text == "-1":
-                dims[2].text = str(sequence_bound)
+            if dims[growth_axis].text == "-1":
+                dims[growth_axis].text = str(sequence_bound)
                 changed = True
         return changed
 
@@ -838,14 +1092,38 @@ class NpuGraphRewriter:
             if len(init_dims) != len(frozen_dims):
                 continue
             for axis, text in enumerate(init_dims):
-                if text is None or int(text) < 0:
+                try:
+                    value = int(text) if text is not None else -1
+                except ValueError as exc:
+                    raise NpuGraphRewriterError(
+                        "Initialisation dimension is not an integer",
+                        {"layer": layer.get("name"), "axis": axis},
+                    ) from exc
+                if value < 0:
                     continue
                 low, high = frozen_dims[axis]
-                if not (low <= int(text) and (high is None or int(text) <= high)):
+                if not (low <= value and (high is None or value <= high)):
                     raise NpuGraphRewriterError(
                         "Frozen KV state shape does not extend the initialisation shape",
                         {"variable_shape": frozen_shape, "init_dims": init_dims, "axis": axis},
                     )
+
+    @staticmethod
+    def _verify_stage(stage_xml: Path) -> None:
+        """Fail the rewrite when the staged model still has an unbounded state variable.
+
+        Args:
+            stage_xml: Staged rewritten XML path.
+
+        Raises:
+            NpuGraphRewriterError: If a state variable is unbounded.
+        """
+        report = verify_bounded(stage_xml)
+        if report.unbounded_variables:
+            raise NpuGraphRewriterError(
+                "Rewritten model still has unbounded state variables",
+                {"variables": report.unbounded_variables[:10], "count": len(report.unbounded_variables)},
+            )
 
     def _source_signature(self, source_xml: Path, source_bin: Path) -> Dict[str, Any]:
         """Describe the inputs and settings that determine the output.
