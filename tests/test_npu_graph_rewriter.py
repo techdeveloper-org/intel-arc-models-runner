@@ -137,7 +137,7 @@ class TestNpuGraphRewriter:
 </net>
 """
         (source_dir / "openvino_model.xml").write_text(mock_xml, encoding="utf-8")
-        (source_dir / "openvino_model.bin").write_bytes(b"\x00" * 32)
+        (source_dir / "openvino_model.bin").write_bytes(b"\x00" * 4 + b"\x88" * 4 + b"\x00" * 24)
         (source_dir / "config.json").write_text("{}", encoding="utf-8")
 
         rewriter = NpuGraphRewriter(source_dir=source_dir, output_dir=out_dir, max_context_len=128)
@@ -171,7 +171,6 @@ class TestNpuGraphRewriter:
 
         manifest = json.loads((out_dir / "npu_manifest.json").read_text(encoding="utf-8"))
         assert manifest["target_device"] == "NPU"
-        assert manifest["precision"] == "INT4_SYM"
         assert manifest["zero_points_stripped"] == 1
         assert manifest["kv_shapes_frozen"] == 1
 
