@@ -411,3 +411,41 @@ class TestStructureGuards:
         assert layer(root, "14") is None and layer(root, "52") is None
         assert layer(root, "12") is None and layer(root, "13") is None
         assert manifest(out)["weight_conversion"]["exact_layers"] == 2
+
+
+class TestPerformanceContract:
+    """Skip-when-current, atomic output and stale-asset behaviour of rewrite()."""
+
+    def test_rewrite_second_call_with_same_inputs_does_not_touch_output(self, tmp_path):
+        q, zp, scale = rng_group(31, 4)
+        graph = make_graph(tmp_path, q, zp, scale)
+        out, _ = run(graph, tmp_path)
+        before = (out / "openvino_model.bin").stat().st_mtime_ns
+        NpuGraphRewriter(graph.source, out).rewrite()
+        assert (out / "openvino_model.bin").stat().st_mtime_ns == before
+
+    def test_rewrite_changed_conversion_mode_rebuilds_output(self, tmp_path):
+        q, zp, scale = rng_group(32, 4)
+        graph = make_graph(tmp_path, q, zp, scale)
+        out, _ = run(graph, tmp_path)
+        NpuGraphRewriter(graph.source, out, conversion_mode="off").rewrite()
+        assert manifest(out)["conversion_mode"] == "off"
+
+    def test_rewrite_failure_keeps_previous_output_and_leaves_no_temp_dir(self, tmp_path):
+        q, zp, scale = rng_group(33, 4)
+        graph = make_graph(tmp_path, q, zp, scale)
+        out, _ = run(graph, tmp_path)
+        good = (out / "openvino_model.bin").read_bytes()
+        with pytest.raises(NpuGraphRewriterError):
+            NpuGraphRewriter(graph.source, out, conversion_mode="exact").rewrite()
+        assert (out / "openvino_model.bin").read_bytes() == good
+        assert not [p for p in tmp_path.iterdir() if p.name.startswith(".out.tmp")]
+
+    def test_rewrite_refreshes_stale_tokenizer_asset(self, tmp_path):
+        q, zp, scale = rng_group(34, 4)
+        graph = make_graph(tmp_path, q, zp, scale)
+        (graph.source / "config.json").write_text('{"v": 1}', encoding="utf-8")
+        out, _ = run(graph, tmp_path)
+        (graph.source / "config.json").write_text('{"v": 2}', encoding="utf-8")
+        NpuGraphRewriter(graph.source, out, conversion_mode="off").rewrite()
+        assert json.loads((out / "config.json").read_text(encoding="utf-8")) == {"v": 2}

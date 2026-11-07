@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import mmap
 import os
 import shutil
 import xml.etree.ElementTree as ET
@@ -368,20 +369,41 @@ class NpuGraphRewriter:
                 {"xml_path": str(source_xml)},
             ) from exc
 
-        root = tree.getroot()
-        bin_data = bytearray(source_bin.read_bytes())
+        signature = self._source_signature(source_xml, source_bin)
+        if self._is_up_to_date(signature):
+            logger.info("NPU model already certified", extra={"output_dir": self.output_dir.name})
+            return self.output_dir
 
-        report = self._convert_weight_groups(root, bin_data)
-        frozen_count = self._freeze_dynamic_kv_shapes(root)
+        needed = 2 * source_bin.stat().st_size
+        self.output_dir.parent.mkdir(parents=True, exist_ok=True)
+        free = shutil.disk_usage(self.output_dir.parent).free
+        if free < needed:
+            raise NpuGraphRewriterError(
+                "Not enough free disk space for the rewritten weights",
+                {"needed_bytes": needed, "free_bytes": free},
+            )
 
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        dest_xml = self.output_dir / "openvino_model.xml"
-        dest_bin = self.output_dir / "openvino_model.bin"
-        tree.write(dest_xml, encoding="utf-8", xml_declaration=True)
-        dest_bin.write_bytes(bin_data)
-
-        self._synchronize_tokenizer_assets()
-        self._write_npu_manifest(report, frozen_count)
+        stage = self.output_dir.parent / f".{self.output_dir.name}.tmp-{os.getpid()}"
+        shutil.rmtree(stage, ignore_errors=True)
+        stage.mkdir(parents=True)
+        try:
+            root = tree.getroot()
+            stage_bin = stage / "openvino_model.bin"
+            shutil.copyfile(source_bin, stage_bin)
+            if stage_bin.stat().st_size == 0:
+                report = self._convert_weight_groups(root, bytearray())
+            else:
+                with open(stage_bin, "r+b") as handle, mmap.mmap(handle.fileno(), 0) as bin_data:
+                    report = self._convert_weight_groups(root, bin_data)
+            frozen_count = self._freeze_dynamic_kv_shapes(root)
+            tree.write(stage / "openvino_model.xml", encoding="utf-8", xml_declaration=True)
+            self._synchronize_tokenizer_assets(stage)
+            self._write_npu_manifest(report, frozen_count, stage, signature)
+            shutil.rmtree(self.output_dir, ignore_errors=True)
+            os.replace(stage, self.output_dir)
+        except BaseException:
+            shutil.rmtree(stage, ignore_errors=True)
+            raise
 
         logger.info(
             "NPU model certified",
@@ -395,7 +417,7 @@ class NpuGraphRewriter:
         )
         return self.output_dir
 
-    def _convert_weight_groups(self, root: ET.Element, bin_data: bytearray) -> ConversionReport:
+    def _convert_weight_groups(self, root: ET.Element, bin_data: Any) -> ConversionReport:
         """Remove zero-point Subtract layers and store the weights as signed values.
 
         Only a Subtract whose inputs trace back to two Const layers of the same unsigned
@@ -404,7 +426,7 @@ class NpuGraphRewriter:
 
         Args:
             root: Root element of the parsed OpenVINO IR XML document.
-            bin_data: Mutable bytearray of the weights binary.
+            bin_data: Mutable memory map (or bytearray) of the weights binary.
 
         Returns:
             The measured conversion report.
@@ -549,7 +571,7 @@ class NpuGraphRewriter:
     def _convert_one(
         self,
         plan: _SubtractPlan,
-        bin_data: bytearray,
+        bin_data: Any,
         report: ConversionReport,
         claims: List[Tuple[int, int, str]],
     ) -> None:
@@ -588,7 +610,7 @@ class NpuGraphRewriter:
     def _requantize(
         self,
         plan: _SubtractPlan,
-        bin_data: bytearray,
+        bin_data: Any,
         report: ConversionReport,
         claims: List[Tuple[int, int, str]],
         entry: Dict[str, Any],
@@ -825,8 +847,56 @@ class NpuGraphRewriter:
                         {"variable_shape": frozen_shape, "init_dims": init_dims, "axis": axis},
                     )
 
-    def _synchronize_tokenizer_assets(self) -> None:
-        """Copy tokenizer weights, configurations, and vocabularies from source directory."""
+    def _source_signature(self, source_xml: Path, source_bin: Path) -> Dict[str, Any]:
+        """Describe the inputs and settings that determine the output.
+
+        Args:
+            source_xml: Source IR XML path.
+            source_bin: Source IR weights path.
+
+        Returns:
+            A JSON-serialisable dictionary compared against the stored manifest.
+        """
+        return {
+            "xml_size": source_xml.stat().st_size,
+            "xml_mtime_ns": source_xml.stat().st_mtime_ns,
+            "bin_size": source_bin.stat().st_size,
+            "bin_mtime_ns": source_bin.stat().st_mtime_ns,
+            "conversion_mode": self.conversion_mode,
+            "max_context_len": self.max_context_len,
+            "batch_size": self.batch_size,
+        }
+
+    def _is_up_to_date(self, signature: Dict[str, Any]) -> bool:
+        """Tell whether the output directory was built from the same inputs and settings.
+
+        Args:
+            signature: Signature of the current inputs.
+
+        Returns:
+            True when a complete, current-schema output exists.
+        """
+        manifest_path = self.output_dir / "npu_manifest.json"
+        if not manifest_path.exists():
+            return False
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        files_present = all((self.output_dir / n).exists() for n in ("openvino_model.xml", "openvino_model.bin"))
+        return (
+            files_present
+            and manifest.get("schema_version") == MANIFEST_SCHEMA_VERSION
+            and manifest.get("source_signature") == signature
+        )
+
+    def _synchronize_tokenizer_assets(self, target_dir: Path) -> None:
+        """Copy tokenizer weights, configurations, and vocabularies from source directory.
+
+        Args:
+            target_dir: Directory receiving the copies; existing files are overwritten so
+                stale assets never survive a re-run.
+        """
         tokenizer_patterns = (
             "openvino_tokenizer.xml",
             "openvino_tokenizer.bin",
@@ -842,24 +912,27 @@ class NpuGraphRewriter:
         for pattern in tokenizer_patterns:
             src_file = self.source_dir / pattern
             if src_file.exists():
-                dest_file = self.output_dir / pattern
-                if not dest_file.exists():
-                    shutil.copy2(src_file.resolve(), dest_file)
+                shutil.copy2(src_file.resolve(), target_dir / pattern)
 
-    def _write_npu_manifest(self, report: ConversionReport, frozen_layers: int) -> None:
+    def _write_npu_manifest(
+        self, report: ConversionReport, frozen_layers: int, target_dir: Path, signature: Dict[str, Any]
+    ) -> None:
         """Write the certification manifest with only measured values.
 
         Args:
             report: Measured weight conversion outcome.
             frozen_layers: Number of dynamic KV cache layers frozen.
+            target_dir: Directory that receives the manifest.
+            signature: Input signature stored for the up-to-date check.
         """
-        manifest_path = self.output_dir / "npu_manifest.json"
+        manifest_path = target_dir / "npu_manifest.json"
         requantized = report.requantized_layers > 0
         manifest_data = {
             "schema_version": MANIFEST_SCHEMA_VERSION,
             "target_device": "NPU",
             "architecture": "NPU37XX",
             "conversion_mode": self.conversion_mode,
+            "source_signature": signature,
             "max_context_len": self.max_context_len,
             "batch_size": self.batch_size,
             "zero_points_stripped": report.converted_layers,

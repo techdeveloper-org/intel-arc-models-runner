@@ -32,6 +32,7 @@ SYMMETRIC_ZERO_POINT = {"u4": 8, "u8": 128}
 SIGN_FLIP_BYTE = {"u4": 0x88, "u8": 0x80}
 ELEMENT_BITS = {"u4": 4, "u8": 8}
 F16_MIN_NORMAL = float(np.finfo(np.float16).tiny)
+REQUANTIZE_CHUNK_ELEMENTS = 1 << 21
 
 
 class ZeroPointMathError(ArcRunnerError):
@@ -224,23 +225,31 @@ def requantize_symmetric(
     if not np.all(np.isfinite(scale)) or np.any(scale < 0):
         raise ZeroPointMathError("Scale contains a non-finite or negative value")
     qp, qn = (7, 8) if bits == 4 else (127, 128)
-    weights = scale.astype(np.float64) * (q.astype(np.int64) - zero_point.astype(np.int64))
-    a_plus = np.maximum(weights.max(axis=-1, keepdims=True), 0.0)
-    a_minus = np.maximum(-weights.min(axis=-1, keepdims=True), 0.0)
-    wanted = np.maximum(a_plus / (qp + 0.5), a_minus / (qn + 0.5))
-    wanted = np.maximum(wanted, F16_MIN_NORMAL)
-    with np.errstate(over="ignore"):
-        new_scale = wanted.astype(np.float16)
-    if not np.all(np.isfinite(new_scale)):
-        raise ZeroPointMathError("Requantised scale does not fit in float16")
-    scale64 = new_scale.astype(np.float64)
-    new_q = np.clip(np.rint(weights / scale64), -qn, qp).astype(np.int8)
-    error = np.abs(weights - new_q.astype(np.float64) * scale64)
-    group_max = np.abs(weights).max(axis=-1, keepdims=True)
-    relative = np.divide(error, group_max, out=np.zeros_like(error), where=group_max > 0)
-    return RequantizeResult(
-        q=new_q,
-        scale=new_scale,
-        max_abs_error=float(error.max()) if error.size else 0.0,
-        max_rel_error=float(relative.max()) if relative.size else 0.0,
-    )
+    zero_full = np.broadcast_to(zero_point, scale.shape) if zero_point.size == 1 else zero_point
+    new_q = np.empty(q.shape, dtype=np.int8)
+    new_scale = np.empty(scale.shape, dtype=np.float16)
+    max_abs = 0.0
+    max_rel = 0.0
+    rows = q.shape[0]
+    per_row = max(1, q.size // max(rows, 1))
+    step = max(1, REQUANTIZE_CHUNK_ELEMENTS // per_row)
+    for start in range(0, rows, step):
+        sl = slice(start, start + step)
+        weights = scale[sl].astype(np.float64) * (q[sl].astype(np.int64) - zero_full[sl].astype(np.int64))
+        a_plus = np.maximum(weights.max(axis=-1, keepdims=True), 0.0)
+        a_minus = np.maximum(-weights.min(axis=-1, keepdims=True), 0.0)
+        wanted = np.maximum(np.maximum(a_plus / (qp + 0.5), a_minus / (qn + 0.5)), F16_MIN_NORMAL)
+        with np.errstate(over="ignore"):
+            chunk_scale = wanted.astype(np.float16)
+        if not np.all(np.isfinite(chunk_scale)):
+            raise ZeroPointMathError("Requantised scale does not fit in float16")
+        scale64 = chunk_scale.astype(np.float64)
+        chunk_q = np.clip(np.rint(weights / scale64), -qn, qp).astype(np.int8)
+        group_error = np.abs(weights - chunk_q.astype(np.float64) * scale64).max(axis=-1, keepdims=True)
+        group_max = np.maximum(a_plus, a_minus)
+        relative = np.divide(group_error, group_max, out=np.zeros_like(group_error), where=group_max > 0)
+        new_q[sl] = chunk_q
+        new_scale[sl] = chunk_scale
+        max_abs = max(max_abs, float(group_error.max()))
+        max_rel = max(max_rel, float(relative.max()))
+    return RequantizeResult(q=new_q, scale=new_scale, max_abs_error=max_abs, max_rel_error=max_rel)
