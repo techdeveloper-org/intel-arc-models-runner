@@ -36,6 +36,9 @@ uml/, drawio/      generated diagrams (13 types each)
 | SpeculativeDecodeEngine | `src/arc_runner/engine/speculative.py` | Heterogeneous dual-silicon speculative decoding coupling NPU draft with Arc GPU verify [v0.2.4] <!-- Introduced in v0.2.4 --> |
 | ThermalMonitor | `src/arc_runner/engine/thermal_monitor.py` | Daemon thread & ThrottlePolicy hysteresis closed-loop governance [v0.2.5] <!-- Introduced in v0.2.5 --> |
 | Concurrency & Perf Gates | `tests/test_concurrency_correctness.py` | Concurrency Correctness (CCC-1..10) and Performance Criteria (PCC-1..8) [v0.2.6] <!-- Introduced in v0.2.6 --> |
+| Zero-point math | `src/arc_runner/quant/zero_point_math.py` | Nibble codec, exact XOR zero-point removal and minimax requantisation for NPU weights [v0.2.7] <!-- Introduced in v0.2.7 --> |
+| Growth axis and verify_bounded | `src/arc_runner/quant/npu_graph_rewriter.py` | Graph-derived KV state growth axis and OpenVINO read-back check of bounded variables (not an NPU compile) [v0.2.7] <!-- Introduced in v0.2.7 --> |
+| Draft device chain | `src/arc_runner/engine/speculative.py` | NPU -> GPU -> CPU draft fallback with typed errors and `draft_fallback_reason` [v0.2.7] <!-- Introduced in v0.2.7 --> |
 
 Native layer: Modern C++20 pybind11 module `arc_native_sys` (ABI version 4, sidecar hash checked on load) exposing `ArcMmapContext` and `TensorPtrMap`, with fallback to ctypes/Python path. Missing, disabled (`ARC_NATIVE_DISABLE=1`) or stale libraries fall back to the Python read path. Level Zero is loaded at run time and always selects a GPU device, never the NPU.
 

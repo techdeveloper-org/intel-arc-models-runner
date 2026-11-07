@@ -2,10 +2,10 @@
 doc_id: DOC-RESUME
 title: Resume checkpoint
 stage: all
-version: 1.23.0
+version: 1.24.0
 status: draft
 created: 2026-10-29
-updated: 2026-10-31
+updated: 2026-11-07
 authors: [main session]
 reviewers: [user]
 ---
@@ -25,6 +25,10 @@ Completed (commit `090e4ab`, issue #49):
 - Also completed prior session's transpiler fix (#47, `bd5377e`): removed legacy `<meta_data><bin_file>` XML element that OpenVINO 2026.4.1.0 rejects; added per-tensor bin offset/size tracking.
 
 Next: WP-PERF & WP-CONC (WP-03 serial worker, WP-04 continuous batching scheduler, WP-06 pybind11 native binding, WP-05 speculative decode engine, and WP-07 thermal monitor completed and verified).
+
+## Release 0.2.7 documentation (2026-11-07)
+
+Local commits 411cde5, e4152c2, 4c492c2, 1fedcca, 96653c1, b2cc880 (issues #67, #68, #69) are recorded in `stages/NPU-0.2.7/STAGE.md` and the CHANGELOG `[0.2.7]` entry. Not done: quality of requantised models is unmeasured, NPU compile has not been run, Parameter and Result bounds are not done, the mutation campaign has not been run. Version files are bumped separately by the maintainer.
 
 ## State (2026-10-30)
 
@@ -147,3 +151,4 @@ python scripts/validate_bench_json.py
 | 1.21.0 | 2026-10-31 | CLI session | Mark WP-05 done; link to stages/PERF-WP05/STAGE.md | WP-05 speculative decode engine delivered | pending |
 | 1.22.0 | 2026-10-31 | CLI session | Mark WP-07 done; link to stages/PERF-WP07/STAGE.md | WP-07 thermal monitor and throttle policy delivered | pending |
 | 1.23.0 | 2026-10-31 | CLI session | Mark WP-CONC & WP-PERF done; link to stages/PERF-WP08/STAGE.md | CCC-1..CCC-10 & PCC-1..PCC-8 concurrency correctness & perf optimization verified | pending |
+| 1.24.0 | 2026-11-07 | technical-writer-agent | Add release 0.2.7 section; link to stages/NPU-0.2.7/STAGE.md | release 0.2.7 documentation | pending |

@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-11-07
+
+### Added
+- feat(quant): `zero_point_math` module with the nibble codec (low nibble first), symmetric zero-point detection, exact XOR conversion (0x88 for u4, 0x80 for u8) and per-group minimax requantisation with an f16 scale floor and a per-element error bound (#67, 411cde5).
+- feat(quant): `find_growth_axis` derives the state growth axis from the graph (static initial size 0, matching the downstream Concat axis, through Gather and Convert); `verify_bounded` reads the rewritten model back with OpenVINO and reports variables with an unbounded non-batch dim; `NpuGraphRewriter(verify=True)` fails on them (#67, b2cc880).
+- feat(quant): `conversion_mode` (lossy, exact, off; env `ARC_NPU_CONVERSION_MODE`); the manifest records measured `weight_conversion` statistics, `certified_exact` and `quality=unmeasured` when requantised (#67, e4152c2).
+- feat(engine): `HybridSpeculativeEngine.draft_fallback_reason` exposes why the draft fell back (#69, 1fedcca).
+- docs: delivery stage record `docs/delivery/stages/NPU-0.2.7/STAGE.md`.
+
+### Changed
+- perf(quant): requantisation works in 2M-element row chunks; `rewrite()` edits a copy of the weights through mmap, writes atomically via a sibling temp dir, checks free disk >= 2x weights, skips when the manifest source signature matches, and overwrites stale tokenizer assets. Qwen3-0.6B rewrite 39 s before, 18.0 s and 19.7 s in two runs after, with identical error statistics (max_abs 0.0737, max_rel 0.06709). Peak memory not measured (#68, 4c492c2).
+- fix(engine): the draft device chain is NPU, GPU, CPU (GPU, CPU; CPU alone; other devices then CPU); each tier starts from the original draft path, never the requantised NPU copy; a compile failure records the reason and logs structured fields before the next tier. 8 new tests, not run on hardware (#69, 96653c1).
+- fix(engine): only `NpuGraphRewriterError` triggers the CPU fallback, logged at ERROR with code and details; other exceptions now propagate (#69, 1fedcca).
+
+### Fixed
+- fix(quant): the rewriter no longer removes every Subtract or XORs every u4 Const. It converts only true zero-point Subtracts, exactly when symmetric and by requantising otherwise, handles u8, validates offsets, sizes and overlaps before writing, and removes orphan zero-point chains. On Qwen3-0.6B 197 zero-points were requantised (139 u4, 58 u8), 0 unconverted, max relative error 0.06709 (#67, e4152c2).
+- fix(quant): state freezing no longer assumes rank 4 and axis 2; the Assign reuses the bound of its ReadValue; non-numeric dims raise a typed error. Qwen3-0.6B: 56 of 56 variables unbounded before, 0 of 56 after, 112 layers frozen (#67, b2cc880).
+
+### Not done
+- Quality of requantised models is unmeasured (`quality=unmeasured`).
+- NPU compile of the rewritten model has not been run; `verify_bounded` is a read-back check only.
+- Parameter and Result bounds and the reshape-corner check are not done; the batch axis stays dynamic.
+- The mutation campaign has not been run.
+- The fallback reason is not surfaced in API telemetry; per-output lock file not added.
+
 ## [0.2.6] - 2026-10-31
 
 ### Added
