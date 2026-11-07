@@ -226,7 +226,15 @@ def handle_pull(model_id: str, base_dir: Optional[str] = None) -> int:
         console.print(f"[bold cyan]Pulling Ollama model from registry.ollama.ai:[/bold cyan] {clean_tag}")
         try:
             importer = OllamaImporter()
-            dest_dir = importer.pull_and_transpile(clean_tag)
+            last_pct = -1.0
+            def on_progress(dl: int, total: int) -> None:
+                nonlocal last_pct
+                pct = (dl / total) * 100.0 if total > 0 else 0.0
+                if pct - last_pct >= 5.0 or pct >= 100.0:
+                    last_pct = pct
+                    console.print(f"  [cyan]Downloading Ollama layer:[/cyan] {dl / (1024*1024):.1f} / {total / (1024*1024):.1f} MB ({pct:.1f}%)")
+
+            dest_dir = importer.pull_and_transpile(clean_tag, progress_callback=on_progress)
             console.print(f"[bold green]Model '{clean_tag}' successfully pulled, transpiled to Intel Arc INT4 OpenVINO IR, and cached in '{dest_dir}'.[/bold green]")
             return 0
         except Exception as exc:
@@ -241,7 +249,15 @@ def handle_pull(model_id: str, base_dir: Optional[str] = None) -> int:
             console.print(f"[bold cyan]Resolving model from registry.ollama.ai:[/bold cyan] {model_id}")
             try:
                 importer = OllamaImporter()
-                dest_dir = importer.pull_and_transpile(model_id)
+                last_pct = -1.0
+                def on_progress(dl: int, total: int) -> None:
+                    nonlocal last_pct
+                    pct = (dl / total) * 100.0 if total > 0 else 0.0
+                    if pct - last_pct >= 5.0 or pct >= 100.0:
+                        last_pct = pct
+                        console.print(f"  [cyan]Downloading Ollama layer:[/cyan] {dl / (1024*1024):.1f} / {total / (1024*1024):.1f} MB ({pct:.1f}%)")
+
+                dest_dir = importer.pull_and_transpile(model_id, progress_callback=on_progress)
                 console.print(f"[bold green]Model '{model_id}' successfully pulled and transpiled to Intel Arc OpenVINO IR in '{dest_dir}'.[/bold green]")
                 return 0
             except Exception as exc:

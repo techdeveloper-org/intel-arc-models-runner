@@ -25,6 +25,7 @@ GGUF_MAGIC: bytes = b"GGUF"
 GGUF_DEFAULT_ALIGNMENT: int = 32
 GGUF_SUPPORTED_VERSIONS: tuple[int, ...] = (2, 3)
 DEFAULT_CACHE_DIR: Path = Path.home() / ".arc-runner" / "cache"
+DEFAULT_MODELS_DIR: Path = Path.home() / ".arc-runner" / "models"
 DEFAULT_OLLAMA_DIR: Path = Path.home() / ".ollama"
 DEFAULT_AUDIO_SAMPLE_RATE: int = 16000
 TTS_OUTPUT_SAMPLE_RATE: int = 24000

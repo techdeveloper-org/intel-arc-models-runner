@@ -190,6 +190,7 @@ class OllamaImporter:
         target_device: str = "GPU",
         precision: str = "int4",
         output_dir: Optional[Path] = None,
+        progress_callback: Optional[Any] = None,
     ) -> Path:
         """Download model directly from registry.ollama.ai and transpile to Intel Arc OpenVINO IR.
 
@@ -198,6 +199,7 @@ class OllamaImporter:
             target_device: Hardware execution target ('GPU', 'NPU', 'CPU').
             precision: Quantization precision ('int4', 'int8', 'fp16').
             output_dir: Optional custom destination directory.
+            progress_callback: Optional callable receiving (downloaded_bytes, total_bytes).
 
         Returns:
             Path: Directory containing compiled OpenVINO IR and configuration.
@@ -224,7 +226,7 @@ class OllamaImporter:
 
         ns, model_name, tag = client.parse_model_tag(model_identifier)
         logger.info(f"Streaming model layer blob for {model_name}:{tag} ({model_layer.size / (1024*1024):.1f} MB)...")
-        blob_path = client.stream_blob(ns, model_name, model_layer.digest)
+        blob_path = client.stream_blob(ns, model_name, model_layer.digest, progress_callback=progress_callback)
 
         slug = f"{model_name}-{tag}-{precision}".replace(":", "-").replace(".", "_")
         dest_dir = Path(output_dir) if output_dir else (DEFAULT_MODELS_DIR / slug)
