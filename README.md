@@ -5,7 +5,7 @@
 [![API](https://img.shields.io/badge/API-Ollama%20%7C%20OpenAI%20Compatible-green.svg)](https://github.com/techdeveloper-org/intel-arc-models-runner)
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org)
 [![Tests](https://img.shields.io/badge/Tests-pytest%20suite-brightgreen.svg)](docs/testing.md)
-[![Release](https://img.shields.io/badge/Release-v0.2.0%20(wheel%20built%2C%20not%20published)-orange.svg)](https://github.com/techdeveloper-org/intel-arc-models-runner/releases)
+[![Release](https://img.shields.io/badge/Release-v0.2.7%20(not%20published)-orange.svg)](https://github.com/techdeveloper-org/intel-arc-models-runner/releases)
 
 A purpose-built, mathematically proven, zero-bloat local LLM runner, multi-modal generative studio, and high-throughput server engineered specifically for **Intel® Arc™ GPUs (discrete & integrated)** and **Intel® NPUs (Neural Processing Units)**.
 
@@ -60,6 +60,74 @@ While mainstream local LLM tools like Ollama were designed with a CUDA-first and
 - **Zero-Bloat Standalone Runtime**: Built directly on OpenVINO GenAI C++ and Level Zero runtimes; no 5 GB oneAPI SDK installation or heavy PyTorch environments required.
 - **Accurate Token Accounting**: Measured token counts via the OpenVINO pipeline tokenizer; `is_estimate` flag in telemetry distinguishes measured from estimated values, with no invented numbers (WP-14).
 - **Fast Cold-Start**: PEP 562 lazy imports via `__getattr__` in `arc_runner/__init__.py` defer heavy OpenVINO/numpy loads to first use, reducing import latency without breaking existing import paths (WP-15).
+
+---
+
+## ✨ Features at a Glance
+
+Everything the project does, in one place. **Status** is deliberately conservative: `Implemented` means the code and tests exist; `Hardware run recorded` means a result file under `docs/benchmarks/results/` exists; `Not measured` means no speed, power or quality figure is claimed. Tests that need real Intel silicon are reported as *not run* when skipped, never as passed.
+
+### 1. Devices and execution
+
+| Feature | What it does | Status | Guide |
+|:---|:---|:---|:---|
+| Intel Arc GPU, Core Ultra iGPU, AI Boost NPU | Runs models through OpenVINO GenAI on the selected device; `arc-runner devices` lists what is connected | Implemented | [Architecture](docs/architecture.md) |
+| No silent CPU fallback | Device errors are typed and reported instead of quietly moving work to the CPU | Implemented | [Mission](docs/mission_and_vision.md) |
+| Level Zero / Sysman telemetry | Memory, thermal and power readings (can be disabled with `ARC_SYSMAN_DISABLE=1`) | Implemented | [Telemetry](docs/TELEMETRY_AND_BOTTLENECK_ANALYSIS.md) |
+| Thermal governor | Daemon thread steps concurrency down at 80 C and to a single sequence at 90 C, with hysteresis | Implemented, not measured on hardware | [Architecture](docs/architecture.md) |
+
+### 2. APIs and integrations
+
+| Feature | What it does | Status | Guide |
+|:---|:---|:---|:---|
+| Ollama-compatible API | `/api/generate`, `/api/chat`, `/api/tags`, `/api/show`, `/api/pull`, `/api/copy`, `/api/delete`, `/api/version` | Implemented | [Ollama ingestion](docs/OLLAMA_INGESTION.md) |
+| OpenAI-compatible API | `/v1/chat/completions` and `/v1/models` for Cursor, Open WebUI, LangChain | Implemented | [Cursor](docs/cursor.md) |
+| Anthropic Messages API | `/v1/messages` (streaming, tool use) and `/v1/messages/count_tokens` for Claude Code | Implemented; Claude Code itself not run | [Claude Code](docs/claude-code.md) |
+| Embeddings | Vector embeddings, including on the NPU | Implemented, power not measured | [Model hub](docs/model_hub_and_engines.md) |
+| Multi-LoRA adapters | Load, inspect and unload adapters at run time (`/api/adapters/*`) | Implemented | [Architecture](docs/architecture.md) |
+| Batch API | Batch status and preemption (`/api/batch/*`) | Implemented | [Architecture](docs/architecture.md) |
+| Web UI | 7-tab studio at `/ui` | Implemented | [Studio](docs/multimodal_studio.md) |
+
+### 3. Models and formats
+
+| Feature | What it does | Status | Guide |
+|:---|:---|:---|:---|
+| Curated model registry | `arc-runner pull <name>`; 34 registry entries | Implemented | [Model hub](docs/model_hub_and_engines.md) |
+| Direct Ollama registry ingestion | `import-ollama` downloads from `registry.ollama.ai` with Range resume and SHA-256 verification | Implemented | [Ollama ingestion](docs/OLLAMA_INGESTION.md) |
+| GGUF to OpenVINO transpiler | `arc-runner convert` builds an OpenVINO IR (INT4/INT8) from a GGUF file; the GGUF parser treats input as untrusted | Implemented | [Transpiler](docs/TRANSPILER.md) |
+| NPU graph rewriter | Freezes KV-state shapes to a bounded length (growth axis derived from the graph), converts compressed-weight zero-points for the NPU (`exact`, `lossy`, `off`), writes a manifest, can verify boundedness by read-back | Implemented; the NPU compile of a rewritten Qwen3-0.6B draft succeeded once; quality of requantised weights unmeasured | [Silicon math](docs/SILICON_MATH.md), [CHANGELOG](CHANGELOG.md) |
+| AOT compile cache | `arc-runner aot-compile` pre-compiles models | Implemented | [Architecture](docs/architecture.md) |
+
+### 4. Performance and scheduling
+
+| Feature | What it does | Status | Guide |
+|:---|:---|:---|:---|
+| Serialised worker and token stream | FIFO worker thread and ordered sync-to-async token bridge for the server | Implemented | [Architecture](docs/architecture.md) |
+| Continuous batching and paged KV cache | Iteration-level batching on top of OpenVINO's pipeline | Implemented | [Architecture](docs/architecture.md) |
+| Speculative decoding | NPU draft model, GPU verify; draft device chain NPU, GPU, CPU with the reason for any fallback recorded | Implemented; speed-up and acceptance rate not measured with this harness | [Benchmark method](docs/benchmarks/METHOD.md) |
+| Flash-Stream | Fixed-size ring buffer that streams layer weights from memory-mapped files | Implemented; only a synthetic container was run, no 32B/72B claim | [Native layer](#-native-system-level-c-acceleration-layer) |
+| Native C/C++ layer | `arc_native_sys` pybind11 module (memory-mapped weights, Level Zero); falls back to Python if missing or disabled (`ARC_NATIVE_DISABLE=1`) | Implemented | [Native layer](#-native-system-level-c-acceleration-layer) |
+| Lazy imports | Heavy OpenVINO and numpy loads deferred to first use | Implemented | [Architecture](docs/architecture.md) |
+
+### 5. Multi-modal
+
+| Feature | What it does | Status | Guide |
+|:---|:---|:---|:---|
+| Speech-to-text | Whisper (`arc-runner transcribe`, `/audio/transcribe`) | Implemented | [Model hub](docs/model_hub_and_engines.md) |
+| Text-to-speech | Kokoro-82M (`arc-runner tts`, `/audio/tts`) | Implemented | [Model hub](docs/model_hub_and_engines.md) |
+| Text-to-image | Stable Diffusion / SDXL (`arc-runner generate-image`) | Implemented | [Model hub](docs/model_hub_and_engines.md) |
+| Text-to-video | LTX-Video (`arc-runner generate-video`) | Implemented | [Model hub](docs/model_hub_and_engines.md) |
+| Arc MultiModal Studio | Prompt to finished video: director LLM, voiceover, visuals, muxer | Implemented | [Studio](docs/multimodal_studio.md) |
+
+### 6. Quality and honesty
+
+| Feature | What it does | Status | Guide |
+|:---|:---|:---|:---|
+| Measured numbers only | Published figures come from result files; unmeasured values are absent or flagged (`is_estimate`) | Policy, enforced by tests | [Benchmark method](docs/benchmarks/METHOD.md) |
+| Benchmark suite | `arc-runner benchmark` with 95% confidence intervals and claim gates | Implemented | [Benchmarks](docs/benchmarks/README.md) |
+| Test suite | pytest suite plus C sanitizer harnesses; hardware tests marked and reported as not run when skipped | Implemented | [Testing](docs/testing.md) |
+| Formal models | TLA+ specifications under `docs/formal/` | Implemented | [Architecture](docs/architecture.md) |
+| Diagrams | 13 UML and 13 draw.io diagrams | Implemented | [Diagrams](docs/diagrams/README.md) |
 
 ---
 
